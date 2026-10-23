@@ -161,7 +161,7 @@ export function DevelopersChainMigrationEthereumPage() {
                   className={[
                     "inline-flex items-center px-6 py-3 rounded-full text-sm font-brand font-semibold no-underline transition-opacity hover:opacity-90",
                     btn.hierarchy === "primary"
-                      ? "tw-bg-nd-cta tw-text-nd-on-cta-high-em-text"
+                      ? "bg-nd-cta text-nd-on-cta-high-em-text"
                       : "border border-white/30 text-white bg-transparent",
                   ].join(" ")}
                 >

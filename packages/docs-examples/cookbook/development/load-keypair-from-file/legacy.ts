@@ -1,5 +1,5 @@
 // #region load
-import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js-legacy";
 import { readFileSync } from "fs";
 import { homedir } from "os";
 import path from "path";

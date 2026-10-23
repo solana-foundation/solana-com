@@ -1,8 +1,8 @@
 # @workspace/docs-examples
 
-Source of truth for the Kit and Legacy code snippets shown on
-[solana.com cookbook pages](../../apps/docs/content/cookbook). Every file under
-`cookbook/` is real, runnable, and exercised against a local
+Source of truth for the Kit, web3.js v3, and web3.js (legacy) code snippets
+shown on [solana.com cookbook pages](../../apps/docs/content/cookbook). Every
+file under `cookbook/` is real, runnable, and exercised against a local
 [surfpool](https://github.com/solana-foundation/surfpool) instance on every PR —
 so SDK renames or signature changes turn into red CI runs instead of rotted
 documentation.
@@ -26,13 +26,15 @@ See
 pnpm --filter @workspace/docs-examples test
 ```
 
-Requires the `surfpool` CLI on `$PATH`:
+The suite boots its own surfpool through `@solana/surfpool`, so no CLI install
+is needed. The instance uses a mainnet datasource so cookbook examples that look
+up real accounts (USDC mint, Token Program, Metaplex Token Metadata, etc.)
+resolve via lazy account cloning. Tests that don't need network state still run
+hermetically against the same instance.
+
+The Rust examples are driven by `scripts/run-rust-examples.sh`, which does need
+the `surfpool` CLI on `$PATH`:
 
 ```sh
 cargo install --git https://github.com/solana-foundation/surfpool --locked surfpool-cli
 ```
-
-The first run starts surfpool with `--network mainnet` so cookbook examples that
-look up real accounts (USDC mint, Token Program, Metaplex Token Metadata, etc.)
-resolve via lazy account cloning. Tests that don't need network state still run
-hermetically against the same instance.

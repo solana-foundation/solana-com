@@ -1,0 +1,88 @@
+---
+title: الإفراج عن الأموال
+description:
+  يُصدر الرموز من الضمان إلى محفظة المستخدم بعد التحقق من دليل استبعاد SMT
+---
+
+يُستدعى من قِبل مشغّل مُوفَّر للإفراج عن الرموز المحتجزة في الضمان إلى محفظة المستخدم على الشبكة الرئيسية،
+مشروطًا بدليل استبعاد صالح من شجرة ميركل المتفرقة (Sparse Merkle Tree)
+لمعرّف سحب فريد (withdrawal nonce).
+
+<Callout type="info">
+  يجري ترحيل برنامج الضمان من تصميم شجرة ميركل المتفرقة هذا إلى
+  خريطة بت للمعرّفات الفريدة على السلسلة (يُتتبّع تطوره في المستودع الأصلي). هذه الصفحة دقيقة وفق برنامج الضمان الحالي
+  وستُعاد كتابتها بمجرد تطبيق هذا التغيير.
+</Callout>
+
+## الحسابات
+
+| الحساب                          | قابل للكتابة | موقِّع | الوصف                                                        |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | دافع الرسوم                                                          |
+| `operator`                       |          | ✓      | موقِّع المشغّل                                                    |
+| `instance`                       | ✓        |        | عنوان PDA لنسخة الضمان (يُحدَّث الجذر على السلسلة)                        |
+| `operator_pda`                   |          |        | عنوان PDA للمشغّل يُثبت أن الموقِّع مُوفَّر                     |
+| `mint`                           |          |        | نقطة إصدار رمز SPL                                                     |
+| `allowed_mint`                   |          |        | عنوان PDA للإصدار المسموح به - يتحقق من أن نقطة الإصدار مسموح بها في هذه النسخة |
+| `user_ata`                       | ✓        |        | associated token account الخاص بالمستلم (الوجهة)                 |
+| `instance_ata`                   | ✓        |        | associated token account الخاص بالضمان (المصدر)                         |
+| `token_program`                  |          |        | Token Program                                                  |
+| `associated_token_program`       |          |        | Associated Token Program                                           |
+| `event_authority`                |          |        | عنوان PDA لسلطة الأحداث الخاص بـ CPI الخاص بـ `EmitEvent`                            |
+| `private_channel_escrow_program` |          |        | برنامج الضمان (مرجع ذاتي لـ CPI)                            |
+
+## المعاملات
+
+| المعامل             | النوع        | الوصف                                                   |
+| --------------------- | ----------- | ------------------------------------------------------------- |
+| `amount`              | `u64`       | كمية الرموز المراد الإفراج عنها                                   |
+| `user`                | `Pubkey`    | محفظة المستلم على الشبكة الرئيسية                                   |
+| `new_withdrawal_root` | `[u8; 32]`  | جذر SMT المحدَّث بعد تضمين المعرّف الفريد لعملية السحب هذه      |
+| `transaction_nonce`   | `u64`       | معرّف فريد يحدّد ورقة السحب هذه في شجرة SMT      |
+| `sibling_proofs`      | `[u8; 512]` | 16 تجزئة لعقدة شقيقة (32 بايت لكل منها) لدليل استبعاد SMT |
+
+## القيم المُعادة
+
+يُعيد كائن `TransactionBuilder` يمكن استخدامه لبناء المعاملة وإرسالها.
+
+## مثال
+
+```typescript
+import { getReleaseFundsInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const releaseIx = getReleaseFundsInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  mint: mintAddress,
+  allowedMint: allowedMintPda,
+  userAta: userAtaAddress,
+  instanceAta: instanceAtaAddress,
+  tokenProgram: TOKEN_PROGRAM_ID,
+  associatedTokenProgram: ASSOCIATED_TOKEN_PROGRAM_ID,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  amount: 1_000_000n,
+  user: recipientPublicKey,
+  newWithdrawalRoot: newSmtRoot, // [u8; 32]
+  transactionNonce: withdrawalNonce, // u64
+  siblingProofs: proofBytes // Uint8Array(512)
+});
+```
+
+## ملاحظات مهمة
+
+- يجب أن يكون المستدعي مشغّلًا مُوفَّرًا: يجب أن يكون `operator_pda` موجودًا (أُنشئ بواسطة
+  `AddOperator`)؛ يؤدي عنوان PDA غير الصالح إلى إلقاء الخطأ `InvalidOperatorPda`
+- `sibling_proofs` يساوي بالضبط 512 بايت (16 × 32 بايت لكل تجزئة، تتوافق مع ارتفاع شجرة SMT البالغ 16)
+- `new_withdrawal_root` هو جذر SMT المحدَّث بعد تضمين المعرّف الفريد لعملية
+  السحب هذه. احسبه خارج السلسلة قبل الاستدعاء
+- يجب أن يكون `transaction_nonce` صالحًا لـ `Instance.current_tree_index`؛ يؤدي
+  المعرّف الفريد غير الصالح إلى إلقاء الخطأ `InvalidTransactionNonceForCurrentTreeIndex`
+- يُشغّل البرنامج أولًا `verify_smt_exclusion_proof`، مما يُثبت أن المعرّف الفريد
+  غير موجود بعد مقارنةً بالجذر الحالي، ثم يُشغّل `verify_smt_inclusion_proof` منفصلًا
+  يُثبت أن المعرّف الفريد موجود في `new_withdrawal_root` الذي زوّده المستدعي. فشل أي من الفحصين يؤدي إلى إلقاء الخطأ `InvalidSmtProof`
+- فقط بعد اجتياز كلا الفحصين يُحدَّث `Instance.withdrawal_transactions_root`
+  بشكل ذري؛ ولا يمكن إعادة استخدام المعرّف الفريد
+- يُصدر حدثًا عبر `EmitEvent` CPI

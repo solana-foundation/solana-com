@@ -1,5 +1,5 @@
 // #region bip39
-import { Keypair } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js-legacy";
 import * as bip39 from "bip39";
 
 const mnemonic =

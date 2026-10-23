@@ -1,0 +1,104 @@
+---
+title: Konfigurointireferenssi
+description:
+  Ympäristömuuttujat, palveluluettelo ja porttimääritykset kaikille Private Channels -palveluille
+---
+
+## Palvelut
+
+Private Channels -instanssin käyttäminen tarkoittaa seuraavien Docker Compose
+-palveluiden hallinnointia:
+
+| Kontti                                  | Rooli                                                                    |
+| ------------------------------------------ | ----------------------------------------------------------------------- |
+| `private-channel-postgres-primary`         | Kirjoitussolmun tilatietokanta (PostgreSQL 16)                               |
+| `private-channel-postgres-replica`         | Lukusolmun tilatietokanta (suoratoistoreplika)                            |
+| `private-channel-postgres-indexer`         | Indeksoijan ja operaattorin tietokanta                                           |
+| `private-channel-write-node`               | Vastaanottaa ja suorittaa transaktiot (portti 8900, vain loopback)           |
+| `private-channel-read-node`                | Käsittelee RPC-lukukyselyt (portti 8901, vain loopback)                     |
+| `private-channel-gateway`                  | Reitittää pyynnöt kirjoitus- ja lukusolmujen välillä; valvoo RBAC:ia (portti 8899) |
+| `private-channel-indexer-solana`           | Tarkkailee Solanaa `Deposit`-tapahtumien varalta Yellowstone gRPC:n kautta                |
+| `private-channel-indexer-private-channel`  | Tarkkailee kanavaa `Burn`-tapahtumien varalta RPC-pollauksen kautta                   |
+| `private-channel-operator-solana`          | Luo kanavan tokeneita, kun talletukset on vahvistettu                        |
+| `private-channel-operator-private-channel` | Kutsuu `ReleaseFunds`-funktiota Mainnetissä, kun nostot on vahvistettu          |
+| `private-channel-auth`                     | Valinnainen JWT/RBAC-palvelu (Docker-profiili: `auth`)                      |
+
+Observability-kontit (`prometheus`, `grafana`, `cadvisor`) sisältyvät
+myös pakettiin.
+
+## Gateway
+
+Näillä on järkevät oletusarvot devnet Docker Compose -ympäristöä varten. Ohita oletusarvot vain,
+jos käytät gatewayta Dockerin ulkopuolella tai otat käyttöön tuotantoympäristön.
+
+| Ympäristömuuttuja                         | Oletus                                                             | Pakollinen            | Kuvaus                                        |
+| ------------------------------- | ------------------------------------------------------------------- | ------------------- | -------------------------------------------------- |
+| `GATEWAY_PORT`                  | `8899` (devnet)                                                     | Ei                  | Kuunteluportti                                        |
+| `GATEWAY_WRITE_URL`             | `http://write-node:8900` (devnetin env-tiedoston arvo; ei binaarista oletusarvoa) | **Kyllä**             | Kirjoitussolmun URL – `sendTransaction`-pyynnöt ohjataan tänne     |
+| `GATEWAY_READ_URL`              | `http://read-node:8901` (devnetin env-tiedoston arvo; ei binaarista oletusarvoa)  | **Kyllä**             | Lukusolmun URL – kaikki muut RPC-metodit ohjataan tänne   |
+| `GATEWAY_CORS_ALLOWED_ORIGIN`   | `*`                                                                 | Ei                  | `Access-Control-Allow-Origin`-otsikon arvo         |
+| `JWT_SECRET`                    | -                                                                   | Ei                  | Ottaa RBAC:n käyttöön; täyttyy vastata auth-palvelun `JWT_SECRET`-arvoa |
+| `AUTH_DATABASE_URL`             | -                                                                   | Jos `JWT_SECRET` on asetettu | Auth-tietokanta lompakonomistajuuden tarkistuksia varten                |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | `10`                                                                | Ei                  | Auth-tietokannan yhteyspoolin koko                       |
+| `METRICS_PORT`                  | `9101`                                                              | Ei                  | Prometheuksen metriikkaportti                            |
+| `RUST_LOG`                      | `info`                                                              | Ei                  | Lokitaso                                          |
+
+> `GATEWAY_WRITE_URL` ja `GATEWAY_READ_URL` käyttävät Docker Compose -palvelun
+> isäntänimiä (`write-node`, `read-node`), kun ne suoritetaan Dockerissa. Käytä `localhost`-
+> vastineita vain, kun käytät gateway-binääriä suoraan Dockerin ulkopuolella.
+>
+> Gateway-binäärin oma sisäinen oletusarvo `GATEWAY_PORT`-muuttujalle on `8898`.
+> Sekä `.env.example` että `.env.devnet` asettavat sen arvoon `8899`, jota
+> Docker Compose -ympäristö todella käyttää (`versions.env` sisältää vain työkaluketjun ja
+> kuvaversiojen kiinnitykset, ei palveluportteja). `8898`-oletusarvo pätee vain, jos
+> käynnistät binäärin suoraan ilman env-tiedostoa.
+
+<Callout type="warning">
+  `GATEWAY_CORS_ALLOWED_ORIGIN` on oletuksena `*`, mikä sallii minkä tahansa originin kutsua
+  gatewayta selaimesta. Rajoita tämä sovelluksesi todelliseen originiin
+  ennen tuotantoon siirtymistä.
+</Callout>
+
+## Kirjoitussolmu ja lukusolmu
+
+Kirjoitussolmun ja lukusolmun täydellinen konfigurointireferenssi on
+[`docs/CONFIG.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/CONFIG.md)
+-tiedostossa repositoriossa.
+
+## Auth-palvelu
+
+| Ympäristömuuttuja                         | Pakollinen            | Kuvaus                                                                                                                  |
+| ------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                    | **Kyllä**             | HS256-allekirjoitussalaisuus; täytyy vastata gatewayn `JWT_SECRET`-arvoa                                                                  |
+| `AUTH_PORT`                     | Ei (oletus `8903`) | Kuunteluportti                                                                                                                  |
+| `AUTH_DATABASE_URL`             | **Kyllä**             | PostgreSQL-yhteysmerkkijono auth-tietokantaa varten                                                                           |
+| `CORS_ALLOWED_ORIGIN`           | Ei (oletus `*`)    | `Access-Control-Allow-Origin`-otsikon arvo tätä palvelua varten (riippumaton gatewayn omasta `GATEWAY_CORS_ALLOWED_ORIGIN`-arvosta) |
+| `AUTH_DATABASE_MAX_CONNECTIONS` | Ei (oletus `10`)   | Auth-tietokannan yhteyspoolin koko                                                                                                 |
+
+## Palveluporttireferenssi
+
+| Palvelu          | Isäntäportti  | Sidonta                                                                           |
+| ---------------- | ---------- | --------------------------------------------------------------------------------- |
+| Gateway          | 8899       | Kaikki verkkoliitännät                                                                    |
+| Kirjoitussolmu       | 8900       | Vain loopback                                                                     |
+| Lukusolmu        | 8901       | Vain loopback                                                                     |
+| Streamer         | 8902       | Vain sisäinen käyttö (`expose`, ei julkaistu isännälle); ei osa devnet-pinoa |
+| Auth-palvelu     | 8903       | Kaikki verkkoliitännät                                                                    |
+| Operaattorin metriikat | 9102, 9103 | Kaikki verkkoliitännät                                                                    |
+| Grafana          | 37429      | Kaikki verkkoliitännät                                                                    |
+| Prometheus       | 9090       | Kaikki verkkoliitännät                                                                    |
+| cAdvisor         | 8080       | Kaikki verkkoliitännät                                                                    |
+
+> **Tietoturvahuomio:** Kirjoitussolmun ja lukusolmun portit on sidottu vain loopback-osoitteeseen
+> (`127.0.0.1`). Gateway, auth-palvelu, operaattorin metriikat, Grafana,
+> Prometheus ja cAdvisor julkaistaan kaikille verkkoliitännöille devnet Docker Compose
+> -ympäristössä. Suojaa nämä palomuurilla isäntä- tai verkkotasolla
+> kaikkeen paikalliskehitystä laajempaan käyttöön; RBAC kattaa vain gatewayn omat JSON-RPC-
+> metodit, ei näitä muita palveluita. Streamer on poikkeus: se on
+> todentamaton sisäinen syöte, jota Docker ei koskaan julkaise isännälle.
+
+## Verkkovaatimukset
+
+Katso
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+repositoriosta palomuurisäännöt ja kaistanleveysvaatimukset.

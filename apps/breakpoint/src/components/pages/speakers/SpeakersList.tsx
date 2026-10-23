@@ -15,6 +15,16 @@ const FILTER_OPTIONS = [
   "Product Demo",
 ] as const;
 const EYEBROW_TEXT_CLASS = "type-eyebrow uppercase";
+const SPEAKER_EXTERNAL_LINKS_BY_ID: Record<
+  string,
+  ReadonlyArray<{ href: string; label: string }>
+> = {
+  rechfMf4NmCmcIcis: [
+    { href: "https://balajis.com", label: "Balajis.com" },
+    { href: "https://ns.com", label: "NS.com" },
+    { href: "https://thenetworkstate.com", label: "The Network State" },
+  ],
+};
 
 type SortOption = "az" | "za";
 type FilterOption = (typeof FILTER_OPTIONS)[number];
@@ -47,6 +57,28 @@ function XIcon() {
       className="block"
     >
       <path d="M13.93 10.62L21.47 2H19.68L13.14 9.49L7.91 2H1.88L9.79 13.34L1.88 22.39H3.67L10.58 14.47L16.1 22.39H22.13L13.93 10.62ZM11.48 13.42L10.68 12.3L4.3 3.33H7.05L12.19 10.56L12.99 11.69L19.68 21.12H16.93L11.48 13.42Z" />
+    </svg>
+  );
+}
+
+function WebsiteIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className="block"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3 12H21" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 3C14.4 5.45 15.6 8.45 15.6 12C15.6 15.55 14.4 18.55 12 21C9.6 18.55 8.4 15.55 8.4 12C8.4 8.45 9.6 5.45 12 3Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
     </svg>
   );
 }
@@ -249,6 +281,7 @@ function SpeakerRow({
   const hasSessionDetails = Boolean(session?.day || session?.format);
   const hasOpenContent = Boolean(session?.title || hasSessionDetails);
   const isOpen = open && hasOpenContent;
+  const externalLinks = SPEAKER_EXTERNAL_LINKS_BY_ID[speaker.id] ?? [];
 
   return (
     <article
@@ -273,12 +306,20 @@ function SpeakerRow({
           <div className="flex w-full min-w-0 flex-col gap-m md:flex-row md:items-center md:gap-[120px]">
             <div className="flex min-w-0 flex-1 flex-col items-start gap-4">
               <h2 className="type-h5 w-full text-white">{name}</h2>
-              <div className="flex items-center gap-6">
+              <div className="flex flex-wrap items-center gap-6">
                 <SocialLink
                   href={speaker.xUrl}
                   icon={<XIcon />}
                   label={name + " on X"}
                 />
+                {externalLinks.map((link) => (
+                  <SocialLink
+                    key={link.href}
+                    href={link.href}
+                    icon={<WebsiteIcon />}
+                    label={link.label}
+                  />
+                ))}
               </div>
             </div>
 

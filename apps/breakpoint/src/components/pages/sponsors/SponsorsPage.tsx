@@ -4,7 +4,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type CompanyRecord } from "@workspace/ecosystem-data";
 import { useTranslations } from "@workspace/i18n/client";
-import Button from "@/components/Button";
+import SponsorArtwork from "@/components/SponsorArtwork";
 import GlitchOverlay, {
   getGlitchIntensityStyle,
   type GlitchCssProperties,
@@ -14,7 +14,6 @@ import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
-import { SPONSOR_FORM_HREF } from "@/content/links";
 import {
   sponsorTiers,
   type SponsorLogo,
@@ -26,13 +25,7 @@ const SPONSOR_MODAL_GLITCH_MS = 650;
 const SPONSOR_MODAL_GLITCH_INTENSITY = 0.76;
 
 function getLogo(sponsor: SponsorLogo) {
-  const resolved = resolveSponsorLogo(sponsor);
-
-  return {
-    company: resolved.company,
-    alt: resolved.alt,
-    src: resolved.src,
-  };
+  return resolveSponsorLogo(sponsor);
 }
 
 function CloseIcon() {
@@ -209,22 +202,22 @@ function getSponsorTags(company: CompanyRecord) {
 }
 
 function SponsorModalBody({
-  company,
   decorative = false,
   description,
   descriptionId,
   logo,
   modalLogoStyle,
+  name,
   socialLinks,
   tags,
   titleId,
 }: {
-  company: CompanyRecord;
   decorative?: boolean;
   description?: string;
   descriptionId?: string;
   logo: ReturnType<typeof getLogo>;
   modalLogoStyle: CSSProperties;
+  name: string;
   socialLinks: SponsorSocialLink[];
   tags: string[];
   titleId?: string;
@@ -239,12 +232,7 @@ function SponsorModalBody({
             aspectRatio: "var(--modal-logo-ratio)",
           }}
         >
-          <img
-            src={publicAssetPath(logo.src)}
-            alt=""
-            aria-hidden="true"
-            className="block h-full w-full object-contain brightness-0 invert"
-          />
+          <SponsorArtwork sponsor={logo} />
         </span>
       </div>
 
@@ -254,7 +242,7 @@ function SponsorModalBody({
             id={decorative ? undefined : titleId}
             className="type-h5 text-white"
           >
-            {company.name}
+            {name}
           </h2>
 
           {socialLinks.length > 0 && (
@@ -273,7 +261,7 @@ function SponsorModalBody({
                     href={link.href}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`${company.name} ${link.label}`}
+                    aria-label={`${name} ${link.label}`}
                     className="inline-flex size-5 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white"
                   >
                     {link.icon}
@@ -357,12 +345,7 @@ function SponsorCard({
           aspectRatio: "var(--logo-ratio)",
         }}
       >
-        <img
-          src={publicAssetPath(logo.src)}
-          alt=""
-          aria-hidden="true"
-          className="block h-full w-full object-contain brightness-0 invert"
-        />
+        <SponsorArtwork sponsor={logo} />
       </span>
     </button>
   );
@@ -547,11 +530,11 @@ function SponsorModal({
         </button>
 
         <SponsorModalBody
-          company={company}
           description={description}
           descriptionId={descriptionId}
           logo={logo}
           modalLogoStyle={modalLogoStyle}
+          name={logo.name}
           socialLinks={socialLinks}
           tags={tags}
           titleId={titleId}
@@ -568,11 +551,11 @@ function SponsorModal({
               <CloseIcon />
             </span>
             <SponsorModalBody
-              company={company}
               decorative
               description={description}
               logo={logo}
               modalLogoStyle={modalLogoStyle}
+              name={logo.name}
               socialLinks={socialLinks}
               tags={tags}
             />
@@ -588,14 +571,7 @@ function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
 
   return (
     <section className="bg-black pt-l md:pt-xl">
-      <div className="container flex flex-col gap-m md:flex-row md:items-start md:justify-between">
-        <WordReveal
-          as="p"
-          className="type-eyebrow text-white"
-          stepMs={60}
-          text={t("eyebrow")}
-        />
-
+      <div className="container flex md:justify-end">
         <div className="w-full max-w-[851px]">
           <WordReveal
             as="p"
@@ -604,14 +580,6 @@ function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
             stepMs={60}
             startDelayMs={250}
             text={introText}
-          />
-
-          <Button
-            arrow
-            className="mt-s"
-            href={SPONSOR_FORM_HREF}
-            label={t("contactCta")}
-            variant="primary"
           />
         </div>
       </div>

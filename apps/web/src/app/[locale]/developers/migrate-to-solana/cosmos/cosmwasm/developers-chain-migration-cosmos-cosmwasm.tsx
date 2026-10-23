@@ -464,7 +464,7 @@ function buildComparisonGroupAtIndex(
 function buildComparisonGroups(tokens: GuideToken[], sectionId: string) {
   const groups: ComparisonGroup[] = [];
 
-  for (let index = 0; index < tokens.length; ) {
+  for (let index = 0; index < tokens.length;) {
     const group = buildComparisonGroupAtIndex(tokens, index, sectionId);
     if (!group) {
       index += 1;

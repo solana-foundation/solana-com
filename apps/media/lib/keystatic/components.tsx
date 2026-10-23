@@ -63,6 +63,17 @@ const inlineLatex = inline({
   ContentView: (props) => <Latex formula={props.value.formula} />,
 });
 
+// MDX treats <br /> as a component. Declaring it here lets writers use line
+// breaks in table cells without Keystatic rejecting the document as having an
+// unknown component. The published MDX renderer continues to render the native
+// HTML line break.
+const lineBreak = inline({
+  label: "Line break",
+  description: "Starts the following text on a new line",
+  schema: {},
+  ContentView: () => <br />,
+});
+
 const figure = wrapper({
   label: "Figure (image with caption)",
   description:
@@ -275,6 +286,39 @@ const video = block({
       {props.value.url && (
         <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6b7280" }}>
           {props.value.url}
+        </p>
+      )}
+    </div>
+  ),
+});
+
+const postcard = block({
+  label: "Post card",
+  description: "Link to another Solana news post",
+  schema: {
+    slug: fields.text({ label: "Post slug", validation: { isRequired: true } }),
+    title: fields.text({ label: "Title", validation: { isRequired: true } }),
+    description: fields.text({ label: "Description", multiline: true }),
+    heroImage: fields.text({ label: "Hero image path" }),
+    publishedAt: fields.text({ label: "Published at" }),
+    category: fields.text({ label: "Category" }),
+  },
+  ContentView: (props) => (
+    <div
+      style={{
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        padding: "16px",
+        margin: "16px 0",
+        backgroundColor: "#f9fafb",
+      }}
+    >
+      <p style={{ margin: 0, fontWeight: "bold" }}>
+        {props.value.title || "Post card"}
+      </p>
+      {props.value.description && (
+        <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6b7280" }}>
+          {props.value.description}
         </p>
       )}
     </div>
@@ -532,6 +576,10 @@ const audience = wrapper({
       validation: { isRequired: true },
     }),
     summary: fields.text({ label: "Summary" }),
+    id: fields.text({
+      label: "Anchor ID",
+      description: "Optional. Lets other text link to this section with #id.",
+    }),
   },
   ContentView: (props) => (
     <div
@@ -580,6 +628,31 @@ const txWireLayout = diagramBlock(
   "Byte layout of legacy, v0 and v1 transactions compared",
 );
 
+const agBlockLifecycle = diagramBlock(
+  "Diagram: where Alpenglow sits",
+  "The life of a block, with the stages Alpenglow replaces",
+);
+
+const agBanksPerSlot = diagramBlock(
+  "Diagram: candidate banks in one slot",
+  "Why keying a buffer on the slot alone fuses several banks into one block",
+);
+
+const agBankIdAcrossConnections = diagramBlock(
+  "Diagram: bank_id across two connections",
+  "Why bank_id cannot be compared between providers, and blockhash can",
+);
+
+const agCommitmentLevels = diagramBlock(
+  "Diagram: commitment levels under Alpenglow",
+  "How confirmed and finalized converge, and the two paths to finality",
+);
+
+const agVotorCertificates = diagramBlock(
+  "Diagram: Votor votes and certificates",
+  "The three routes out of a proposed block and the certificate each produces",
+);
+
 const txSimulationTrace = diagramBlock(
   "Diagram: v1 simulation failure trace",
   "Where an empty v1 config fails during simulation, and what comes back",
@@ -590,11 +663,26 @@ const txAccountBytes = diagramBlock(
   "How an account created after estimation pushes the running total past the limit",
 );
 
+const dnSignerFlow = diagramBlock(
+  "Diagram: durable nonce vs offline signer flow",
+  "How signing and replay protection move from the runtime into a program",
+);
+
+const dnCallStacks = diagramBlock(
+  "Diagram: programmatic signer vs Vector call stacks",
+  "Where the authorized instructions run in each implementation",
+);
+
 const featureActivationStatus = block({
   label: "Feature activation status",
   description: "Live feature activation status for each Solana cluster",
-  schema: {},
-  ContentView: () => (
+  schema: {
+    featureAddress: fields.text({
+      label: "Feature address",
+      description: "The Solana feature account address to check",
+    }),
+  },
+  ContentView: (props) => (
     <div
       style={{
         border: "1px solid #e5e7eb",
@@ -608,6 +696,18 @@ const featureActivationStatus = block({
       <strong style={{ color: "#14161c", display: "block" }}>
         Feature activation status
       </strong>
+      {props.value.featureAddress && (
+        <code
+          style={{
+            color: "#14161c",
+            display: "block",
+            margin: "8px 0",
+            overflowWrap: "anywhere",
+          }}
+        >
+          {props.value.featureAddress}
+        </code>
+      )}
       Live cluster statuses are shown on the published page.
     </div>
   ),
@@ -615,10 +715,12 @@ const featureActivationStatus = block({
 
 // Export all component blocks
 export const componentBlocks: Record<string, ContentComponent> = {
+  br: lineBreak,
   blockquote,
   datetime,
   newslettersignup,
   video,
+  postcard,
   gallery,
   stats,
   footnotes,
@@ -633,6 +735,13 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   ...componentBlocks,
   Audience: audience,
   AudienceGroup: audienceGroup,
+  AgBanksPerSlot: agBanksPerSlot,
+  AgBlockLifecycle: agBlockLifecycle,
+  AgBankIdAcrossConnections: agBankIdAcrossConnections,
+  AgCommitmentLevels: agCommitmentLevels,
+  AgVotorCertificates: agVotorCertificates,
+  DnCallStacks: dnCallStacks,
+  DnSignerFlow: dnSignerFlow,
   FeatureActivationStatus: featureActivationStatus,
   TxAccountBytes: txAccountBytes,
   TxSimulationTrace: txSimulationTrace,

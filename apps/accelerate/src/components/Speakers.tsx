@@ -3,7 +3,7 @@
 import { motion, AnimatePresence } from "motion/react";
 import Image from "next/image";
 import { useState, useMemo } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations } from "@workspace/i18n/client";
 import { getImagePath } from "@/config";
 import { fadeInUp, stagger } from "@/lib/animations";
 import type { Speaker } from "@/types/speakers";
@@ -43,6 +43,7 @@ const SPEAKER_IMAGE_CLASS_OVERRIDES: Record<string, string> = {
 
 function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
   const [isHovered, setIsHovered] = useState(false);
+  const t = useTranslations("accelerate.speakers");
   const imageClass =
     SPEAKER_IMAGE_CLASS_OVERRIDES[speaker.slug] ?? "object-cover object-top";
 
@@ -117,7 +118,7 @@ function SmallSpeakerCard({ speaker }: { speaker: Speaker }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-0.5 flex-shrink-0 text-white/50 transition-colors hover:text-[#19fb9b]"
-                aria-label={`${speaker.name} on X`}
+                aria-label={t("aria.openSocial", { name: speaker.name })}
               >
                 <XIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </a>

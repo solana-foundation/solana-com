@@ -11,6 +11,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Dialog, DialogContent } from "@workspace/ui";
 import ArtistsAndCreatorsNewsletter from "../newsletter/artistsAndCreators";
+import { trackContentSelection } from "@solana-com/ui-chrome/analytics";
 
 type ModalProps = {
   modalCloseHandler: (() => void) | null;
@@ -37,15 +38,6 @@ const ModalLauncher = () => {
   );
 
   const modalCloseHandler = useCallback(() => {
-    // if the modal action is not complete, track bounce
-    if (!modalActionCompleted.current && typeof window.gtag !== "undefined") {
-      window.gtag("event", "modal_bounce", {
-        event_category: "engagement",
-        event_action: "Closed Without Submission",
-        event_label: modalLaunchId,
-      });
-    }
-
     // Update the URL
     const currentPath = pathname;
     const currentQuery: Record<string, string> = {};
@@ -56,7 +48,7 @@ const ModalLauncher = () => {
     }
     const search = new URLSearchParams(currentQuery).toString();
     router.push(`${currentPath}${search ? "?" + search : ""}`);
-  }, [modalLaunchId, router, pathname, searchParams]);
+  }, [router, pathname, searchParams]);
 
   useEffect(() => {
     if (
@@ -73,14 +65,12 @@ const ModalLauncher = () => {
       setShowModal(true);
       setModalLaunchId(modalLaunchIdParam);
 
-      // track modal launch
-      if (typeof window.gtag !== "undefined") {
-        window.gtag("event", "modal_launch", {
-          event_category: "engagement",
-          event_action: "Opened",
-          event_label: modalLaunchIdParam,
-        });
-      }
+      trackContentSelection({
+        appName: "web",
+        contentType: "modal",
+        contentId: modalLaunchIdParam,
+        placement: "query_param",
+      });
     } else {
       setShowModal(false);
       setModalComponent(null);

@@ -7,26 +7,44 @@ export const PROJECTS = [
     src: getCompanyLogoSrc("morgan-stanley") ?? "",
     key: "morganStanley",
     href: "https://www.morganstanley.com/im/en-us/individual-investor/insights/press-release/msim-files-initial-registration-statements-for-two-cryptocurrency-etps.html",
+    statValue: "$1.9T",
+    statSource:
+      "https://www.morganstanley.com/content/dam/msdotcom/en/about-us-2026ams/2026_Shareholder_Letter.pdf",
+    statSourceNote: "2025-12-31",
   },
   {
     src: getCompanyLogoSrc("jpmorgan") ?? "",
     key: "jpmorgan",
     href: "https://www.jpmorgan.com/about-us/corporate-news/2025/jpmorgan-commercial-paper-issuance-solana-blockchain",
+    statValue: "$50M",
+    statSource:
+      "https://news.bloomberglaw.com/crypto/jpmorgan-uses-solana-blockchain-for-galaxys-dollar-note-deal",
+    statSourceNote: "2025-12-11",
   },
   {
     src: getCompanyLogoSrc("citi") ?? "",
     key: "citi",
     href: "https://www.citigroup.com/global/insights/supply-chain-financing-2026",
+    statValue: "~24/7",
+    statSource:
+      "https://www.citigroup.com/global/news/press-release/2026/print/citi-supply-chain-financing-report-durable-global-trade-in-the-age-of-ai",
+    statSourceNote: "2026-02-20",
   },
   {
     src: getCompanyLogoSrc("societe-generale") ?? "",
     key: "societeGenerale",
     href: "https://www.sgforge.com/societe-generale-forge-solana-network/",
+    statValue: "1:1",
+    statSource: "https://www.sgforge.com/product/coinvertible/",
   },
   {
     src: getCompanyLogoSrc("state-street") ?? "",
     key: "stateStreet",
     href: "https://investors.statestreet.com/investor-news-events/press-releases/news-details/2025/State-Street-Investment-Management-and-Galaxy-Digital-Partner-to-Tokenize-Private-Liquidity-Fund-With-Planned-Seed-Investment-from-Ondo/default.aspx",
+    statValue: "$50T+",
+    statSource:
+      "https://www.statestreet.com/web/about/our-story/annual-report/documents/2026-proxy-statement.pdf",
+    statSourceNote: "2025-12-31",
   },
 ];
 
@@ -106,155 +124,3 @@ export const LATEST_NEWS_QUERY = {
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
   fallbackImageAspectRatio: "1200 / 630",
 };
-
-export const META = {
-  seoImage:
-    "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F42125017ac2e4a3aaff6aa493ce03f19.png",
-} as const;
-
-export const HERO_IMAGE =
-  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F84e49afac7964ab0a3c76d4ff3925ab5.png";
-
-export const HERO_RIGHT_IMAGE =
-  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F25036895114c42ccaac892e654deec29.png";
-
-export const HERO_BUTTON = {
-  hierarchy: "primary",
-  size: "md",
-  iconSize: "md",
-  url: "https://solanafoundation.typeform.com/to/L2kwha4R",
-} as const;
-
-export const TRUSTBAR_LOGOS = [
-  {
-    src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F5c6fc8c39c58451d98affc20a146b12c.png",
-  },
-  {
-    src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4cc0f64bb0174fe391cf57f55804b3ed.png",
-  },
-  {
-    src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F42a0a41c209748e3bdf1c9665f74f106.png",
-  },
-  {
-    src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F5481701b94374979847f7eb91ecc5d52.png",
-  },
-  {
-    src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F4e0007131aff4485baba797c8fa292b5.png",
-  },
-];
-
-export const TOOL_SPOTLIGHT_CARD = {
-  type: "gradient",
-  backgroundGradient: "purple",
-  callToAction: {
-    url: "https://solana.com/solutions/token-extensions",
-  },
-} as const;
-
-export const SLIDER_CARDS = [
-  {
-    url: "",
-    button: {
-      hierarchy: "primary",
-      size: "md",
-      url: "https://solana.com/solutions/solana-permissioned-environments",
-    },
-  },
-  {
-    url: "",
-    button: {
-      hierarchy: "primary",
-      size: "md",
-      url: "https://solana.com/solutions/real-world-assets",
-    },
-  },
-  {
-    url: "",
-    button: {
-      size: "md",
-      url: "https://solana.com/docs/advanced/state-compression",
-    },
-  },
-  {
-    url: "",
-    button: {
-      size: "md",
-      url: "https://solana.com/solutions/digital-assets",
-    },
-  },
-] as const;
-
-export const SWITCHBACKS = [
-  {
-    image:
-      "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F1ff168a741464471a4c41a5b4b2db567.png",
-    button: {
-      hierarchy: "primary",
-      size: "md",
-      iconSize: "md",
-      url: "https://usa.visa.com/solutions/crypto/deep-dive-on-solana.html",
-    },
-  },
-  {
-    image:
-      "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F8528809756d34e48938b87edd35b48f6.png",
-    button: {
-      hierarchy: "primary",
-      size: "md",
-      iconSize: "md",
-      url: "https://stripe.com/blog/crypto-onramp",
-      endIcon: "none",
-    },
-  },
-  {
-    image:
-      "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fb91ca8e49b8f4a27b90df64e5195669d.png",
-    button: {
-      hierarchy: "primary",
-      size: "md",
-      iconSize: "md",
-      url: "https://solana.com/news/case-study-pyth",
-    },
-  },
-] as const;
-
-export const CAROUSEL = {
-  autoplay: true,
-  autoplaySpeed: 4000,
-} as const;
-
-export const CAROUSEL_SLIDES = [
-  {
-    image: {
-      src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F089d43086b98400d9ecec26f2ecb0236.png",
-    },
-    button: {
-      hierarchy: "outline",
-      size: "md",
-      url: "https://solana.com/",
-      endIcon: "arrow-up-right",
-    },
-  },
-  {
-    image: {
-      src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fed97c305c7bb4b38b6f43d1a73af1075.png",
-    },
-    button: {
-      hierarchy: "outline",
-      size: "md",
-      url: "https://solana.com/",
-      endIcon: "arrow-up-right",
-    },
-  },
-  {
-    image: {
-      src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F1d400a34fad94f6e9f9f3165e80096c1.png",
-    },
-    button: {
-      hierarchy: "outline",
-      size: "md",
-      url: "https://solana.com/",
-      endIcon: "arrow-up-right",
-    },
-  },
-] as const;

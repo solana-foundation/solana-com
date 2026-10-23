@@ -5,7 +5,7 @@ import {
   compileTransactionMessage,
   createClient,
   createTransactionMessage,
-  estimateComputeUnitLimitFactory,
+  estimateResourceLimitsFactory,
   generateKeyPairSigner,
   getBase64Decoder,
   getCompiledTransactionMessageEncoder,
@@ -42,7 +42,7 @@ const client = await createClient()
 console.log("Create and fund account with address", signer.address);
 
 // 2. Build a memo transaction manually so we can inspect its fee before sending.
-const getComputeUnitEstimate = estimateComputeUnitLimitFactory({
+const estimateResourceLimits = estimateResourceLimitsFactory({
   rpc: client.rpc,
 });
 
@@ -62,7 +62,8 @@ const transactionMessage = pipe(
 );
 
 // 3. Estimate compute units and add a SetComputeUnitLimit instruction.
-const estimatedComputeUnits = await getComputeUnitEstimate(transactionMessage);
+const { computeUnitLimit: estimatedComputeUnits } =
+  await estimateResourceLimits(transactionMessage);
 console.log(
   `Transaction is estimated to consume ${estimatedComputeUnits} compute units`,
 );

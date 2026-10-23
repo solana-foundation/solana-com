@@ -12,6 +12,9 @@ const FEATURE_ACCOUNT_SIZE = 9;
 export const LARGER_TRANSACTIONS_FEATURE_ADDRESS = address(
   "txv1aq4pp281K9um3tnPgkfX8UqtFT6wcVW3hNezGLL",
 );
+export const SBPFV3_FEATURE_ADDRESS = address(
+  "B8JJXCy5amZyWG9r7EnUYLwzXSXTxG7GZ1qZ1qggo83g",
+);
 
 type FeatureAccount = {
   data: readonly [string, "base64"];

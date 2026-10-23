@@ -6,7 +6,7 @@ import {
   SystemProgram,
   Transaction,
   sendAndConfirmTransaction,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 
 const fromKeypair = Keypair.generate();
 const toKeypair = Keypair.generate();

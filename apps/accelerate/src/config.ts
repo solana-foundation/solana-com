@@ -48,8 +48,8 @@ const assetBaseUrl = siteUrl.replace(/\/accelerate$/, "");
 export const config = {
   siteMetadata: {
     title: `Solana Accelerate 2026`,
-    description: `Solana Accelerate brings together the global Solana community across multiple events in 2026. Join us in Hong Kong and Miami.`,
-    shortDescription: `Solana Accelerate 2026 — Hong Kong & Miami`,
+    description: `Solana Accelerate brings together the global Solana community at events in Hong Kong and Miami in 2026.`,
+    shortDescription: `Solana Accelerate 2026 — Global event series`,
     keywords: [
       "Solana",
       "blockchain",

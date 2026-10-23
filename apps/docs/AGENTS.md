@@ -32,6 +32,8 @@ UI. General `/learn` content is owned by `apps/web`.
 ## Content Ownership
 
 - `content/docs/*`: core docs by locale
+- `content/docs/*/video-guides/*`: video tutorials served from
+  `/docs/video-guides`
 - `content/cookbook/*`: recipe-style content
 - `content/developers-learn/*`: developer bootcamp and companion content
 - `packages/docs-examples/*`: runnable code embedded in cookbook pages
@@ -58,3 +60,5 @@ stale.
   `packages/ui-chrome` and `packages/i18n` too
 - Content-heavy changes may require checking both MDX sources and the Fumadocs
   source config
+- Moved docs routes need matching redirects for both the page and its `.md`
+  variant in `next.config.ts`

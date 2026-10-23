@@ -1,5 +1,5 @@
 // #region check
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js-legacy";
 
 // on curve address
 const key = new PublicKey("5oNDL3swdJJF1g9DzJiZ4ynHXgszjAEpUkxVYejchzrY");

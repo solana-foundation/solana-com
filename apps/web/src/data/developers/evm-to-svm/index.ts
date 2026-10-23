@@ -20,12 +20,10 @@ export const HERO_BUTTONS = [
 
 export const CHAIN_SELECTOR = {
   headingAs: "h2",
-  color: "purple",
-};
+} as const;
 
 export const CHAIN_SELECTOR_CARDS = [
   {
-    variant: "none",
     color: "purple",
     stat: {
       value: {
@@ -40,7 +38,6 @@ export const CHAIN_SELECTOR_CARDS = [
     },
   },
   {
-    variant: "none",
     color: "aqua",
     stat: {
       value: {
@@ -54,7 +51,7 @@ export const CHAIN_SELECTOR_CARDS = [
       url: "/developers/migrate-to-solana/cosmos",
     },
   },
-];
+] as const;
 
 export const EVM_GUIDES_HEADING = {
   variant: "floatingButton",

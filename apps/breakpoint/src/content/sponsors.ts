@@ -9,6 +9,7 @@ export type SponsorLogoVariant = LogoSelectorOptions;
 
 export type SponsorLogo = {
   companyId: CompanyId;
+  displayName?: string;
   logoVariant?: SponsorLogoVariant;
   width: number;
   height: number;
@@ -37,6 +38,9 @@ export type SponsorMarqueeRow = {
   sponsors: SponsorLogo[];
 };
 
+// Keep every tier in sponsorship-action order. Add newly actioned sponsors to
+// the end of their tier so the same order carries through to the page and
+// marquee rows below.
 const platinumSponsors = [
   {
     companyId: "jito",
@@ -72,6 +76,34 @@ const platinumSponsors = [
     companyId: "nodit",
     width: 1000,
     height: 381.62,
+  },
+  {
+    companyId: "render-network",
+    width: 1933,
+    height: 233,
+  },
+  {
+    companyId: "seeker",
+    width: 1800,
+    height: 600,
+  },
+  {
+    companyId: "sunrise",
+    width: 1809,
+    height: 449,
+  },
+  {
+    companyId: "bloomberg-media",
+    displayName: "Bloomberg",
+    logoVariant: { id: "logo-horizontal-light" },
+    width: 666.06,
+    height: 173.85,
+  },
+  {
+    companyId: "grayscale",
+    logoVariant: { id: "logo-light" },
+    width: 1050,
+    height: 170,
   },
 ] satisfies SponsorLogo[];
 
@@ -148,9 +180,22 @@ const goldSponsors = [
     height: 768,
   },
   {
-    companyId: "render-network",
-    width: 1933,
-    height: 233,
+    companyId: "titan",
+    width: 806,
+    height: 302,
+  },
+  {
+    companyId: "phoenix",
+    logoVariant: { id: "breakpoint-2026-orange" },
+    width: 377,
+    height: 61,
+  },
+  {
+    companyId: "jito",
+    displayName: "Jito JTX",
+    logoVariant: { id: "breakpoint-2026-jtx-white" },
+    width: 965,
+    height: 332,
   },
   {
     companyId: "sec3",
@@ -161,11 +206,6 @@ const goldSponsors = [
     companyId: "quicknode",
     width: 2193,
     height: 512,
-  },
-  {
-    companyId: "galaxy",
-    width: 3602,
-    height: 1031,
   },
   {
     companyId: "colosseum",
@@ -201,6 +241,124 @@ const goldSponsors = [
     companyId: "paxos",
     width: 2004,
     height: 543,
+  },
+  {
+    companyId: "huma-finance",
+    width: 109,
+    height: 32,
+  },
+  {
+    companyId: "soilonic",
+    width: 1693,
+    height: 929,
+  },
+  {
+    companyId: "triton",
+    width: 1028,
+    height: 323,
+  },
+  {
+    companyId: "opensea",
+    width: 1160,
+    height: 302,
+  },
+  {
+    companyId: "reflect-money",
+    width: 759,
+    height: 186,
+  },
+  {
+    companyId: "beezie",
+    width: 1514,
+    height: 646,
+  },
+  {
+    companyId: "bitwise",
+    logoVariant: { id: "logo-dark" },
+    width: 108.3,
+    height: 23.9,
+  },
+  {
+    companyId: "xash",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1119.3,
+    height: 374.5,
+  },
+  {
+    companyId: "agridex",
+    displayName: "Loam, by Agridex",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 687.54,
+    height: 259.76,
+  },
+  {
+    companyId: "bitget-wallet",
+    displayName: "Bitget Wallet",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1623,
+    height: 256,
+  },
+  {
+    companyId: "accretion",
+    logoVariant: { id: "logo-light" },
+    width: 100,
+    height: 57.3,
+  },
+  {
+    companyId: "hackhack",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1630,
+    height: 533,
+  },
+  {
+    companyId: "birdeye",
+    logoVariant: { id: "logo-light" },
+    width: 300,
+    height: 45,
+  },
+  {
+    companyId: "fidelity",
+    displayName: "Fidelity",
+    logoVariant: { id: "fcat-logo-dark" },
+    width: 636,
+    height: 222,
+  },
+  {
+    companyId: "circle",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1110,
+    height: 284.4,
+  },
+  {
+    companyId: "kilpatrick-townsend",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1350,
+    height: 400,
+  },
+  {
+    companyId: "cooley",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1244,
+    height: 406,
+  },
+  {
+    companyId: "neodyme",
+    logoVariant: { id: "logo-horizontal-dark" },
+    width: 1652.4,
+    height: 528.214,
+  },
+  {
+    companyId: "ika",
+    logoVariant: { id: "wordmark-light" },
+    width: 96,
+    height: 48,
+  },
+  {
+    companyId: "cow",
+    displayName: "CoW",
+    logoVariant: { id: "logo-light" },
+    width: 1325,
+    height: 400,
   },
 ] satisfies SponsorLogo[];
 

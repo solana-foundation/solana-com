@@ -20,6 +20,7 @@ const MARKDOWN_PREFIXES = [
 ] as const;
 const MARKDOWN_API_PREFIX = "/api/markdown";
 const SOLANA_SITE_ORIGIN = "https://solana.com";
+const DOCS_VERCEL_HOST = "solana-com-docs.vercel.app";
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
@@ -82,6 +83,21 @@ export default async function middleware(
   event: NextFetchEvent,
 ) {
   const { pathname } = req.nextUrl;
+
+  // The production Vercel alias is also the web app's rewrite target. Only
+  // redirect direct visits: rewritten solana.com requests carry their public
+  // host in x-forwarded-host and must continue to render here. Keep the direct
+  // markdown API here because the web app does not proxy /api/markdown.
+  if (
+    pathname !== MARKDOWN_API_PREFIX &&
+    !pathname.startsWith(`${MARKDOWN_API_PREFIX}/`) &&
+    getEffectiveOrigin(req).hostname === DOCS_VERCEL_HOST
+  ) {
+    return NextResponse.redirect(
+      new URL(`${pathname}${req.nextUrl.search}`, SOLANA_SITE_ORIGIN),
+      308,
+    );
+  }
 
   if (
     pathname === MARKDOWN_API_PREFIX ||

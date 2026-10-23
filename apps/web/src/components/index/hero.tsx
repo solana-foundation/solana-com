@@ -69,13 +69,7 @@ export const Hero: React.FC<HeroProps> = ({
     if (!bannerHref || !bannerLabel) return false;
     if (!bannerExpiryDate) return true; // Show if no expiry date set
 
-    const expiryDate = new Date(bannerExpiryDate);
-    const today = new Date();
-    // Set time to start of day for comparison
-    today.setHours(0, 0, 0, 0);
-    expiryDate.setHours(0, 0, 0, 0);
-
-    return today <= expiryDate;
+    return new Date().toISOString().slice(0, 10) <= bannerExpiryDate;
   }, [bannerHref, bannerLabel, bannerExpiryDate]);
 
   return (

@@ -1,0 +1,258 @@
+---
+title: Rozliczenie transakcji
+description:
+  Organ rozliczeniowy ponownie sprawdza zapisane warunki, tworzy cztery token accounts odbiorców i wysyła SettleDvp, aby w jednej transakcji przenieść obie części sfinansowanej transakcji, a następnie czeka na status finalized, zanim ją zapisze.
+seoTitle: Rozliczanie transakcji DvP w Solanie
+url: /docs/defi/dvp-program/settle-the-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+`SettleDvp` podpisuje organ rozliczeniowy wskazany w rekordzie transakcji. W
+jednej transakcji przenosi `amount_a` z części aktywa na adres docelowy strony
+części gotówkowej oraz `amount_b` z części gotówkowej na adres docelowy strony
+części aktywa, zwraca ewentualną nadwyżkę z każdego escrow stronie danej części
+i zamyka rekord oraz oba escrow. Jeśli któryś z tych transferów nie może zostać
+zrealizowany, instrukcja kończy się niepowodzeniem i nic nie zostaje przeniesione.
+
+Ta strona jest kontynuacją artykułów [tworzenie transakcji](/docs/defi/dvp-program/create-a-trade)
+i [finansowanie części transakcji](/docs/defi/dvp-program/fund-the-legs); klient, podpisujący,
+`trade` oraz token accounts stron są przenoszone dalej.
+
+## Ponowna weryfikacja przed podpisaniem
+
+Organ rozliczeniowy podpisuje transakcję przenoszącą obie części, dlatego przed
+podpisaniem wykonuje ten sam odczyt co każda ze stron: właściciel, rozmiar,
+strony, mints, kwoty, termin ważności i oba adresy docelowe (zobacz
+[finansowanie części transakcji](/docs/defi/dvp-program/fund-the-legs#verify-the-terms)). Sam
+program ponownie sprawdza podczas rozliczenia, czy każdy mint nadal należy do
+token program zapisanego przy tworzeniu, nie ma zablokowanego rozszerzenia i ma
+taki sam mint authority jak w chwili utworzenia transakcji. Dlatego mint
+odtworzony z zablokowanym rozszerzeniem, innym token program lub innym mint
+authority nie może zostać rozliczony.
+
+## Tworzenie kont odbiorców
+
+Settle zapisuje dane w czterech token accounts, których program nie tworzy:
+
+| Konto                | Otrzymuje                     | Właściciel                           |
+| ---------------------- | ---------------------------- | ------------------------------- |
+| `userADestinationAtaB` | Część gotówkowa (`amount_b`)    | `user_a_settlement_destination` |
+| `userBDestinationAtaA` | Część aktywa (`amount_a`)   | `user_b_settlement_destination` |
+| `userAAtaA`            | Ewentualna nadwyżka w części aktywa | `user_a`                        |
+| `userBAtaB`            | Ewentualna nadwyżka w części gotówkowej  | `user_b`                        |
+
+Konta nadwyżek są używane tylko wtedy, gdy escrow zawiera więcej niż uzgodniona
+kwota, ale każdy, kto posiada dany mint, może wywołać nadwyżkę, wysyłając do
+escrow kilka jednostek bazowych. Jeśli konto zwrotu nie istnieje, cała instrukcja
+Settle kończy się niepowodzeniem, dlatego utwórz wszystkie cztery idempotentnie
+w tej samej transakcji.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getCreateAssociatedTokenIdempotentInstruction,
+    } from "@solana-program/token-2022";
+
+    const destinationA = t.userASettlementDestination; // defaults to userA
+    const destinationB = t.userBSettlementDestination; // defaults to userB
+
+    const [userADestinationAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: destinationA,
+      tokenProgram: tokenProgramB,
+    });
+    const [userBDestinationAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: destinationB,
+      tokenProgram: tokenProgramA,
+    });
+    // userAAtaA and userBAtaB are from fund the legs.
+
+    const createRecipientAccounts = [
+      { ata: userADestinationAtaB, owner: destinationA, mint: mintB, tokenProgram: tokenProgramB },
+      { ata: userBDestinationAtaA, owner: destinationB, mint: mintA, tokenProgram: tokenProgramA },
+      { ata: userAAtaA, owner: userA, mint: mintA, tokenProgram: tokenProgramA },
+      { ata: userBAtaB, owner: userB, mint: mintB, tokenProgram: tokenProgramB },
+    ].map(({ ata, owner, mint, tokenProgram }) =>
+      getCreateAssociatedTokenIdempotentInstruction({
+        payer: authoritySigner,
+        ata,
+        owner,
+        mint,
+        tokenProgram,
+      }),
+    );
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_associated_token_account_client::instruction::create_associated_token_account_idempotent;
+
+    let authority: Pubkey = pubkey!("SETTLEMENT_AUTHORITY_ADDRESS_HERE");
+    let destination_a = trade.user_a_settlement_destination; // defaults to user_a
+    let destination_b = trade.user_b_settlement_destination; // defaults to user_b
+
+    let user_a_destination_ata_b =
+        get_associated_token_address_with_program_id(&destination_a, &mint_b, &token_program_b);
+    let user_b_destination_ata_a =
+        get_associated_token_address_with_program_id(&destination_b, &mint_a, &token_program_a);
+    let user_a_ata_a = get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+    let user_b_ata_b = get_associated_token_address_with_program_id(&user_b, &mint_b, &token_program_b);
+
+    let create_recipient_accounts = [
+        create_associated_token_account_idempotent(&authority, &destination_a, &mint_b, &token_program_b),
+        create_associated_token_account_idempotent(&authority, &destination_b, &mint_a, &token_program_a),
+        create_associated_token_account_idempotent(&authority, &user_a, &mint_a, &token_program_a),
+        create_associated_token_account_idempotent(&authority, &user_b, &mint_b, &token_program_b),
+    ];
+    ```
+
+  </Tab>
+</Tabs>
+
+## Rozliczenie
+
+`legAExtrasCount` informuje program, ile spośród kont dołączonych po stałej
+liście należy do transfer hooka części aktywa; pozostałe należą do części
+gotówkowej. W przypadku mints bez transfer hooków przekaż zero i niczego nie
+dołączaj. Memo program account jest wymagany przez instrukcję i jest używany
+tylko dla adresów docelowych wymagających memo.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getSettleDvpInstruction } from "./dvp";
+
+    const settleInstruction = getSettleDvpInstruction({
+      settlementAuthority: authoritySigner,
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userADestinationAtaB,
+      userBDestinationAtaA,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    });
+
+    const { context: settleContext } = await client.sendTransaction([
+      ...createRecipientAccounts,
+      settleInstruction,
+    ]);
+    const settleSignature = settleContext.signature;
+    console.log("Submitted:", settleSignature);
+
+    // sendTransaction returns at the client's commitment (confirmed by default).
+    // Wait for finalized before recording the trade as settled.
+    let finalized = false;
+    for (let attempt = 0; attempt < 30 && !finalized; attempt++) {
+      const {
+        value: [status],
+      } = await client.rpc.getSignatureStatuses([settleSignature]).send();
+      if (status?.err) {
+        throw new Error("Settle transaction failed");
+      }
+      finalized = status?.confirmationStatus === "finalized";
+      if (!finalized) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+      }
+    }
+    if (!finalized) {
+      // A closed record means it settled; an open one is safe to settle again.
+      throw new Error("Settle not finalized after 60s; read the trade record");
+    }
+    console.log("Settled:", settleSignature);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::SettleDvpBuilder;
+
+    const MEMO_PROGRAM_ID: Pubkey = pubkey!("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
+
+    let settle_ix = SettleDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_destination_ata_b(user_a_destination_ata_b)
+        .user_b_destination_ata_a(user_b_destination_ata_a)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+```mermaid
+flowchart TD
+  subgraph TX["One SettleDvp transaction, signed by the settlement authority"]
+    EA["Escrow A<br/>asset leg"] -->|amount_a| BD["userBDestinationAtaA<br/>user_b's settlement destination"]
+    EB["Escrow B<br/>cash leg"] -->|amount_b| AD["userADestinationAtaB<br/>user_a's settlement destination"]
+    EA -.->|any surplus| UA["userAAtaA<br/>user_a"]
+    EB -.->|any surplus| UB["userBAtaB<br/>user_b"]
+  end
+  TX --> X["Record and both escrows closed<br/>Their rent to the settlement authority"]
+```
+
+### Transfer hooks
+
+Wygenerowany IDL wymienia tylko stałe konta, więc wygenerowane buildery nie
+znają kont hooków. Ustal dodatkowe account metas każdego mintu z hookiem tak
+samo, jak w przypadku bezpośredniego transferu tego tokena, a następnie dołącz
+je do instrukcji: najpierw konta części aktywa, potem części gotówkowej, z
+wartością `legAExtrasCount` równą liczbie kont w pierwszej grupie. W TypeScript
+rozwiń ustalone metas w tablicy `accounts` instrukcji; w Rust użyj
+`add_remaining_accounts` na builderze. Limit wynosi 32 konta na część, wliczając
+program hooka i konto walidacyjne; limit kont w transakcji może zadziałać
+wcześniej, gdy obie części mają hooki. Program usuwa flagę signera z każdego
+przekazywanego konta, więc hook nie może w ten sposób uzyskać podpisu organu
+rozliczeniowego.
+
+## Zapisanie wyniku
+
+Uznaj transakcję za rozliczoną, gdy transakcja Settle osiągnie status
+`finalized`. Po rozliczeniu rekord i oba escrow już nie istnieją, więc system,
+który później potrzebuje warunków, zapisuje je z odczytu sprzed rozliczenia lub
+z transakcji tworzącej. Rent zamkniętych kont trafił do organu rozliczeniowego.
+
+## Błędy rozliczenia
+
+`LegNotFunded` oznacza, że escrow zawiera mniej niż uzgodniona kwota;
+`DvpExpired` i `SettlementTooEarly` oznaczają, że termin został pominięty;
+`MintAuthorityChanged` i `BlockedMintExtension` oznaczają, że mint zmienił się
+po utworzeniu; `RecipientAtaMismatch` oznacza, że token account adresu
+docelowego lub zwrotu nie istnieje albo nie należy już do oczekiwanego
+właściciela i mintu, zwykle dlatego, że pominięto powyższy krok tworzenia kont.
+W każdym z tych przypadków nic nie zostało przeniesione, a strony mogą wycofać
+transakcję, z zastrzeżeniem uprawnień mintu (zobacz
+[wycofanie transakcji](/docs/defi/dvp-program/unwind-a-trade)).
+
+## Dalsze kroki
+
+- [Wycofanie transakcji](/docs/defi/dvp-program/unwind-a-trade): odzyskiwanie sfinansowanych
+  części, gdy transakcja nie zostaje rozliczona

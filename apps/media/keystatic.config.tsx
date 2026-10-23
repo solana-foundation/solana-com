@@ -231,6 +231,25 @@ export default config({
             itemLabel: (props) => props.fields.value.value || "Metric",
           },
         ),
+        additionalResources: fields.array(
+          fields.object({
+            label: fields.text({
+              label: "Label",
+              validation: { isRequired: true },
+            }),
+            url: fields.text({
+              label: "Link",
+              description: "A relative Solana.com path or an absolute URL.",
+              validation: { isRequired: true },
+            }),
+          }),
+          {
+            label: "Additional Resources",
+            description:
+              "Optional links to deep dives, announcements, and related material.",
+            itemLabel: (props) => props.fields.label.value || "Resource",
+          },
+        ),
         author: defaultAuthorRelationship(),
         publishedAt: fields.datetime({
           label: "Publish Date",

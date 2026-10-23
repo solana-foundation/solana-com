@@ -1,49 +1,44 @@
 ---
 title: "Jito DontFront를 활용한 MEV 보호"
 description:
-  "Learn how to protect your Solana transactions from sandwich attacks using
-  Jito's dontfront feature. This guide covers how sandwich attacks work, how
-  dontfront prevents front-running, bundle ordering rules, tip strategies, and
-  integration examples in TypeScript and Rust."
+  Jito의 dontfront 기능을 사용하여 샌드위치 공격으로부터 Solana 트랜잭션을 보호하는 방법을 알아보세요. 이 가이드에서는 샌드위치 공격의 작동 원리, dontfront의 프론트러닝 방지 방법, 번들 정렬 규칙, 팁 전략, TypeScript 및 Rust 통합 예제를 다룹니다.
 ---
 
 # Jito DontFront를 활용한 MEV 보호
 
-최대 추출 가능 가치(MEV)란 블록 내 트랜잭션을 재정렬하거나 포함 또는 제외함으로써 얻을 수 있는 가치를 의미합니다. MEV는 특정 체인에만 국한된 문제가 아니라, 블록 생성자가 트랜잭션 순서를 제어하는 모든 블록체인의 근본적인 속성입니다. 차익 거래처럼 DEX 간 가격 차이를 조정하여 시장 효율성을 높이는 형태의 MEV도 있는 반면, 샌드위치 공격처럼 사용자로부터 직접 가치를 탈취하는 형태도 존재합니다. DeFi 애플리케이션을 개발하는 개발자 입장에서는 거래 실행 품질 저하와 수익 손실로 이어질 수 있습니다.
+MEV(Maximal Extractable Value)란 블록 내 트랜잭션을 재정렬하거나 포함 또는 제외함으로써 포착할 수 있는 가치를 의미합니다. MEV는 특정 체인에만 국한된 현상이 아니라, 블록 생산자가 트랜잭션 순서를 제어하는 모든 블록체인의 근본적인 특성입니다. 차익 거래와 같은 일부 MEV 형태는 DEX 간 가격 불일치를 수정하여 시장 효율성을 높이는 데 기여합니다. 반면 샌드위치 공격과 같은 형태는 사용자로부터 직접 가치를 탈취합니다. DeFi 애플리케이션을 개발하는 개발자에게는 이로 인해 거래 실행 품질 저하와 수익 손실이 발생할 수 있습니다.
 
-이 가이드는 유해한 MEV의 대표적인 형태인 샌드위치 공격과, Jito의 `dontfront` 기능을 활용해 이를 완화하는 방법에 초점을 맞춥니다.
+이 가이드는 유해한 MEV의 대표적 형태인 샌드위치 공격과, Jito의 `dontfront` 기능을 활용한 완화 방법에 초점을 맞춥니다.
 
-권장 사전 읽기 자료:
-[Jito 번들](https://solana.com/docs/payments/production-readiness#jito-bundles)
+사전 학습 권장 자료:
+[Jito 번들](https://solana.com/docs/tools/production-readiness#jito-bundles)
 
 ## Solana의 MEV
 
-Solana의 아키텍처는 공개 멤풀을 사용하는 체인에 비해 MEV 노출 범위를 이미 줄여 놓았습니다. 트랜잭션은 공유 멤풀에 머물지 않고 다음 블록 리더에게 직접 전달되며, 처리되지 않은 트랜잭션은 약 150블록(~1분) 후 만료됩니다. 이로 인해 서처(searcher)가 대기 중인 트랜잭션을 관찰하고 이용할 수 있는 시간 창이 크게 줄어듭니다.
+Solana의 아키텍처는 공개 멤풀을 보유한 체인에 비해 MEV 노출 범위를 이미 상당히 줄여줍니다. 트랜잭션은 공유 멤풀에 대기하지 않고 다음 블록 리더에게 직접 전달되며, 처리되지 않은 트랜잭션은 약 150블록(~1분) 후에 만료됩니다. 이로 인해 검색자가 대기 중인 트랜잭션을 관찰하고 행동할 수 있는 시간이 크게 단축됩니다.
 
-그럼에도 불구하고 MEV 추출은 여전히 발생합니다. 최적화된 인프라와 직접적인 validator 연결을 갖춘 서처는 트랜잭션 흐름을 관찰하고 이에 대응할 수 있습니다. Solana에서의 MEV 활동 대부분은 단일 트랜잭션으로 DEX 간 가격 차이를 수정하는 봇에 의한 원자적 차익 거래입니다. 이러한 유형의 MEV는 시장 전반의 가격 일관성을 개선하므로 일반적으로 유익한 것으로 간주됩니다.
+그럼에도 불구하고 MEV 추출은 여전히 발생합니다. 최적화된 인프라와 validator 직접 연결을 보유한 검색자는 트랜잭션 흐름을 관찰하고 이에 대응할 수 있습니다. Solana에서의 MEV 활동 대부분은 원자적 차익 거래, 즉 단일 트랜잭션 내에서 DEX 간 가격 차이를 수정하는 봇에 해당합니다. 이 유형의 MEV는 시장 전반의 가격 일관성을 향상시키므로 일반적으로 유익한 것으로 간주됩니다.
 
-개발자가 적극적으로 방어해야 할 유해한 유형은 바로 샌드위치 공격입니다.
+개발자가 적극적으로 방어해야 할 것은 유해한 유형인 샌드위치 공격입니다.
 
 ## 샌드위치 공격이란?
 
-샌드위치 공격은 서처가 대기 중인 스왑 트랜잭션을 감지하고 트랜잭션 순서를 악용할 때 발생합니다:
+샌드위치 공격은 검색자가 대기 중인 스왑을 감지하고 트랜잭션 순서를 악용할 때 발생합니다:
 
-1. **프런트런(Front-run)**: 서처가 사용자의 거래 전에 토큰을 매수하여 가격을
-   끌어올립니다
-2. **사용자의 거래가 실행됨** — 예상보다 불리한 가격에
-3. **백런(Back-run)**: 서처가 사용자의 거래 이후 토큰을 매도하여 그
-   차익을 챙깁니다
+1. **프론트런**: 검색자가 내 거래 전에 토큰을 매수하여 가격을 끌어올립니다
+2. **내 거래가 실행**되면 예상보다 불리한 가격에 체결됩니다
+3. **백런**: 검색자가 내 거래 후 토큰을 매도하여 차익을 챙깁니다
 
 Solana에서는 이 공격이
 [Jito 번들](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles)을 통해 발생할 수 있습니다.
-서처는 `[frontrun_tx, your_tx, backrun_tx]`와 같은 트랜잭션 번들을 제출하고, 블록 엔진이 이를 순서대로 원자적으로 실행합니다. 피해자는 불리한 실행 가격을 받는 반면, 서처는 가격 차이로 수익을 얻습니다.
+검색자는 `[frontrun_tx, your_tx, backrun_tx]`와 같이 트랜잭션 번들을 제출하고, 블록 엔진이 이를 순서대로 원자적으로 실행합니다. 피해자는 불리한 실행 가격을 받는 반면, 검색자는 스프레드로 이익을 얻습니다.
 
-## DontFront 동작 방식
+## DontFront 작동 방식
 
 [DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)는
-서처가 번들 내에서 사용자의 트랜잭션 앞에 트랜잭션을 배치하는 것을 방지하는 Jito 블록 엔진의 기능입니다.
+Jito 블록 엔진의 기능으로, 검색자가 번들 내에서 내 트랜잭션 앞에 트랜잭션을 배치하는 것을 방지합니다.
 
-동작 원리: 트랜잭션의 임의 인스트럭션에 `jitodontfront`로 시작하는 유효한 Solana 공개 키를 추가합니다. 블록 엔진은 이 접두사를 인식하고 규칙을 적용합니다: **해당 트랜잭션이 포함된 모든 번들은 이 트랜잭션을 인덱스 0에 배치해야 합니다**.
+작동 메커니즘: 트랜잭션의 임의 명령어에 `jitodontfront`로 시작하는 유효한 Solana 공개 키를 추가합니다. 블록 엔진은 이 접두사를 인식하고 규칙을 적용합니다: **내 트랜잭션이 포함된 번들은 반드시 이를 인덱스 0에 배치해야 합니다**.
 
 ```
 Without dontfront:  [frontrun_tx, your_tx, backrun_tx]  ← sandwich possible
@@ -52,16 +47,15 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 
 ### 단계별 가이드
 
-1. **유효한 주소 선택** — `jitodontfront`로 시작하는 주소를 선택합니다(예:
-   `jitodontfront111111111111111111111111111111`). 해당 계정은 온체인에 존재할 필요가 없으며, 읽거나 쓰는 대상이 아닙니다. 문자열이 유효한 주소인지 확인하려면 @solana/kit의
+1. **유효한 주소를 선택합니다.** `jitodontfront`로 시작하는 주소를 선택하세요(예:
+   `jitodontfront111111111111111111111111111111`). 해당 계정이 온체인에 존재할 필요는 없으며, 읽거나 쓰는 대상이 아닙니다. 문자열이 유효한 주소인지 확인하려면 @solana/kit의
    [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)
-   함수를 사용하거나 Solana Explorer에 주소를 입력하여 조회할 수 있습니다. 다음은
+   함수를 사용하거나 Solana Explorer에 주소를 입력하여 확인할 수 있습니다. 다음은
    [유효하지 않은 주소](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID)의 예입니다.
 
-2. **읽기 전용, 비서명자 계정으로 추가** — 트랜잭션 내 임의 인스트럭션에 추가합니다.
-   최적의 착륙 속도를 위해 읽기 전용으로 표시하세요. System Program을 포함한 대부분의 프로그램은 예상 범위를 초과하는 추가 계정을 무시합니다.
+2. **읽기 전용 비서명자 계정으로 추가합니다.** 트랜잭션의 임의 명령어에 읽기 전용으로 표시하여 추가하면 최적의 랜딩 속도를 확보할 수 있습니다. 대부분의 프로그램(System Program 포함)은 예상 범위를 초과하는 추가 계정을 무시합니다.
 
-3. **Jito 블록 엔진을 통해 제출**:
+3. **Jito 블록 엔진을 통해 제출합니다:**
    - `sendTransaction`:
      `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
    - `sendBundle`: `https://mainnet.block-engine.jito.wtf/api/v1/bundles`
@@ -72,22 +66,20 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 
 4. 블록 엔진이 `jitodontfront` 접두사를 감지하고 순서 규칙을 적용합니다.
 
-### 블록 엔진에서 일어나는 일
+### 블록 엔진에서의 동작
 
 블록 엔진이 `jitodontfront` 계정을 포함한 트랜잭션을 감지하면:
 
-- `sendTransaction` 경유: 트랜잭션이 보호됩니다. 어떤 번들도 이 트랜잭션 앞에
-  다른 트랜잭션을 배치할 수 없습니다
-- `sendBundle` 경유: 해당 트랜잭션은 반드시 인덱스 0에 위치해야 하며, 그렇지 않으면 번들
-  전체가 거부됩니다
+- `sendTransaction` 경유: 해당 트랜잭션이 보호됩니다. 어떤 번들도 이 트랜잭션 앞에 다른 트랜잭션을 배치할 수 없습니다
+- `sendBundle` 경유: 해당 트랜잭션은 반드시 인덱스 0에 위치해야 하며, 그렇지 않으면 전체 번들이 거부됩니다
 
-`jitodontfront` 계정을 포함하지 않은 트랜잭션 및 번들은 영향을 받지 않습니다.
+`jitodontfront` 계정을 포함하지 않는 트랜잭션 및 번들은 영향을 받지 않습니다.
 
-## 번들 순서 규칙
+## 번들 정렬 규칙
 
-이 규칙은 `jitodontfront` 트랜잭션이 번들에 포함될 때 적용됩니다.
+이 규칙은 번들 내에 `jitodontfront` 트랜잭션이 포함된 경우에 적용됩니다.
 
-### 허용되는 패턴
+### 허용 패턴
 
 ```
 [tx_with_dontfront, tip]
@@ -95,13 +87,12 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 [tx_with_dontfront_signer1, tx_with_dontfront_signer1_and_signer2, tip]
 ```
 
-### 하나의 번들 내 여러 DontFront 트랜잭션
+### 하나의 번들에 여러 DontFront 트랜잭션 포함
 
-단일 번들 내 여러 개의 dontfront 트랜잭션은 **두 가지** 조건이 모두 충족될 때 허용됩니다:
+단일 번들 내 다수의 dontfront 트랜잭션은 **두 가지** 조건을 모두 충족할 때 허용됩니다:
 
-1. 모든 dontfront 트랜잭션이 번들의 **맨 앞에 연속으로** 위치해야 합니다
-2. 각 dontfront 트랜잭션이 첫 번째 dontfront 트랜잭션과 **최소 하나의 서명자**를
-   공유해야 합니다
+1. 모든 dontfront 트랜잭션이 번들 **맨 앞에 연속적으로** 배치되어야 합니다
+2. 각 dontfront 트랜잭션이 첫 번째 dontfront 트랜잭션과 **최소 하나의 서명자**를 공유해야 합니다
 
 ```
 ✅ [txA_df, txB_df, txC_df, arbitrage, tip]
@@ -111,7 +102,7 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
    (each shares a signer with txA)
 ```
 
-### 거부되는 패턴
+### 거부 패턴
 
 ```
 ❌ [tip, tx_with_dontfront]
@@ -131,7 +122,7 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 
 ### TypeScript (@solana/kit)
 
-핵심 아이디어는 임의의 인스트럭션에 dontfront 계정을 추가하는 헬퍼 함수입니다:
+핵심 아이디어는 임의의 명령어에 dontfront 계정을 추가하는 헬퍼 함수입니다:
 
 <CodeTabs storage="guide-mev">
 
@@ -180,7 +171,7 @@ fn with_dontfront(ix: &mut Instruction) {
 
 </CodeTabs>
 
-그런 다음 서명된 트랜잭션을 표준 RPC 노드 대신 Jito 블록 엔진에 제출합니다. 항상 base64 인코딩을 사용하세요. Base58은 Jito API에서 더 이상 지원되지 않습니다.
+이후 서명된 트랜잭션을 일반 RPC 노드 대신 Jito 블록 엔진에 제출합니다. 항상 base64 인코딩을 사용하세요. Base58은 Jito API에서 더 이상 사용되지 않습니다.
 
 <CodeTabs storage="guide-mev">
 
@@ -225,42 +216,41 @@ let response = client
 
 ## 모범 사례
 
-DontFront는 보호의 한 레이어에 불과합니다. 강력한 MEV 완화 전략은 여러 접근 방식을 결합합니다:
+DontFront는 보호의 한 레이어입니다. 견고한 MEV 완화 전략은 여러 접근 방식을 결합합니다:
 
 ### 트랜잭션 수준 보호
 
-- **슬리피지 허용 범위를 엄격하게 설정하세요.** 샌드위치 공격에 대한 가장 효과적인 단일 방어 수단은 스왑의 허용 슬리피지를 제한하는 것입니다. 슬리피지 허용 창이 좁을수록 공격자가 얻을 수 있는 이익 마진이 줄어들어, 트랜잭션이 샌드위치 공격 대상이 될 가능성이 낮아집니다.
+- **슬리피지 허용 범위를 엄격하게 설정하세요.** 샌드위치 공격에 대한 가장 효과적인 단일 방어책은 스왑 슬리피지를 제한하는 것입니다. 슬리피지 범위를 좁히면 공격자가 얻을 수 있는 이익 마진이 줄어들어 내 트랜잭션이 샌드위치 공격의 대상이 될 가능성이 낮아집니다.
 
-- **적절한 팁 및 우선순위 수수료를 설정하세요.** 네트워크 혼잡 시, 높은 팁과 우선순위 수수료는 트랜잭션/번들이 빠르게 처리될 가능성을 높여 서처의 개입 시간을 줄입니다. 적절한 팁 설정 방법에 대한 자세한 내용은 Jito 문서의
-  [팁 금액](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)을 참고하세요.
+- **적절한 팁과 우선순위 수수료를 설정하세요.** 네트워크 혼잡 시 더 높은 팁과 우선순위 수수료는 트랜잭션/번들이 신속하게 처리될 가능성을 높여 검색자가 행동할 시간을 줄입니다. 적절한 팁 설정 방법에 대한 자세한 내용은 Jito의
+  [팁 금액](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount) 문서를 참고하세요.
 
-- **컴퓨트 유닛 사용량을 최적화하세요.** 각 블록에는 사용 가능한 컴퓨트 유닛 수가 제한되어 있으며(계정별로도 블록당 사용 가능한 컴퓨트 유닛이 제한됩니다). 트랜잭션/번들이 블록에 포함될 가능성을 최대화하려면 컴퓨트 유닛 사용량을 최적화해야 합니다. 자세한 내용은
+- **컴퓨트 유닛 사용량을 최적화하세요.** 각 블록에는 사용 가능한 컴퓨트 유닛 수가 제한되어 있으며(계정별로도 블록당 사용 가능한 컴퓨트 유닛이 제한됩니다), 트랜잭션/번들이 블록에 포함될 가능성을 최대화하려면 컴퓨트 유닛 사용량을 최적화해야 합니다. 자세한 내용은
   [Solana 컴퓨트 사용량 최적화 방법](/developers/cookbook/transactions/optimize-compute)
   가이드를 참고하세요.
 
 ### DontFront 전용 설정
 
-1. **dontfront 계정을 읽기 전용으로 표시하세요.** 쓰기 가능으로 표시해도 작동하지만,
-   읽기 전용으로 설정하면
-   [착륙 속도가 최적화됩니다](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation).
+1. **dontfront 계정을 읽기 전용으로 표시하세요.** 쓰기 가능으로 표시해도 작동하지만, 읽기 전용으로 설정하면
+   [랜딩 속도가 최적화됩니다](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation).
 
-2. **애플리케이션별로 고유한 dontfront pubkey를 사용하세요.** `jitodontfront`로 시작하는 모든 pubkey가 유효합니다. 고유한 변형(예:
-   `jitodontfront111111111111111111111111111123`)을 사용하면 온체인 데이터를 검사할 때 앱별 사용 현황을 구분할 수 있습니다.
+2. **애플리케이션마다 고유한 dontfront pubkey를 사용하세요.** `jitodontfront`로 시작하는 모든 pubkey가 작동합니다. 고유한 변형(예:
+   `jitodontfront111111111111111111111111111123`)을 사용하면 온체인 데이터 분석 시 앱별 사용량을 구분할 수 있습니다.
 
-3. **DontFront는 주소 조회 테이블(ALT)을 지원합니다.** dontfront 계정은 ALT를 통해 포함될 수 있습니다. 단, 팁 계정에는 ALT를 사용하지 마세요.
+3. **DontFront는 주소 조회 테이블을 지원합니다.** dontfront 계정은 ALT를 통해 포함될 수 있습니다. 단, 팁 계정에는 ALT를 사용하지 마세요.
 
 ## 제한 사항
 
 - **블록 엔진 전용.** DontFront는 Jito 블록 엔진에 의해 적용됩니다.
-  Jito를 우회하여 validator에 직접 제출된 트랜잭션은 보호되지 않습니다.
+  validator에 직접 제출된 트랜잭션(Jito를 우회하는 경우)은 보호되지 않습니다.
 
-- **보장되지 않습니다.** Jito 문서에 따르면: _"이 기능은 샌드위치 공격을 줄이는 데 도움이 될 수 있지만, 이를 보장하지는 않으며 제3자에 의한 순서 조작을 포함한 모든 트랜잭션 순서 변형에 대한 해결책이 아닙니다."_
+- **보장되지 않습니다.** Jito 문서에 따르면: _"이 기능은 샌드위치 공격을 줄이는 데 도움이 될 수 있지만, 이를 보장하지 않으며 제3자에 의한 순서 결정을 포함한 트랜잭션 순서의 모든 변형에 대한 해결책이 아닙니다."_
 
-- **메인넷/테스트넷 전용.** 이는 Jito 블록 엔진 기능입니다. 개발넷(devnet)이나 로컬호스트(localhost)에서는 작동하지 않습니다.
+- **메인넷/테스트넷 전용.** 이는 Jito 블록 엔진 기능입니다. devnet 또는 localhost에서는 작동하지 않습니다.
 
 ## 참고 자료
 
-- [Jito 문서: 샌드위치 완화](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
+- [Jito 문서: 샌드위치 공격 완화](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
 - [Jito 문서: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
 - [Jito 문서: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
 - [Jito 문서: 팁 계정](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { getPageMetadata } from "../../metadata";
+import { getTranslations } from "@workspace/i18n/server";
 
 type PageProps = {
   params: Promise<{ locale: string }>;
@@ -10,13 +11,18 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({
+    locale,
+    namespace: "accelerate.metadata",
+  });
 
   return getPageMetadata({
     locale,
     path: "/hong-kong/agenda",
-    title: "Solana Accelerate APAC Hong Kong Agenda 2026",
-    description:
-      "See the full Solana Accelerate APAC Hong Kong agenda, with sessions on payments, institutional finance, tokenization, DeFi, and AI infrastructure.",
+    title: t("hongKongAgenda.title"),
+    description: t("hongKongAgenda.description"),
+    siteTitle: t("site.title"),
+    siteDescription: t("site.description"),
     keywords: [
       "Solana Accelerate APAC Hong Kong agenda",
       "Hong Kong Solana conference schedule",

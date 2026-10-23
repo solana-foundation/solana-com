@@ -1,0 +1,69 @@
+---
+title: Đặt Lại SMT Root
+description:
+  Xoay vòng Sparse Merkle Tree, đặt lại withdrawal root cho một tree epoch mới
+---
+
+Lệnh chỉ dành cho Operator, thực hiện xoay vòng Sparse Merkle Tree bằng cách tăng
+`Instance.current_tree_index` và đặt lại withdrawal root, cho phép một
+epoch mới với 65.536 lần rút tiền.
+
+<Callout type="info">
+  Chương trình escrow đang được chuyển đổi từ thiết kế Sparse Merkle Tree này sang
+  nonce bitmap on-chain (được theo dõi upstream), trong đó lệnh này sẽ trở thành
+  `RotateBitmap`. Trang này phản ánh chính xác chương trình escrow hiện tại và
+  sẽ được cập nhật khi thay đổi đó được triển khai.
+</Callout>
+
+## Các Tài Khoản
+
+| Tài khoản                          | Có thể ghi | Người ký | Mô tả                                            |
+| -------------------------------- | -------- | ------ | ------------------------------------------------------ |
+| `payer`                          | ✓        | ✓      | Người trả phí                                              |
+| `operator`                       |          | ✓      | Người ký Operator                                        |
+| `instance`                       | ✓        |        | PDA của escrow instance (tăng `current_tree_index`) |
+| `operator_pda`                   |          |        | PDA của Operator xác nhận rằng người ký đã được cấp phép         |
+| `event_authority`                |          |        | PDA quyền hạn sự kiện cho CPI `EmitEvent`                |
+| `private_channel_escrow_program` |          |        | Chương trình Escrow (tự tham chiếu cho CPI)                |
+
+## Tham Số
+
+| Tham số                     | Kiểu  | Mô tả                                                              |
+| ----------------------------- | ----- | ------------------------------------------------------------------------ |
+| `expected_current_tree_index` | `u64` | Bảo vệ chống replay; phải khớp với `Instance.current_tree_index`, nếu không lệnh gọi sẽ thất bại |
+
+## Giá Trị Trả Về
+
+Trả về một `TransactionBuilder` có thể được sử dụng để xây dựng và gửi
+giao dịch.
+
+## Ví Dụ
+
+```typescript
+import { getResetSmtRootInstruction } from "../private-channel-escrow-program/clients/typescript/src/generated";
+
+const resetIx = getResetSmtRootInstruction({
+  payer: operatorPayerSigner,
+  operator: operatorSigner,
+  instance: instancePda,
+  operatorPda: operatorPdaAddress,
+  eventAuthority: eventAuthorityPda,
+  privateChannelEscrowProgram: ESCROW_PROGRAM_ID,
+  expectedCurrentTreeIndex: currentTreeIndex // u64
+});
+```
+
+## Lưu Ý Quan Trọng
+
+- Chỉ dành cho Operator: yêu cầu `operator_pda` hợp lệ; nếu không sẽ ném lỗi `InvalidOperatorPda`
+- `expected_current_tree_index` phải bằng `Instance.current_tree_index` tại thời điểm gọi;
+  giá trị cũ sẽ ném lỗi `UnexpectedTreeIndex`, bảo vệ chống việc replay một
+  lần đặt lại đã được thực hiện
+- Tăng `Instance.current_tree_index`; các nonce hợp lệ trong tree
+  epoch trước sẽ bị vô hiệu hóa sau khi xoay vòng
+- Dịch vụ `operator-private-channel` tự động gọi lệnh này khi
+  `transaction_nonce % 65536 == 0` (và `nonce > 0`), báo hiệu bắt đầu một
+  epoch mới; thông thường không cần gọi thủ công trong điều kiện vận hành bình thường
+- Sau khi xoay vòng, withdrawal root được đặt lại về cây rỗng, do đó các lần
+  rút tiền mới bắt đầu từ một SMT mới hoàn toàn
+- Phát ra sự kiện thông qua CPI `EmitEvent`

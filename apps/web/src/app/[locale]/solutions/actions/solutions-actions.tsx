@@ -11,7 +11,7 @@ import {
   Accordion,
   FeatureHighlight,
   HtmlParser,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import { useTranslations } from "next-intl";
@@ -125,7 +125,7 @@ export function ActionsPage() {
             <video autoPlay muted loop controls width="575" height="325">
               <source src={VIDEO_SOURCE} type="video/mp4" />
             </video>
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               {t("content.blinksDescription")}
             </div>
           </Columns>
@@ -133,7 +133,7 @@ export function ActionsPage() {
       </ResponsiveBox>
 
       <Section className="text-center">
-        <div className="tw-html_parser">
+        <div className="min-w-0 max-w-full overflow-x-auto">
           <h2>{t("headings.meetUsers")}</h2>
         </div>
         <ResponsiveBox
@@ -214,7 +214,7 @@ export function ActionsPage() {
         ]}
       />
 
-      <div className="tw-html_parser" style={{ textAlign: "center" }}>
+      <div className="min-w-0 max-w-full overflow-x-auto text-center">
         <em>{t("content.interfaceNote")}</em>
       </div>
 
@@ -230,7 +230,7 @@ export function ActionsPage() {
         }}
       >
         <Section>
-          <div className="tw-html_parser" style={{ textAlign: "center" }}>
+          <div className="min-w-0 max-w-full overflow-x-auto text-center">
             <h2>{t("headings.withActions")}</h2>
           </div>
         </Section>
@@ -289,8 +289,6 @@ export function ActionsPage() {
           body={t("headings.aboutSolana.body")}
           dynamicDataFootnote="Live data"
           headingAs="h3"
-          // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
-          valueOf={() => false}
         />
       </ResponsiveBox>
     </>
