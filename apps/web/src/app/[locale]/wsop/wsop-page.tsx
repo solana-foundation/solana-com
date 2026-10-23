@@ -32,128 +32,20 @@ import { Link } from "@workspace/i18n/routing";
 import { Link as CrossAppLink } from "@solana-com/ui-chrome/link";
 import { Button } from "@/app/components/ui/button";
 
-const wsopStyles = {
-  wsop_skip_link:
-    "[position:fixed] [z-index:100] [top:1rem] [left:1rem] [padding:0.75rem_1rem] [border-radius:9999px] [background:#fff] [color:#000] [font-family:var(--wsop-font-label)] [font-size:0.75rem] [letter-spacing:var(--wsop-label-tracking)] [text-transform:uppercase]",
-  wsop_eyebrow:
-    "[font-family:var(--wsop-font-label)] [font-size:var(--wsop-label-size)] [font-weight:500] [letter-spacing:var(--wsop-label-tracking)] [line-height:1.33] [text-transform:uppercase] [color:var(--wsop-accent)]",
-  wsop_section_label:
-    "[font-family:var(--wsop-font-label)] [font-size:var(--wsop-label-size)] [font-weight:500] [letter-spacing:var(--wsop-label-tracking)] [line-height:1.33] [text-transform:uppercase] [display:flex] [align-items:center] [gap:0.75rem] [width:fit-content] [margin-bottom:clamp(2rem,_4vw,_3rem)] [color:var(--wsop-accent)] [&_svg]:[width:1rem] [&_svg]:[height:1rem] [&_svg]:[flex:0_0_1rem] [&_svg]:[color:rgba(255,_255,_255,_0.4)] [&_*.is-red]:[color:var(--wsop-red-bright)] [&_p]:[padding-left:0.75rem] [&_p]:[border-left:1px_solid_var(--wsop-border-prominent)]",
-  wsop_suit_run:
-    "[display:inline-flex] [align-items:center] [gap:0.5rem] [color:rgba(255,_255,_255,_0.55)] [&_svg]:[width:0.85rem] [&_svg]:[height:0.85rem] [&_.is-red]:[color:var(--wsop-red-bright)]",
-  wsop_suit_icon: "[fill:currentColor] [stroke-width:1.75]",
-  wsop_section:
-    "[position:relative] [width:min(100%,_1440px)] [margin-inline:auto] [padding:clamp(4rem,_calc(10vw_+_2rem),_10rem)_1.25rem] md:[padding-inline:2rem] lg:[padding-block:clamp(6rem,_7vw,_7.5rem)] xl:[padding-inline:2.5rem]",
-  wsop_button:
-    "[display:inline-flex] [min-height:3rem] [align-items:center] [justify-content:space-between] [gap:1.25rem] [padding:0.5rem_0.5rem_0.5rem_1.25rem] [border:0] [border-radius:9999px] [background:#fff] [color:#000] [cursor:pointer] [font-size:1rem] [font-weight:500] [letter-spacing:-0.01em] [line-height:1.25] [&_svg]:[width:2rem] [&_svg]:[height:2rem] [&_svg]:[padding:0.5rem] [&_svg]:[border-radius:50%] [&_svg]:[background:#000] [&_svg]:[color:#fff] [&_svg]:[stroke-width:2.5] [&_svg]:[transition:transform_180ms_cubic-bezier(0.22,_1,_0.36,_1)] [&:hover_svg]:[transform:translate(1px,_-1px)] hover:[background:rgba(255,_255,_255,_0.9)] focus-visible:[outline:2px_solid_var(--wsop-accent)] focus-visible:[outline-offset:4px] md:[font-size:1.125rem] motion-reduce:[&_svg]:[transition:none] motion-reduce:[&:hover_svg]:[transform:none]",
-  wsop_start:
-    "[&_a:focus-visible]:[outline:2px_solid_var(--wsop-accent)] [&_a:focus-visible]:[outline-offset:4px] [&_h2]:[max-width:14ch] [&_h2]:[font-size:clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:[letter-spacing:-0.04em] [&_h2]:[line-height:1.125] [padding:clamp(4rem,_calc(10vw_+_2rem),_10rem)_1.25rem] [border-top:1px_solid_var(--wsop-border)] [background:radial-gradient(_circle_at_82%_24%,_rgba(85,_233,_171,_0.16),_transparent_30%_),_radial-gradient(_circle_at_18%_85%,_rgba(202,_159,_245,_0.18),_transparent_34%_),_#000] md:[padding-inline:2rem] lg:[padding-block:clamp(6rem,_7vw,_7.5rem)] xl:[padding-inline:2.5rem]",
-  wsop_button_light:
-    "[&[data-light]]:[background:#000] [&[data-light]]:[color:#fff] [&[data-light]_svg]:[background:#fff] [&[data-light]_svg]:[color:#000] [&[data-light]:hover]:[background:rgba(0,0,0,0.86)]",
-  wsop_hero:
-    "[position:relative] [display:flex] [min-height:max(620px,_calc(100svh_-_70px))] [flex-direction:column] [overflow:hidden] [border-bottom:1px_solid_var(--wsop-border)] [isolation:isolate] [&_h1]:[max-width:11ch] [&_h1]:[font-size:clamp(2.5rem,_calc(6.25vw_+_0.5rem),_5.5rem)] [&_h1]:[letter-spacing:-0.03em] [&_h1]:[line-height:1]",
-  wsop_hero_topline:
-    "flex justify-between gap-8 border-b border-white/20 bg-[rgba(4,40,58,0.35)] px-5 py-4 font-[var(--wsop-font-label)] text-[0.7rem] font-medium leading-[1.4] tracking-[0.08em] text-white/80 uppercase backdrop-blur-md md:px-8 xl:px-[max(2.5rem,calc((100vw-1440px)/2+2.5rem))] max-[767px]:[&>p:last-child]:hidden [&>p:last-child]:text-[var(--wsop-accent)]",
-  wsop_hero_content:
-    "[display:block] [width:min(100%,_1440px)] [margin-inline:auto] [padding:clamp(4rem,_9vw,_7.75rem)_1.25rem_clamp(8rem,_11vw,_10rem)] md:[padding-inline:2rem] xl:[padding-inline:2.5rem]",
-  wsop_hero_eyebrow: "[display:flex] [align-items:center] [gap:0.75rem]",
-  wsop_hero_title_mask: "[margin-top:0.75rem] [overflow:hidden]",
-  wsop_marquee:
-    "[display:flex] [overflow:hidden] [padding-block:0.9rem] [border-bottom:1px_solid_var(--wsop-border)]",
-  wsop_marquee_track:
-    "[display:flex] [flex:0_0_auto] [min-width:max-content] animate-wsop-marquee motion-reduce:[animation:none] ",
-  wsop_marquee_item:
-    "[display:inline-flex] [align-items:center] [gap:2.25rem] [padding-right:2.25rem] [white-space:nowrap]",
-  wsop_marquee_text:
-    "[color:rgba(255,_255,_255,_0.56)] [font-family:var(--wsop-font-label)] [font-size:0.75rem] [font-weight:500] [letter-spacing:0.08em] [text-transform:uppercase]",
-  wsop_marquee_suit:
-    "[width:0.8rem] [height:0.8rem] [color:rgba(255,_255,_255,_0.3)] [&.is-red]:[color:var(--wsop-red-bright)]",
-  wsop_buyins:
-    "[border-top:1px_solid_var(--wsop-border)] [border-bottom:1px_solid_var(--wsop-border)]",
-  wsop_section_heading:
-    "[display:grid] [gap:1.5rem] [&_h2]:[max-width:14ch] [&_h2]:[font-size:clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:[letter-spacing:-0.04em] [&_h2]:[line-height:1.125] [&>p]:[max-width:36rem] [&>p]:[color:var(--wsop-muted)] [&>p]:[font-size:clamp(1.125rem,_3.125vw,_1.5rem)] [&>p]:[letter-spacing:-0.02em] [&>p]:[line-height:1.45] md:[&>p]:[line-height:1.33] lg:[grid-template-columns:minmax(0,_1fr)_minmax(20rem,_0.55fr)] lg:[align-items:end] lg:[gap:3rem] xl:[grid-template-columns:minmax(0,_1fr)_minmax(22rem,_0.55fr)] xl:[gap:4rem]",
-  wsop_benefit:
-    "[--card-pad:1rem] [position:relative] [display:flex] [flex-direction:column] [padding:var(--card-pad)] [border:1px_solid_rgba(0,_0,_0,_0.1)] [border-radius:0.75rem] [background:#fff] [color:#16141c] [box-shadow:0_14px_32px_rgba(0,_0,_0,_0.2)] [&_h3]:[margin-top:auto] [&_h3]:[font-size:clamp(1.125rem,_2.1875vw,_1.75rem)] [&_h3]:[font-weight:500] [&_h3]:[letter-spacing:-0.02em] [&_h3]:[line-height:1.2] md:[--card-pad:1.25rem] md:max-[959px]:[min-height:clamp(30rem,_52vw,_31rem)] min-[960px]:[min-height:0] min-[960px]:max-[1023px]:[display:grid] min-[960px]:max-[1023px]:[grid-template-rows:auto_minmax(3.25rem,_1fr)_auto_auto] min-[960px]:max-[1023px]:[&_h3]:[margin-top:0.5rem] max-[559px]:[min-height:clamp(19.5rem,_72vw,_22.75rem)] max-[374px]:[min-height:0] max-[374px]:aspect-[5/7]",
-  wsop_benefit_index:
-    "[display:inline-flex] [width:fit-content] [flex-direction:column] [align-items:center] [gap:0.3rem] [color:rgba(22,_20,_28,_0.72)] [font-family:var(--wsop-font-label)] [font-size:0.8rem] [font-weight:500] [line-height:1] [&.is-red]:[color:var(--wsop-red)] [&_svg]:[width:0.6875rem] [&_svg]:[height:0.6875rem]",
-  wsop_benefit_index_mirror:
-    "[position:absolute] [right:var(--card-pad)] [bottom:var(--card-pad)] [opacity:0.45] [transform:rotate(180deg)]",
-  wsop_benefit_pip:
-    "[position:absolute] [top:50%] [left:50%] [width:3.25rem] [height:3.25rem] [color:#16141c] [transform:translate(-50%,_-50%)] [&.is-red]:[color:var(--wsop-red)] min-[960px]:max-[1023px]:[position:static] min-[960px]:max-[1023px]:[width:clamp(2.5rem,_12vw,_3.25rem)] min-[960px]:max-[1023px]:[height:clamp(2.5rem,_12vw,_3.25rem)] min-[960px]:max-[1023px]:[grid-row:2] min-[960px]:max-[1023px]:[align-self:end] min-[960px]:max-[1023px]:[justify-self:center] min-[960px]:max-[1023px]:[transform:none] max-[559px]:[width:clamp(2.5rem,_12vw,_3.25rem)] max-[559px]:[height:clamp(2.5rem,_12vw,_3.25rem)]",
-  wsop_live_chip:
-    "[display:inline-flex] [min-height:2rem] [align-items:center] [gap:0.6rem] [padding:0.35rem_0.75rem] [border-radius:9999px] [background:rgba(217,_0,_41,_0.16)] [color:var(--wsop-red-bright)] [font-family:var(--wsop-font-label)] [font-size:0.7rem] [font-weight:500] [letter-spacing:0.08em] [text-transform:uppercase] [&>span]:[width:0.45rem] [&>span]:[height:0.45rem] [&>span]:[border-radius:50%] [&>span]:[background:var(--wsop-red-bright)] [&>span]:[box-shadow:0_0_0_4px_rgba(217,_0,_41,_0.16)]",
+import { cn } from "@/app/components/utils";
 
-  wsop_event_layout:
-    "[display:grid] [gap:1rem] [margin-top:2rem] md:[margin-top:3rem] min-[1100px]:[grid-template-columns:minmax(0,_1.4fr)_minmax(21rem,_0.6fr)] min-[1100px]:[align-items:center] min-[1100px]:[gap:1.5rem] xl:[grid-template-columns:minmax(0,_1.4fr)_minmax(24rem,_0.6fr)]",
-  wsop_ticket:
-    '[--ticket-pad:1.4rem] [--ticket-paper:#f1eafd] [--ticket-ink:#16141c] [position:relative] [display:flex] [flex-direction:column] [gap:1.1rem] [padding:var(--ticket-pad)_calc(var(--ticket-pad)_+_0.5rem)] [border-radius:0.75rem] [box-shadow:0_22px_44px_rgba(0,_0,_0,_0.5),_inset_0_1px_0_rgba(255,_255,_255,_0.7)] [color:var(--ticket-ink)] [font-family:"Helvetica_Neue",_Arial,_"Liberation_Sans",_sans-serif] [&_*_.is-red]:[color:var(--wsop-red)] md:[--ticket-pad:2rem] md:[gap:1.5rem] xl:[--ticket-pad:2.4rem] xl:[gap:1.75rem] max-[374px]:[--ticket-pad:1rem] max-[374px]:[gap:0.9rem] max-[374px]:[padding-inline:1.25rem]',
-  wsop_ticket_topline:
-    "[display:flex] [align-items:baseline] [justify-content:space-between] [gap:1rem] [font-size:clamp(0.85rem,_2.4vw,_1.15rem)] [font-weight:600] [white-space:nowrap] max-[374px]:[gap:0.5rem] max-[374px]:[font-size:0.72rem]",
-  wsop_ticket_place:
-    "[display:grid] [grid-template-columns:auto_minmax(0,_1fr)] [align-items:center] [gap:1rem]",
-  wsop_ticket_chip:
-    "[display:grid] [width:clamp(3.25rem,_9vw,_4.5rem)] [height:clamp(3.25rem,_9vw,_4.5rem)] [border-radius:50%] [background:radial-gradient(_circle,_var(--ticket-paper)_0_52%,_var(--ticket-ink)_52.5%_56%,_transparent_56.5%_),_repeating-conic-gradient(_var(--ticket-ink)_0deg_22.5deg,_var(--ticket-paper)_22.5deg_45deg_)] [box-shadow:inset_0_0_0_2px_var(--ticket-ink)] [place-content:center] [justify-items:center] [row-gap:0.15rem] [&>span]:[font-size:0.6875rem] [&>span]:[font-weight:800] [&>span]:[letter-spacing:0.04em] [&>span]:[line-height:1]",
-  wsop_ticket_chip_suits:
-    "[gap:0.12rem] [color:var(--ticket-ink)] [&_svg]:[width:0.4rem] [&_svg]:[height:0.4rem]",
-  wsop_ticket_prize:
-    "[flex-wrap:wrap] [justify-content:center] [font-weight:700] [letter-spacing:-0.02em] [line-height:1] [text-align:center] [&_strong]:[font-weight:700] [&>span]:[white-space:nowrap] ",
-  wsop_ticket_date:
-    "[display:flex] [align-items:baseline] [justify-content:space-between] [gap:0.75rem] [font-size:clamp(0.95rem,_2.6vw,_1.3rem)] [font-weight:600] [white-space:nowrap] max-[374px]:[gap:0.4rem] max-[374px]:[font-size:0.78rem]",
-  wsop_ticket_pen:
-    '[display:inline-block] [color:#6d3fd8] [font-family:"Bradley_Hand",_"Segoe_Script",_"Comic_Sans_MS",_cursive] [font-size:1.35em] [font-weight:400] [line-height:0.8] [transform:rotate(-4deg)] max-[374px]:[font-size:1.15em]',
-  wsop_ticket_scan:
-    "[display:grid] [grid-template-columns:auto_minmax(0,_1fr)] [align-items:center] [gap:1rem] max-[374px]:[gap:0.6rem]",
-  wsop_ticket_serial:
-    "[font-size:clamp(0.8rem,_2.2vw,_0.95rem)] [letter-spacing:0.02em] [white-space:nowrap] max-[374px]:[font-size:0.7rem]",
-  wsop_ticket_barcode:
-    "[width:min(100%,_16rem)] [height:3.4rem] [color:var(--ticket-ink)] [justify-self:center] xl:[height:4rem]",
-  wsop_ticket_bottomline:
-    "[display:flex] [align-items:baseline] [justify-content:space-between] [gap:1rem] [font-size:clamp(0.85rem,_2.4vw,_1.1rem)] [font-weight:600] [white-space:nowrap] [&_span:first-child]:[text-transform:uppercase] max-[374px]:[gap:0.5rem] max-[374px]:[font-size:0.72rem]",
-  wsop_event_details:
-    "[display:grid] [align-content:center] md:[grid-template-columns:repeat(2,_minmax(0,_1fr))] md:[column-gap:3rem] min-[1100px]:[grid-template-columns:1fr]",
-  wsop_detail:
-    "[display:grid] [gap:0.5rem] [padding-block:1.5rem] [border-bottom:1px_solid_var(--wsop-border)] first:[padding-top:0] last:[padding-bottom:0] last:[border-bottom:0] [&_span]:[color:var(--wsop-accent)] [&_span]:[font-family:var(--wsop-font-label)] [&_span]:[font-size:0.6875rem] [&_span]:[font-weight:400] [&_span]:[letter-spacing:0.14em] [&_span]:[text-transform:uppercase] [&_p]:[max-width:24rem] [&_p]:[font-size:1.2rem] [&_p]:[font-weight:400] [&_p]:[letter-spacing:-0.01em] [&_p]:[line-height:1.35] md:[&:nth-child(2)]:[padding-top:0] md:[&:nth-last-child(-n+2)]:[padding-bottom:0] md:[&:nth-last-child(-n+2)]:[border-bottom:0] min-[1100px]:[&:nth-child(2)]:[padding-top:1.5rem] min-[1100px]:[&:nth-last-child(2)]:[padding-bottom:1.5rem] min-[1100px]:[&:nth-last-child(2)]:[border-bottom:1px_solid_var(--wsop-border)] min-[1100px]:last:[border-bottom:0]",
-  wsop_lineup:
-    "[display:grid] [gap:2rem] [margin-top:4rem] [&_h3]:[max-width:13ch] [&_h3]:[margin-top:0.75rem] [&_h3]:[font-size:clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h3]:[font-weight:500] [&_h3]:[letter-spacing:-0.04em] [&_h3]:[line-height:1.125] [&_ol]:[display:grid] [&_ol]:[margin:0] [&_ol]:[padding:0] [&_ol]:[overflow:hidden] [&_ol]:[border:1px_solid_var(--wsop-border)] [&_ol]:[border-radius:1rem] [&_ol]:[background:rgba(255,_255,_255,_0.04)] [&_ol]:[list-style:none] [&_li]:[min-width:0] [&_li]:[min-height:4.75rem] [&_li]:[padding:0] [&_li]:[overflow:hidden] [&_li]:[border-bottom:1px_solid_var(--wsop-border)] [&_li:last-child]:[border-bottom:0] md:[&_ol]:[grid-template-columns:repeat(2,_minmax(0,_1fr))] md:[&_li]:[border-right:1px_solid_var(--wsop-border)] md:[&_li:nth-child(even)]:[border-right:0] md:[&_li:nth-last-child(-n_+_2):nth-child(odd)]:[border-bottom:0] md:[&_li:last-child]:[border-bottom:0] md:[&_li:last-child:nth-child(odd)]:[grid-column:1_/_-1] md:[&_li:last-child:nth-child(odd)]:[border-right:0] min-[1100px]:[grid-template-columns:minmax(17rem,_0.55fr)_minmax(0,_1fr)] min-[1100px]:[align-items:start] min-[1100px]:[gap:4rem] min-[1100px]:[margin-top:6rem] xl:[grid-template-columns:minmax(18rem,_0.55fr)_minmax(0,_1fr)]",
-  wsop_lineup_player:
-    "[display:grid] [width:100%] [min-height:4.75rem] [align-items:center] [grid-template-columns:auto_minmax(0,_1fr)_auto] [gap:1rem] [padding:0.75rem_1rem] [color:var(--wsop-text)] [text-decoration:none] [transition:background-color_180ms_ease,_color_180ms_ease,_box-shadow_180ms_ease] focus-visible:[outline:2px_solid_var(--wsop-lavender)] focus-visible:[outline-offset:-3px] motion-reduce:[transition:none]",
-  wsop_lineup_identity:
-    "[display:flex] [min-width:0] [flex-direction:column] [&_strong]:[overflow:hidden] [&_strong]:[font-size:1rem] [&_strong]:[font-weight:500] [&_strong]:[text-overflow:ellipsis] [&_strong]:[white-space:nowrap] [&>span]:[overflow:hidden] [&>span]:[color:var(--wsop-muted)] [&>span]:[font-family:var(--wsop-font-label)] [&>span]:[font-size:0.7rem] [&>span]:[text-overflow:ellipsis] [&>span]:[white-space:nowrap] [&>span]:[transition:color_180ms_ease]",
-  wsop_lineup_suit:
-    "[width:0.85rem] [height:0.85rem] [color:rgba(255,_255,_255,_0.26)] [&.is-red]:[color:rgba(255,_84,_112,_0.6)]",
-  wsop_event_cta:
-    "[display:flex] [align-items:flex-start] [flex-direction:column] [gap:1.5rem] [margin-top:2rem] [&_p]:[max-width:31rem] [&_p]:[color:var(--wsop-muted)] [&_p]:[font-size:1rem] [&_p]:[line-height:1.5] md:[align-items:center] md:[justify-content:flex-end] md:[flex-direction:row] md:[&_p]:[text-align:right]",
-  wsop_ambassadors: "[border-top:1px_solid_var(--wsop-border)]",
-  wsop_ambassadors_grid:
-    "[display:grid] [gap:1rem] [margin-top:2rem] md:[margin-top:3rem] min-[1100px]:[grid-template-columns:repeat(2,_minmax(0,_1fr))]",
-  wsop_ambassador:
-    "[display:grid] [overflow:hidden] [border:1px_solid_var(--wsop-border)] [border-radius:1rem] [background:var(--wsop-card)] [transition:border-color_180ms_ease,_box-shadow_180ms_ease] hover:[border-color:var(--wsop-border-prominent)] hover:[box-shadow:0_18px_44px_rgba(0,_0,_0,_0.24)] sm:[grid-template-columns:minmax(13rem,_0.8fr)_minmax(0,_1.2fr)] min-[1100px]:[&:last-child:nth-child(odd)]:[width:calc(50%_-_0.5rem)] min-[1100px]:[&:last-child:nth-child(odd)]:[grid-column:1_/_-1] min-[1100px]:[&:last-child:nth-child(odd)]:[justify-self:center] motion-reduce:[transition:none]",
-  wsop_ambassador_portrait:
-    "[position:relative] [display:flex] [min-height:18rem] [flex-direction:column] [align-items:center] [justify-content:center] [overflow:hidden] [border-bottom:1px_solid_var(--wsop-border)] [background:radial-gradient(_circle_at_50%_64%,_rgba(85,_233,_171,_0.26),_transparent_38%_),_linear-gradient(145deg,_rgba(202,_159,_245,_0.2),_transparent_48%),_#121116] before:[position:absolute] before:[z-index:1] before:[inset:0.75rem] before:[border:1px_solid_var(--wsop-border)] before:[border-radius:0.75rem] before:content-[''] before:[pointer-events:none] sm:[min-height:100%] sm:[border-right:1px_solid_var(--wsop-border)] sm:[border-bottom:0]",
-  wsop_ambassador_portrait_image: "[object-fit:cover] [object-position:center]",
-  wsop_ambassador_copy:
-    "[display:flex] [min-height:23rem] [flex-direction:column] [padding:1.25rem] [&>span]:[color:var(--wsop-accent)] [&>span]:[font-family:var(--wsop-font-label)] [&>span]:[font-size:0.7rem] [&>p:first-of-type]:[margin-top:auto] [&>p:first-of-type]:[color:var(--wsop-accent)] [&>p:first-of-type]:[font-family:var(--wsop-font-label)] [&>p:first-of-type]:[font-size:0.7rem] [&>p:first-of-type]:[letter-spacing:0.06em] [&>p:first-of-type]:[text-transform:uppercase] [&_h3]:[margin-top:0.75rem] [&_h3]:[font-size:1.75rem] [&_h3]:[font-weight:500] [&_h3]:[letter-spacing:-0.03em] [&_h3]:[line-height:1.15] sm:[min-height:27rem] sm:[padding:1.5rem] xl:[&_h3]:[font-size:2.25rem]",
-  wsop_ambassador_story:
-    "[display:flex] [align-items:center] [justify-content:space-between] [gap:0.5rem] [margin-top:1.5rem] [padding-top:1rem] [border-top:1px_solid_var(--wsop-border)] [color:var(--wsop-muted)] [font-family:var(--wsop-font-label)] [font-size:0.6875rem] [letter-spacing:0.05em] [text-transform:uppercase] [&_svg]:[width:0.9rem]",
-  wsop_start_inner:
-    "[position:relative] [width:min(100%,_1360px)] [margin-inline:auto] [color:var(--wsop-text)] [&>*]:[position:relative] [&>*]:[z-index:1]",
-  wsop_start_grid:
-    "[display:grid] [gap:1rem] md:[grid-template-columns:minmax(0,_1.08fr)_minmax(18rem,_0.92fr)]",
-  wsop_start_card:
-    "[position:relative] [display:flex] [min-height:23rem] [flex-direction:column] [overflow:hidden] [border-radius:1rem] [&_h2]:[max-width:11ch] [&_h2]:[color:#000] [&_h2]:[font-size:clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:[letter-spacing:-0.04em] [&_h2]:[line-height:1.125] [&_h3]:[max-width:11ch] [&_h3]:[color:#000] [&_h3]:[font-size:clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h3]:[letter-spacing:-0.04em] [&_h3]:[line-height:1.125]",
-  wsop_start_card_onboarding:
-    "[padding:clamp(1.5rem,_3vw,_2.5rem)] [background:#dfcdf5] [color:#000]",
-  wsop_start_card_guide:
-    "[padding:clamp(1.5rem,_3vw,_2.5rem)] [border:1px_solid_rgba(85,_233,_171,_0.46)] [background:var(--wsop-accent)] [color:#000] [transition:border-color_180ms_ease,_background-color_180ms_ease] after:[position:absolute] after:[right:-7rem] after:[bottom:-8rem] after:[width:19rem] after:[aspect-ratio:1] after:[border:1px_solid_rgba(0,_0,_0,_0.17)] after:[border-radius:50%] after:[box-shadow:inset_0_0_0_1rem_var(--wsop-accent),_inset_0_0_0_calc(1rem_+_1px)_rgba(0,_0,_0,_0.1),_inset_0_0_0_2rem_var(--wsop-accent),_inset_0_0_0_calc(2rem_+_1px)_rgba(0,_0,_0,_0.08)] after:content-[''] after:[pointer-events:none] hover:[border-color:rgba(0,_0,_0,_0.42)] hover:[background:#67efb5] [&:hover_svg]:[transform:translate(1px,_-1px)] motion-reduce:[&:hover_svg]:[transform:none]",
-  wsop_start_content:
-    "[position:relative] [z-index:1] [display:flex] [flex:1] [flex-direction:column] [max-width:52rem] [&>p]:[max-width:34rem] [&>p]:[margin-top:1rem] [&>p]:[color:rgba(0,_0,_0,_0.64)] [&>p]:[font-size:1.125rem] [&>p]:[line-height:1.5]",
-  wsop_start_guide_copy:
-    "[position:relative] [z-index:1] [&>p]:[max-width:34rem] [&>p]:[margin-top:1rem] [&>p]:[color:rgba(0,_0,_0,_0.64)] [&>p]:[font-size:1.125rem] [&>p]:[line-height:1.5]",
-  wsop_start_guide_action:
-    "[position:relative] [z-index:1] motion-reduce:[&_svg]:[transition:none]",
-  wsop_start_actions:
-    "[display:flex] [flex-wrap:wrap] [align-items:stretch] [gap:0.75rem] [margin-top:auto] [padding-top:1.5rem] [&_*]:[flex:0_0_auto] max-[639px]:[flex-direction:column] max-[639px]:[&>*]:[width:100%]",
-};
+const eyebrowClass =
+  "font-[family-name:var(--wsop-font-label)] text-[length:var(--wsop-label-size)] font-medium tracking-[var(--wsop-label-tracking)] leading-[1.33] uppercase text-[var(--wsop-accent)]";
+const sectionClass =
+  "relative w-[min(100%,_1440px)] mx-auto py-[clamp(4rem,calc(10vw+2rem),10rem)] px-5 md:px-8 lg:py-[clamp(6rem,_7vw,_7.5rem)] xl:px-[2.5rem]";
+const sectionHeadingClass =
+  "grid gap-6 lg:grid-cols-[minmax(0,_1fr)_minmax(20rem,_0.55fr)] lg:items-end lg:gap-12 xl:grid-cols-[minmax(0,_1fr)_minmax(22rem,_0.55fr)] xl:gap-16";
+const sectionTitleClass =
+  "max-w-[14ch] text-[clamp(2rem,calc(4.6875vw+0.25rem),4rem)] tracking-[-0.04em] leading-[1.125] font-medium text-balance";
+const sectionDescriptionClass =
+  "max-w-[36rem] text-[var(--wsop-muted)] text-[clamp(1.125rem,3.125vw,1.5rem)] tracking-[-0.02em] leading-[1.45] md:leading-[1.33]";
+const buttonClass =
+  "inline-flex min-h-12 items-center justify-between gap-5 pt-2 pr-2 pb-2 pl-5 border-0 rounded-full bg-white text-black cursor-pointer text-base font-medium tracking-tight leading-tight [&_svg]:w-8 [&_svg]:h-8 [&_svg]:p-2 [&_svg]:rounded-full [&_svg]:bg-black [&_svg]:text-white [&_svg]:stroke-[2.5] [&_svg]:transition-[transform_180ms_cubic-bezier(0.22,_1,_0.36,_1)] [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] hover:bg-[rgba(255,_255,_255,_0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)] focus-visible:outline-offset-[4px] md:text-lg motion-reduce:[&_svg]:transition-[none] motion-reduce:[&:hover_svg]:transform-none";
 
 type Icon = typeof Spade;
 
@@ -357,32 +249,48 @@ function Stagger({
 
 function SuitIcon({
   suit,
-  className = "",
+  className,
+  redClassName = "text-[var(--wsop-red-bright)]",
 }: {
   suit: Suit;
   className?: string;
+  redClassName?: string;
 }) {
   const Icon = SUIT_ICONS[suit];
-
   return (
     <Icon
-      className={`${wsopStyles.wsop_suit_icon} ${className} ${
-        isRedSuit(suit) ? "is-red" : ""
-      }`}
+      className={cn(
+        "fill-current stroke-[1.75]",
+        className,
+        isRedSuit(suit) && redClassName,
+      )}
       pack="filled"
       aria-hidden="true"
     />
   );
 }
 
-function SuitRun({ className = "" }: { className?: string }) {
+function SuitRun({
+  className,
+  iconClassName = "size-[0.85rem]",
+  redClassName,
+}: {
+  className?: string;
+  iconClassName?: string;
+  redClassName?: string;
+}) {
   return (
     <span
-      className={`${wsopStyles.wsop_suit_run} ${className}`}
+      className={cn("inline-flex items-center gap-2 text-white/55", className)}
       aria-hidden="true"
     >
       {SUITS.map((suit) => (
-        <SuitIcon key={suit} suit={suit} />
+        <SuitIcon
+          key={suit}
+          suit={suit}
+          className={iconClassName}
+          redClassName={redClassName}
+        />
       ))}
     </span>
   );
@@ -392,8 +300,13 @@ function LiveChip({ children }: { children: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
 
   return (
-    <span className={`${wsopStyles.wsop_live_chip}`}>
+    <span
+      className={
+        "inline-flex min-h-8 items-center gap-[0.6rem] py-[0.35rem] px-3 rounded-full bg-[rgba(217,_0,_41,_0.16)] text-[var(--wsop-red-bright)] font-[family-name:var(--wsop-font-label)] text-[0.7rem] font-medium tracking-[0.08em] uppercase"
+      }
+    >
       <motion.span
+        className="size-[0.45rem] rounded-full bg-[var(--wsop-red-bright)] shadow-[0_0_0_4px_rgba(217,0,41,0.16)]"
         aria-hidden="true"
         animate={
           reduceMotion
@@ -426,9 +339,11 @@ function SectionLabel({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`${wsopStyles.wsop_section_label}`}>
-      <SuitIcon className="" suit={suit} />
-      <p>{children}</p>
+    <div className="mb-[clamp(2rem,4vw,3rem)] flex w-fit items-center gap-3 font-[family-name:var(--wsop-font-label)] text-[length:var(--wsop-label-size)] font-medium leading-[1.33] tracking-[var(--wsop-label-tracking)] text-[var(--wsop-accent)] uppercase">
+      <SuitIcon suit={suit} className="size-4 shrink-0 text-white/40" />
+      <p className="border-l border-[var(--wsop-border-prominent)] pl-3">
+        {children}
+      </p>
     </div>
   );
 }
@@ -447,7 +362,7 @@ function ArrowLink({
   return (
     <motion.a
       href={href}
-      className={`${wsopStyles.wsop_button} ${className}`}
+      className={`${buttonClass} ${className}`}
       target="_blank"
       rel="noreferrer"
       whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
@@ -464,14 +379,25 @@ function BrandMarquee() {
   const t = useTranslations("wsop.marquee");
   const track = (hidden: boolean) => (
     <div
-      className={`${wsopStyles.wsop_marquee_track} ${hidden ? "motion-reduce:hidden" : ""}`}
+      className={`flex flex-[0_0_auto] min-w-max animate-wsop-marquee motion-reduce:animate-none ${hidden ? "motion-reduce:hidden" : ""}`}
       aria-hidden={hidden || undefined}
     >
       {MARQUEE_LINE_IDS.map((id, index) => (
-        <span className={`${wsopStyles.wsop_marquee_item}`} key={id}>
-          <span className={`${wsopStyles.wsop_marquee_text}`}>{t(id)}</span>
+        <span
+          className={
+            "inline-flex items-center gap-[2.25rem] pr-[2.25rem] whitespace-nowrap"
+          }
+          key={id}
+        >
+          <span
+            className={
+              "text-[rgba(255,_255,_255,_0.56)] font-[family-name:var(--wsop-font-label)] text-xs font-medium tracking-[0.08em] uppercase"
+            }
+          >
+            {t(id)}
+          </span>
           <SuitIcon
-            className={`${wsopStyles.wsop_marquee_suit}`}
+            className={"w-[0.8rem] h-[0.8rem] text-[rgba(255,_255,_255,_0.3)]"}
             suit={SUITS[index % SUITS.length]}
           />
         </span>
@@ -480,7 +406,11 @@ function BrandMarquee() {
   );
 
   return (
-    <div className={`${wsopStyles.wsop_marquee}`}>
+    <div
+      className={
+        "flex overflow-hidden py-[0.9rem] border-b border-b-[var(--wsop-border)]"
+      }
+    >
       {track(false)}
       {track(true)}
     </div>
@@ -522,7 +452,9 @@ function TicketBarcode({ value }: { value: string }) {
 
   return (
     <svg
-      className={`${wsopStyles.wsop_ticket_barcode}`}
+      className={
+        "w-[min(100%,_16rem)] h-[3.4rem] text-[var(--ticket-ink)] justify-self-center xl:h-16"
+      }
       viewBox={`0 0 ${binary.length} 60`}
       preserveAspectRatio="none"
       shapeRendering="crispEdges"
@@ -546,7 +478,7 @@ function AppDownloadButtons() {
   const t = useTranslations("wsop.howTo.download");
   return (
     <div className="mt-10 flex flex-wrap gap-3">
-      <span className="w-full font-[var(--wsop-font-label)] text-xs uppercase tracking-[var(--wsop-label-tracking)] text-white/60">
+      <span className="w-full font-[family-name:var(--wsop-font-label)] text-xs uppercase tracking-[var(--wsop-label-tracking)] text-white/60">
         {t("label")}
       </span>
       {(
@@ -587,7 +519,7 @@ function AppDownloadButtons() {
               />
             </span>
             <span className="grid min-w-0 gap-0.5">
-              <small className="font-[var(--wsop-font-label)] text-[0.6875rem] uppercase text-white/60">
+              <small className="font-[family-name:var(--wsop-font-label)] text-[0.6875rem] uppercase text-white/60">
                 {t("viewOn")}
               </small>
               <strong className="text-base font-medium">{t(name)}</strong>
@@ -616,7 +548,9 @@ export function WsopPage() {
   return (
     <MotionConfig reducedMotion="user">
       <motion.a
-        className={`${wsopStyles.wsop_skip_link}`}
+        className={
+          "fixed z-[100] top-4 left-4 py-3 px-4 rounded-full bg-white text-black font-[family-name:var(--wsop-font-label)] text-xs tracking-[var(--wsop-label-tracking)] uppercase"
+        }
         href="#wsop-main"
         initial={{ y: "-180%" }}
         whileFocus={{ y: 0 }}
@@ -626,7 +560,9 @@ export function WsopPage() {
       </motion.a>
       <main id="wsop-main">
         <section
-          className={`${wsopStyles.wsop_hero}`}
+          className={
+            "relative flex min-h-[max(620px,_calc(100svh_-_70px))] flex-col overflow-hidden border-b border-b-[var(--wsop-border)] isolate"
+          }
           aria-labelledby="wsop-title"
           ref={heroRef}
         >
@@ -642,18 +578,24 @@ export function WsopPage() {
           </motion.div>
           <div className="absolute inset-0 z-[-2] bg-[linear-gradient(90deg,rgba(4,40,58,0.92),rgba(4,40,58,0.85)),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)] md:bg-[linear-gradient(90deg,rgba(4,40,58,0.82),rgba(4,40,58,0.35)_55%,transparent_80%),linear-gradient(0deg,rgba(4,40,58,0.7),transparent_45%)]" />
           <motion.div
-            className={`${wsopStyles.wsop_hero_topline} border-b border-white/20 bg-[rgba(4,40,58,0.35)] text-white/80 backdrop-blur-md`}
+            className={
+              "flex justify-between gap-8 border-b border-white/20 bg-[rgba(4,40,58,0.35)] px-5 py-4 font-[family-name:var(--wsop-font-label)] text-[0.7rem] font-medium leading-[1.4] tracking-[0.08em] text-white/80 uppercase backdrop-blur-md md:px-8 xl:px-[max(2.5rem,calc((100vw-1440px)/2+2.5rem))] max-[767px]:[&>p:last-child]:hidden"
+            }
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.7, ease: EASE, delay: 0.1 }}
           >
-            <p className="font-[var(--wsop-font-label)]">{t("hero.topline")}</p>
-            <p className="font-[var(--wsop-font-label)]">
+            <p className="font-[family-name:var(--wsop-font-label)]">
+              {t("hero.topline")}
+            </p>
+            <p className="font-[family-name:var(--wsop-font-label)] text-[var(--wsop-accent)]">
               {t("hero.presentedBy")}
             </p>
           </motion.div>
           <motion.div
-            className={`${wsopStyles.wsop_hero_content}`}
+            className={
+              "block w-[min(100%,_1440px)] mx-auto pt-[clamp(4rem,9vw,7.75rem)] pb-[clamp(8rem,11vw,10rem)] px-5 md:px-8 xl:px-[2.5rem]"
+            }
             initial="hidden"
             animate="visible"
             variants={heroVariants}
@@ -669,18 +611,16 @@ export function WsopPage() {
               />
             </motion.div>
             <motion.div variants={heroItemVariants}>
-              <p
-                className={`${wsopStyles.wsop_eyebrow} ${wsopStyles.wsop_hero_eyebrow}`}
-              >
+              <p className={`${eyebrowClass} flex items-center gap-3`}>
                 <SuitRun />
                 {t("hero.eyebrow")}
               </p>
             </motion.div>
-            <div className={`${wsopStyles.wsop_hero_title_mask}`}>
+            <div className={"mt-3 overflow-hidden"}>
               <motion.h1
                 id="wsop-title"
                 variants={heroTitleVariants}
-                className="font-medium text-balance"
+                className="max-w-[11ch] text-[clamp(2.5rem,calc(6.25vw+0.5rem),5.5rem)] tracking-[-0.03em] leading-none font-medium text-balance"
               >
                 {t("hero.title")}
               </motion.h1>
@@ -693,7 +633,7 @@ export function WsopPage() {
             </motion.p>
             <motion.a
               variants={heroItemVariants}
-              className={`${wsopStyles.wsop_button} mt-10 w-fit`}
+              className={`${buttonClass} mt-10 w-fit`}
               href="#how-to-buy-in"
             >
               <span>{t("hero.cta")}</span>
@@ -707,17 +647,19 @@ export function WsopPage() {
           </motion.div>
         </section>
         <section
-          className={`${wsopStyles.wsop_section} scroll-mt-24`}
+          className={`${sectionClass} scroll-mt-24`}
           id="how-to-buy-in"
           aria-labelledby="how-to-heading"
         >
           <Reveal>
             <SectionLabel suit="diamond">{t("howTo.label")}</SectionLabel>
-            <div className={`${wsopStyles.wsop_section_heading}`}>
-              <h2 id="how-to-heading" className="font-medium text-balance">
+            <div className={`${sectionHeadingClass}`}>
+              <h2 id="how-to-heading" className={sectionTitleClass}>
                 {t("howTo.title")}
               </h2>
-              <p>{t("howTo.description")}</p>
+              <p className={sectionDescriptionClass}>
+                {t("howTo.description")}
+              </p>
             </div>
           </Reveal>
           <div className="mt-10 grid items-start gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16">
@@ -736,7 +678,7 @@ export function WsopPage() {
                 bgColorClass="border border-white/30 bg-white/15 backdrop-blur-md"
                 playButtonClassName="h-20 w-20"
               />
-              <p className="mt-5 font-[var(--wsop-font-label)] text-xs leading-relaxed text-white/55 uppercase tracking-[var(--wsop-label-tracking)]">
+              <p className="mt-5 font-[family-name:var(--wsop-font-label)] text-xs leading-relaxed text-white/55 uppercase tracking-[var(--wsop-label-tracking)]">
                 {t("howTo.videoNote")}
               </p>
             </div>
@@ -783,47 +725,72 @@ export function WsopPage() {
           </div>
         </section>
         <section
-          className={`${wsopStyles.wsop_section} ${wsopStyles.wsop_buyins}`}
+          className={`${sectionClass} border-t border-t-[var(--wsop-border)] border-b border-b-[var(--wsop-border)]`}
           aria-labelledby="why-heading"
         >
           <Reveal>
             <SectionLabel suit="spade">{t("whyOnchain.label")}</SectionLabel>
-            <div className={`${wsopStyles.wsop_section_heading} `}>
-              <h2 id="why-heading" className="font-medium text-balance">
+            <div className={`${sectionHeadingClass} `}>
+              <h2 id="why-heading" className={sectionTitleClass}>
                 {t("whyOnchain.title")}
               </h2>
-              <p>{t("whyOnchain.description")}</p>
+              <p className={sectionDescriptionClass}>
+                {t("whyOnchain.description")}
+              </p>
             </div>
             <Stagger className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {BENEFITS.map(({ id, suit, rank }) => (
                 <motion.article
-                  className={`${wsopStyles.wsop_benefit} [--card-pad:1.25rem] aspect-[5/7] md:max-[959px]:aspect-auto lg:aspect-[4/5] lg:[--card-pad:1.75rem]`}
+                  className={
+                    "[--card-pad:1rem] relative flex flex-col p-[var(--card-pad)] border border-[rgba(0,_0,_0,_0.1)] rounded-xl bg-white text-[#16141c] shadow-[0_14px_32px_rgba(0,_0,_0,_0.2)] md:[--card-pad:1.25rem] md:max-[959px]:min-h-[clamp(30rem,_52vw,_31rem)] min-[960px]:min-h-0 min-[960px]:max-[1023px]:grid min-[960px]:max-[1023px]:grid-rows-[auto_minmax(3.25rem,_1fr)_auto_auto] max-[559px]:min-h-[clamp(19.5rem,_72vw,_22.75rem)] max-[374px]:min-h-0 max-[374px]:aspect-[5/7] [--card-pad:1.25rem] aspect-[5/7] md:max-[959px]:aspect-auto lg:aspect-[4/5] lg:[--card-pad:1.75rem]"
+                  }
                   key={id}
                   variants={dealVariants}
                 >
                   <span
-                    className={`${wsopStyles.wsop_benefit_index} ${isRedSuit(suit) ? "is-red" : ""}`}
+                    className={cn(
+                      "inline-flex w-fit flex-col items-center gap-[0.3rem] font-[family-name:var(--wsop-font-label)] text-[0.8rem] font-medium leading-none",
+                      isRedSuit(suit)
+                        ? "text-[var(--wsop-red)]"
+                        : "text-[rgba(22,20,28,0.72)]",
+                    )}
                     aria-hidden="true"
                   >
                     {rank}
-                    <SuitIcon suit={suit} />
+                    <SuitIcon
+                      suit={suit}
+                      className="size-[0.6875rem]"
+                      redClassName="text-[var(--wsop-red)]"
+                    />
                   </span>
                   <SuitIcon
-                    className={`${wsopStyles.wsop_benefit_pip}`}
+                    className={
+                      "absolute top-1/2 left-1/2 w-[3.25rem] h-[3.25rem] text-[#16141c] translate-x-[-50%] translate-y-[-50%] min-[960px]:max-[1023px]:static min-[960px]:max-[1023px]:w-[clamp(2.5rem,_12vw,_3.25rem)] min-[960px]:max-[1023px]:h-[clamp(2.5rem,_12vw,_3.25rem)] min-[960px]:max-[1023px]:row-[2] min-[960px]:max-[1023px]:self-end min-[960px]:max-[1023px]:justify-self-center min-[960px]:max-[1023px]:transform-none max-[559px]:w-[clamp(2.5rem,_12vw,_3.25rem)] max-[559px]:h-[clamp(2.5rem,_12vw,_3.25rem)]"
+                    }
                     suit={suit}
+                    redClassName="text-[var(--wsop-red)]"
                   />
-                  <h3 className="font-medium text-balance max-w-[16ch]">
+                  <h3 className="mt-auto max-w-[16ch] text-[clamp(1.125rem,2.1875vw,1.75rem)] font-medium tracking-[-0.02em] leading-[1.2] text-balance min-[960px]:max-[1023px]:mt-2">
                     {t(`whyOnchain.cards.${id}.title`)}
                   </h3>
                   <p className="mt-3 max-w-[21rem] pr-10 text-[0.9375rem] leading-relaxed text-[#16141ca3]">
                     {t(`whyOnchain.cards.${id}.body`)}
                   </p>
                   <span
-                    className={`${wsopStyles.wsop_benefit_index} ${wsopStyles.wsop_benefit_index_mirror} ${isRedSuit(suit) ? "is-red" : ""}`}
+                    className={cn(
+                      "absolute right-[var(--card-pad)] bottom-[var(--card-pad)] inline-flex w-fit rotate-180 flex-col items-center gap-[0.3rem] font-[family-name:var(--wsop-font-label)] text-[0.8rem] font-medium leading-none opacity-[0.45]",
+                      isRedSuit(suit)
+                        ? "text-[var(--wsop-red)]"
+                        : "text-[rgba(22,20,28,0.72)]",
+                    )}
                     aria-hidden="true"
                   >
                     {rank}
-                    <SuitIcon suit={suit} />
+                    <SuitIcon
+                      suit={suit}
+                      className="size-[0.6875rem]"
+                      redClassName="text-[var(--wsop-red)]"
+                    />
                   </span>
                 </motion.article>
               ))}
@@ -831,29 +798,41 @@ export function WsopPage() {
           </Reveal>
         </section>
         <section
-          className={`${wsopStyles.wsop_section} ${wsopStyles.wsop_ambassadors}`}
+          className={`${sectionClass} border-t border-t-[var(--wsop-border)]`}
           aria-labelledby="stories-heading"
         >
           <Reveal>
             <SectionLabel suit="club">{t("stories.label")}</SectionLabel>
-            <div className={`${wsopStyles.wsop_section_heading} `}>
-              <h2 id="stories-heading" className="font-medium text-balance">
+            <div className={`${sectionHeadingClass} `}>
+              <h2 id="stories-heading" className={sectionTitleClass}>
                 {t("stories.title")}
               </h2>
-              <p>{t("stories.description")}</p>
+              <p className={sectionDescriptionClass}>
+                {t("stories.description")}
+              </p>
             </div>
-            <Stagger className={`${wsopStyles.wsop_ambassadors_grid}`}>
+            <Stagger
+              className={
+                "grid gap-4 mt-8 md:mt-12 min-[1100px]:grid-cols-[repeat(2,_minmax(0,_1fr))]"
+              }
+            >
               {ambassadors.map((ambassador, index) => (
                 <motion.article
-                  className={`${wsopStyles.wsop_ambassador}`}
+                  className={
+                    "grid overflow-hidden border border-[var(--wsop-border)] rounded-2xl bg-[var(--wsop-card)] transition-[border-color_180ms_ease,_box-shadow_180ms_ease] hover:border-[var(--wsop-border-prominent)] hover:shadow-[0_18px_44px_rgba(0,_0,_0,_0.24)] sm:grid-cols-[minmax(13rem,_0.8fr)_minmax(0,_1.2fr)] min-[1100px]:[&:last-child:nth-child(odd)]:w-[calc(50%_-_0.5rem)] min-[1100px]:[&:last-child:nth-child(odd)]:col-[1_/_-1] min-[1100px]:[&:last-child:nth-child(odd)]:justify-self-center motion-reduce:transition-[none]"
+                  }
                   key={ambassador.name}
                   variants={staggerItemVariants}
                   whileHover={reduceMotion ? { y: 0 } : { y: -2 }}
                   transition={{ duration: 0.18, ease: EASE }}
                 >
-                  <div className={`${wsopStyles.wsop_ambassador_portrait}`}>
+                  <div
+                    className={
+                      "relative flex min-h-72 flex-col items-center justify-center overflow-hidden border-b border-b-[var(--wsop-border)] bg-[radial-gradient(_circle_at_50%_64%,_rgba(85,_233,_171,_0.26),_transparent_38%_),_linear-gradient(145deg,_rgba(202,_159,_245,_0.2),_transparent_48%),_#121116] before:absolute before:z-[1] before:inset-3 before:border before:border-[var(--wsop-border)] before:rounded-xl before:content-[''] before:pointer-events-none sm:min-h-full sm:border-r sm:border-r-[var(--wsop-border)] sm:border-b-0"
+                    }
+                  >
                     <Image
-                      className={`${wsopStyles.wsop_ambassador_portrait_image}`}
+                      className={"object-cover object-center"}
                       src={ambassador.image}
                       alt=""
                       fill
@@ -861,14 +840,18 @@ export function WsopPage() {
                       unoptimized={ambassador.unoptimized}
                     />
                   </div>
-                  <div className={`${wsopStyles.wsop_ambassador_copy}`}>
+                  <div
+                    className={
+                      "flex min-h-[23rem] flex-col p-5 [&>span]:text-[var(--wsop-accent)] [&>span]:font-[family-name:var(--wsop-font-label)] [&>span]:text-[0.7rem] [&>p:first-of-type]:mt-auto [&>p:first-of-type]:text-[var(--wsop-accent)] [&>p:first-of-type]:font-[family-name:var(--wsop-font-label)] [&>p:first-of-type]:text-[0.7rem] [&>p:first-of-type]:tracking-[0.06em] [&>p:first-of-type]:uppercase [&_h3]:mt-3 [&_h3]:text-[1.75rem] [&_h3]:font-medium [&_h3]:tracking-[-0.03em] [&_h3]:leading-[1.15] sm:min-h-[27rem] sm:p-6 xl:[&_h3]:text-[2.25rem]"
+                    }
+                  >
                     <span>{t("stories.episode", { number: index + 1 })}</span>
                     <p>{t(`stories.profiles.${ambassador.id}.title`)}</p>
                     <h3 className="font-medium text-balance">
                       {ambassador.name}
                     </h3>
                     <div className="mt-5 flex flex-col gap-1.5 border-l border-[var(--wsop-border-prominent)] pl-3">
-                      <strong className="font-[var(--wsop-font-label)] text-xs font-medium tracking-[0.06em] text-[var(--wsop-accent)] uppercase">
+                      <strong className="font-[family-name:var(--wsop-font-label)] text-xs font-medium tracking-[0.06em] text-[var(--wsop-accent)] uppercase">
                         {t(`stories.profiles.${ambassador.id}.theme`)}
                       </strong>
                       <span className="text-sm leading-snug text-white/75">
@@ -880,7 +863,9 @@ export function WsopPage() {
                     </p>
                     {ambassador.href ? (
                       <a
-                        className={`${wsopStyles.wsop_ambassador_story}`}
+                        className={
+                          "flex items-center justify-between gap-2 mt-6 pt-4 border-t border-t-[var(--wsop-border)] text-[var(--wsop-muted)] font-[family-name:var(--wsop-font-label)] text-[0.6875rem] tracking-[0.05em] uppercase [&_svg]:w-[0.9rem]"
+                        }
                         href={ambassador.href}
                         target="_blank"
                         rel="noreferrer"
@@ -889,7 +874,11 @@ export function WsopPage() {
                         <ArrowOutUpRightSquare aria-hidden="true" />
                       </a>
                     ) : (
-                      <div className={`${wsopStyles.wsop_ambassador_story}`}>
+                      <div
+                        className={
+                          "flex items-center justify-between gap-2 mt-6 pt-4 border-t border-t-[var(--wsop-border)] text-[var(--wsop-muted)] font-[family-name:var(--wsop-font-label)] text-[0.6875rem] tracking-[0.05em] uppercase [&_svg]:w-[0.9rem]"
+                        }
+                      >
                         {ambassador.releaseDate
                           ? t("stories.goesLive", {
                               date: ambassador.releaseDate,
@@ -906,13 +895,13 @@ export function WsopPage() {
         </section>
         <BrandMarquee />
         <section
-          className={`${wsopStyles.wsop_section} `}
+          className={`${sectionClass} `}
           id="showdown"
           aria-labelledby="showdown-heading"
         >
           <Reveal>
             <SectionLabel suit="heart">{t("showdown.label")}</SectionLabel>
-            <div className={`${wsopStyles.wsop_section_heading}`}>
+            <div className={`${sectionHeadingClass}`}>
               <div>
                 <Image
                   src="/src/img/wsop/paradise/showdown-lockup.webp"
@@ -924,45 +913,71 @@ export function WsopPage() {
                 <LiveChip>{t("showdown.chip")}</LiveChip>
                 <h2
                   id="showdown-heading"
-                  className="font-medium text-balance mt-6"
+                  className={`${sectionTitleClass} mt-6`}
                 >
                   {t("showdown.title")}
                 </h2>
               </div>
-              <p>{t("showdown.description")}</p>
+              <p className={sectionDescriptionClass}>
+                {t("showdown.description")}
+              </p>
             </div>
-            <div className={`${wsopStyles.wsop_event_layout}`}>
+            <div
+              className={
+                "grid gap-4 mt-8 md:mt-12 min-[1100px]:grid-cols-[minmax(0,_1.4fr)_minmax(21rem,_0.6fr)] min-[1100px]:items-center min-[1100px]:gap-6 xl:grid-cols-[minmax(0,_1.4fr)_minmax(24rem,_0.6fr)]"
+              }
+            >
               <motion.div
-                className={`${wsopStyles.wsop_ticket} bg-[linear-gradient(135deg,#f3fbfe,#cfeefa)]`}
+                className={`[--ticket-pad:1.4rem] [--ticket-paper:#f1eafd] [--ticket-ink:#16141c] relative flex flex-col gap-[1.1rem] py-[var(--ticket-pad)] px-[calc(var(--ticket-pad)+0.5rem)] rounded-xl shadow-[0_22px_44px_rgba(0,_0,_0,_0.5),_inset_0_1px_0_rgba(255,_255,_255,_0.7)] text-[var(--ticket-ink)] font-["Helvetica_Neue",_Arial,_"Liberation_Sans",_sans-serif] md:[--ticket-pad:2rem] md:gap-6 xl:[--ticket-pad:2.4rem] xl:gap-[1.75rem] max-[374px]:[--ticket-pad:1rem] max-[374px]:gap-[0.9rem] max-[374px]:px-5 bg-[linear-gradient(135deg,#f3fbfe,#cfeefa)]`}
                 whileHover={reduceMotion ? { rotate: 0 } : { rotate: -0.75 }}
                 transition={{ duration: 0.25, ease: EASE }}
               >
-                <div className={`${wsopStyles.wsop_ticket_topline}`}>
+                <div
+                  className={
+                    "flex items-baseline justify-between gap-4 text-[clamp(0.85rem,_2.4vw,_1.15rem)] font-semibold whitespace-nowrap max-[374px]:gap-2 max-[374px]:text-[0.72rem]"
+                  }
+                >
                   <span>{t("showdown.ticket.topline")}</span>
                   <span>{t("showdown.ticket.type")}</span>
                   <span>NLH</span>
                 </div>
-                <div className={`${wsopStyles.wsop_ticket_place}`}>
+                <div
+                  className={
+                    "grid grid-cols-[auto_minmax(0,_1fr)] items-center gap-4"
+                  }
+                >
                   <div
-                    className={`${wsopStyles.wsop_ticket_chip}`}
+                    className={
+                      "grid w-[clamp(3.25rem,_9vw,_4.5rem)] h-[clamp(3.25rem,_9vw,_4.5rem)] rounded-full bg-[radial-gradient(_circle,_var(--ticket-paper)_0_52%,_var(--ticket-ink)_52.5%_56%,_transparent_56.5%_),_repeating-conic-gradient(_var(--ticket-ink)_0deg_22.5deg,_var(--ticket-paper)_22.5deg_45deg_)] shadow-[inset_0_0_0_2px_var(--ticket-ink)] place-content-center justify-items-center gap-y-[0.15rem]"
+                    }
                     aria-hidden="true"
                   >
-                    <span>WSOP</span>
+                    <span className="text-[0.6875rem] font-extrabold tracking-[0.04em] leading-none">
+                      WSOP
+                    </span>
                     <SuitRun
-                      className={`${wsopStyles.wsop_ticket_chip_suits}`}
+                      className="gap-[0.12rem] text-[var(--ticket-ink)]"
+                      iconClassName="size-[0.4rem] shrink-0"
+                      redClassName="text-[var(--wsop-red)]"
                     />
                   </div>
                   <p
-                    className={`${wsopStyles.wsop_ticket_prize} flex flex-col items-center gap-3 text-[clamp(1.75rem,6vw,3.25rem)] [&>span]:text-[max(0.6875rem,0.36em)] [&>span]:font-semibold [&>span]:tracking-[0.08em] [&>span]:uppercase [&>span]:opacity-60`}
+                    className={
+                      "flex-wrap justify-center font-bold tracking-[-0.02em] leading-none text-center [&_strong]:font-bold [&>span]:whitespace-nowrap flex flex-col items-center gap-3 text-[clamp(1.75rem,6vw,3.25rem)] [&>span]:text-[max(0.6875rem,0.36em)] [&>span]:font-semibold [&>span]:tracking-[0.08em] [&>span]:uppercase [&>span]:opacity-60"
+                    }
                   >
                     <strong>{t("showdown.ticket.name")}</strong>
                     <span>{t("showdown.ticket.subtitle")}</span>
                   </p>
                 </div>
-                <div className={`${wsopStyles.wsop_ticket_date} flex-wrap`}>
+                <div
+                  className={
+                    "flex items-baseline justify-between gap-3 text-[clamp(0.95rem,_2.6vw,_1.3rem)] font-semibold whitespace-nowrap max-[374px]:gap-[0.4rem] max-[374px]:text-[0.78rem] flex-wrap"
+                  }
+                >
                   <span>{t("showdown.ticket.dateLabel")}</span>
                   <span
-                    className={`${wsopStyles.wsop_ticket_pen}`}
+                    className={`inline-block text-[#6d3fd8] font-["Bradley_Hand",_"Segoe_Script",_"Comic_Sans_MS",_cursive] text-[1.35em] font-normal leading-[0.8] rotate-[-4deg] max-[374px]:text-[1.15em]`}
                     aria-hidden="true"
                   >
                     12-12
@@ -971,24 +986,40 @@ export function WsopPage() {
                     {t("showdown.ticket.dateValue")}
                   </time>
                 </div>
-                <div className={`${wsopStyles.wsop_ticket_scan}`}>
-                  <span className={`${wsopStyles.wsop_ticket_serial}`}>
+                <div
+                  className={
+                    "grid grid-cols-[auto_minmax(0,_1fr)] items-center gap-4 max-[374px]:gap-[0.6rem]"
+                  }
+                >
+                  <span
+                    className={
+                      "text-[clamp(0.8rem,_2.2vw,_0.95rem)] tracking-[0.02em] whitespace-nowrap max-[374px]:text-[0.7rem]"
+                    }
+                  >
                     1212-009
                   </span>
                   <TicketBarcode value="12122026" />
                 </div>
                 <div
-                  className={`${wsopStyles.wsop_ticket_bottomline} flex-wrap gap-x-4 gap-y-1`}
+                  className={
+                    "flex items-baseline justify-between gap-4 text-[clamp(0.85rem,_2.4vw,_1.1rem)] font-semibold whitespace-nowrap [&_span:first-child]:uppercase max-[374px]:gap-2 max-[374px]:text-[0.72rem] flex-wrap gap-x-4 gap-y-1"
+                  }
                 >
                   <span>{t("showdown.ticket.venue")}</span>
                   <span>{t("showdown.ticket.streamed")}</span>
                   <span>{t("showdown.ticket.inviteOnly")}</span>
                 </div>
               </motion.div>
-              <Stagger className={`${wsopStyles.wsop_event_details}`}>
+              <Stagger
+                className={
+                  "grid content-center md:grid-cols-[repeat(2,_minmax(0,_1fr))] md:gap-x-12 min-[1100px]:grid-cols-[1fr]"
+                }
+              >
                 {SHOWDOWN_DETAILS.map((id) => (
                   <motion.div
-                    className={`${wsopStyles.wsop_detail}`}
+                    className={
+                      "grid gap-2 py-6 border-b border-b-[var(--wsop-border)] first:pt-0 last:pb-0 last:border-b-0 [&_span]:text-[var(--wsop-accent)] [&_span]:font-[family-name:var(--wsop-font-label)] [&_span]:text-[0.6875rem] [&_span]:font-normal [&_span]:tracking-[0.14em] [&_span]:uppercase [&_p]:max-w-96 [&_p]:text-[1.2rem] [&_p]:font-normal [&_p]:tracking-tight [&_p]:leading-[1.35] md:[&:nth-child(2)]:pt-0 md:[&:nth-last-child(-n+2)]:pb-0 md:[&:nth-last-child(-n+2)]:border-b-0 min-[1100px]:[&:nth-child(2)]:pt-6 min-[1100px]:[&:nth-last-child(2)]:pb-6 min-[1100px]:[&:nth-last-child(2)]:border-b min-[1100px]:[&:nth-last-child(2)]:border-b-[var(--wsop-border)] min-[1100px]:last:border-b-0"
+                    }
                     key={id}
                     variants={staggerItemVariants}
                   >
@@ -998,9 +1029,13 @@ export function WsopPage() {
                 ))}
               </Stagger>
             </div>
-            <div className={`${wsopStyles.wsop_lineup}`}>
+            <div
+              className={
+                "grid gap-8 mt-16 [&_h3]:max-w-[13ch] [&_h3]:mt-3 [&_h3]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h3]:font-medium [&_h3]:tracking-[-0.04em] [&_h3]:leading-[1.125] [&_ol]:grid [&_ol]:m-0 [&_ol]:p-0 [&_ol]:overflow-hidden [&_ol]:border [&_ol]:border-[var(--wsop-border)] [&_ol]:rounded-2xl [&_ol]:bg-[rgba(255,_255,_255,_0.04)] [&_ol]:list-none [&_li]:min-w-0 [&_li]:min-h-[4.75rem] [&_li]:p-0 [&_li]:overflow-hidden [&_li]:border-b [&_li]:border-b-[var(--wsop-border)] [&_li:last-child]:border-b-0 md:[&_ol]:grid-cols-[repeat(2,_minmax(0,_1fr))] md:[&_li]:border-r md:[&_li]:border-r-[var(--wsop-border)] md:[&_li:nth-child(even)]:border-r-0 md:[&_li:nth-last-child(-n_+_2):nth-child(odd)]:border-b-0 md:[&_li:last-child]:border-b-0 md:[&_li:last-child:nth-child(odd)]:col-[1_/_-1] md:[&_li:last-child:nth-child(odd)]:border-r-0 min-[1100px]:grid-cols-[minmax(17rem,_0.55fr)_minmax(0,_1fr)] min-[1100px]:items-start min-[1100px]:gap-16 min-[1100px]:mt-[6rem] xl:grid-cols-[minmax(18rem,_0.55fr)_minmax(0,_1fr)]"
+              }
+            >
               <div>
-                <p className={`${wsopStyles.wsop_eyebrow}`}>
+                <p className={`${eyebrowClass}`}>
                   {t("showdown.lineup.eyebrow")}
                 </p>
                 <h3 className="font-medium text-balance">
@@ -1015,7 +1050,11 @@ export function WsopPage() {
               >
                 {Array.from({ length: 9 }, (_, index) => (
                   <motion.li key={index} variants={dealVariants}>
-                    <div className={`${wsopStyles.wsop_lineup_player} `}>
+                    <div
+                      className={
+                        "grid w-full min-h-[4.75rem] items-center grid-cols-[auto_minmax(0,_1fr)_auto] gap-4 py-3 px-4 text-[var(--wsop-text)] no-underline transition-[background-color_180ms_ease,_color_180ms_ease,_box-shadow_180ms_ease] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-lavender)] focus-visible:outline-offset-[-3px] motion-reduce:transition-[none] "
+                      }
+                    >
                       <span className="relative grid size-12 place-items-center rounded-full border border-white/15 bg-white/[0.06]">
                         <svg
                           viewBox="0 0 48 48"
@@ -1036,7 +1075,9 @@ export function WsopPage() {
                         </span>
                       </span>
                       <span
-                        className={`${wsopStyles.wsop_lineup_identity} gap-1`}
+                        className={
+                          "flex min-w-0 flex-col [&_strong]:overflow-hidden [&_strong]:text-base [&_strong]:font-medium [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&>span]:overflow-hidden [&>span]:text-[var(--wsop-muted)] [&>span]:font-[family-name:var(--wsop-font-label)] [&>span]:text-[0.7rem] [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:transition-[color_180ms_ease] gap-1"
+                        }
                       >
                         <strong>
                           {t("showdown.lineup.seat", { number: index + 1 })}
@@ -1044,15 +1085,22 @@ export function WsopPage() {
                         <span>{t("showdown.lineup.unrevealed")}</span>
                       </span>
                       <SuitIcon
-                        className={`${wsopStyles.wsop_lineup_suit}`}
+                        className={
+                          "w-[0.85rem] h-[0.85rem] text-[rgba(255,_255,_255,_0.26)]"
+                        }
                         suit={SUITS[index % SUITS.length]}
+                        redClassName="text-[rgba(255,84,112,0.6)]"
                       />
                     </div>
                   </motion.li>
                 ))}
               </motion.ol>
             </div>
-            <div className={`${wsopStyles.wsop_event_cta}`}>
+            <div
+              className={
+                "flex items-start flex-col gap-6 mt-8 [&_p]:max-w-[31rem] [&_p]:text-[var(--wsop-muted)] [&_p]:text-base [&_p]:leading-normal md:items-center md:justify-end md:flex-row md:[&_p]:text-right"
+              }
+            >
               <p>{t("showdown.cta.description")}</p>
               <ArrowLink href="https://x.com/solana">
                 {t("showdown.cta.action")}
@@ -1061,25 +1109,49 @@ export function WsopPage() {
           </Reveal>
         </section>
         <section
-          className={`${wsopStyles.wsop_start}`}
+          className={
+            "[&_a:focus-visible]:outline [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-[var(--wsop-accent)] [&_a:focus-visible]:outline-offset-[4px] [&_h2]:max-w-[14ch] [&_h2]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:tracking-[-0.04em] [&_h2]:leading-[1.125] py-[clamp(4rem,calc(10vw+2rem),10rem)] px-5 border-t border-t-[var(--wsop-border)] bg-[radial-gradient(_circle_at_82%_24%,_rgba(85,_233,_171,_0.16),_transparent_30%_),_radial-gradient(_circle_at_18%_85%,_rgba(202,_159,_245,_0.18),_transparent_34%_),_#000] md:px-8 lg:py-[clamp(6rem,_7vw,_7.5rem)] xl:px-[2.5rem]"
+          }
           aria-labelledby="get-started-heading"
         >
-          <Reveal className={`${wsopStyles.wsop_start_inner}`}>
+          <Reveal
+            className={
+              "relative w-[min(100%,_1360px)] mx-auto text-[var(--wsop-text)] [&>*]:relative [&>*]:z-[1]"
+            }
+          >
             <SectionLabel suit="diamond">{t("start.label")}</SectionLabel>
-            <div className={`${wsopStyles.wsop_start_grid}`}>
+            <div
+              className={
+                "grid gap-4 md:grid-cols-[minmax(0,_1.08fr)_minmax(18rem,_0.92fr)]"
+              }
+            >
               <article
-                className={`${wsopStyles.wsop_start_card} ${wsopStyles.wsop_start_card_guide}`}
+                className={
+                  "relative flex min-h-[23rem] flex-col overflow-hidden rounded-2xl [&_h2]:max-w-[11ch] [&_h2]:text-black [&_h2]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:tracking-[-0.04em] [&_h2]:leading-[1.125] [&_h3]:max-w-[11ch] [&_h3]:text-black [&_h3]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h3]:tracking-[-0.04em] [&_h3]:leading-[1.125] p-[clamp(1.5rem,3vw,2.5rem)] border border-[rgba(85,_233,_171,_0.46)] bg-[var(--wsop-accent)] text-black transition-[border-color_180ms_ease,_background-color_180ms_ease] after:absolute after:right-[-7rem] after:bottom-[-8rem] after:w-[19rem] after:aspect-[1] after:border after:border-[rgba(0,_0,_0,_0.17)] after:rounded-full after:shadow-[inset_0_0_0_1rem_var(--wsop-accent),_inset_0_0_0_calc(1rem_+_1px)_rgba(0,_0,_0,_0.1),_inset_0_0_0_2rem_var(--wsop-accent),_inset_0_0_0_calc(2rem_+_1px)_rgba(0,_0,_0,_0.08)] after:content-[''] after:pointer-events-none hover:border-[rgba(0,_0,_0,_0.42)] hover:bg-[#67efb5] [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] motion-reduce:[&:hover_svg]:transform-none"
+                }
               >
-                <div className={`${wsopStyles.wsop_start_content}`}>
-                  <div className={`${wsopStyles.wsop_start_guide_copy}`}>
+                <div
+                  className={
+                    "relative z-[1] flex flex-1 flex-col max-w-[52rem] [&>p]:max-w-[34rem] [&>p]:mt-4 [&>p]:text-[rgba(0,_0,_0,_0.64)] [&>p]:text-lg [&>p]:leading-normal"
+                  }
+                >
+                  <div
+                    className={
+                      "relative z-[1] [&>p]:max-w-[34rem] [&>p]:mt-4 [&>p]:text-[rgba(0,_0,_0,_0.64)] [&>p]:text-lg [&>p]:leading-normal"
+                    }
+                  >
                     <h3 className="font-medium text-balance">
                       {t("start.guide")}
                     </h3>
                     <p>{t("start.guideDescription")}</p>
                   </div>
-                  <div className={`${wsopStyles.wsop_start_actions}`}>
+                  <div
+                    className={
+                      "flex flex-wrap items-stretch gap-3 mt-auto pt-6 [&_*]:flex-[0_0_auto] max-[639px]:flex-col max-[639px]:[&>*]:w-full"
+                    }
+                  >
                     <CrossAppLink
-                      className={`${wsopStyles.wsop_button} ${wsopStyles.wsop_start_guide_action}`}
+                      className={`${buttonClass} relative z-[1] motion-reduce:[&_svg]:transition-[none]`}
                       href="/poker-players-guide-to-crypto"
                     >
                       <span>{t("start.guideCta")}</span>
@@ -1090,9 +1162,15 @@ export function WsopPage() {
               </article>
 
               <article
-                className={`${wsopStyles.wsop_start_card} ${wsopStyles.wsop_start_card_onboarding}`}
+                className={
+                  "relative flex min-h-[23rem] flex-col overflow-hidden rounded-2xl [&_h2]:max-w-[11ch] [&_h2]:text-black [&_h2]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:tracking-[-0.04em] [&_h2]:leading-[1.125] [&_h3]:max-w-[11ch] [&_h3]:text-black [&_h3]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h3]:tracking-[-0.04em] [&_h3]:leading-[1.125] p-[clamp(1.5rem,3vw,2.5rem)] bg-[#dfcdf5] text-black"
+                }
               >
-                <div className={`${wsopStyles.wsop_start_content}`}>
+                <div
+                  className={
+                    "relative z-[1] flex flex-1 flex-col max-w-[52rem] [&>p]:max-w-[34rem] [&>p]:mt-4 [&>p]:text-[rgba(0,_0,_0,_0.64)] [&>p]:text-lg [&>p]:leading-normal"
+                  }
+                >
                   <h2
                     id="get-started-heading"
                     className="font-medium text-balance"
@@ -1100,9 +1178,13 @@ export function WsopPage() {
                     {t("start.title")}
                   </h2>
                   <p>{t("start.description")}</p>
-                  <div className={`${wsopStyles.wsop_start_actions}`}>
+                  <div
+                    className={
+                      "flex flex-wrap items-stretch gap-3 mt-auto pt-6 [&_*]:flex-[0_0_auto] max-[639px]:flex-col max-[639px]:[&>*]:w-full"
+                    }
+                  >
                     <Link
-                      className={`${wsopStyles.wsop_button} ${wsopStyles.wsop_button_light}`}
+                      className={`${buttonClass} [&[data-light]]:bg-black [&[data-light]]:text-white [&[data-light]_svg]:bg-white [&[data-light]_svg]:text-black [&[data-light]:hover]:bg-[rgba(0,0,0,0.86)]`}
                       data-light=""
                       href="/wallets"
                     >
@@ -1110,7 +1192,7 @@ export function WsopPage() {
                       <ArrowUpRight aria-hidden="true" />
                     </Link>
                     <CrossAppLink
-                      className={`${wsopStyles.wsop_button}`}
+                      className={`${buttonClass}`}
                       href="/poker-players-guide-to-crypto"
                     >
                       <span>{walletT("learnBasics")}</span>
