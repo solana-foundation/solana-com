@@ -211,7 +211,7 @@ export default function ParadiseScene({
       if (!ready) {
         ready = true;
         requestAnimationFrame(() => {
-          renderer.domElement.style.opacity = "1";
+          renderer.domElement.classList.replace("opacity-0", "opacity-100");
           onReady?.();
         });
       }

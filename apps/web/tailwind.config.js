@@ -16,12 +16,16 @@ export default {
   theme: {
     extend: {
       keyframes: {
+        "wsop-marquee": {
+          to: { transform: "translateX(-100%)" },
+        },
         "scholars-rise": {
           from: { opacity: "0", transform: "translateY(14px)" },
           to: { opacity: "1", transform: "none" },
         },
       },
       animation: {
+        "wsop-marquee": "wsop-marquee 42s linear infinite",
         "scholars-rise":
           "scholars-rise 760ms cubic-bezier(0.16, 0.84, 0.34, 1) backwards",
       },
