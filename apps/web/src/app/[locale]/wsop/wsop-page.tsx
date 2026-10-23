@@ -158,7 +158,7 @@ const wsopStyles = {
 type Icon = typeof Spade;
 
 /** Solana logomark in a single fill so it sits alongside the filled Boxicons. */
-const SolanaMark: Icon = ({ className }) => (
+const SolanaMark = ({ className }: { className?: string; pack?: "filled" }) => (
   <svg
     className={className}
     viewBox="0 0 31 27"
@@ -169,7 +169,7 @@ const SolanaMark: Icon = ({ className }) => (
   </svg>
 );
 
-const HOW_TO_STEPS: Array<{ step: number; icon: Icon }> = [
+const HOW_TO_STEPS: Array<{ step: number; icon: Icon | typeof SolanaMark }> = [
   { step: 1, icon: Mobile },
   { step: 2, icon: UserPlus },
   { step: 3, icon: CalendarDownArrow },
