@@ -45,7 +45,7 @@ const sectionTitleClass =
 const sectionDescriptionClass =
   "max-w-[36rem] text-[var(--wsop-muted)] text-[clamp(1.125rem,3.125vw,1.5rem)] tracking-[-0.02em] leading-[1.45] md:leading-[1.33]";
 const buttonClass =
-  "inline-flex min-h-12 items-center justify-between gap-5 pt-2 pr-2 pb-2 pl-5 border-0 rounded-full bg-white text-black cursor-pointer text-base font-medium tracking-tight leading-tight [&_svg]:w-8 [&_svg]:h-8 [&_svg]:p-2 [&_svg]:rounded-full [&_svg]:bg-black [&_svg]:text-white [&_svg]:stroke-[2.5] [&_svg]:transition-[transform_180ms_cubic-bezier(0.22,_1,_0.36,_1)] [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] hover:bg-[rgba(255,_255,_255,_0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)] focus-visible:outline-offset-[4px] md:text-lg motion-reduce:[&_svg]:transition-[none] motion-reduce:[&:hover_svg]:transform-none";
+  "inline-flex min-h-12 items-center justify-between gap-5 pt-2 pr-2 pb-2 pl-5 border-0 rounded-full bg-white text-black cursor-pointer text-base font-medium tracking-[-0.01em] leading-tight [&_svg]:w-8 [&_svg]:h-8 [&_svg]:p-2 [&_svg]:rounded-full [&_svg]:bg-black [&_svg]:text-white [&_svg]:stroke-[2.5] [&_svg]:transition-[transform_180ms_cubic-bezier(0.22,_1,_0.36,_1)] [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] hover:bg-[rgba(255,_255,_255,_0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)] focus-visible:outline-offset-[4px] md:text-lg motion-reduce:[&_svg]:transition-[none] motion-reduce:[&:hover_svg]:transform-none";
 
 type Icon = typeof Spade;
 
@@ -1002,7 +1002,7 @@ export function WsopPage() {
                 </div>
                 <div
                   className={
-                    "flex items-baseline justify-between gap-4 text-[clamp(0.85rem,_2.4vw,_1.1rem)] font-semibold whitespace-nowrap [&_span:first-child]:uppercase max-[374px]:gap-2 max-[374px]:text-[0.72rem] flex-wrap gap-x-4 gap-y-1"
+                    "flex items-baseline justify-between gap-4 text-[clamp(0.85rem,_2.4vw,_1.1rem)] font-semibold whitespace-nowrap [&_span:first-child]:uppercase max-[374px]:gap-2 max-[374px]:text-[0.72rem] flex-wrap gap-x-4"
                   }
                 >
                   <span>{t("showdown.ticket.venue")}</span>
@@ -1018,7 +1018,7 @@ export function WsopPage() {
                 {SHOWDOWN_DETAILS.map((id) => (
                   <motion.div
                     className={
-                      "grid gap-2 py-6 border-b border-b-[var(--wsop-border)] first:pt-0 last:pb-0 last:border-b-0 [&_span]:text-[var(--wsop-accent)] [&_span]:font-[family-name:var(--wsop-font-label)] [&_span]:text-[0.6875rem] [&_span]:font-normal [&_span]:tracking-[0.14em] [&_span]:uppercase [&_p]:max-w-96 [&_p]:text-[1.2rem] [&_p]:font-normal [&_p]:tracking-tight [&_p]:leading-[1.35] md:[&:nth-child(2)]:pt-0 md:[&:nth-last-child(-n+2)]:pb-0 md:[&:nth-last-child(-n+2)]:border-b-0 min-[1100px]:[&:nth-child(2)]:pt-6 min-[1100px]:[&:nth-last-child(2)]:pb-6 min-[1100px]:[&:nth-last-child(2)]:border-b min-[1100px]:[&:nth-last-child(2)]:border-b-[var(--wsop-border)] min-[1100px]:last:border-b-0"
+                      "grid gap-2 py-6 border-b border-b-[var(--wsop-border)] first:pt-0 last:pb-0 last:border-b-0 [&_span]:text-[var(--wsop-accent)] [&_span]:font-[family-name:var(--wsop-font-label)] [&_span]:text-[0.6875rem] [&_span]:font-normal [&_span]:tracking-[0.14em] [&_span]:uppercase [&_p]:max-w-96 [&_p]:text-[1.2rem] [&_p]:font-normal [&_p]:tracking-[-0.01em] [&_p]:leading-[1.35] md:[&:nth-child(2)]:pt-0 md:[&:nth-last-child(-n+2)]:pb-0 md:[&:nth-last-child(-n+2)]:border-b-0 min-[1100px]:[&:nth-child(2)]:pt-6 min-[1100px]:[&:nth-last-child(2)]:pb-6 min-[1100px]:[&:nth-last-child(2)]:border-b min-[1100px]:[&:nth-last-child(2)]:border-b-[var(--wsop-border)] min-[1100px]:last:border-b-0"
                     }
                     key={id}
                     variants={staggerItemVariants}
@@ -1076,10 +1076,10 @@ export function WsopPage() {
                       </span>
                       <span
                         className={
-                          "flex min-w-0 flex-col [&_strong]:overflow-hidden [&_strong]:text-base [&_strong]:font-medium [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&>span]:overflow-hidden [&>span]:text-[var(--wsop-muted)] [&>span]:font-[family-name:var(--wsop-font-label)] [&>span]:text-[0.7rem] [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:transition-[color_180ms_ease] gap-1"
+                          "flex min-w-0 flex-col [&_strong]:overflow-hidden [&_strong]:text-[1rem] [&_strong]:font-medium [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&>span]:overflow-hidden [&>span]:text-[var(--wsop-muted)] [&>span]:font-[family-name:var(--wsop-font-label)] [&>span]:text-[0.7rem] [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:transition-[color_180ms_ease] gap-1"
                         }
                       >
-                        <strong>
+                        <strong className="leading-[inherit]">
                           {t("showdown.lineup.seat", { number: index + 1 })}
                         </strong>
                         <span>{t("showdown.lineup.unrevealed")}</span>
