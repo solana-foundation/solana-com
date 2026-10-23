@@ -68,7 +68,7 @@ export function isUpcomingEvent(
   const endTime = event.schedule.to || event.schedule.from;
   if (!endTime) return false;
   const endTimestamp = Date.parse(endTime);
-  return Number.isFinite(endTimestamp) && endTimestamp >= now;
+  return Number.isFinite(endTimestamp) && endTimestamp > now;
 }
 
 const dummyEvent = [

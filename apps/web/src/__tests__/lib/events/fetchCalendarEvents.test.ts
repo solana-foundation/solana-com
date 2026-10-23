@@ -21,6 +21,9 @@ describe("events calendar", () => {
     const now = Date.parse("2026-10-23T00:00:00Z");
 
     expect(isUpcomingEvent(event, now)).toBe(false);
+    expect(isUpcomingEvent(event, Date.parse("2026-10-20T11:00:00Z"))).toBe(
+      false,
+    );
     expect(
       isUpcomingEvent(
         {

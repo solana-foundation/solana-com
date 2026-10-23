@@ -18,9 +18,11 @@ import {
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 86400;
+// Rebuild the listing on each request so an event disappears when it ends.
+// Luma responses remain cached to avoid refetching every request.
+export const revalidate = 0;
 
-const EVENTS_REVALIDATE_SECONDS = revalidate;
+const EVENTS_REVALIDATE_SECONDS = 86400;
 
 // Private Luma events are not included in the calendar API response.
 const staticEvents: CalendarEvent[] = [
