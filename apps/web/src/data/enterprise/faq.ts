@@ -721,6 +721,11 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
         key: "q0",
         refs: [
           { typeKey: "web", labelKey: "staking-on-solana", href: "/staking" },
+          {
+            typeKey: "upgrade",
+            labelKey: "slot-time-200ms",
+            href: "/200ms",
+          },
         ],
         terms: { t0: "liquid-staking" },
       },
