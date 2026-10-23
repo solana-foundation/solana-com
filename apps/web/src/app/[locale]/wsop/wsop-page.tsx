@@ -474,7 +474,7 @@ export function WsopPage() {
           ref={heroRef}
         >
           <motion.div
-            className="wsop-hero__image-motion"
+            className="wsop-hero__image-motion absolute inset-0 z-[-3]"
             style={reduceMotion ? undefined : { y: heroParallax }}
             initial={{ scale: 1.04 }}
             animate={{ scale: 1 }}
