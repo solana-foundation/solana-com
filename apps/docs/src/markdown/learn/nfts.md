@@ -93,7 +93,7 @@ interesting functionality.
   companies like Facebook and Google. “I think that when you login in the
   future,” he says, “you likely will log in with an NFT.”
 - [Atlas Cafe in San Francisco](https://solana.com/news/solana-pay-update-march-2022)
-  teamed up with [Solana Pay](https://solanapay.com) to launch a special,
+  teamed up with [Solana Pay](/docs/tools/solana-pay) to launch a special,
   limited-edition NFT that gave users a discount on products in the store.
 - “As for media and music,” Hess also says, “I think we will see both tokenized
   access for content and content itself being sold as discrete units through
