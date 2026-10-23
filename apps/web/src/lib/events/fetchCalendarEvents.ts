@@ -55,7 +55,21 @@ export type CalendarEvent = {
 
 type FetchCalendarEventsRequestOptions = {
   revalidate?: number;
+  fetchAllPages?: boolean;
 };
+
+const LUMA_PAGE_SIZE = 50;
+const LUMA_MAX_PAGES = 20;
+
+export function isUpcomingEvent(
+  event: CalendarEvent,
+  now = Date.now(),
+): boolean {
+  const endTime = event.schedule.to || event.schedule.from;
+  if (!endTime) return false;
+  const endTimestamp = Date.parse(endTime);
+  return Number.isFinite(endTimestamp) && endTimestamp >= now;
+}
 
 const dummyEvent = [
   {
@@ -104,113 +118,105 @@ export async function fetchCalendarEvents(
 
   let allEvents: CalendarEvent[] = [];
 
-  const getCalendarEventsUrl = new URL("https://api.lu.ma/calendar/get-items");
+  const seenCursors = new Set<string>();
+  let cursor: string | null = null;
 
-  const query = {
-    calendar_api_id: calendarId,
-    series_mode: "sessions",
-    ...options,
-  };
+  for (let page = 0; page < LUMA_MAX_PAGES; page += 1) {
+    const url = new URL("https://api.lu.ma/calendar/get-items");
+    url.search = new URLSearchParams({
+      calendar_api_id: calendarId,
+      series_mode: "sessions",
+      pagination_limit: LUMA_PAGE_SIZE.toString(),
+      ...options,
+      ...(cursor ? { pagination_cursor: cursor } : {}),
+    }).toString();
 
-  getCalendarEventsUrl.search = new URLSearchParams(query).toString();
-
-  let res: Response;
-  try {
-    // Add timeout to prevent hanging during build
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-    res = await fetch(getCalendarEventsUrl, {
-      method: "GET",
-      headers: {
-        accept: "application/json",
-        "x-luma-api-key": process.env.LUMA_PRIVATE_API_KEY,
-      },
-      signal: controller.signal,
-      next:
-        requestOptions.revalidate === undefined
-          ? undefined
-          : { revalidate: requestOptions.revalidate },
-    });
-
-    clearTimeout(timeoutId);
-  } catch (error: unknown) {
-    // Handle network errors, timeouts, and other fetch failures
-    const err = error as { name?: string; code?: string; message?: string };
-    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
-      console.warn("LUMA API request timed out. Returning empty array.");
-    } else {
-      console.warn("LUMA API request failed:", err.message || error);
+    let data: {
+      entries?: LumaEvent[];
+      has_more?: boolean;
+      next_cursor?: string | null;
+    };
+    try {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: {
+          accept: "application/json",
+          "x-luma-api-key": process.env.LUMA_PRIVATE_API_KEY,
+        },
+        signal: AbortSignal.timeout(10000),
+        next:
+          requestOptions.revalidate === undefined
+            ? undefined
+            : { revalidate: requestOptions.revalidate },
+      });
+      if (!res.ok) {
+        console.warn(`LUMA API returned status ${res.status}`);
+        break;
+      }
+      data = await res.json();
+    } catch (error: unknown) {
+      console.warn("LUMA API request failed:", error);
+      break;
     }
-    return [];
-  }
 
-  if (!res.ok) {
-    console.warn(`LUMA API returned status ${res.status}`);
-    return [];
-  }
-
-  let events: LumaEvent[] = [];
-
-  try {
-    const data = await res.json();
-    events = data.entries;
-  } catch (error) {
-    console.warn("Failed to parse LUMA API response:", error);
-    return [];
-  }
-
-  if (!events) {
-    return allEvents;
-  }
-
-  allEvents = allEvents.concat(
-    events.map((el) => {
-      const {
-        name,
-        api_id,
-        url,
-        start_at,
-        end_at,
-        timezone,
-        geo_address_info,
-        cover_url,
-        event_type,
-      } = el.event;
-      const startDate = start_at ?? null;
-      const endDate = end_at ?? null;
-      const platform = el.platform;
-
-      const slug =
-        event_type === "session"
-          ? `${slugify(name, { separator: "" })}?id=${api_id}`
-          : `${url.toLowerCase()}`;
-
-      return {
-        key: slug,
-        title: name,
-        description: name,
-        platform: platform,
-        rsvp: isExternalLink(url) ? url : `https://lu.ma/${url}`,
-        schedule: {
-          from: startDate,
-          to: endDate,
+    allEvents.push(
+      ...(data.entries ?? []).map((el) => {
+        const {
+          name,
+          api_id,
+          url,
+          start_at,
+          end_at,
           timezone,
-        },
-        img: {
-          primary: cover_url || null,
-          alt: name || null,
-        },
-        venue: {
-          city: geo_address_info?.city || null,
-          region: geo_address_info?.region || null,
-          city_state: geo_address_info?.city_state || null,
-          country: geo_address_info?.country || null,
-          address: geo_address_info?.address || null,
-        },
-      };
-    }),
-  );
+          geo_address_info,
+          cover_url,
+          event_type,
+        } = el.event;
+        const startDate = start_at ?? null;
+        const endDate = end_at ?? null;
+        const platform = el.platform;
+
+        const slug =
+          event_type === "session"
+            ? `${slugify(name, { separator: "" })}?id=${api_id}`
+            : `${url.toLowerCase()}`;
+
+        return {
+          key: slug,
+          title: name,
+          description: name,
+          platform: platform,
+          rsvp: isExternalLink(url) ? url : `https://lu.ma/${url}`,
+          schedule: {
+            from: startDate,
+            to: endDate,
+            timezone,
+          },
+          img: {
+            primary: cover_url || null,
+            alt: name || null,
+          },
+          venue: {
+            city: geo_address_info?.city || null,
+            region: geo_address_info?.region || null,
+            city_state: geo_address_info?.city_state || null,
+            country: geo_address_info?.country || null,
+            address: geo_address_info?.address || null,
+          },
+        };
+      }),
+    );
+
+    if (!requestOptions.fetchAllPages || !data.has_more || !data.next_cursor) {
+      break;
+    }
+    if (seenCursors.has(data.next_cursor)) {
+      console.warn("LUMA API returned a repeated pagination cursor.");
+      break;
+    }
+    seenCursors.add(data.next_cursor);
+    cursor = data.next_cursor;
+  }
 
   // Append static signup form events before overrides so they can be customized here too
   allEvents = allEvents.concat(signupFormEvents);

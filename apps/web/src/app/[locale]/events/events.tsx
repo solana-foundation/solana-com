@@ -57,7 +57,10 @@ export function EventsLandingPage({
             <SectionHeader
               title={t("titles.events")}
               action={
-                <TextLink to="https://lu.ma/solana" newTab>
+                <TextLink
+                  to="https://luma.com/calendar/cal-J8WZ4jDbwzD9TWi"
+                  newTab
+                >
                   {t("commands.follow-luma")}
                 </TextLink>
               }
