@@ -144,12 +144,13 @@ type PublicEventMetadata = {
 async function enrichEvent(
   event: CalendarEvent,
   revalidate?: number,
+  timeoutMs = 6000,
 ): Promise<CalendarEvent> {
   try {
     const eventUrl = new URL(event.rsvp);
     if (eventUrl.hostname !== "luma.com") return event;
     const response = await fetch(eventUrl, {
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(timeoutMs),
       next: revalidate === undefined ? undefined : { revalidate },
     });
     if (!response.ok) return event;
@@ -201,10 +202,20 @@ async function enrichEvents(
   revalidate?: number,
 ): Promise<CalendarEvent[]> {
   const enriched: CalendarEvent[] = [];
+  const deadline = Date.now() + 7000;
   for (let i = 0; i < events.length; i += 12) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs < 500) {
+      enriched.push(...events.slice(i));
+      break;
+    }
     enriched.push(
       ...(await Promise.all(
-        events.slice(i, i + 12).map((event) => enrichEvent(event, revalidate)),
+        events
+          .slice(i, i + 12)
+          .map((event) =>
+            enrichEvent(event, revalidate, Math.min(6000, remainingMs)),
+          ),
       )),
     );
   }
