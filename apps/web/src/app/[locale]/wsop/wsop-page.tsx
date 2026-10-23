@@ -17,16 +17,33 @@ import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { Club } from "@boxicons/react/Club";
+import { CalendarDownArrow } from "@boxicons/react/CalendarDownArrow";
 import { Clock3 } from "@boxicons/react/Clock3";
+import { CryptoCoin } from "@boxicons/react/CryptoCoin";
+import { CursorClick } from "@boxicons/react/CursorClick";
 import { Diamond } from "@boxicons/react/Diamond";
 import { Heart } from "@boxicons/react/Heart";
+import { Mobile } from "@boxicons/react/Mobile";
 import { Spade } from "@boxicons/react/Spade";
+import { Ticket } from "@boxicons/react/Ticket";
+import { UserPlus } from "@boxicons/react/UserPlus";
+import { Wallet } from "@boxicons/react/Wallet";
 import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import { Link as CrossAppLink } from "@solana-com/ui-chrome/link";
 import { Button } from "@/app/components/ui/button";
 
 type Icon = typeof Spade;
+
+const HOW_TO_STEPS: Array<{ step: number; icon: Icon }> = [
+  { step: 1, icon: Mobile },
+  { step: 2, icon: UserPlus },
+  { step: 3, icon: CalendarDownArrow },
+  { step: 4, icon: CursorClick },
+  { step: 5, icon: Ticket },
+  { step: 6, icon: CryptoCoin },
+  { step: 7, icon: Wallet },
+];
 
 const ParadiseScene = dynamic(() => import("./paradise-scene"), { ssr: false });
 
@@ -576,14 +593,17 @@ export function WsopPage() {
             <div>
               <Stagger className="block">
                 <ol className="m-0 list-none p-0">
-                  {([1, 2, 3, 4, 5, 6, 7] as const).map((step) => (
+                  {HOW_TO_STEPS.map(({ step, icon: StepIcon }) => (
                     <motion.li
                       key={step}
                       variants={staggerItemVariants}
                       className="flex border-t border-[var(--wsop-border)] py-5"
                     >
-                      <span className="w-12 shrink-0 font-[var(--wsop-font-label)] text-xs text-[var(--wsop-green)]">
-                        {String(step).padStart(2, "0")}
+                      <span className="w-12 shrink-0 pt-0.5" aria-hidden="true">
+                        <StepIcon
+                          pack="filled"
+                          className="size-6 fill-[var(--wsop-green)]"
+                        />
                       </span>
                       <span className="text-lg leading-snug text-white/75">
                         {t.rich(`howTo.steps.${step}`, {
@@ -597,7 +617,7 @@ export function WsopPage() {
                               href="https://apps.apple.com/us/app/wsop-live-wsop-official-app/id1660727059"
                               target="_blank"
                               rel="noreferrer"
-                              className="underline decoration-white/30 underline-offset-4"
+                              className="!underline decoration-white/30 underline-offset-4 hover:decoration-white"
                             >
                               {chunks}
                             </a>
@@ -884,7 +904,10 @@ export function WsopPage() {
                       <span>{t("start.findWallet")}</span>
                       <ArrowUpRight aria-hidden="true" />
                     </Link>
-                    <CrossAppLink className="wsop-button" href="/learn">
+                    <CrossAppLink
+                      className="wsop-button"
+                      href="/poker-players-guide-to-crypto"
+                    >
                       <span>{walletT("learnBasics")}</span>
                       <ArrowUpRight aria-hidden="true" />
                     </CrossAppLink>
