@@ -61,7 +61,7 @@ export const rpcLatencyRepositoryUrl =
   "https://github.com/solana-foundation/rpc-latency-monitor";
 export const rpcLatencyProviderOnboardingUrl = `${rpcLatencyRepositoryUrl}#adding-your-rpc-for-providers`;
 const rpcSenderGrafanaUrl =
-  "https://solanafoundation.grafana.net/public-dashboards/d0708457d6a243ae8a4c8113090fa159";
+  "https://rpclatency.grafana.net/public-dashboards/6f18bcfc9e0e4e0ea62d10e5e484c50d";
 export const backfillRequestsUrl = `${dataAggregatorRepositoryUrl}/issues`;
 export const resourceCarouselAutoAdvanceMs = 6000;
 export const resourceCardStepFallback = 460;
