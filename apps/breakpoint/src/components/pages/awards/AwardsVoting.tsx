@@ -137,9 +137,30 @@ export default function AwardsVoting({
     >
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <header className="grid gap-m border-t border-stroke-primary pt-m md:grid-cols-bp-desktop md:gap-x-s md:pt-l">
-          <p className="type-eyebrow text-core-purple md:col-span-4">
-            {t("voting.eyebrow")}
-          </p>
+          <div className="flex flex-col items-start gap-xs md:col-span-4">
+            <p className="type-eyebrow text-core-purple">
+              {t("voting.eyebrow")}
+            </p>
+            <div className="flex flex-wrap items-center gap-x-3xs gap-y-3xs">
+              <p className="type-caption text-text-secondary">
+                {t("nominations.presentedBy")}
+              </p>
+              <a
+                className="focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple"
+                href="https://satrush.io/"
+                rel="noopener noreferrer"
+                target="_blank"
+              >
+                <img
+                  alt="SatRush"
+                  className="block h-auto w-[120px] max-w-full lg:w-[150px]"
+                  height={106}
+                  src={publicAssetPath("/assets/satrush-logo-white.svg")}
+                  width={478}
+                />
+              </a>
+            </div>
+          </div>
           <div className="md:col-span-9 md:col-start-7">
             <h2 className="type-h3 max-w-[780px]" id="voting-title">
               {t("voting.headline")}
