@@ -2,116 +2,73 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   fetchCalendarEvents,
   isUpcomingEvent,
+  parseIcalEvents,
   type CalendarEvent,
 } from "@/lib/events/fetchCalendarEvents";
 
+const feed = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+DTSTART:20201020T100000Z
+DTEND:20201020T110000Z
+UID:evt-old@events.lu.ma
+SUMMARY:Past event
+DESCRIPTION:Get up-to-date information at: https://luma.com/past-event
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20991115T100000Z
+DTEND:20991115T110000Z
+UID:evt-future@events.lu.ma
+SUMMARY:Solana\\, meetup
+DESCRIPTION:Get up-to-date information at: https://luma.com/solana-meet
+ up
+LOCATION:London\\, United Kingdom
+END:VEVENT
+END:VCALENDAR`;
+
 afterEach(() => {
-  vi.unstubAllEnvs();
   vi.unstubAllGlobals();
 });
 
 describe("events calendar", () => {
-  it("excludes expired events, including events returned as future by Luma", () => {
+  it("excludes an event as soon as its end time passes", () => {
     const event = {
       schedule: {
         from: "2026-10-20T10:00:00Z",
         to: "2026-10-20T11:00:00Z",
       },
     } as CalendarEvent;
-    const now = Date.parse("2026-10-23T00:00:00Z");
-
-    expect(isUpcomingEvent(event, now)).toBe(false);
     expect(isUpcomingEvent(event, Date.parse("2026-10-20T11:00:00Z"))).toBe(
       false,
     );
-    expect(
-      isUpcomingEvent(
-        {
-          ...event,
-          schedule: { ...event.schedule, to: "2026-10-24T11:00:00Z" },
-        },
-        now,
-      ),
-    ).toBe(true);
   });
 
-  it("loads every page from a Luma calendar", async () => {
-    vi.stubEnv("LUMA_PRIVATE_API_KEY", "test-key");
-    const makeEntry = (id: string) => ({
-      event: {
-        api_id: id,
-        name: id,
-        url: id,
-        start_at: "2026-11-15T10:00:00Z",
-        end_at: "2026-11-15T11:00:00Z",
-        timezone: "Europe/London",
-        geo_address_info: null,
-        cover_url: null,
-        event_type: "event",
+  it("parses published iCal events, including folded and escaped text", () => {
+    const events = parseIcalEvents(feed);
+    expect(events).toHaveLength(2);
+    expect(events[1]).toMatchObject({
+      title: "Solana, meetup",
+      rsvp: "https://luma.com/solana-meetup",
+      schedule: {
+        from: "2099-11-15T10:00:00Z",
+        to: "2099-11-15T11:00:00Z",
       },
+      venue: { address: "London, United Kingdom" },
     });
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            entries: [makeEntry("first")],
-            has_more: true,
-            next_cursor: "page-two",
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ entries: [makeEntry("second")], has_more: false }),
-        ),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-
-    const events = await fetchCalendarEvents(
-      "cal-test",
-      { period: "future" },
-      { fetchAllPages: true },
-    );
-
-    expect(events.map((event) => event.title)).toEqual(["first", "second"]);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(String(fetchMock.mock.calls[1][0])).toContain(
-      "pagination_cursor=page-two",
-    );
   });
 
-  it("uses the public calendar when the private API is rate limited", async () => {
-    vi.stubEnv("LUMA_PRIVATE_API_KEY", "test-key");
-    const entry = {
-      event: {
-        api_id: "evt-test",
-        name: "Solana meetup",
-        url: "solana-meetup",
-        start_at: "2026-11-15T10:00:00Z",
-        end_at: "2026-11-15T11:00:00Z",
-        timezone: "Europe/London",
-        geo_address_info: null,
-        cover_url: null,
-        event_type: "independent",
-      },
-    };
-    const publicPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
-      {
-        props: {
-          pageProps: {
-            initialData: {
-              calendar: { api_id: "cal-test" },
-              upcoming: { entries: [entry] },
-            },
-          },
-        },
-      },
-    )}</script>`;
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
-      .mockResolvedValueOnce(new Response(publicPage));
+  it("shows the last day of a multi-day event", () => {
+    const events = parseIcalEvents(`BEGIN:VEVENT
+DTSTART;VALUE=DATE:20991101
+DTEND;VALUE=DATE:20991113
+UID:evt-multi@events.lu.ma
+SUMMARY:Hacker House
+DESCRIPTION:https://luma.com/hacker-house
+END:VEVENT`);
+    expect(events[0].schedule.to).toBe("2099-11-12T23:59:59.999Z");
+  });
+
+  it("uses the documented public subscription with server caching", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(feed));
     vi.stubGlobal("fetch", fetchMock);
 
     const events = await fetchCalendarEvents(
@@ -120,23 +77,19 @@ describe("events calendar", () => {
       { revalidate: 1800 },
     );
 
-    expect(events.map((event) => event.title)).toEqual(["Solana meetup"]);
-    expect(fetchMock.mock.calls[1][0]).toBe(
-      "https://luma.com/calendar/cal-test",
+    expect(events.map((event) => event.title)).toEqual(["Solana, meetup"]);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "https://api2.luma.com/ics/get?entity=calendar&id=cal-test",
     );
-    expect(fetchMock.mock.calls[1][1].next).toEqual({ revalidate: 1800 });
+    expect(fetchMock.mock.calls[0][1].next).toEqual({ revalidate: 1800 });
   });
 
-  it("does not use upcoming public events for a past-event request", async () => {
-    vi.stubEnv("LUMA_PRIVATE_API_KEY", "test-key");
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response("rate limited", { status: 429 }));
+  it("does not use the upcoming subscription for past-event requests", async () => {
+    const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-
-    const events = await fetchCalendarEvents("cal-test", { period: "past" });
-
-    expect(events).toEqual([]);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(await fetchCalendarEvents("cal-test", { period: "past" })).toEqual(
+      [],
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

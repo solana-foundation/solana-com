@@ -121,7 +121,7 @@ export default async function Page({ params }: Props) {
     fetchCalendarEvents(
       "cal-NFEDisEmJoSg0TU",
       { period: "future" },
-      { revalidate: EVENTS_REVALIDATE_SECONDS, fetchAllPages: true },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
     ),
     fetchEventsNews(),
     getTranslations(),
