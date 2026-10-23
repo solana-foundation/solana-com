@@ -72,6 +72,10 @@ describe("Cross-app rewrites", () => {
       "/breakpoint/:path*",
       `${BREAKPOINT_APP_URL}/breakpoint/:path*`,
     );
+
+    expect(beforeFiles.some(({ source }) => source.startsWith("/learn"))).toBe(
+      false,
+    );
   });
 
   it("keeps templates rewrites before generic developer docs rewrites", () => {

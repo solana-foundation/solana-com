@@ -64,7 +64,6 @@ describe("dated page archive", () => {
       "/privacyhack",
       "/graveyard-hack",
       "/prediction-markets-hack",
-      "/wsop",
       "/nftshowdown",
       "/playgg",
     ];
@@ -74,6 +73,8 @@ describe("dated page archive", () => {
       expect(urls).not.toContain(path);
       expect(urls).not.toContain(`/fr${path}`);
     }
+    expect(urls).toContain("/wsop");
+    expect(urls).toContain("/fr/wsop");
   });
 
   it("sets self-canonical and noindex metadata on retained pages", async () => {
