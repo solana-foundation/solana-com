@@ -87,7 +87,7 @@ export default async function Page({ params }: Props) {
     ),
     // Breakpoint 2026 calendar (https://luma.com/bp26)
     fetchCalendarEvents(
-      "evgrp-f8F1bDAHhBNDM1f",
+      "cal-vSUPHVSJHqgysCR",
       {
         period: "future",
       },

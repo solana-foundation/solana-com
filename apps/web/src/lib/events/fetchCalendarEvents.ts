@@ -125,6 +125,92 @@ export function parseIcalEvents(ical: string): CalendarEvent[] {
   return events;
 }
 
+type PublicEventMetadata = {
+  "@type"?: string;
+  "@id"?: string;
+  startDate?: string;
+  endDate?: string;
+  image?: string | string[];
+  location?: {
+    address?: {
+      streetAddress?: string;
+      addressLocality?: string;
+      addressRegion?: string;
+      addressCountry?: string;
+    };
+  };
+};
+
+async function enrichEvent(
+  event: CalendarEvent,
+  revalidate?: number,
+): Promise<CalendarEvent> {
+  try {
+    const eventUrl = new URL(event.rsvp);
+    if (eventUrl.hostname !== "luma.com") return event;
+    const response = await fetch(eventUrl, {
+      signal: AbortSignal.timeout(6000),
+      next: revalidate === undefined ? undefined : { revalidate },
+    });
+    if (!response.ok) return event;
+    const html = await response.text();
+    const match = html.match(
+      /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (!match) return event;
+    const data = JSON.parse(match[1]) as PublicEventMetadata;
+    if (
+      data["@type"] !== "Event" ||
+      !data["@id"] ||
+      new URL(data["@id"]).pathname !== eventUrl.pathname
+    ) {
+      return event;
+    }
+    const image = Array.isArray(data.image) ? data.image[0] : data.image;
+    const offset = data.startDate?.match(/([+-]\d{2}:\d{2}|Z)$/)?.[1];
+    const address = data.location?.address;
+    return {
+      ...event,
+      schedule: {
+        from:
+          data.startDate && Number.isFinite(Date.parse(data.startDate))
+            ? data.startDate
+            : event.schedule.from,
+        to:
+          data.endDate && Number.isFinite(Date.parse(data.endDate))
+            ? data.endDate
+            : event.schedule.to,
+        timezone: offset === "Z" ? "UTC" : offset || event.schedule.timezone,
+      },
+      img: { ...event.img, primary: image || event.img.primary },
+      venue: {
+        ...event.venue,
+        city: address?.addressLocality || event.venue.city,
+        region: address?.addressRegion || event.venue.region,
+        country: address?.addressCountry || event.venue.country,
+        address: address?.streetAddress || event.venue.address,
+      },
+    };
+  } catch {
+    return event;
+  }
+}
+
+async function enrichEvents(
+  events: CalendarEvent[],
+  revalidate?: number,
+): Promise<CalendarEvent[]> {
+  const enriched: CalendarEvent[] = [];
+  for (let i = 0; i < events.length; i += 12) {
+    enriched.push(
+      ...(await Promise.all(
+        events.slice(i, i + 12).map((event) => enrichEvent(event, revalidate)),
+      )),
+    );
+  }
+  return enriched;
+}
+
 /** Fetch the calendar's published iCal subscription feed. */
 export async function fetchCalendarEvents(
   calendarId: string,
@@ -134,7 +220,7 @@ export async function fetchCalendarEvents(
   // iCal subscriptions are Luma's supported public interface for calendars.
   // The current Doppler key is for a legacy API and is rejected by the
   // documented, calendar-scoped JSON API.
-  if (!calendarId.startsWith("cal-") || options.period === "past") return [];
+  if (!calendarId.startsWith("cal-")) return [];
 
   const url = new URL("https://api2.luma.com/ics/get");
   url.searchParams.set("entity", "calendar");
@@ -150,8 +236,25 @@ export async function fetchCalendarEvents(
           : { revalidate: requestOptions.revalidate },
     });
     if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
-    allEvents = parseIcalEvents(await response.text()).filter((event) =>
-      isUpcomingEvent(event),
+    const now = Date.now();
+    const periodEvents = parseIcalEvents(await response.text()).filter(
+      (event) =>
+        options.period === "past"
+          ? !isUpcomingEvent(event, now)
+          : isUpcomingEvent(event, now),
+    );
+    if (options.period === "past") {
+      periodEvents.sort(
+        (a, b) =>
+          Date.parse(b.schedule.from ?? "") - Date.parse(a.schedule.from ?? ""),
+      );
+    }
+    const limit = Number(options.pagination_limit);
+    allEvents = await enrichEvents(
+      options.period === "past" && Number.isFinite(limit) && limit > 0
+        ? periodEvents.slice(0, limit)
+        : periodEvents,
+      requestOptions.revalidate,
     );
   } catch (error) {
     console.warn("Luma iCal request failed:", error);

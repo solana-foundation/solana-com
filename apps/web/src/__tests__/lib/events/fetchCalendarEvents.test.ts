@@ -84,12 +84,56 @@ END:VEVENT`);
     expect(fetchMock.mock.calls[0][1].next).toEqual({ revalidate: 1800 });
   });
 
-  it("does not use the upcoming subscription for past-event requests", async () => {
+  it("keeps past events available for the archive", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(feed))
+      .mockResolvedValueOnce(new Response("<html></html>"));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(
+      (await fetchCalendarEvents("cal-test", { period: "past" })).map(
+        (event) => event.title,
+      ),
+    ).toEqual(["Past event"]);
+  });
+
+  it("uses public event metadata for local dates and cover images", async () => {
+    const metadata = {
+      "@type": "Event",
+      "@id": "https://luma.com/solana-meetup",
+      startDate: "2099-11-15T18:00:00-04:00",
+      endDate: "2099-11-15T19:00:00-04:00",
+      image: ["https://images.lumacdn.com/cover.png"],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(feed))
+      .mockResolvedValueOnce(
+        new Response(
+          `<script type="application/ld+json">${JSON.stringify(metadata)}</script>`,
+        ),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const [event] = await fetchCalendarEvents("cal-test", {
+      period: "future",
+    });
+    expect(event).toMatchObject({
+      schedule: {
+        from: "2099-11-15T18:00:00-04:00",
+        timezone: "-04:00",
+      },
+      img: { primary: "https://images.lumacdn.com/cover.png" },
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not fetch an unsupported event group as a calendar", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    expect(await fetchCalendarEvents("cal-test", { period: "past" })).toEqual(
-      [],
-    );
+    expect(
+      await fetchCalendarEvents("evgrp-test", { period: "future" }),
+    ).toEqual([]);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
