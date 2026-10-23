@@ -208,7 +208,8 @@ export default function ParadiseScene({
         stackDistance *
         Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) *
         (w / h);
-      const scale = (widthFraction * visibleWidth) / 1.24;
+      // Tilt and perspective make the projected diameter wider than the geometry.
+      const scale = (widthFraction * visibleWidth) / 1.38;
       stack.scale.setScalar(scale);
       shadow.position.x = stack.position.x;
       shadow.position.z = stack.position.z;
