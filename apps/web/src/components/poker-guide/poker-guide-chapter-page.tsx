@@ -34,11 +34,14 @@ export default function PokerGuideChapterPage({
             <span className="sr-only">Choose a chapter</span>
             <select
               value={activeChapter}
-              onChange={(event) =>
-                window.location.assign(
-                  `/${pokerGuideSlug}/${event.target.value}`,
-                )
-              }
+              onChange={(event) => {
+                const chapter = pokerGuideChapters.find(
+                  ({ slug }) => slug === event.target.value,
+                );
+                if (chapter) {
+                  window.location.assign(`/${pokerGuideSlug}/${chapter.slug}`);
+                }
+              }}
             >
               {pokerGuideChapters.map((chapter) => (
                 <option key={chapter.slug} value={chapter.slug}>

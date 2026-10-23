@@ -54,6 +54,7 @@ import Image from "next/image";
 const ASPECT_RATIOS = {
   "16:9": "aspect-[16/9]",
   "4:3": "aspect-[4/3]",
+  "1:1": "aspect-square",
 } as const;
 
 export interface VideoProps {
@@ -62,7 +63,10 @@ export interface VideoProps {
   title?: string;
   vimeoHash?: string;
   autoplay?: boolean;
-  aspectRatio?: "16:9" | "4:3";
+  loop?: boolean;
+  className?: string;
+  sizes?: string;
+  aspectRatio?: keyof typeof ASPECT_RATIOS;
   thumbnail?: string;
   alt?: string;
   bgColorClass?: string;
@@ -77,6 +81,9 @@ export function Video(props: VideoProps) {
     platform,
     id,
     autoplay = true,
+    loop = true,
+    className = "",
+    sizes = "100vw",
     aspectRatio = "16:9",
     vimeoHash,
     title,
@@ -138,13 +145,14 @@ export function Video(props: VideoProps) {
   if (!show) {
     return (
       <div
-        className={`relative w-full ${ASPECT_RATIOS[aspectRatio]} cursor-pointer group overflow-hidden rounded-xl`}
+        className={`relative w-full ${ASPECT_RATIOS[aspectRatio]} cursor-pointer group overflow-hidden ${className || "rounded-xl"}`}
       >
         {thumbnail && (
           <Image
             src={thumbnail}
             alt={alt ?? ""}
             fill
+            sizes={sizes}
             className="object-cover z-0"
             loading="lazy"
           />
@@ -167,29 +175,33 @@ export function Video(props: VideoProps) {
 
   if (platform === "local") {
     return (
-      <div className={`relative w-full ${ASPECT_RATIOS[aspectRatio]}`}>
+      <div
+        className={`relative w-full ${ASPECT_RATIOS[aspectRatio]} overflow-hidden ${className}`}
+      >
         <video
           src={id}
           title={title || "Video player"}
-          className="absolute inset-0 h-full w-full"
-          autoPlay={autoplay}
+          className="absolute inset-0 h-full w-full rounded-[inherit]"
+          autoPlay={autoplay || !autoshow}
           muted={autoplay}
           controls
           playsInline
-          loop
+          loop={loop}
         />
       </div>
     );
   }
 
   return (
-    <div className={`relative w-full ${ASPECT_RATIOS[aspectRatio]}`}>
+    <div
+      className={`relative w-full ${ASPECT_RATIOS[aspectRatio]} overflow-hidden ${className}`}
+    >
       <iframe
         id={`${platform}-${id}`}
         key={`${platform}-${id}`}
         src={getEmbedUrl()}
         title={title || "Video player"}
-        className="absolute inset-0 h-full w-full"
+        className="absolute inset-0 h-full w-full rounded-[inherit]"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
         loading="lazy"
