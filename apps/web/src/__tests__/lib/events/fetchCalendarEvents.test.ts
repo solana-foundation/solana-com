@@ -80,4 +80,50 @@ describe("events calendar", () => {
       "pagination_cursor=page-two",
     );
   });
+
+  it("uses the public calendar when the private API is rate limited", async () => {
+    vi.stubEnv("LUMA_PRIVATE_API_KEY", "test-key");
+    const entry = {
+      event: {
+        api_id: "evt-test",
+        name: "Solana meetup",
+        url: "solana-meetup",
+        start_at: "2026-11-15T10:00:00Z",
+        end_at: "2026-11-15T11:00:00Z",
+        timezone: "Europe/London",
+        geo_address_info: null,
+        cover_url: null,
+        event_type: "independent",
+      },
+    };
+    const publicPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(
+      {
+        props: {
+          pageProps: {
+            initialData: {
+              calendar: { api_id: "cal-test" },
+              upcoming: { entries: [entry] },
+            },
+          },
+        },
+      },
+    )}</script>`;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+      .mockResolvedValueOnce(new Response(publicPage));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const events = await fetchCalendarEvents(
+      "cal-test",
+      { period: "future" },
+      { revalidate: 1800 },
+    );
+
+    expect(events.map((event) => event.title)).toEqual(["Solana meetup"]);
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "https://luma.com/calendar/cal-test",
+    );
+    expect(fetchMock.mock.calls[1][1].next).toEqual({ revalidate: 1800 });
+  });
 });
