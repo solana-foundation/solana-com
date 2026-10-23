@@ -31,6 +31,17 @@ export const upgradeDiagramOptions = [
       "The three routes out of a proposed block and the certificate each produces",
   },
   {
+    label: "durable nonce vs offline signer flow",
+    value: "dn-signer-flow",
+    description:
+      "How signing and replay protection move from the runtime into a program",
+  },
+  {
+    label: "programmatic signer vs Vector call stacks",
+    value: "dn-call-stacks",
+    description: "Where the authorized instructions run in each implementation",
+  },
+  {
     label: "loaded account bytes running total",
     value: "tx-account-bytes",
     description:

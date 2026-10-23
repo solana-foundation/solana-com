@@ -19,7 +19,14 @@ export type SeriesPoint = {
   date: Date;
   defined?: boolean;
   details?: MetricRowDetail[];
+  /** Set on weekly/monthly points: days with data out of days in the period. */
+  period?: SeriesPointPeriod;
   value: number;
+};
+
+export type SeriesPointPeriod = {
+  days: number;
+  length: number;
 };
 
 export type ChartSeries = {
@@ -45,6 +52,7 @@ type TooltipValue = {
   color: string;
   details?: MetricRowDetail[];
   label: string;
+  period?: SeriesPointPeriod;
   value: number;
 };
 
@@ -53,7 +61,7 @@ type TooltipData = {
   values: TooltipValue[];
 };
 
-export type TimeGranularity = "day" | "hour";
+export type TimeGranularity = "day" | "hour" | "week" | "month";
 
 const baseMargin = {
   top: 16,
@@ -505,6 +513,7 @@ function ChartSvg({
                     color: item.color,
                     details: seriesPoint?.details,
                     label: item.label,
+                    period: seriesPoint?.period,
                     value,
                   };
                 })
@@ -533,7 +542,7 @@ function ChartSvg({
           top={tooltipTop}
         >
           <div className="font-brand-mono text-[11px] font-bold uppercase tracking-normal text-nd-mid-em-text">
-            {formatTooltipDate(tooltipData.date, locale, timeGranularity)}
+            {formatTooltipDate(tooltipData.date, locale, timeGranularity, t)}
           </div>
           <div className="mt-2 grid gap-1.5">
             {tooltipData.values.map((item) => (
@@ -544,7 +553,17 @@ function ChartSvg({
                     className="h-1.5 w-1.5"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="text-nd-mid-em-text">{item.label}</span>
+                  <span className="text-nd-mid-em-text">
+                    {item.label}
+                    {isPartialPeriod(item.period) ? (
+                      <span className="ml-1.5 text-[11px] text-nd-mid-em-text/70">
+                        {t("periodViews.partial", {
+                          days: item.period.days,
+                          length: item.period.length,
+                        })}
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="font-medium tabular-nums text-nd-high-em-text">
                     {formatValue(item.value, valueLabel, locale)}
                   </span>
@@ -1031,16 +1050,26 @@ function formatDateTick(
     }).format(value);
   }
 
+  if (timeGranularity === "month") {
+    return new Intl.DateTimeFormat(locale, {
+      month: "short",
+      timeZone: "UTC",
+      year: "2-digit",
+    }).format(value);
+  }
+
   return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
+    ...(timeGranularity === "week" ? { timeZone: "UTC" } : {}),
   }).format(value);
 }
 
-function formatTooltipDate(
+export function formatTooltipDate(
   value: Date,
   locale: string,
   timeGranularity: TimeGranularity,
+  t: ReturnType<typeof useTranslations>,
 ) {
   if (timeGranularity === "hour") {
     return new Intl.DateTimeFormat(locale, {
@@ -1049,11 +1078,30 @@ function formatTooltipDate(
     }).format(value);
   }
 
-  return new Intl.DateTimeFormat(locale, {
+  // Weekly/monthly points sit on the UTC period start, so format in UTC to
+  // avoid showing the previous day or month in negative-offset time zones.
+  if (timeGranularity === "month") {
+    return new Intl.DateTimeFormat(locale, {
+      month: "long",
+      timeZone: "UTC",
+      year: "numeric",
+    }).format(value);
+  }
+
+  const date = new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
+    ...(timeGranularity === "week" ? { timeZone: "UTC" } : {}),
   }).format(value);
+
+  return timeGranularity === "week" ? t("periodViews.weekOf", { date }) : date;
+}
+
+function isPartialPeriod(
+  period: SeriesPointPeriod | undefined,
+): period is SeriesPointPeriod {
+  return Boolean(period && period.days < period.length);
 }
 
 export function formatValue(value: number, valueLabel: string, locale = "en") {

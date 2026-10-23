@@ -4,7 +4,6 @@ import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { type CompanyRecord } from "@workspace/ecosystem-data";
 import { useTranslations } from "@workspace/i18n/client";
-import Button from "@/components/Button";
 import SponsorArtwork from "@/components/SponsorArtwork";
 import GlitchOverlay, {
   getGlitchIntensityStyle,
@@ -15,7 +14,6 @@ import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
 import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
-import { SPONSOR_FORM_HREF } from "@/content/links";
 import {
   sponsorTiers,
   type SponsorLogo,
@@ -573,14 +571,7 @@ function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
 
   return (
     <section className="bg-black pt-l md:pt-xl">
-      <div className="container flex flex-col gap-m md:flex-row md:items-start md:justify-between">
-        <WordReveal
-          as="p"
-          className="type-eyebrow text-white"
-          stepMs={60}
-          text={t("eyebrow")}
-        />
-
+      <div className="container flex md:justify-end">
         <div className="w-full max-w-[851px]">
           <WordReveal
             as="p"
@@ -589,14 +580,6 @@ function SponsorsIntro({ t }: { t: ReturnType<typeof useTranslations> }) {
             stepMs={60}
             startDelayMs={250}
             text={introText}
-          />
-
-          <Button
-            arrow
-            className="mt-s"
-            href={SPONSOR_FORM_HREF}
-            label={t("contactCta")}
-            variant="primary"
           />
         </div>
       </div>

@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MetricChart } from "./metric-chart";
 import { MetricInfo } from "./metric-info";
 import { useDashboardPoller } from "./use-dashboard-poller";
+import { STATUS_POLL_INTERVAL_MS, statusPollInterval } from "./status-polling";
 import {
+  ALPENGLOW_MAINNET_ACTIVATION_EPOCH,
+  ALPENGLOW_MAINNET_FEATURE_ADDRESS,
+  ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS,
+  type AlpenglowActivationEstimate,
   ALPENGLOW_DASHBOARD_NETWORKS,
   ALPENGLOW_DASHBOARD_RANGES,
   type AlpenglowDashboardActivationData,
@@ -27,17 +32,9 @@ const RANGE_LABELS: Record<AlpenglowDashboardRange, string> = {
   "7d": "7 days",
 };
 
-const STATUS_POLL_INTERVAL_MS = 2_000;
 const STATUS_MAX_BACKOFF_MS = 60_000;
 const LIVE_POLL_INTERVAL_MS = 1_000;
 const DETAIL_POLL_INTERVAL_MS = 8_000;
-
-function statusPollInterval(
-  data: AlpenglowDashboardActivationData,
-): number | null {
-  if (data.alpenglowActive === true) return null;
-  return STATUS_POLL_INTERVAL_MS;
-}
 
 function formatNumber(value: number | null, maximumFractionDigits = 0) {
   if (value === null) return "Unavailable";
@@ -50,6 +47,63 @@ function formatLatency(value: number | null) {
     return { value: formatNumber(value * 1_000, 0), unit: "ms" };
   }
   return { value: formatNumber(value, 2), unit: "seconds" };
+}
+
+function ActivationCountdown({
+  estimate,
+  milestone,
+}: {
+  estimate: AlpenglowActivationEstimate | null;
+  milestone: "feature" | "consensus";
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const isFeature = milestone === "feature";
+  const label = isFeature
+    ? "Alpenglow feature activation"
+    : "Alpenglow consensus activation";
+  const estimatedActivationAt = isFeature
+    ? estimate?.estimatedFeatureActivationAt
+    : estimate?.estimatedConsensusActivationAt;
+  const remainingSeconds = estimatedActivationAt
+    ? Math.max(0, Math.ceil((Date.parse(estimatedActivationAt) - now) / 1_000))
+    : null;
+  const featureActivated = isFeature && estimate?.featureActivated === true;
+  const countdown =
+    remainingSeconds === null
+      ? "Estimate unavailable"
+      : remainingSeconds === 0
+        ? "Updating estimate…"
+        : `${remainingSeconds >= 86_400 ? `${Math.floor(remainingSeconds / 86_400)}d ` : ""}${Math.floor((remainingSeconds % 86_400) / 3_600)}h ${Math.floor((remainingSeconds % 3_600) / 60)}m ${remainingSeconds % 60}s`;
+
+  return (
+    <div className="bg-black/85 p-5">
+      <dt className="flex items-center gap-1 text-sm font-medium text-gray-500">
+        <span>{label}</span>
+        <MetricInfo
+          label={label}
+          description={
+            isFeature
+              ? `Activation of feature ${ALPENGLOW_MAINNET_FEATURE_ADDRESS} at the start of epoch ${ALPENGLOW_MAINNET_ACTIVATION_EPOCH}.`
+              : `The switch from Tower BFT to Alpenglow occurs ${formatNumber(ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS)} slots after the start of epoch ${ALPENGLOW_MAINNET_ACTIVATION_EPOCH}.`
+          }
+        />
+      </dt>
+      <dd
+        className={`mt-2 text-2xl font-semibold tabular-nums ${featureActivated ? "text-[#14F195]" : "text-white"}`}
+        role={featureActivated ? "status" : "timer"}
+        aria-label={
+          featureActivated ? undefined : `Estimated time until ${label}`
+        }
+      >
+        {featureActivated ? "Feature Activated" : countdown}
+      </dd>
+    </div>
+  );
 }
 
 function DashboardControls({
@@ -193,7 +247,7 @@ function DashboardSkeleton({
 
 /** Renders the live Alpenglow transition dashboard. */
 export function AlpenglowDashboard() {
-  const [network, setNetwork] = useState<AlpenglowDashboardNetwork>("devnet");
+  const [network, setNetwork] = useState<AlpenglowDashboardNetwork>("mainnet");
   const [range, setRange] = useState<AlpenglowDashboardRange>("1h");
 
   const statusPoller = useDashboardPoller<AlpenglowDashboardActivationData>({
@@ -283,7 +337,9 @@ export function AlpenglowDashboard() {
     status.alpenglowActive === true ? "Alpenglow active" : "Alpenglow inactive";
   const transitionExplanation =
     status.alpenglowActive === true
-      ? "The cluster has returned an Alpenglow genesis certificate, marking the one-time activation of the new consensus protocol."
+      ? status.genesisSlot !== null
+        ? "The cluster has returned an Alpenglow genesis certificate, marking the one-time activation of the new consensus protocol."
+        : `Mainnet has reached the consensus activation threshold, ${formatNumber(ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS)} slots after the start of epoch ${ALPENGLOW_MAINNET_ACTIVATION_EPOCH}.`
       : status.alpenglowRpcSupported === true
         ? "The cluster can report Alpenglow activation, but no genesis certificate has been observed. Tower BFT remains the active consensus protocol."
         : "This cluster does not currently expose enough information to confirm Alpenglow activation.";
@@ -298,11 +354,12 @@ export function AlpenglowDashboard() {
     status.alpenglowActive === true &&
     status.certificateValidatorCount !== null;
   const showLatestFinality = status.latestFinalityLatencySeconds !== null;
-  const heroMetricCount = [
-    showGenesisSlot,
-    showCertificateSigners,
-    showLatestFinality,
-  ].filter(Boolean).length;
+  const showActivationCountdown =
+    network === "mainnet" && status.alpenglowActive !== true;
+  const heroMetricCount =
+    [showGenesisSlot, showCertificateSigners, showLatestFinality].filter(
+      Boolean,
+    ).length + (showActivationCountdown ? 2 : 0);
   const heroMetricLayout =
     heroMetricCount >= 3
       ? "sm:grid-cols-3"
@@ -371,6 +428,18 @@ export function AlpenglowDashboard() {
             <dl
               className={`mt-8 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/10 ${heroMetricLayout}`}
             >
+              {showActivationCountdown && (
+                <>
+                  <ActivationCountdown
+                    milestone="feature"
+                    estimate={activation?.activationEstimate ?? null}
+                  />
+                  <ActivationCountdown
+                    milestone="consensus"
+                    estimate={activation?.activationEstimate ?? null}
+                  />
+                </>
+              )}
               {showGenesisSlot && (
                 <div className="bg-black/85 p-5">
                   <dt className="flex items-center gap-1 text-sm font-medium text-gray-500">

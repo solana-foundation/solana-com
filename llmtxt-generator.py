@@ -212,7 +212,6 @@ ENGLISH_EXTRAS = {
         ("APAC Agenda", "accelerate/hong-kong/agenda", "Sessions and speakers for Accelerate APAC"),
         ("Accelerate Miami", "accelerate/miami", "Solana Accelerate USA in Miami"),
         ("Miami Agenda", "accelerate/miami/agenda", "Sessions and speakers for Accelerate Miami"),
-        ("Accelerate China", "accelerate/china", "Solana Accelerate roadshow across China"),
     ],
 }
 

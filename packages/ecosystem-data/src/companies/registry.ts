@@ -33,6 +33,7 @@ import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
 import { colosseum } from "./records/colosseum";
 import { cooley } from "./records/cooley";
+import { cow } from "./records/cow";
 import { comicbook } from "./records/comicbook";
 import { collectorCrypt } from "./records/collector-crypt";
 import { d3 } from "./records/d3";
@@ -53,9 +54,11 @@ import { frodobots } from "./records/frodobots";
 import { galaxy } from "./records/galaxy";
 import { gmgn } from "./records/gmgn";
 import { gradient } from "./records/gradient";
+import { grayscale } from "./records/grayscale";
 import { hackhack } from "./records/hackhack";
 import { hamiltonLane } from "./records/hamilton-lane";
 import { humaFinance } from "./records/huma-finance";
+import { ika } from "./records/ika";
 import { jito } from "./records/jito";
 import { jpmorgan } from "./records/jpmorgan";
 import { jupiter } from "./records/jupiter";
@@ -172,6 +175,7 @@ export const companies = [
   coinbase,
   colosseum,
   cooley,
+  cow,
   comicbook,
   collectorCrypt,
   d3,
@@ -192,9 +196,11 @@ export const companies = [
   galaxy,
   gmgn,
   gradient,
+  grayscale,
   hackhack,
   hamiltonLane,
   humaFinance,
+  ika,
   jito,
   jpmorgan,
   jupiter,

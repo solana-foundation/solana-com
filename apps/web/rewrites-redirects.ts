@@ -813,6 +813,16 @@ export default {
 
   redirects: withLocaleRedirects([
     {
+      source: "/accelerate/china",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
+      source: "/accelerate/china/:path*",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
       source:
         "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.png",
       destination:
@@ -918,6 +928,11 @@ export default {
       localeDestination: "/sitemap.xml",
     },
     { source: "/news/tag/:path*", destination: "/news" },
+    {
+      source: "/news/solana-changelog-agave-v4-1-0-rpc-2-0-and-alpenglow",
+      destination: "/news/solana-changelog-july-2-2026",
+      permanent: true,
+    },
     // /upgrades is now the source of truth for network upgrade status;
     // this hub post is retired.
     {

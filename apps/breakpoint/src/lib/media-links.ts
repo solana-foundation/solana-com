@@ -1,5 +1,5 @@
 import { withRelatedProject } from "@vercel/related-projects";
-import { SIDE_EVENTS_HREF, SPONSOR_FORM_HREF } from "@/content/links";
+import { SIDE_EVENTS_HREF } from "@/content/links";
 import { breakpointHref } from "@/lib/links";
 
 const VERCEL_MEDIA_APP_URL = withRelatedProject({
@@ -42,12 +42,6 @@ const FALLBACK_BREAKPOINT_ANNOUNCEMENT_LINKS: BreakpointAnnouncementLink[] = [
     title: "Watch Breakpoint 2025 highlights \u2197",
     url: "https://www.youtube.com/watch?v=394wb968J68",
     tags: ["Recap"],
-  },
-  {
-    id: "breakpoint-2026-become-a-sponsor",
-    title: "Become a sponsor \u2197",
-    url: SPONSOR_FORM_HREF,
-    tags: ["Sponsor"],
   },
 ];
 

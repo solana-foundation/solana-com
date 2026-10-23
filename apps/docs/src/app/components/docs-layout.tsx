@@ -59,7 +59,7 @@ export async function DocsLayout({
         search={{ enabled: false }}
         theme={{ disableTransitionOnChange: true }}
       >
-        <div className="container-xl fumadocs">
+        <div className="container-xl fumadocs ![--fd-nav-height:104px]">
           <FumaDocsLayout
             tree={sidebarTree}
             nav={{ enabled: false }}

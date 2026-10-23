@@ -39,12 +39,6 @@ export function HomepageNav() {
           {/* Right nav */}
           <nav className="flex items-center gap-4 xl:gap-10">
             <Link
-              href="/accelerate/china"
-              className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
-            >
-              {t("nav.china")}
-            </Link>
-            <Link
               href="/accelerate/hong-kong"
               className={`hidden text-[20px] leading-none xl:inline ${navLinkClass}`}
             >
@@ -131,13 +125,6 @@ export function HomepageNav() {
           </div>
 
           <nav className="mx-auto mt-[68px] flex w-full max-w-[1024px] flex-col gap-8">
-            <Link
-              href="/accelerate/china"
-              onClick={closeMobileMenu}
-              className="w-fit text-[56px] font-semibold uppercase leading-[0.95] tracking-[1px] text-white sm:text-[72px]"
-            >
-              {t("nav.china")}
-            </Link>
             <Link
               href="/accelerate/hong-kong"
               onClick={closeMobileMenu}

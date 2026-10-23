@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     const cachePolicy =
-      data.alpenglowActive === true
+      data.alpenglowActive === true && data.genesisSlot !== null
         ? { fresh: 86_400, stale: 86_400 }
         : { fresh: 2, stale: 6 };
 

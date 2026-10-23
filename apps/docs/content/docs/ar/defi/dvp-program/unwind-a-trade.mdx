@@ -1,0 +1,227 @@
+---
+title: التراجع عن صفقة
+description:
+  استرجع أحد الجانبين باستخدام Reclaim، وتراجع عن الصفقة باستخدام Cancel أو Reject، واسترد وديعة وصلت بعد إغلاق الصفقة باستخدام Recover.
+seoTitle: التراجع عن صفقة DvP على سولانا
+url: /docs/defi/dvp-program/unwind-a-trade
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/fund-the-legs
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program
+---
+
+هناك أربع تعليمات تعيد الأموال دون إتمام التسوية: Reclaim وCancel وReject أثناء بقاء الصفقة مفتوحة، وRecover للوديعة التي تصل بعد إغلاقها. لا تتحقق أي منها من انتهاء الصلاحية. وقد يظل أحد الجانبين محتجزًا بسبب ضمان مجمّد أو mint تغيّر، كما توضح الملاحظات في النهاية.
+
+| التعليمة  | الموقّع               | النطاق                         | حالة الصفقة بعد ذلك |
+| ------------ | -------------------- | ----------------------------- | ---------------- |
+| `ReclaimDvp` | `user_a` أو `user_b` | جانب الموقّع نفسه          | تبقى مفتوحة       |
+| `CancelDvp`  | جهة التسوية | الجانبان كلاهما                     | مغلقة           |
+| `RejectDvp`  | `user_a` أو `user_b` | الجانبان كلاهما                     | مغلقة           |
+| `RecoverDvp` | `user_a` أو `user_b` | جانب الموقّع، بعد الإغلاق | مغلقة مسبقًا   |
+
+في كل حالة يُفرَّغ الضمان مما يحتويه لصالح طرف ذلك الجانب: الضمان A إلى token account الخاص بـ `user_a` للـ `mint_a`، والضمان B إلى token account الخاص بـ `user_b` للـ `mint_b`، بغض النظر عمّن موّله. ويُمرَّر program account الخاص ببرنامج memo لحسابات الاسترداد التي تتطلب مذكرة (memo).
+
+تتابع هذه الصفحة الخطوات السابقة: العميل والموقّعون من [إنشاء صفقة](/docs/defi/dvp-program/create-a-trade)، و`userAAtaA` و`userBAtaB` من [تمويل الجانبين](/docs/defi/dvp-program/fund-the-legs)، و`MEMO_PROGRAM_ID` و`authority` من [تسوية الصفقة](/docs/defi/dvp-program/settle-the-trade) تُستخدم هنا كما هي.
+
+## استرداد أحد الجانبين
+
+تعيد Reclaim جانب الموقّع وتترك الصفقة مفتوحة، بحيث يمكن تمويل ذلك الجانب مرة أخرى. استخدمها عندما تكون المشكلة في جانب الطرف المقابل؛ أما Cancel وReject فتغلقان الصفقة بأكملها.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { MEMO_PROGRAM_ADDRESS } from "@solana-program/memo";
+    import { getReclaimDvpInstruction } from "./dvp";
+
+    // The asset-leg party takes its asset back.
+    const reclaimInstruction = getReclaimDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      mint: mintA,
+      dvpSourceAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+    });
+
+    await client.sendTransaction([reclaimInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::ReclaimDvpBuilder;
+
+    // The asset-leg party takes its asset back.
+    let reclaim_ix = ReclaimDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .mint(mint_a)
+        .dvp_source_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+## الإلغاء أو الرفض
+
+يوقّع على Cancel جهة التسوية، ويوقّع على Reject أيٌّ من الطرفين. وكلتاهما تردّان ما يحتويه كل ضمان إلى طرف ذلك الجانب وتغلقان السجل والضمانين معًا، على أن يذهب rent الحسابات المغلقة إلى الموقّع. تأخذ التعليمتان الحسابات نفسها؛ والفرق الوحيد هو الموقّع.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getCancelDvpInstruction, getRejectDvpInstruction } from "./dvp";
+
+    const unwindAccounts = {
+      swapDvp,
+      mintA,
+      mintB,
+      dvpAtaA: escrowA,
+      dvpAtaB: escrowB,
+      userAAtaA,
+      userBAtaB,
+      tokenProgramA,
+      tokenProgramB,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      legAExtrasCount: 0,
+    };
+
+    // Signed by the settlement authority:
+    const cancelInstruction = getCancelDvpInstruction({
+      settlementAuthority: authoritySigner,
+      ...unwindAccounts,
+    });
+
+    // Or signed by either party:
+    const rejectInstruction = getRejectDvpInstruction({
+      signer: userBSigner,
+      ...unwindAccounts,
+    });
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::{CancelDvpBuilder, RejectDvpBuilder};
+
+    // Signed by the settlement authority:
+    let cancel_ix = CancelDvpBuilder::new()
+        .settlement_authority(authority)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+
+    // Or signed by either party:
+    let reject_ix = RejectDvpBuilder::new()
+        .signer(user_b)
+        .swap_dvp(swap_dvp)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .dvp_ata_a(escrow_a)
+        .dvp_ata_b(escrow_b)
+        .user_a_ata_a(user_a_ata_a)
+        .user_b_ata_b(user_b_ata_b)
+        .token_program_a(token_program_a)
+        .token_program_b(token_program_b)
+        .memo_program(MEMO_PROGRAM_ID)
+        .leg_a_extras_count(0)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+يجب أن توجد حسابات الاسترداد (`userAAtaA` و`userBAtaB`) لأي جانب يحتوي على رصيد؛ فالحساب غير المهيأ يجعل تحويل الرمز يفشل ويؤدي إلى التراجع عن التعليمة. أما الجانب الذي لم يُموَّل قط فلا يحتاج إلى تحويل ويتحمل غياب الحساب.
+
+## استرداد وديعة متأخرة
+
+تغلق Settle وCancel وReject كلها token accounts الخاصة بالضمانين، لذا يفشل أي تحويل عادي إلى ضمان مغلق. ولا تصل الوديعة بعد الإغلاق إلا إذا أعاد شيء ما إنشاء الضمان أولًا، مثل معاملة تمويل تتضمن تعليمة create-idempotent لـ associated token account قبل التحويل وكانت قيد التنفيذ عندما أرسل الطرف المقابل Reject. عندها تستقر الرموز في ضمان لم تعد صفقته موجودة: فالسجل قد اختفى، ولذلك لا تستطيع Reclaim العثور عليه، كما يمنع الـ tombstone الخاص بالـ nonce إنشاء صفقة جديدة على العنوان نفسه والاستيلاء على الوديعة.
+
+لاستخدام `RecoverDvp`، يقدّم طرف ذلك الجانب مدخلات الـ seed الأصلية (جهة التسوية، والطرفان، وكلا الـ mint، والـ nonce). يعيد البرنامج اشتقاق عنوان السجل، ويشترط وجود الـ tombstone الخاص به كدليل على أن الصفقة كانت موجودة، ثم يفرّغ الضمان إلى token account الخاص بالموقّع نفسه ويغلقه، ويعيد rent الضمان إلى الموقّع. ويتحدد جانب الموقّع بحسب الطرف الذي يوقّع: `mint_a` للطرف `user_a`، و`mint_b` للطرف `user_b`.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { getAddressEncoder, getProgramDerivedAddress } from "@solana/kit";
+    import { DVP_SWAP_PROGRAM_PROGRAM_ADDRESS, getRecoverDvpInstruction } from "./dvp";
+
+    const [nonceTombstone] = await getProgramDerivedAddress({
+      programAddress: DVP_SWAP_PROGRAM_PROGRAM_ADDRESS,
+      seeds: ["nonce", getAddressEncoder().encode(swapDvp)],
+    });
+
+    const recoverInstruction = getRecoverDvpInstruction({
+      signer: userASigner,
+      swapDvp,
+      nonceTombstone,
+      mint: mintA,
+      dvpEscrowAta: escrowA,
+      signerDestAta: userAAtaA,
+      tokenProgram: tokenProgramA,
+      memoProgram: MEMO_PROGRAM_ADDRESS,
+      settlementAuthority,
+      userA,
+      userB,
+      mintA,
+      mintB,
+      nonce,
+    });
+
+    await client.sendTransaction([recoverInstruction]);
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::instructions::RecoverDvpBuilder;
+
+    let recover_ix = RecoverDvpBuilder::new()
+        .signer(user_a)
+        .swap_dvp(swap_dvp)
+        .nonce_tombstone(nonce_tombstone)
+        .mint(mint_a)
+        .dvp_escrow_ata(escrow_a)
+        .signer_dest_ata(user_a_ata_a)
+        .token_program(token_program_a)
+        .memo_program(MEMO_PROGRAM_ID)
+        .settlement_authority(settlement_authority)
+        .user_a(user_a)
+        .user_b(user_b)
+        .mint_a(mint_a)
+        .mint_b(mint_b)
+        .nonce(nonce)
+        .instruction();
+    ```
+
+  </Tab>
+</Tabs>
+
+يعتمد الاسترداد على احتفاظ الطرف بمعاملات الإنشاء. فالنظام الذي يموّل الصفقات يخزّن مدخلات الـ seed مع كل أمر إلى أن تُغلق الصفقة ويُتأكد من أن أرصدة الضمان فارغة.
+
+## ملاحظات
+
+- **الجوانب المجمّدة.** في mint مقيَّد، يمنع الضمان المجمّد تحويل الرمز الذي تنفّذه هذه التعليمات إلى أن تفك freeze authority التجميد. راجع [النظرة العامة](/docs/defi/dvp-program#mint-configuration-constraints).
+- **تغييرات الـ mint بعد الإنشاء.** تتخطى مسارات التراجع فحوصات الامتدادات وmint authority حتى لا تعيق فحوصات البرنامج نفسه عملية الاسترداد. وتظل قواعد token program نفسه سارية. لا يمكن إغلاق mint إلا عندما يكون المعروض صفرًا، لذا لا يمكن أن يتغير أثناء وجود رصيد في الضمان، لكن mint يُغلق ويُعاد إنشاؤه بصفة NonTransferable أو برسوم تحويل قبل وصول وديعة متأخرة قد يجعل تلك الوديعة غير قابلة للتحويل أو خاضعة لرسوم. وهذا هو الاعتماد على mint authority المذكور ضمن [الرموز المدعومة](/docs/defi/dvp-program#supported-tokens).
+
+## الخطوات التالية
+
+- [برنامج DvP](/docs/defi/dvp-program): النظرة العامة، والرموز المدعومة، وقيود إعداد الـ mint
+- [التسليم مقابل الدفع (DvP) باستخدام التفويض](/docs/tokenization/dvp): التبادل نفسه عبر صلاحية مفوَّضة، دون برنامج

@@ -58,22 +58,22 @@ export const GUIDE_SECTIONS = [
       <p>This guide is for Rust smart contract developers who already know CosmWasm and want to make sound Solana architecture decisions instead of trying to preserve patterns that do not translate cleanly.</p>
       <p>Four Solana concepts shape the whole rewrite: a <a href="/docs/core/programs">program</a> is executable onchain code, an <a href="/docs/core/accounts">account</a> is the state object the runtime stores and loads, an <a href="/docs/core/instructions">instruction</a> is a request to run one program handler, and a <a href="/docs/core/transactions">transaction</a> is the signed bundle of instructions that succeeds or fails atomically.</p>
       <p>Before touching code, internalize the two chains' core bets:</p>
-      <div class="tw-overflow-x-auto">
-        <table class="tw-w-full tw-border-collapse tw-border tw-border-white/10">
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse border-[1px] border-white/10">
           <thead>
-            <tr class="tw-bg-white/8">
-              <th class="tw-border tw-border-white/10 tw-px-4 tw-py-3 tw-text-left">Dimension</th>
-              <th class="tw-border tw-border-white/10 tw-px-4 tw-py-3 tw-text-left">CosmWasm</th>
-              <th class="tw-border tw-border-white/10 tw-px-4 tw-py-3 tw-text-left">Solana / Anchor</th>
+            <tr class="bg-white/[0.08]">
+              <th class="border-[1px] border-white/10 px-4 py-3 text-left">Dimension</th>
+              <th class="border-[1px] border-white/10 px-4 py-3 text-left">CosmWasm</th>
+              <th class="border-[1px] border-white/10 px-4 py-3 text-left">Solana / Anchor</th>
             </tr>
           </thead>
           <tbody>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Scaling strategy</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Horizontal app-chain ecosystem connected by IBC</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">One high-throughput chain with parallel execution</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Typical block cadence</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Seconds</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Sub-second slots, which are Solana's leader-scheduled time windows</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Execution VM</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">WASM bytecode</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">sBPF bytecode, Solana's executable program format</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Nondeterminism</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Disallowed</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Disallowed</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Contract instances</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Many instances per uploaded code</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">One deployed program; many state accounts</td></tr>
-            <tr><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Scaling consequence</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Application isolation by chain</td><td class="tw-border tw-border-white/10 tw-px-4 tw-py-3">Parallel execution through explicit account locks</td></tr>
+            <tr><td class="border-[1px] border-white/10 px-4 py-3">Scaling strategy</td><td class="border-[1px] border-white/10 px-4 py-3">Horizontal app-chain ecosystem connected by IBC</td><td class="border-[1px] border-white/10 px-4 py-3">One high-throughput chain with parallel execution</td></tr>
+            <tr><td class="border-[1px] border-white/10 px-4 py-3">Typical block cadence</td><td class="border-[1px] border-white/10 px-4 py-3">Seconds</td><td class="border-[1px] border-white/10 px-4 py-3">Sub-second slots, which are Solana's leader-scheduled time windows</td></tr>
+            <tr><td class="border-[1px] border-white/10 px-4 py-3">Execution VM</td><td class="border-[1px] border-white/10 px-4 py-3">WASM bytecode</td><td class="border-[1px] border-white/10 px-4 py-3">sBPF bytecode, Solana's executable program format</td></tr>
+            <tr><td class="border-[1px] border-white/10 px-4 py-3">Nondeterminism</td><td class="border-[1px] border-white/10 px-4 py-3">Disallowed</td><td class="border-[1px] border-white/10 px-4 py-3">Disallowed</td></tr>
+            <tr><td class="border-[1px] border-white/10 px-4 py-3">Contract instances</td><td class="border-[1px] border-white/10 px-4 py-3">Many instances per uploaded code</td><td class="border-[1px] border-white/10 px-4 py-3">One deployed program; many state accounts</td></tr>
+            <tr><td class="border-[1px] border-white/10 px-4 py-3">Scaling consequence</td><td class="border-[1px] border-white/10 px-4 py-3">Application isolation by chain</td><td class="border-[1px] border-white/10 px-4 py-3">Parallel execution through explicit account locks</td></tr>
           </tbody>
         </table>
       </div>
@@ -386,7 +386,7 @@ Ok(Response::new().add_submessage(sub_msg))</code></pre>
 );
 
 pool_program::cpi::swap(cpi_ctx, amount_in, min_amount_out)?;</code></pre>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>
@@ -512,7 +512,7 @@ invoke_signed(
     ],
     &amp;[&amp;signer_seeds],
 )?;</code></pre>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>
@@ -705,7 +705,7 @@ solana program deploy ./target/deploy/my_program.so --program-id CNTR_KEYPAIR.js
       <p>For devnet rehearsals, <a href="https://github.com/solana-foundation/kora/tree/main/crates/kora-deploy" target="_blank" rel="noreferrer">kora-deploy</a> removes the SOL requirement entirely: a hosted Kora paymaster funds the rent and fees, your wallet is registered as the only key allowed to upgrade the program, and programs idle for more than seven days are reclaimed automatically.</p>
       <pre><code class="language-bash">cargo install kora-deploy
 kora-deploy --program-so ./target/deploy/my_program.so</code></pre>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>
@@ -843,7 +843,7 @@ pub fn process_increment(
       <h2>15. Porting a DEX: Lessons from the Real World</h2>
       <p>DEX ports expose the biggest architectural differences quickly because they touch factories, pools, vaults, LP tokens, pricing state, and multi-hop account graphs.</p>
       <p>In Solana programs, a vault is usually a PDA-controlled token account that holds assets for a pool or escrow. A multi-hop account graph is the full list of accounts needed for every swap leg in one transaction.</p>
-      <div class="tw-overflow-x-auto">
+      <div class="overflow-x-auto">
         <table>
           <thead>
             <tr>

@@ -332,6 +332,7 @@ export type DashboardTab =
   | "overview"
   | "network"
   | "defi"
+  | "lending"
   | "rpc"
   | "senders";
 export type Aggregation = "avg" | "sum";
@@ -339,6 +340,48 @@ export type SeriesField = "provider" | "metric";
 export type TimeGranularity = "day" | "hour";
 export type ChartVisualization = "line" | "bar";
 export type ChartScale = "linear" | "log";
+export type ChartPeriodView = "daily" | "weekly" | "monthly" | "cumulative";
+
+/**
+ * How daily values combine into a weekly or monthly point:
+ * - sum: flows (fees, transactions, volume) -> period total
+ * - avg: prices, ratios, and unique counts (which can't be summed) -> daily average
+ * - last: balances and levels (supply, stake) -> value on the period's last day
+ */
+export type PeriodRollup = "sum" | "avg" | "last";
+
+export type ChartPeriodViews = {
+  rollup: PeriodRollup;
+  /**
+   * Options offered in the chart's dropdown besides Daily. `cumulative` is a
+   * running total over the selected range, so it only makes sense with `sum`.
+   */
+  views: readonly Exclude<ChartPeriodView, "daily">[];
+};
+
+// Presets for the common cases. To offer a different set of options on one
+// chart, give it its own object, e.g. { rollup: "avg", views: ["weekly"] }.
+/** Daily flows (fees, transactions, volume): period totals plus a running total. */
+export const flowPeriodViews = {
+  rollup: "sum",
+  views: ["weekly", "monthly", "cumulative"],
+} as const satisfies ChartPeriodViews;
+
+/** Balances and levels (supply, stake, deposits): value at the end of the period. */
+export const levelPeriodViews = {
+  rollup: "last",
+  views: ["weekly", "monthly"],
+} as const satisfies ChartPeriodViews;
+
+/**
+ * Prices, ratios, and unique-user counts: average of the daily values. Unique
+ * counts can't be summed (the same address shows up on several days), and true
+ * weekly or monthly uniques aren't available from the pipeline.
+ */
+export const averagePeriodViews = {
+  rollup: "avg",
+  views: ["weekly", "monthly"],
+} as const satisfies ChartPeriodViews;
 
 export type MethodologyComment = {
   provider: ProviderName;
@@ -356,6 +399,8 @@ export type ChartDefinition = {
   fullWidth?: boolean;
   lowerIsBetter?: boolean;
   methodology?: readonly MethodologyComment[];
+  /** Enables the per-chart Daily/Weekly/Monthly(/Cumulative) dropdown. */
+  periodViews?: ChartPeriodViews;
   scale?: ChartScale;
   timeGranularity?: TimeGranularity;
   visualization?: ChartVisualization;
@@ -539,6 +584,7 @@ export const chartDefinitions = [
     metrics: ["Total Supply"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: levelPeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -573,6 +619,7 @@ export const chartDefinitions = [
     metrics: ["Circulating Supply"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: levelPeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -612,6 +659,7 @@ export const chartDefinitions = [
     metrics: ["Transfer Count"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
   },
   {
     id: "stablecoin-active-addresses",
@@ -621,6 +669,7 @@ export const chartDefinitions = [
     metrics: ["Active Addresses"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: averagePeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -647,6 +696,7 @@ export const chartDefinitions = [
     metrics: ["Transfer Volume"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -681,6 +731,7 @@ export const chartDefinitions = [
     metrics: ["Transaction Count (Total)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
   },
   {
     id: "sol-price",
@@ -708,6 +759,7 @@ export const chartDefinitions = [
     metrics: ["Fees"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
   },
   {
     id: "successful-transactions",
@@ -717,6 +769,7 @@ export const chartDefinitions = [
     metrics: ["Non Vote Transaction Count (Success)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
   },
   {
     id: "failed-transactions",
@@ -726,6 +779,7 @@ export const chartDefinitions = [
     metrics: ["Non Vote Transaction Count (Failed)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
   },
   {
     id: "vote-transactions",
@@ -735,6 +789,7 @@ export const chartDefinitions = [
     metrics: ["Transaction Count (Vote)"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
   },
   {
     id: "slots",
@@ -744,6 +799,7 @@ export const chartDefinitions = [
     metrics: ["Slots"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
   },
   {
     id: "fee-payers",
@@ -753,6 +809,7 @@ export const chartDefinitions = [
     metrics: ["Fee Payers"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: averagePeriodViews,
     methodology: [
       {
         provider: "Artemis",
@@ -769,6 +826,7 @@ export const chartDefinitions = [
     metrics: ["Application Revenue"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
     methodology: [
       {
         provider: "Blockworks",
@@ -790,6 +848,7 @@ export const chartDefinitions = [
     metrics: ["Total Stake"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: levelPeriodViews,
   },
   {
     id: "validator-count",
@@ -799,6 +858,7 @@ export const chartDefinitions = [
     metrics: ["Validator Count"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: levelPeriodViews,
   },
   {
     id: "top-asn-share",
@@ -826,6 +886,7 @@ export const chartDefinitions = [
     metrics: ["DEX Volume"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -851,6 +912,7 @@ export const chartDefinitions = [
     metrics: ["DEX Transactions"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: flowPeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -892,6 +954,7 @@ export const chartDefinitions = [
     metrics: ["DEX Traders"],
     aggregation: "avg",
     seriesField: "provider",
+    periodViews: averagePeriodViews,
     methodology: [
       {
         provider: "Allium",
@@ -899,6 +962,44 @@ export const chartDefinitions = [
           "Unique Solana DEX swap initiators; no bot filter applied.",
       },
     ],
+  },
+  {
+    id: "lending-total-deposits",
+    tab: "lending",
+    title: "Total Deposits",
+    valueLabel: "USD",
+    metrics: ["Total Deposits"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: levelPeriodViews,
+  },
+  {
+    id: "lending-total-borrowed",
+    tab: "lending",
+    title: "Total Borrowed",
+    valueLabel: "USD",
+    metrics: ["Total Borrowed"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: levelPeriodViews,
+  },
+  {
+    id: "lending-utilization-rate",
+    tab: "lending",
+    title: "Utilization Rate",
+    valueLabel: "Percent",
+    metrics: ["Utilization Rate"],
+    aggregation: "avg",
+    seriesField: "provider",
+  },
+  {
+    id: "lending-protocol-count",
+    tab: "lending",
+    title: "Protocol Count",
+    valueLabel: "Count",
+    metrics: ["Protocol Count"],
+    aggregation: "avg",
+    seriesField: "provider",
   },
   {
     id: "rpc-error-rate",

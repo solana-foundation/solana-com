@@ -24,20 +24,20 @@ viene descritto di seguito con le stesse tre parti: come dispone i byte sul
 canale di trasmissione, come referenzia gli account e da dove derivano i limiti delle risorse.
 
 <Callout type="warn" title="Stato di attivazione di v1">
-  Il [formato v1](https://solana.com/upgrades/larger-transaction-sizes) non è
-  ancora attivo su nessun cluster. L'attivazione è prevista con Agave v4.2.
-  `solana-test-validator` 4.2+ consente di testare le transazioni v1 in locale.
-  Le app esistenti dovrebbero consultare [la preparazione per v1](#preparing-for-v1).
+  Il [formato v1](https://solana.com/upgrades/larger-transaction-sizes) è
+  attivo su mainnet, devnet e testnet. La lettura delle transazioni è una modifica
+  non retrocompatibile: i client che non effettuano l'opt-in falliscono con le transazioni v1. Le app esistenti
+  dovrebbero consultare [preparazione alla v1](#preparing-for-v1).
 </Callout>
 
 ## Confronto tra formati
 
-| Limite                 | legacy                     | v0                         | v1                 |
-| --------------------- | -------------------------- | -------------------------- | ------------------ |
-| Dimensione massima della transazione  | 1.232 byte                | 1.232 byte                | **4.096 byte**    |
-| Indirizzi degli account     | ~32, limitato dalla dimensione            | 64, tramite lookup table      | **64, inline**     |
-| Address lookup table | non supportato              | supportato                  | **non supportato**  |
-| Limiti delle risorse       | Istruzioni ComputeBudget | Istruzioni ComputeBudget | **message config** |
+| Limite                 | legacy                     | v0                         | v1                                                                                 |
+| --------------------- | -------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| Dimensione massima della transazione  | 1.232 byte                | 1.232 byte                | **4.096 byte**                                                                    |
+| Indirizzi degli account     | ~32, limitato dalla dimensione            | 64, tramite lookup table      | **64, inline** (96 con [SIMD-0596](https://solana.com/upgrades/v1-account-limit)) |
+| Address lookup table | non supportato              | supportato                  | **non supportato**                                                                  |
+| Limiti delle risorse       | Istruzioni ComputeBudget | Istruzioni ComputeBudget | **message config**                                                                 |
 
 Vai a: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
 
@@ -134,6 +134,20 @@ account statici: le ricerche scrivibili precedono quelle di sola lettura.
   firmatari); non possono essere firmatari.
 </Callout>
 
+### Creare e usare una address lookup table
+
+Questo esempio crea una lookup table, aggiunge un indirizzo e usa la tabella per
+compilare e inviare una transazione v0.
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+Da una lookup table possono essere caricati solo account non firmatari. Il fee payer e
+ogni firmatario richiesto restano nell'elenco statico degli account del messaggio. Inoltre, un indirizzo
+non può essere cercato nello stesso slot in cui è stato aggiunto, quindi l'esempio
+attende il successivo slot confermato prima di compilare il messaggio v0.
+
 ### Limiti delle risorse in v0
 
 Invariati rispetto al formato legacy: istruzioni ComputeBudget, con gli stessi valori predefiniti quando
@@ -152,11 +166,11 @@ scansionare e deserializzare l'elenco delle istruzioni.
 | Campo                  | Dimensione         | Descrizione                                                                        |
 | ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `0x81`                 | 1 byte       | Byte prefisso di versione — il primo byte della transazione                            |
-| `header`               | 3 byte      | MessageHeader (uguale al formato legacy)                                                     |
+| `header`               | 3 byte      | MessageHeader (uguale al legacy)                                                     |
 | `config_mask`          | 4 byte      | Bitmask `u32` LE che indica quali valori di configurazione sono presenti                           |
 | `recent_blockhash`     | 32 byte     | Specificatore di durata                                                                 |
 | `num_instructions`     | 1 byte       | Conteggio a larghezza fissa, max 64                                                          |
-| `num_addresses`        | 1 byte       | Conteggio a larghezza fissa, max 64                                                          |
+| `num_addresses`        | 1 byte       | Conteggio a larghezza fissa, max 64 (96 con SIMD-0596)                                      |
 | `addresses`            | N x 32 byte | Indirizzi degli account, tutti inline — nessun riferimento a lookup table                         |
 | `config_values`        | 0–20 byte   | Un valore per ogni bit della maschera impostato, nell'ordine dei bit (vedi sotto)                               |
 | `instruction_headers`  | N x 4 byte  | Per istruzione: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
@@ -170,10 +184,12 @@ i payload a lunghezza variabile, invece di ogni istruzione essere contigua.
 
 ### Account in v1: nessuna address lookup table
 
-v1 rimuove deliberatamente il supporto per le ALT. 64 indirizzi grezzi occupano 2.048 byte,
-comodamente entro il limite di 4.096 byte, quindi ogni indirizzo è inline come nel
-formato legacy. Se la tua applicazione dipende dalle lookup table, il passaggio a v1 comporta
-l'inserimento inline di quegli indirizzi.
+La v1 rimuove deliberatamente il supporto per le ALT. 64 indirizzi raw corrispondono a 2.048 byte, e i 96
+indirizzi consentiti dopo
+[SIMD-0596](https://solana.com/upgrades/v1-account-limit) corrispondono a 3.072 byte, entrambi
+ampiamente entro il limite di 4.096 byte, quindi ogni indirizzo è inline come nel
+formato legacy. Se la tua applicazione dipende dalle lookup table, passare alla v1 significa
+incorporare inline quegli indirizzi.
 
 ### Limiti delle risorse in v1: la transaction config
 
@@ -224,11 +240,45 @@ arrotondando la dimensione dei dati alla pagina di 32 KiB successiva per margine
 calcola in pagine da 32 KiB, quindi il margine al di sotto del limite della pagina successiva è
 gratuito).
 
+### Creazione di una transazione v1
+
+Un messaggio v1 viene assemblato attraverso la stessa pipeline di uno legacy o v0. La
+differenza è `setTransactionMessageConfig`: i limiti delle risorse sono una proprietà
+del messaggio, quindi l'elenco delle istruzioni contiene solo le istruzioni del programma.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kit espone anche un setter per ciascun campo di configurazione —
+`setTransactionMessagePriorityFeeLamports`,
+`setTransactionMessageComputeUnitLimit`,
+`setTransactionMessageLoadedAccountsDataSizeLimit` e
+`setTransactionMessageHeapSize` — per impostarli uno alla volta.
+
+### Dimensionare i limiti tramite simulazione
+
+Invece di tirare a indovinare i due limiti obbligatori, misurali. La simulazione viene eseguita
+con entrambi i limiti portati al massimo del runtime, quindi non può fallire per mancanza delle
+risorse che sta misurando. Il valore restituito è il costo esatto di una singola
+esecuzione simulata, quindi aggiungi un margine prima di fare affidamento su di esso.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## Preparazione per v1
 
-v1 modifica la **lettura** delle transazioni, non solo il loro invio. Quando v1 sarà attivo,
-qualsiasi client che chiama `getTransaction` o `getBlock` senza esplicitare il supporto
-inizia a fallire sulle transazioni v1:
+La v1 cambia la **lettura** delle transazioni, non solo il loro invio. Qualsiasi client che
+chiama `getTransaction` o `getBlock` senza effettuare l'opt-in fallisce con le transazioni v1:
 
 - Passa `maxSupportedTransactionVersion: 1` — l'**intero** JSON `1`, non la
   stringa `"1"` — a [`getTransaction`](/docs/rpc/http/gettransaction) e
@@ -243,10 +293,10 @@ inizia a fallire sulle transazioni v1:
   silenziosamente indietro a partire dal primo slot v1 in avanti.
 - `getSignaturesForAddress` non ispeziona mai i corpi delle transazioni, quindi le firme v1
   vengono elencate normalmente.
-- Le risposte con opt-in includono un oggetto `transactionConfig` nel messaggio per le transazioni v1
-  (del tutto assente per legacy e v0). Le pipeline che derivano
-  commissioni di priorità o limiti di calcolo scansionando le istruzioni ComputeBudget
-  riporteranno silenziosamente **zero** per ogni transazione v1.
+- Le risposte con opt-in includono un oggetto `transactionConfig` nel messaggio per le
+  transazioni v1 (completamente assente per legacy e v0). Le pipeline che ricavano
+  le priority fee o i limiti di calcolo analizzando le istruzioni ComputeBudget
+  riportano silenziosamente **zero** per ogni transazione v1.
 - Usa `encoding: 'base64'` quando decodifichi le transazioni lato client e per
   `sendTransaction`/`simulateTransaction` con transazioni superiori a 1.232 byte —
   la codifica base58 rimane limitata alla vecchia dimensione.
@@ -254,6 +304,22 @@ inizia a fallire sulle transazioni v1:
   della generazione Agave 4.2.x, o web3.js v3. web3.js v1 legge v1 dalla versione 1.99.0
   in poi, ma non può costruirlo né inviarlo.
 
-Per la guida completa alla migrazione — incluso il supporto delle librerie client, il rilevamento della versione in streaming
-(Geyser/gRPC) e il comportamento della simulazione — consulta la
-[pagina di aggiornamento al formato di transazione v1](https://solana.com/upgrades/larger-transaction-sizes).
+### Lettura di una transazione v1
+
+L'opt-in richiede l'intero JSON `1`. La decodifica dei byte restituiti fornisce la
+versione e la configurazione, ed è lì che risiedono i limiti delle risorse — scorrere l'elenco
+delle istruzioni alla ricerca di istruzioni ComputeBudget non porta a nulla.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+Per la guida completa alla migrazione — incluso il supporto delle librerie client, il rilevamento della versione
+in streaming (Geyser/gRPC) e il comportamento della simulazione — consulta la
+[pagina di aggiornamento al Transaction Format v1](https://solana.com/upgrades/larger-transaction-sizes).
+Esempi eseguibili in TypeScript, Rust, Python e Go sono disponibili in
+[solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples).

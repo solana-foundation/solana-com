@@ -1,103 +1,40 @@
-export const META = {
-  seoImage: "",
-} as const;
-
-export const HERO_IMAGE =
-  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fa3d9b6b91e2645d7a071fc94210caf50.png";
-
-export const HERO_BUTTONS = [
-  {
-    hierarchy: "purpleGradient",
-    size: "md",
-    url: "https://github.com/solana-foundation/solana-pay",
-  },
-  {
-    hierarchy: "outline",
-    size: "md",
-    url: "https://solanapay.com/",
-  },
+// Static destinations are checked by validate:content.
+export const HERO_LINKS = [
+  { id: "primary", href: "/docs/payments" },
+  { id: "secondary", href: "/developers/payments#payment-paths" },
 ] as const;
 
-export const STATS_CONFIG = {
-  contained: true,
-} as const;
-
-export const CARD_DECK_COLUMNS = 3;
-
-export const CARD_DECK_CARDS = [
-  {
-    type: "gradient",
-    headingAs: "h2",
-    backgroundGradient: "blue",
-    callToAction: {
-      hierarchy: "outline",
-      endIcon: "arrow-up-right",
-      url: "https://docs.solanapay.com/",
-    },
-  },
-  {
-    type: "gradient",
-    headingAs: "h2",
-    backgroundGradient: "pink",
-    callToAction: {
-      hierarchy: "outline",
-      endIcon: "arrow-up-right",
-      url: "https://apps.shopify.com/solana-pay-helio",
-    },
-  },
-  {
-    type: "gradient",
-    headingAs: "h2",
-    backgroundGradient: "purple",
-    callToAction: {
-      hierarchy: "outline",
-      endIcon: "arrow-up-right",
-      url: "https://solanapay.com/branding",
-    },
-  },
+export const PAYMENT_PATHS = [
+  { id: "accept", href: "/docs/payments/accept-payments" },
+  { id: "send", href: "/docs/payments/send-payments" },
+  { id: "payouts", href: "/docs/payments/send-payments/payment-processing" },
+  { id: "agentic", href: "/docs/payments/agentic-payments" },
 ] as const;
 
-export const FLOATING_HEADING = {
-  variant: "floatingButton",
-} as const;
-
-export const FEATURE_HIGHLIGHT = {
-  headingAs: "h2",
-  color: "green",
-  desktopBackground: {
-    src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F323f952777f7483990b734e901c6927a.png",
-  },
-} as const;
-
-export const FEATURE_HIGHLIGHT_CARDS = [{}, { color: "aqua" }, {}, {}] as const;
-
-export const SWITCHBACK_IMAGE =
-  "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F3c38f6e5bf9e4abcaf744ba0a78dc01e.png";
-
-export const SWITCHBACK_BUTTONS = [
+export const BUILD_OPTIONS = [
   {
-    hierarchy: "link",
-    size: "md",
-    endIcon: "arrow-up-right",
-    url: "https://www.anchor-lang.com/",
+    id: "commerceKit",
+    href: "/docs/tools/commerce-kit/quickstart/payment-button",
   },
+  { id: "solanaPay", href: "/docs/payments/accept-payments/solana-pay" },
+  { id: "paySh", href: "/docs/payments/pay-sh" },
+  { id: "custom", href: "/docs/payments/interacting-with-solana" },
 ] as const;
 
-export const COMMUNITY_PANEL = {
-  variant: "inline-centered",
-  showLogos: false,
-  listItems: [
-    {
-      hierarchy: "link",
-      size: "md",
-      endIcon: "arrow-up-right",
-      url: "https://solana.com/discord",
-    },
-    {
-      hierarchy: "link",
-      size: "md",
-      endIcon: "arrow-up-right",
-      url: "https://forums.solana.com",
-    },
-  ],
+export const SHOPIFY_LINKS = [
+  { id: "app", href: "https://apps.shopify.com/solana-pay-helio" },
+  { id: "guide", href: "https://docs.hel.io/docs/solana-pay-shopify-plugin" },
+] as const;
+
+export const SHOPIFY_PAYMENTS_LINK = {
+  href: "https://help.shopify.com/en/manual/payments/shopify-payments/local-payment-methods/usdc-payments",
+} as const;
+
+export const RELATED_LINKS = [
+  { id: "commerce", href: "/solutions/commerce-tooling" },
+  { id: "platform", href: "/solutions/sdp" },
+] as const;
+
+export const PRODUCTION_LINK = {
+  href: "/docs/tools/production-readiness",
 } as const;

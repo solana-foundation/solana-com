@@ -173,12 +173,13 @@ describe("upgrades schema", () => {
     }
   });
 
-  it("parses the selected diagrams in both upgrade articles", () => {
+  it("parses the selected diagrams in upgrade articles", () => {
     const body = config.collections?.upgrades?.schema.body;
     if (!body) throw new Error("Expected the upgrades body field");
 
     for (const [slug, count] of [
       ["alpenglow", 5],
+      ["durable-nonce-deprecation", 2],
       ["larger-transaction-sizes", 2],
     ] as const) {
       const source = readFileSync(
