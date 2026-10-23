@@ -45,7 +45,7 @@ const sectionTitleClass =
 const sectionDescriptionClass =
   "max-w-[36rem] text-[var(--wsop-muted)] text-[clamp(1.125rem,3.125vw,1.5rem)] tracking-[-0.02em] leading-[1.45] md:leading-[1.33]";
 const buttonClass =
-  "inline-flex min-h-12 items-center justify-between gap-5 pt-2 pr-2 pb-2 pl-5 border-0 rounded-full bg-white text-black cursor-pointer text-base font-medium tracking-[-0.01em] leading-tight [&_svg]:w-8 [&_svg]:h-8 [&_svg]:p-2 [&_svg]:rounded-full [&_svg]:bg-black [&_svg]:text-white [&_svg]:stroke-[2.5] [&_svg]:transition-[transform_180ms_cubic-bezier(0.22,_1,_0.36,_1)] [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] hover:bg-[rgba(255,_255,_255,_0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)] focus-visible:outline-offset-[4px] md:text-lg motion-reduce:[&_svg]:transition-[none] motion-reduce:[&:hover_svg]:transform-none";
+  "inline-flex min-h-12 items-center justify-between gap-5 pt-2 pr-2 pb-2 pl-5 border-0 rounded-full bg-white text-black cursor-pointer text-base font-medium tracking-[-0.01em] leading-tight [&_svg]:w-8 [&_svg]:h-8 [&_svg]:p-2 [&_svg]:rounded-full [&_svg]:bg-black [&_svg]:text-white [&_svg]:stroke-[2.5] [&_svg]:transition-transform [&_svg]:duration-180 [&_svg]:ease-wsop [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] hover:bg-[rgba(255,_255,_255,_0.9)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)] focus-visible:outline-offset-[4px] md:text-lg motion-reduce:[&_svg]:transition-none motion-reduce:[&:hover_svg]:transform-none";
 
 type Icon = typeof Spade;
 
@@ -819,7 +819,7 @@ export function WsopPage() {
               {ambassadors.map((ambassador, index) => (
                 <motion.article
                   className={
-                    "grid overflow-hidden border border-[var(--wsop-border)] rounded-2xl bg-[var(--wsop-card)] transition-[border-color_180ms_ease,_box-shadow_180ms_ease] hover:border-[var(--wsop-border-prominent)] hover:shadow-[0_18px_44px_rgba(0,_0,_0,_0.24)] sm:grid-cols-[minmax(13rem,_0.8fr)_minmax(0,_1.2fr)] min-[1100px]:[&:last-child:nth-child(odd)]:w-[calc(50%_-_0.5rem)] min-[1100px]:[&:last-child:nth-child(odd)]:col-[1_/_-1] min-[1100px]:[&:last-child:nth-child(odd)]:justify-self-center motion-reduce:transition-[none]"
+                    "grid overflow-hidden border border-[var(--wsop-border)] rounded-2xl bg-[var(--wsop-card)] transition-[border-color,box-shadow] duration-180 ease-wsop-standard hover:border-[var(--wsop-border-prominent)] hover:shadow-[0_18px_44px_rgba(0,_0,_0,_0.24)] sm:grid-cols-[minmax(13rem,_0.8fr)_minmax(0,_1.2fr)] min-[1100px]:[&:last-child:nth-child(odd)]:w-[calc(50%_-_0.5rem)] min-[1100px]:[&:last-child:nth-child(odd)]:col-[1_/_-1] min-[1100px]:[&:last-child:nth-child(odd)]:justify-self-center motion-reduce:transition-none"
                   }
                   key={ambassador.name}
                   variants={staggerItemVariants}
@@ -1052,7 +1052,7 @@ export function WsopPage() {
                   <motion.li key={index} variants={dealVariants}>
                     <div
                       className={
-                        "grid w-full min-h-[4.75rem] items-center grid-cols-[auto_minmax(0,_1fr)_auto] gap-4 py-3 px-4 text-[var(--wsop-text)] no-underline transition-[background-color_180ms_ease,_color_180ms_ease,_box-shadow_180ms_ease] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-lavender)] focus-visible:outline-offset-[-3px] motion-reduce:transition-[none] "
+                        "grid w-full min-h-[4.75rem] items-center grid-cols-[auto_minmax(0,_1fr)_auto] gap-4 py-3 px-4 text-[var(--wsop-text)] no-underline transition-[background-color,color,box-shadow] duration-180 ease-wsop-standard focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-lavender)] focus-visible:outline-offset-[-3px] motion-reduce:transition-none "
                       }
                     >
                       <span className="relative grid size-12 place-items-center rounded-full border border-white/15 bg-white/[0.06]">
@@ -1076,7 +1076,7 @@ export function WsopPage() {
                       </span>
                       <span
                         className={
-                          "flex min-w-0 flex-col [&_strong]:overflow-hidden [&_strong]:text-[1rem] [&_strong]:font-medium [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&>span]:overflow-hidden [&>span]:text-[var(--wsop-muted)] [&>span]:font-[family-name:var(--wsop-font-label)] [&>span]:text-[0.7rem] [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:transition-[color_180ms_ease] gap-1"
+                          "flex min-w-0 flex-col [&_strong]:overflow-hidden [&_strong]:text-[1rem] [&_strong]:font-medium [&_strong]:text-ellipsis [&_strong]:whitespace-nowrap [&>span]:overflow-hidden [&>span]:text-[var(--wsop-muted)] [&>span]:font-[family-name:var(--wsop-font-label)] [&>span]:text-[0.7rem] [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:transition-colors [&>span]:duration-180 [&>span]:ease-wsop-standard gap-1"
                         }
                       >
                         <strong className="leading-[inherit]">
@@ -1127,7 +1127,7 @@ export function WsopPage() {
             >
               <article
                 className={
-                  "relative flex min-h-[23rem] flex-col overflow-hidden rounded-2xl [&_h2]:max-w-[11ch] [&_h2]:text-black [&_h2]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:tracking-[-0.04em] [&_h2]:leading-[1.125] [&_h3]:max-w-[11ch] [&_h3]:text-black [&_h3]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h3]:tracking-[-0.04em] [&_h3]:leading-[1.125] p-[clamp(1.5rem,3vw,2.5rem)] border border-[rgba(85,_233,_171,_0.46)] bg-[var(--wsop-accent)] text-black transition-[border-color_180ms_ease,_background-color_180ms_ease] after:absolute after:right-[-7rem] after:bottom-[-8rem] after:w-[19rem] after:aspect-[1] after:border after:border-[rgba(0,_0,_0,_0.17)] after:rounded-full after:shadow-[inset_0_0_0_1rem_var(--wsop-accent),_inset_0_0_0_calc(1rem_+_1px)_rgba(0,_0,_0,_0.1),_inset_0_0_0_2rem_var(--wsop-accent),_inset_0_0_0_calc(2rem_+_1px)_rgba(0,_0,_0,_0.08)] after:content-[''] after:pointer-events-none hover:border-[rgba(0,_0,_0,_0.42)] hover:bg-[#67efb5] [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] motion-reduce:[&:hover_svg]:transform-none"
+                  "relative flex min-h-[23rem] flex-col overflow-hidden rounded-2xl [&_h2]:max-w-[11ch] [&_h2]:text-black [&_h2]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h2]:tracking-[-0.04em] [&_h2]:leading-[1.125] [&_h3]:max-w-[11ch] [&_h3]:text-black [&_h3]:text-[clamp(2rem,_calc(4.6875vw_+_0.25rem),_4rem)] [&_h3]:tracking-[-0.04em] [&_h3]:leading-[1.125] p-[clamp(1.5rem,3vw,2.5rem)] border border-[rgba(85,_233,_171,_0.46)] bg-[var(--wsop-accent)] text-black transition-[border-color,background-color] duration-180 ease-wsop-standard after:absolute after:right-[-7rem] after:bottom-[-8rem] after:w-[19rem] after:aspect-[1] after:border after:border-[rgba(0,_0,_0,_0.17)] after:rounded-full after:shadow-[inset_0_0_0_1rem_var(--wsop-accent),_inset_0_0_0_calc(1rem_+_1px)_rgba(0,_0,_0,_0.1),_inset_0_0_0_2rem_var(--wsop-accent),_inset_0_0_0_calc(2rem_+_1px)_rgba(0,_0,_0,_0.08)] after:content-[''] after:pointer-events-none hover:border-[rgba(0,_0,_0,_0.42)] hover:bg-[#67efb5] [&:hover_svg]:translate-x-[1px] [&:hover_svg]:translate-y-[-1px] motion-reduce:[&:hover_svg]:transform-none"
                 }
               >
                 <div
@@ -1151,7 +1151,7 @@ export function WsopPage() {
                     }
                   >
                     <CrossAppLink
-                      className={`${buttonClass} relative z-[1] motion-reduce:[&_svg]:transition-[none]`}
+                      className={`${buttonClass} relative z-[1] motion-reduce:[&_svg]:transition-none`}
                       href="/poker-players-guide-to-crypto"
                     >
                       <span>{t("start.guideCta")}</span>

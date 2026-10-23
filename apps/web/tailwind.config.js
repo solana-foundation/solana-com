@@ -15,6 +15,11 @@ export default {
   blocklist: ["collapse"], // Block the collapse class from being generated
   theme: {
     extend: {
+      transitionDuration: { 180: "180ms" },
+      transitionTimingFunction: {
+        wsop: "cubic-bezier(0.22, 1, 0.36, 1)",
+        "wsop-standard": "ease",
+      },
       keyframes: {
         "wsop-marquee": {
           to: { transform: "translateX(-100%)" },
