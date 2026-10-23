@@ -49,6 +49,13 @@ export function getChartCaption(
   return t.has(captionKey) ? t(captionKey, values) : undefined;
 }
 
+/** A sentence-case note under the chart title, e.g. a data change. */
+export function getChartNote(t: DashboardTranslator, chart: ChartDefinition) {
+  const noteKey = `charts.${chart.id}.note`;
+
+  return t.has(noteKey) ? t(noteKey) : undefined;
+}
+
 /** Explains how a non-daily view is calculated, e.g. "Weekly total". */
 export function getPeriodViewCaption(
   t: DashboardTranslator,
