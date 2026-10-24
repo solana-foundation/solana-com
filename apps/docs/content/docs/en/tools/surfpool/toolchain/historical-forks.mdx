@@ -1,0 +1,117 @@
+---
+title: Historical Forks
+description: Run local tests against Solana state after a transaction or slot.
+---
+
+Start Surfpool after a historical transaction or slot with `--after`. Surfpool
+keeps its RPC, WebSocket, Studio and test interfaces; SVM Replay supplies the
+historical accounts and execution runtime. Without `--after`, Surfpool keeps its
+ordinary behavior.
+
+## Requirements
+
+- A Surfpool build with `start --after` support. Check `surfpool start --help`;
+  a build without this option cannot run the examples below.
+- An installed
+  [SVM Replay native runtime bundle](https://github.com/xternet/svm-replay#quick-start),
+  version 0.2.0 compatible with your Surfpool build. The CLI must be on `PATH`,
+  or set `SVM_REPLAY_BIN` to its executable. An npm or Rust SDK alone does not
+  install the native bundle required here.
+- Access to the historical account endpoints supported by your adapter. The
+  currently qualified adapter is `alchemy`; ordinary RPC access alone does not
+  establish archive access. Check the provider's account-data coverage and
+  billing before fetching. General provider information is available in the
+  [RPC directory](https://solana.com/rpc).
+- A host supported by both tools. For native Windows, use a compatible WSL2
+  Linux environment. Check each release's operating-system requirements.
+
+These requirements are additional to the ordinary
+[Surfpool installation](/docs/tools/surfpool/toolchain/getting-started).
+
+## Start A Historical Fork
+
+Set `API_ALCHEMY` in your shell or secret manager. Do not place its value in
+command arguments or commit it in configuration.
+
+```sh
+surfpool start --after 413023260 \
+  --historical-provider alchemy --key env:API_ALCHEMY \
+  --no-deploy --no-tui
+```
+
+A decimal number selects state after that slot. Execution starts at the
+initialized next produced slot, so the local RPC slot need not equal the number
+you supplied. A transaction signature selects state immediately after that
+transaction, including earlier transactions in its block.
+
+Replace the decimal number with your transaction signature to use a transaction
+boundary. Use a separate data directory for independent caches:
+
+```sh
+surfpool start --after "$TRANSACTION_SIGNATURE" \
+  --historical-provider alchemy --key env:API_ALCHEMY \
+  --historical-data-dir .surfpool/transaction-test \
+  --no-deploy --no-tui
+```
+
+The clock starts paused. Query the local endpoint from another terminal:
+
+```sh
+curl -sS http://127.0.0.1:8899 \
+  -H 'Content-Type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"getSlot","params":[]}'
+```
+
+Successful calls return JSON-RPC results. Missing historical inputs return
+explicit errors rather than substituting current state. Stop the owned Surfpool
+process with Ctrl-C after the test.
+
+## Test And Change Local State
+
+Point existing Solana clients at Surfpool's local RPC and WebSocket endpoints.
+Use [account cheatcodes](/docs/tools/surfpool/rpc/cheatcodes) or snapshots to
+fund disposable test keys, declare new accounts and install test programs. These
+edits affect the local fork, not the original historical state.
+
+Advance time explicitly with the supported
+[time-travel controls](/docs/tools/surfpool/sdk/time-travel). Advancing changes
+the fork's clock; it does not fetch and replay the intervening mainnet ledger.
+An epoch-crossing advance requires a runtime with the synthetic-epoch
+capability; an incompatible runtime refuses it. Reset restores the fork boundary
+and discards local edits, so reinstall overrides after resetting.
+
+The
+[historical CLI options](/docs/tools/surfpool/toolchain/cli#historical-state)
+cannot be combined with `--rpc-url`, `--network`, `--offline`, automatic block
+production or runtime-rule overrides. Historical execution uses its boundary's
+runtime rules, not a current-state datasource.
+
+## Signing Safety
+
+Use disposable test keys. Historical startup does not implicitly fund
+`~/.config/solana/id.json`; `--airdrop` and `-k` still allow explicit funding.
+Keep local RPC, WebSocket and Studio endpoints on loopback unless you add your
+own access controls. Treat other browser pages and local users as untrusted.
+
+Historical blockhashes are real. A transaction signed with a real funded key
+near the chain tip may also be valid on mainnet if its signed bytes escape.
+Durable-nonce transactions can remain valid until the on-chain nonce advances.
+Local execution is not cryptographic separation from the source network.
+
+## Data And Resource Limits
+
+- Archive coverage determines which accounts and queries can be resolved.
+  Missing data fails explicitly; there is no fallback to the tip.
+- Durable-nonce execution needs the historical RecentBlockhashes sysvar, which
+  the currently qualified archive does not provide.
+- Historical token-owner queries refuse more than 100 candidate accounts before
+  account hydration; holder rankings refuse more than 100 unloaded holders.
+  Owner discovery still paginates before that guard and can incur provider work.
+  A refused expansion does not mean discovery was free.
+- Historical signature-status queries accept at most 256 signatures. Program
+  uploads must fit the 10 MiB account limit, including loader metadata.
+- Provider credentials, cached history and fork-local changes remain sensitive.
+  Do not publish data directories or test receipts without reviewing them.
+
+For tests driven by Anchor, use its historical-testing helper to own and close
+each fork rather than sharing a raw endpoint across test lifetimes.
