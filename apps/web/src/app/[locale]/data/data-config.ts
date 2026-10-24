@@ -880,6 +880,16 @@ export const chartDefinitions = [
     seriesField: "provider",
   },
   {
+    id: "average-tps",
+    tab: "network",
+    title: "Average TPS",
+    valueLabel: "TPS",
+    metrics: ["Average TPS"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: averagePeriodViews,
+  },
+  {
     id: "dex-volume",
     tab: "defi",
     title: "DEX Volume",
