@@ -39,5 +39,6 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["__tests__/**/*.test.{ts,tsx}"],
+    setupFiles: ["./__tests__/setup-next-font.ts"],
   },
 });
