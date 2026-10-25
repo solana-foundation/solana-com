@@ -344,7 +344,7 @@ function InlineControl<T extends string | number>({
   );
 }
 
-function FilterSelect<T extends string>({
+export function FilterSelect<T extends string>({
   ariaLabel,
   label,
   onChange,

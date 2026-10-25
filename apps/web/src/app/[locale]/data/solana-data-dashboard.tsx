@@ -321,6 +321,7 @@ export function SolanaDataDashboard() {
                 isConnectedToPrevious={hasKpiGrid}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
+                rangeDays={rangeDays}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}

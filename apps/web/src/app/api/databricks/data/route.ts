@@ -13,6 +13,7 @@ import {
   getDataApiConfig,
   isProduction,
 } from "@/lib/databricks/server";
+import { getEdgeMaxAgeSeconds } from "@/lib/databricks/cache-control";
 import {
   metricNames,
   normalizeProviderName,
@@ -25,7 +26,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DATA_API_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
+const DATA_API_CACHE_REVALIDATE_SECONDS = 5 * 60;
 const EDGE_STALE_SECONDS = 24 * 60 * 60;
 const DEFAULT_RANGE_DAYS = 90;
 const MAX_RANGE_DAYS = Math.max(...rangeOptions.map((option) => option.value));
@@ -78,7 +79,7 @@ export async function GET(request: NextRequest) {
     return json<DataApiResponse>(
       buildDataResponse(result, rangeDays),
       200,
-      getSuccessCacheControl(),
+      getSuccessCacheControl(result.generatedAt),
     );
   } catch (error) {
     console.error("Failed to load Solana data from data-api", error);
@@ -213,7 +214,7 @@ function getMetricsCacheKey(config: DataApiConfig) {
   return [config.baseUrl, MAX_RANGE_DAYS, metricNames.join(",")].join("|");
 }
 
-function getSuccessCacheControl() {
+function getSuccessCacheControl(generatedAt: string) {
   if (!IS_PRODUCTION) {
     return NO_STORE_CACHE_CONTROL;
   }
@@ -221,7 +222,7 @@ function getSuccessCacheControl() {
   return [
     "public",
     "max-age=0",
-    `s-maxage=${DATA_API_CACHE_REVALIDATE_SECONDS}`,
+    `s-maxage=${getEdgeMaxAgeSeconds(generatedAt)}`,
     `stale-while-revalidate=${EDGE_STALE_SECONDS}`,
   ].join(", ");
 }
