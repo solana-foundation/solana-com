@@ -55,7 +55,6 @@ export function buildEventSeriesStructuredData({
   events = [
     { event: config.events.hongKong, path: "/hong-kong" },
     { event: config.events.miami, path: "/miami" },
-    { event: config.events.china, path: "/china" },
   ],
 }: {
   name?: string;

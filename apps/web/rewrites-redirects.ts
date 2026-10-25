@@ -813,6 +813,16 @@ export default {
 
   redirects: withLocaleRedirects([
     {
+      source: "/accelerate/china",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
+      source: "/accelerate/china/:path*",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
       source:
         "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.png",
       destination:
@@ -963,9 +973,9 @@ export default {
     { source: "/disclaimer", destination: "/tos" },
     { source: "/ecosystem/:path+", destination: "/ecosystem" },
     { source: "/lolla", destination: "/" },
-    { source: "/solana-pay", destination: "https://solanapay.com/" },
-    { source: "/solanapay", destination: "https://solanapay.com/" },
-    { source: "/pay", destination: "https://solanapay.com/" },
+    { source: "/solana-pay", destination: "/docs/tools/solana-pay" },
+    { source: "/solanapay", destination: "/docs/tools/solana-pay" },
+    { source: "/pay", destination: "/docs/tools/solana-pay" },
     { source: "/mobile", destination: "https://solanamobile.com/" },
     {
       source: "/podcast",

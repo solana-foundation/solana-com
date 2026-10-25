@@ -37,6 +37,7 @@ import { FilterSelect } from "./dashboard-controls";
 import {
   formatPercent,
   getChartCaption,
+  getChartNote,
   getChartTitle,
   getPeriodViewCaption,
   getTabContent,
@@ -215,6 +216,7 @@ function ChartCard({
     timeframe: getRpcTimeframeOption(rpcTimeframe).label,
   });
   const periodCaption = getPeriodViewCaption(t, chart, periodView, rangeDays);
+  const note = getChartNote(t, chart);
   const resolvedChartHeight =
     chart.visualization === "bar"
       ? Math.max(chartHeight, series.length * 56)
@@ -263,6 +265,11 @@ function ChartCard({
             </p>
           ) : null,
         )}
+        {note ? (
+          <p className="m-0 text-[13px] leading-[1.42] text-nd-mid-em-text">
+            {note}
+          </p>
+        ) : null}
       </div>
 
       <ChartWatermarkFrame height={resolvedChartHeight}>

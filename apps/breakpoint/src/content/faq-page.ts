@@ -1,8 +1,4 @@
-import {
-  APPLY_TO_SPEAK_HREF,
-  TICKET_TRANSFER_HREF,
-  VISA_CHECK_HREF,
-} from "@/content/links";
+import { TICKET_TRANSFER_HREF, VISA_CHECK_HREF } from "@/content/links";
 
 export type FAQPageItem = {
   id: string;
@@ -39,9 +35,8 @@ export const faqPageSections = [
       {
         id: "general-speaking",
         question: "How can I apply to speak at Breakpoint?",
-        answer: "",
-        answerHref: APPLY_TO_SPEAK_HREF,
-        answerLinkLabel: "Apply to speak",
+        answer:
+          "Speaker applications are now closed. We have an amazing line up locked in for Breakpoint.",
       },
       {
         id: "general-press",

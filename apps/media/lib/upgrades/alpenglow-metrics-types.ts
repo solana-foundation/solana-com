@@ -1,3 +1,22 @@
+/** Mainnet epoch scheduled for Alpenglow feature activation. */
+export const ALPENGLOW_MAINNET_ACTIVATION_EPOCH = 1064;
+
+/** Feature gate enabling Alpenglow on Mainnet. */
+export const ALPENGLOW_MAINNET_FEATURE_ADDRESS =
+  "A1pengvuM6JEcyNuTnMqepBKhwHE3N6PmUrdATGawhJS";
+
+/** Slots after feature activation before Mainnet switches consensus. */
+export const ALPENGLOW_MAINNET_CONSENSUS_DELAY_SLOTS = 5_000;
+
+/** Observed Mainnet activation milestones and their estimated times. */
+export interface AlpenglowActivationEstimate {
+  readonly currentEpoch: number;
+  readonly featureActivated: boolean;
+  readonly consensusActivated: boolean;
+  readonly estimatedFeatureActivationAt: string | null;
+  readonly estimatedConsensusActivationAt: string | null;
+}
+
 /** Supported historical windows for Alpenglow dashboard charts. */
 export const ALPENGLOW_DASHBOARD_RANGES = ["1h", "6h", "24h", "7d"] as const;
 
@@ -38,6 +57,7 @@ export interface AlpenglowDashboardCharts {
 export interface AlpenglowDashboardActivationData {
   readonly generatedAt: string;
   readonly network: AlpenglowDashboardNetwork;
+  readonly activationEstimate: AlpenglowActivationEstimate | null;
   readonly alpenglowRpcSupported: boolean | null;
   readonly alpenglowActive: boolean | null;
   readonly genesisSlot: number | null;
