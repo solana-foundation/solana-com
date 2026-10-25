@@ -706,6 +706,16 @@ export default {
         locale: false,
       },
       {
+        source: "/developers/docs",
+        destination: `${DOCS_APP_URL}/developers/docs`,
+        locale: false,
+      },
+      {
+        source: "/developers/docs/:path*",
+        destination: `${DOCS_APP_URL}/developers/docs/:path*`,
+        locale: false,
+      },
+      {
         source: "/developers/cookbook",
         destination: `${DOCS_APP_URL}/developers/cookbook`,
         locale: false,
@@ -733,6 +743,27 @@ export default {
       {
         source: "/developers/bootcamp/:path*",
         destination: `${DOCS_APP_URL}/developers/bootcamp/:path*`,
+        locale: false,
+      },
+      // Docs app API routes
+      {
+        source: "/api/demo/:path+",
+        destination: `${DOCS_APP_URL}/api/demo/:path+`,
+        locale: false,
+      },
+      {
+        source: "/api/devnet-airdrop",
+        destination: `${DOCS_APP_URL}/api/devnet-airdrop`,
+        locale: false,
+      },
+      {
+        source: "/api/slot-time/tip",
+        destination: `${DOCS_APP_URL}/api/slot-time/tip`,
+        locale: false,
+      },
+      {
+        source: "/api/docs-search",
+        destination: `${DOCS_APP_URL}/api/docs-search`,
         locale: false,
       },
       // Docs app with locale
@@ -774,6 +805,16 @@ export default {
       {
         source: "/:locale/developers/:path*.md",
         destination: `${DOCS_APP_URL}/:locale/developers/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/docs",
+        destination: `${DOCS_APP_URL}/:locale/developers/docs`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/docs/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/docs/:path*`,
         locale: false,
       },
       {

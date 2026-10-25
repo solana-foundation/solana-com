@@ -7,6 +7,7 @@ Solana Cookbook - How to Optimize Compute Requested
 import asyncio
 from solana.rpc.async_api import AsyncClient
 from solders.keypair import Keypair
+from solders.signature import Signature
 from solders.system_program import transfer, TransferParams
 from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
@@ -26,11 +27,11 @@ async def get_simulation_compute_units(rpc, instructions, payer_pubkey, lookup_t
             recent_blockhash=recent_blockhash.value.blockhash
         )
 
-        # Create transaction for simulation
-        transaction = VersionedTransaction(message, [])
+        # Create an unsigned transaction for simulation (placeholder signature)
+        transaction = VersionedTransaction.populate(message, [Signature.default()])
 
-        # Simulate transaction to get compute units
-        simulation_result = await rpc.simulate_transaction(transaction)
+        # Simulate transaction to get compute units (skip signature verification)
+        simulation_result = await rpc.simulate_transaction(transaction, sig_verify=False)
 
         if simulation_result.value.err:
             print(f"Simulation error: {simulation_result.value.err}")
@@ -76,7 +77,8 @@ async def build_optimal_transaction(rpc, instructions, signer, lookup_tables=[])
 
     return {
         "transaction": transaction,
-        "recent_blockhash": recent_blockhash.value.blockhash
+        "recent_blockhash": recent_blockhash.value.blockhash,
+        "units": units_with_margin if units else None
     }
 
 async def main():
@@ -88,6 +90,10 @@ async def main():
     amount = 1_000_000_000  # 1 SOL
 
     async with rpc:
+        # Fund the sender so the simulation can succeed
+        await rpc.request_airdrop(sender.pubkey(), 2_000_000_000)
+        await asyncio.sleep(2)
+
         # Create transfer instruction
         transfer_instruction = transfer(
             TransferParams(
@@ -107,6 +113,7 @@ async def main():
         print(f"Sender: {sender.pubkey()}")
         print(f"Recipient: {recipient.pubkey()}")
         print(f"Amount: {amount / 1_000_000_000} SOL")
+        print(f"Compute unit limit: {result['units']}")
         print(f"Optimal transaction built successfully")
 
 if __name__ == "__main__":

@@ -1,17 +1,14 @@
-import { createPreset } from "fumadocs-ui/tailwind-plugin";
 import tailwindcssAnimate from "tailwindcss-animate";
 
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: ["class"],
-  presets: [createPreset()],
+  // The app's own code and the shared components it renders, not the MDX
+  // content (docs pages are styled by the docs stylesheets).
   content: [
-    "./src/**/*.{js,ts,jsx,tsx,mdx}",
-    "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "../../packages/ui/src/components/{accordion,button,dialog,input,not-found-page,visually-hidden}.tsx",
     "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
-    "../../packages/templates/src/**/*.{js,ts,jsx,tsx}",
-    "./node_modules/fumadocs-ui/dist/**/*.js",
-    "./node_modules/radix-ui/**/*.{js,ts,tsx}",
   ],
   blocklist: ["collapse"], // Block the collapse class from being generated
   theme: {

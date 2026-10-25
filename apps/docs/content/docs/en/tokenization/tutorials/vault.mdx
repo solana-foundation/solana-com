@@ -1,0 +1,199 @@
+---
+title: Prepare a vault for a gated token
+sidebarTitle: "Prepare a vault"
+description:
+  "Prepare what an asset manager's vault needs before it can hold a gated
+  token: show that the gate blocks an unlisted vault, allowlist it, and confirm
+  what a pause does to it."
+type: tutorial
+prerequisites:
+  - /developers/docs/tokenization/tutorials/issuing/gate-the-holders
+related:
+  - /developers/docs/tokenization/custody/vault-architectures
+  - /developers/docs/tokenization/nav-strikes
+  - /developers/docs/defi/dvp-program
+"og:title": Prepare a Fund Vault for a Gated Token on Solana
+"twitter:title": Prepare a Fund Vault for a Gated Token on Solana
+---
+
+import TransferVaultBlocked from "/snippets/examples/paths/assets/gated-token/transfer-vault-blocked.mdx";
+import AddressVault from "/snippets/examples/paths/assets/gated-token/address-vault.mdx";
+import ReadVault from "/snippets/examples/paths/assets/gated-token/read-vault.mdx";
+import TransferVaultPaused from "/snippets/examples/paths/assets/gated-token/transfer-vault-paused.mdx";
+
+An asset manager's vault holding a gated token is subject to that gate like
+any other holder. If the vault's accounts were not allowlisted at deployment,
+the first deposit fails.
+
+This tutorial covers the token side of a vault deployment: show that the gate
+applies to a vault, get the vault onto the allowlist, and verify its account.
+It continues with the mint from
+[gate the holders](/developers/docs/tokenization/tutorials/issuing/gate-the-holders),
+so `$MINT` and `$LIST` should already be exported, on the same network.
+
+<Note>
+Mosaic issues and operates tokens; it does not deploy vaults. The steps below
+use an ordinary key file to stand in for the vault's authority.
+</Note>
+
+<Steps titleSize="h3">
+
+<Step title="Stand up the vault authority">
+
+In a deployed vault this address is a PDA owned by the vault program. Here a
+key file stands in, which is enough to show the allowlist interactions: the
+gate checks the address only, so a PDA and a keypair are treated the same way,
+in allowlist and in blocklist mode.
+
+```bash Terminal
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/demo-vault.json
+export VAULT=$(solana-keygen pubkey ~/.config/solana/demo-vault.json)
+```
+
+When you move to a real vault, allowlist the program's PDA instead of a wallet,
+derived the same way the program derives it. See
+[program and authority design](/developers/docs/tokenization/design/program-and-authority-design#a-pda)
+for why the vault's token account should be owned by a PDA.
+
+</Step>
+
+<Step title="Show that the gate blocks an unlisted vault">
+
+Before allowlisting, confirm the failure mode: have the holder move the asset
+into the vault while it is not on the list, with the `transfer` script from
+[gate the holders](/developers/docs/tokenization/tutorials/issuing/gate-the-holders#show-that-the-gate-rejects-a-non-holder),
+run with `$VAULT 1`.
+
+<TransferVaultBlocked />
+
+It fails. The vault's token account is created frozen, and the gate program
+rejects the permissionless thaw for it with custom program error `0x1002`
+(4098), because the vault is not on the list. A program is not exempt from the
+gate. A deposit that inserts the thaw fails with this error; one that does not
+fails on the frozen account (`0x11`).
+
+</Step>
+
+<Step title="Allowlist every account the vault touches">
+
+List them before you start. A vault over a gated token needs at least the
+vault's wallet or PDA on this mint's list and, if the fund's shares are
+themselves a restricted token, each participant's wallet on the share mint's
+list. This covers the first:
+
+<CodeGroup>
+```bash TypeScript
+npx tsx allowlist-add.ts $VAULT
+```
+
+```bash Rust
+cargo run --release --bin allowlist-add -- $VAULT
+```
+</CodeGroup>
+
+Repeat it for each address on your list. A missing one fails when a
+participant tries to transact.
+
+</Step>
+
+<Step title="Confirm the deposit path works">
+
+Run the same transfer again. It succeeds and prints its signature; as in the
+issuing tutorial, only the list entry changed.
+
+<CodeGroup>
+```bash TypeScript
+npx tsx transfer.ts $VAULT 1
+```
+
+```bash Rust
+cargo run --release --bin transfer -- $VAULT 1
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Verify the gate state of each account">
+
+Before going live, read every account the vault depends on and confirm its
+state. This is the pre-deployment check to automate. First derive the vault's
+token account address, with `spl-token` or with the `derive-ata` script from
+the [custodian tutorial](/developers/docs/tokenization/tutorials/custodian#derive-the-token-account-address-before-it-exists)
+run with `$VAULT`:
+
+<AddressVault />
+
+Export the `Associated token address` it prints as `VAULT_ATA`:
+
+```bash Terminal
+export VAULT_ATA=<the associated token address>
+```
+
+Then read the account with `spl-token`, or run the `read-account` script with
+`$VAULT_ATA`:
+
+<ReadVault />
+
+**State** must read `Initialized`. `Frozen` means the account is gated out, and
+any deposit or settlement that touches it will fail.
+
+</Step>
+
+<Step title="Confirm what a pause does to the vault">
+
+A pause of the token stops the vault along with everything else: requests in
+progress cannot settle while it holds. Issuer side:
+
+<CodeGroup>
+```bash TypeScript
+npx tsx pause.ts
+```
+
+```bash Rust
+cargo run --release --bin pause
+```
+</CodeGroup>
+
+With the token paused, the same deposit fails with `0x43` (67), Token-2022's
+`MintPaused`:
+
+<TransferVaultPaused />
+
+Then resume, issuer side:
+
+<CodeGroup>
+```bash TypeScript
+npx tsx resume.ts
+```
+
+```bash Rust
+cargo run --release --bin resume
+```
+</CodeGroup>
+
+</Step>
+
+</Steps>
+
+## Building the vault itself
+
+The remaining decisions are set out in
+[vault architectures](/developers/docs/tokenization/custody/vault-architectures):
+whether the design is synchronous or request-and-settle, what is escrowed at
+request time, how the cut-off is enforced, who may publish a valuation, and
+what happens to a request that cannot settle.
+
+If subscriptions or redemptions are to settle through the
+[DvP program](/developers/docs/defi/dvp-program), note that it rejects mints
+carrying Scaled UI Amount, which this tutorial's mint has.
+
+## Next steps
+
+- [Vault architectures](/developers/docs/tokenization/custody/vault-architectures):
+  the design decisions behind the program
+- [NAV strikes](/developers/docs/tokenization/nav-strikes): a full
+  request-and-settle implementation for a fund
+- [Vault Standard Suite](https://github.com/solana-foundation/vault): the
+  reference vault program to read and adapt (see its repository for deployment
+  and review status)

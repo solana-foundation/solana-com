@@ -10,13 +10,14 @@
 export const PRIVACY_CONTACT_EMAIL = "privacy@solana.org";
 
 export const PRIVACY_LINKS = {
-  confidentialBalancesDocs: "/docs/tokens/extensions/confidential-transfer",
+  confidentialBalancesDocs:
+    "/developers/docs/tokens/extensions/confidential-transfer",
   confidentialBalancesIntegration:
-    "/docs/tokens/extensions/confidential-transfer/integration-guide",
+    "/developers/docs/tokens/extensions/confidential-transfer/integration-guide",
   confidentialBalancesIssuer:
-    "/docs/tokens/extensions/confidential-transfer/issuer-guide",
+    "/developers/docs/tokens/extensions/confidential-transfer/issuer-guide",
   securityAudits: "https://github.com/anza-xyz/security-audits",
-  privateChannelsDocs: "/docs/tools/private-channels",
+  privateChannelsDocs: "/developers/docs/tools/private-channels",
   privateChannelsGithub:
     "https://github.com/solana-foundation/solana-private-channels",
   privateChannelsAudits:
@@ -27,7 +28,7 @@ export const PRIVACY_LINKS = {
   ringsDocs: "https://www.helius.dev/docs/privacy",
   attestationService: "https://attest.solana.com",
   developerPlatform: "https://platform.solana.com",
-  comparePrivacyDocs: "/docs/finance/privacy",
+  comparePrivacyDocs: "/developers/docs/finance/privacy",
   enterpriseFaq: "/solutions/enterprise/faq",
 } as const;
 
@@ -194,12 +195,13 @@ export const RESOURCE_LINKS: readonly ResourceLink[] = [
   {
     key: "confidentialBalances",
     href: PRIVACY_LINKS.confidentialBalancesDocs,
-    display: "solana.com/docs/tokens/extensions/confidential-transfer",
+    display:
+      "solana.com/developers/docs/tokens/extensions/confidential-transfer",
   },
   {
     key: "privateChannels",
     href: PRIVACY_LINKS.privateChannelsDocs,
-    display: "solana.com/docs/tools/private-channels",
+    display: "solana.com/developers/docs/tools/private-channels",
   },
   {
     key: "rings",
@@ -214,7 +216,7 @@ export const RESOURCE_LINKS: readonly ResourceLink[] = [
   {
     key: "compare",
     href: PRIVACY_LINKS.comparePrivacyDocs,
-    display: "solana.com/docs/finance/privacy",
+    display: "solana.com/developers/docs/finance/privacy",
   },
   {
     key: "faq",

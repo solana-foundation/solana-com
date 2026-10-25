@@ -1,5 +1,6 @@
 ---
 title: Verification Tools
+sidebarTitle: "Verification tools"
 description:
   Verify incoming stablecoin payments and reconcile them with your orders.
 ---
@@ -13,10 +14,15 @@ incoming payments.
 ## Query Token Balance
 
 Check your stablecoin balance using the
-[`getTokenAccountBalance`](/docs/rpc/http/gettokenaccountbalance) RPC method:
+[`getTokenAccountBalance`](/developers/docs/rpc/http/gettokenaccountbalance) RPC method:
 
 ```typescript
-import { createSolanaRpc, address, type Address } from "@solana/kit";
+import {
+  createSolanaRpc,
+  address,
+  type Address,
+  type Signature
+} from "@solana/kit";
 import {
   findAssociatedTokenPda,
   TOKEN_PROGRAM_ADDRESS
@@ -50,6 +56,13 @@ Subscribe to your token account for real-time payment notifications using the
 `accountNotifications` RPC method:
 
 ```typescript
+import {
+  createSolanaRpcSubscriptions,
+  getBase64Codec,
+  type Address
+} from "@solana/kit";
+import { getTokenCodec } from "@solana-program/token";
+
 const rpcSubscriptions = createSolanaRpcSubscriptions(
   "wss://api.mainnet.solana.com"
 );
@@ -102,15 +115,22 @@ streaming solution. Some options include:
 ## Parsing Transaction History
 
 Solana has RPC methods that allow you to fetch an account's transaction history
-([`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress)) and get
+([`getSignaturesForAddress`](/developers/docs/rpc/http/getsignaturesforaddress)) and get
 the details of a transaction
-([`getTransaction`](/docs/rpc/http/gettransaction)). To parse transaction
+([`getTransaction`](/developers/docs/rpc/http/gettransaction)). To parse transaction
 history, we fetch recent signatures for our token account, then retrieve each
 transaction's pre/post token balances. By comparing our ATA's balance before and
 after each transaction, we can determine the payment amount and direction
 (incoming vs outgoing).
 
 ```typescript
+type Payment = {
+  signature: Signature;
+  timestamp: bigint | null;
+  amount: bigint;
+  type: "incoming" | "outgoing";
+};
+
 async function getRecentPayments(
   tokenAccountAddress: Address,
   limit = 100
@@ -118,18 +138,21 @@ async function getRecentPayments(
   const signatures = await rpc
     .getSignaturesForAddress(tokenAccountAddress, { limit })
     .send();
-  const payments: ParsedPayment[] = [];
+  const payments: Payment[] = [];
 
   for (const sig of signatures) {
     const tx = await rpc
-      .getTransaction(sig.signature, { maxSupportedTransactionVersion: 1 })
+      .getTransaction(sig.signature, {
+        maxSupportedTransactionVersion: 1,
+        encoding: "json"
+      })
       .send();
 
     if (!tx?.meta?.preTokenBalances || !tx?.meta?.postTokenBalances) continue;
 
     // Find our ATA's index in the transaction
     const accountKeys = tx.transaction.message.accountKeys;
-    const ataIndex = accountKeys.findIndex((key) => key === ata);
+    const ataIndex = accountKeys.findIndex((key) => key === tokenAccountAddress);
     if (ataIndex === -1) continue;
 
     // Compare pre/post balances for our ATA
@@ -181,22 +204,41 @@ processing payments at scale often need more granular and real-time data:
   exact transfer sequences, not just final balances.
 
 For production systems handling high volumes, consider dedicated
-[indexing solutions](/docs/payments/accept-payments/indexing) that parse
+[indexing solutions](/developers/docs/payments/accept-payments/indexing) that parse
 individual transfer instructions and provide transaction-level detail.
 
 ## Reconcile Payments with Memos
 
 When senders include memos (invoice IDs, order numbers), you can extract them
 from the transaction's message using the `getTransaction` RPC method and the
-`jsonParsed` encoding:
+`jsonParsed` encoding. The RPC only parses memos from some Memo program
+versions. For others, such as the program `@solana-program/memo` uses, the
+instruction carries just `programId` and base58 `data`, so match on the program
+id and decode the data yourself:
 
 ```typescript
-function extractMemos(transaction): string | null {
+import { getBase58Encoder, getUtf8Decoder } from "@solana/kit";
+import { SUPPORTED_MEMO_PROGRAM_ADDRESSES } from "@solana-program/memo";
+
+// SUPPORTED_MEMO_PROGRAM_ADDRESSES lists the current Memo program (used by
+// @solana-program/memo) and the legacy v1 and v3 programs
+
+// `transaction` is a getTransaction response with jsonParsed encoding
+function extractMemos(transaction: any): string {
   const { instructions } = transaction.transaction.message;
   let memos = "";
   for (const instruction of instructions) {
-    if (instruction.program !== "spl-memo") continue;
-    memos += instruction.parsed + "; ";
+    if (instruction.program === "spl-memo") {
+      // The RPC parsed the instruction for us
+      memos += instruction.parsed + "; ";
+    } else if (
+      SUPPORTED_MEMO_PROGRAM_ADDRESSES.includes(instruction.programId) &&
+      instruction.data
+    ) {
+      // Not parsed by the RPC: decode the base58 instruction data as UTF-8
+      const bytes = getBase58Encoder().encode(instruction.data);
+      memos += getUtf8Decoder().decode(bytes) + "; ";
+    }
   }
   return memos;
 }
@@ -217,7 +259,11 @@ async function getTransactionMemo(
 
 ## Protections
 
-A few failure modes to avoid:
+A few failure modes to avoid. The checkout tutorial's
+[Confirm payments from your backend](/developers/docs/payments/checkout/backend) step
+implements all of them in one confirm endpoint, and its
+[go-live step](/developers/docs/payments/checkout/go-live) covers the edge cases real
+customers hit.
 
 - **Trusting the frontend.** A checkout page says "payment complete"—but did the
   transaction actually land? Always verify server-side by querying the RPC.
@@ -225,8 +271,9 @@ A few failure modes to avoid:
 
 - **Acting on "processed" status.** Solana transactions go through three stages:
   processed → confirmed → finalized. A "processed" transaction can still be
-  dropped during forks. Wait for "confirmed" (1-2 seconds) before shipping
-  orders, or "finalized" (~13 seconds) for high-value transactions.
+  dropped if its block is skipped. Wait for "finalized" before shipping orders.
+  It takes roughly 150 milliseconds, and "confirmed" reports the same block.
+  See [settlement and finality](/developers/docs/defi/finality).
 
 - **Ignoring the mint.** Anyone can create a token called "USDC". Validate that
   the token account's mint matches the real stablecoin mint address and token
@@ -235,3 +282,10 @@ A few failure modes to avoid:
 - **Double-fulfillment.** Your webhook fires, you ship the order. Network
   hiccup, webhook fires again. Now you've shipped twice. Store processed
   transaction signatures and check before fulfilling.
+
+- **Matching by amount alone.** Transactions are public, so anyone who sees a
+  payment of the right amount to your address could claim it for their own
+  order. Match each payment to its order by a unique
+  [reference](/developers/docs/tools/solana-pay/specification/version1-1#reference) (a
+  fresh address added to the transfer as a read-only account), not by the
+  amount.

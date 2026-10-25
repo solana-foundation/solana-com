@@ -1,5 +1,6 @@
 ---
 title: Fee Abstraction
+sidebarTitle: "Fee abstraction"
 description:
   Learn how fee sponsorship works and implement fee abstraction with Kora.
 ---
@@ -15,6 +16,12 @@ This guide covers two levels:
 2. **Fee abstraction at scale with Kora** — a production-ready fee abstraction
    service
 
+The cookbook has the transaction-level recipes:
+[fee sponsorship](/developers/cookbook/transactions/fee-sponsorship) and
+[paying fees with any token](/developers/cookbook/transactions/pay-fees-with-any-token).
+For a checkout, [Go live with your checkout](/developers/docs/payments/checkout/go-live)
+covers when to sponsor fees for your customers.
+
 ## How Fee Sponsorship Works
 
 Solana transactions have a designated fee payer—the account that pays the
@@ -27,87 +34,73 @@ Both the sender and sponsor must sign the transaction:
 - The **sender** signs to authorize the transfer of their tokens
 - The **sponsor** signs to authorize payment of the network fee
 
-<Callout>
-  See [How Payments Work on Solana](/docs/payments/how-payments-work) for core
+<Note>
+  See [How Payments Work on Solana](/developers/docs/payments/how-payments-work) for core
   payment concepts.
-</Callout>
+</Note>
 
 The steps below show the core flow. See the [Demo](#demo) for complete runnable
 code.
 
-<ScrollyCoding>
+<Steps>
+  <Step title="Create a Sponsor Account">
+    Generate a separate keypair for the sponsor who will pay transaction fees. The
+    sponsor needs SOL for fees but doesn't need to hold the tokens being
+    transferred.
 
-## !!steps Create a Sponsor Account
+    ```ts title="Sponsor Transaction Fee"
+    const sponsor = await generateKeyPairSigner();
+    ```
+  </Step>
 
-Generate a separate keypair for the sponsor who will pay transaction fees. The
-sponsor needs SOL for fees but doesn't need to hold the tokens being
-transferred.
+  <Step title="Create Transfer Instruction">
+    Create the token transfer instruction with the sender as authority. The sender
+    owns the tokens and must sign the transfer.
 
-<CodePlaceholder title="Sponsor Transaction Fee" />
+    ```ts title="Sponsor Transaction Fee" focus={3-10}
+    const sponsor = await generateKeyPairSigner();
 
-```ts !! title="Sponsor Transaction Fee"
-const sponsor = await generateKeyPairSigner();
-```
+    const transferInstruction = getTransferCheckedInstruction({
+      source: senderAta,
+      mint: mint.address,
+      destination: recipientAta,
+      authority: sender, // Sender signs for the transfer
+      amount: 250_000n, // adjusted for the mint's decimals
+      decimals: 6
+    });
+    ```
+  </Step>
 
-## !!steps Create Transfer Instruction
+  <Step title="Send with Sponsor as Fee Payer">
+    Create the client with the sponsor set as the fee payer via `payer(sponsor)`,
+    then call `client.sendTransaction`. The sponsor signs to pay the network fee
+    while the sender signs to authorize the transfer—`sendTransaction` collects
+    every referenced signer automatically.
 
-Create the token transfer instruction with the sender as authority. The sender
-owns the tokens and must sign the transfer.
+    ```ts title="Sponsor Transaction Fee" highlight={13} focus={12-16}
+    const sponsor = await generateKeyPairSigner();
 
-<CodePlaceholder title="Sponsor Transaction Fee" />
+    const transferInstruction = getTransferCheckedInstruction({
+      source: senderAta,
+      mint: mint.address,
+      destination: recipientAta,
+      authority: sender,
+      amount: 250_000n,
+      decimals: 6
+    });
 
-```ts !! title="Sponsor Transaction Fee"
-const sponsor = await generateKeyPairSigner();
+    const client = createClient()
+      .use(payer(sponsor)) // Sponsor pays the transaction fees
+      .use(solanaLocalRpc());
 
-// !focus(1:8)
-const transferInstruction = getTransferCheckedInstruction({
-  source: senderAta,
-  mint: mint.address,
-  destination: recipientAta,
-  authority: sender, // Sender signs for the transfer
-  amount: 250_000n, // adjusted for the mint's decimals
-  decimals: 6
-});
-```
-
-## !!steps Send with Sponsor as Fee Payer
-
-Create the client with the sponsor set as the fee payer via `payer(sponsor)`,
-then call `client.sendTransaction`. The sponsor signs to pay the network fee
-while the sender signs to authorize the transfer—`sendTransaction` collects
-every referenced signer automatically.
-
-<CodePlaceholder title="Sponsor Transaction Fee" />
-
-```ts !! title="Sponsor Transaction Fee"
-const sponsor = await generateKeyPairSigner();
-
-const transferInstruction = getTransferCheckedInstruction({
-  source: senderAta,
-  mint: mint.address,
-  destination: recipientAta,
-  authority: sender,
-  amount: 250_000n,
-  decimals: 6
-});
-
-// !focus(1:5)
-const client = createClient()
-  // !mark
-  .use(payer(sponsor)) // Sponsor pays the transaction fees
-  .use(solanaLocalRpc());
-
-const { context } = await client.sendTransaction([transferInstruction]);
-```
-
-</ScrollyCoding>
+    const { context } = await client.sendTransaction([transferInstruction]);
+    ```
+  </Step>
+</Steps>
 
 ### Demo
 
-<CodeTabs flags="r">
-
-```ts !! title="Demo"
-// !collapse(1:15) collapsed
+```ts Demo highlight={20,64} expandable
 // Click ">" icon on left to expand demo imports
 import { createClient, generateKeyPairSigner, lamports } from "@solana/kit";
 import type { KeyPairSigner } from "@solana/kit";
@@ -127,7 +120,6 @@ import {
 // Generate keypairs for sender, recipient, and sponsor (fee payer)
 const sender = await generateKeyPairSigner();
 const recipient = await generateKeyPairSigner();
-// !mark
 const sponsor = await generateKeyPairSigner();
 
 console.log("Sender Address:", sender.address);
@@ -172,7 +164,6 @@ const transferInstruction = getTransferCheckedInstruction({
 
 // Send transaction with sponsor as fee payer using @solana/kit
 // The sponsor (client.payer) pays fees; the sender signs for the transfer
-// !mark
 const { context } = await client.sendTransaction([transferInstruction]);
 const signature = context.signature;
 
@@ -201,12 +192,11 @@ const transaction = await client.rpc
 
 const feePayer = transaction?.transaction.message.accountKeys?.[0];
 console.log("\nNote: The first account in accountKeys is always the fee payer");
-console.log("Fee Payer Address:", feePayer);
+console.log("Fee Payer Address:", feePayer?.pubkey);
 
 // =============================================================================
 // Demo Setup Helper Function
 // =============================================================================
-// !collapse(1:1000) collapsed
 
 /**
  * Sets up for a sponsored token transfer demo:
@@ -312,21 +302,19 @@ async function demoSetup(
 }
 ```
 
-</CodeTabs>
-
-<Callout type="caution">
+<Danger>
   When you create a token account for an end user, they can close it and reclaim
   the SOL used for rent. Consider charging users for account creation in
   stablecoins, or factor this cost into your product economics.
-</Callout>
+</Danger>
 
 ## Fee Abstraction at Scale with Kora
 
-The fee payer primitive is powerful, but building a production gasless system
+The fee payer field does the core work, but a production gasless system
 requires more: managing sponsor wallets, handling token conversions (so users
 can "pay" fees in USDC), rate limiting, and security controls.
 
-[Kora](/docs/tools/kora) handles this complexity. It's a JSON-RPC server that
+[Kora](/developers/docs/tools/kora) handles this complexity. It's a JSON-RPC server that
 provides fee abstraction so users never need SOL. You can fully sponsor fees or
 accept fee payment in any token.
 
@@ -341,7 +329,7 @@ Then point a Kit client at your Kora server and send transactions with the same
 API used above:
 
 ```bash
-pnpm add @solana/kora
+npm install @solana/kora
 ```
 
 ```typescript
@@ -364,20 +352,17 @@ console.log("Signature:", context.signature);
 
 ### Kora Resources
 
-<Cards>
-  <Card
-    title="Kora Quick Start"
-    href="/docs/tools/kora/getting-started/quick-start"
-  >
+<Columns cols={2}>
+  <Card title="Kora Quick Start" href="/developers/docs/tools/kora/getting-started/quick-start" arrow>
     Get Kora running locally in minutes.
   </Card>
-  <Card title="Full Transaction Demo" href="/docs/tools/kora/guides/full-demo">
+  <Card title="Full Transaction Demo" href="/developers/docs/tools/kora/guides/full-demo" arrow>
     Complete fee abstraction transaction implementation guide.
   </Card>
-  <Card title="API Reference" href="/docs/tools/kora/json-rpc-api">
+  <Card title="API Reference" href="/developers/docs/tools/kora/json-rpc-api" arrow>
     JSON-RPC methods and SDK documentation.
   </Card>
-  <Card title="Node Operator Guide" href="/docs/tools/kora/operators">
+  <Card title="Node Operator Guide" href="/developers/docs/tools/kora/operators" arrow>
     Deploy and configure your own Kora instance.
   </Card>
-</Cards>
+</Columns>

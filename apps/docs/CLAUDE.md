@@ -4,8 +4,8 @@
 
 ## Overview
 
-The Solana developer documentation site, providing comprehensive guides, API
-references, cookbook recipes, and learning resources for building on Solana.
+The /developers landing, the Solana developer documentation, the cookbook and
+the /learn articles.
 
 **Package name**: `solana-docs` **Default port**: 3003 **Asset prefix**:
 `/docs-assets`
@@ -13,12 +13,12 @@ references, cookbook recipes, and learning resources for building on Solana.
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router) with next-intl
-- **Documentation**: Fumadocs (MDX-based documentation framework)
-- **Code Highlighting**: CodeHike for advanced code blocks
-- **Diagrams**: Mermaid for flowcharts and diagrams
-- **Styling**: Tailwind CSS, SCSS
-- **AI Integration**: Vercel AI SDK with OpenAI
-- **UI Components**: Radix UI primitives, Fumadocs UI
+- **Documentation**: Fumadocs (`fumadocs-core`, `fumadocs-mdx`) for content
+  loading; the docs chrome is this app's own code
+- **Code Highlighting**: Shiki, through Fumadocs' rehype-code
+- **Styling**: Tailwind CSS 3, SCSS, and the docs stylesheets in
+  `content/styles`
+- **Search and Ask AI**: Inkeep
 
 ## Project Structure
 
@@ -26,38 +26,28 @@ references, cookbook recipes, and learning resources for building on Solana.
 apps/docs/
 ├── src/
 │   ├── app/
-│   │   └── [locale]/
-│   │       ├── developers/
-│   │       │   ├── cookbook/     # Code recipes
-│   │       │   └── bootcamp/     # Developer learning tracks
-│   │       ├── learn/             # General learning content
-│   │       └── docs/
-│   │           ├── (main)/       # Core documentation
-│   │           ├── rpc/          # RPC API reference
-│   │           └── video-guides/ # Video tutorials
-│   ├── components/               # React components
-│   ├── constants/                # App constants
-│   ├── hooks/                    # Custom React hooks
-│   ├── i18n/                     # i18n configuration
-│   ├── lib/                      # Utility libraries
-│   ├── markdown/                 # MDX processing utilities
-│   ├── scss/                     # SCSS stylesheets
-│   ├── types/                    # TypeScript types
-│   └── utils/                    # Helper utilities
+│   │   ├── (docs)/[locale]/       # Root layout of the pages below
+│   │   │   ├── developers/        # /developers landing
+│   │   │   │   ├── docs/          # /developers/docs
+│   │   │   │   └── cookbook/      # /developers/cookbook
+│   │   │   └── learn/[...slug]/   # /learn/<article>
+│   │   ├── [locale]/learn/        # /learn landing (site header and footer)
+│   │   ├── api/markdown/          # Markdown twins of docs pages
+│   │   ├── opengraph/developers/  # Social images
+│   │   └── llms.txt, llms-full.txt, developers/docs/[section]/llms.txt
+│   ├── components/docs/           # Docs page, sidebar, TOC, MDX components
+│   ├── lib/docs/                  # Source loader, navigation, metadata
+│   ├── data/developers/           # Landing data and docs header/footer data
+│   └── scss/, fonts/              # Global styles and fonts
 ├── content/
-│   ├── cookbook/                 # Cookbook MDX files
-│   │   ├── accounts/
-│   │   ├── development/
-│   │   ├── tokens/
-│   │   ├── transactions/
-│   │   └── wallets/
-│   ├── docs/                     # Main docs (localized)
-│   │   ├── en/                   # English docs
-│   │   ├── ar/, de/, es/...      # Translated docs
-│   ├── learn/                    # General learning content
-│   └── developers-learn/         # Bootcamp companion content
-├── assets/                       # Static assets
-└── public/                       # Public files
+│   ├── docs/<locale>/             # Docs pages (English in en/)
+│   ├── cookbook/                  # Cookbook pages (English only)
+│   ├── learn/<locale>/            # Learn articles
+│   ├── snippets/                  # MDX snippets inlined into pages
+│   ├── navigation/                # Docs navigation (en.json)
+│   └── styles/                    # Docs stylesheets
+├── public/docs-assets/            # Docs images and behaviour scripts
+└── redirects.ts                   # Redirects of old docs URLs
 ```
 
 ## Local Development
@@ -72,9 +62,10 @@ pnpm dev
 # Regenerate MDX sources (after content changes)
 pnpm postinstall  # Runs fumadocs-mdx
 
-# Lint
+# Lint, types and tests
 pnpm lint
-pnpm lint:fix
+pnpm check-types
+pnpm test
 
 # Analyze bundle
 ANALYZE=true pnpm build
@@ -82,113 +73,26 @@ ANALYZE=true pnpm build
 
 ## Content Structure
 
-### Fumadocs MDX
+- Files in `content/` are processed by `fumadocs-mdx` (`source.config.ts`, one
+  collection); generated sources are stored in `.source/` (gitignored).
+- `src/lib/docs/source.ts` maps `docs/<locale>/x.mdx` to
+  `/<locale>/developers/docs/x`, `learn/<locale>/x.mdx` to `/<locale>/learn/x`
+  and `cookbook/x.mdx` to `/developers/cookbook/x` (English is unprefixed).
+- English is the source language. Translations are generated by Lingo; a page
+  without one is served in English at its locale URL.
+- `content/navigation/en.json` is the navigation in every locale.
 
-Content is organized using Fumadocs conventions:
+## Routing
 
-- Files in `content/` are processed by `fumadocs-mdx`
-- Generated source maps stored in `.source/` (gitignored)
-- Supports frontmatter for metadata
-
-### Content Categories
-
-1. **Docs** (`/docs/*`) - Core Solana documentation
-   - Core concepts (accounts, transactions, programs)
-   - Client libraries (JavaScript, Rust, Python)
-   - RPC API reference
-   - Staking documentation
-   - Video tutorials (`/docs/video-guides/*`, from
-     `content/docs/{locale}/video-guides/`)
-
-2. **Cookbook** (`/developers/cookbook/*`) - Code recipes
-   - Accounts management
-   - Token operations
-   - Transaction handling
-   - Wallet integration
-
-3. **Learn** (`/learn/*`) - General Solana learning resources
-
-4. **Developer bootcamp** (`/developers/bootcamp/*`) - Structured learning
-   tracks and companion material
-
-### Localization
-
-Documentation is translated into multiple languages:
-
-- Content stored in `content/docs/{locale}/`
-- Uses next-intl for routing
-- English (en) is the source language
-
-## Key Features
-
-### CodeHike Integration
-
-Advanced code blocks with:
-
-- Syntax highlighting
-- Line highlighting
-- Code annotations
-- File tabs
-
-### Mermaid Diagrams
-
-Flowcharts and sequence diagrams rendered from markdown.
-
-### AI Chat (Vercel AI SDK)
-
-- OpenAI integration for documentation search
-- Configured via `@ai-sdk/openai`
-
-## Key Dependencies (App-Specific)
-
-- `fumadocs-core`, `fumadocs-mdx`, `fumadocs-ui` - Documentation framework
-- `codehike` - Advanced code blocks
-- `mermaid` - Diagram rendering
-- `ai`, `@ai-sdk/openai` - AI integration
-- `@boxicons/react` - UI and file type icons
-- `svg-pan-zoom` - Zoomable diagrams
-- `zod` - Schema validation
-
-## API Routes
-
-The `src/app/api/markdown/[...slug]` route serves Markdown representations of
-documentation pages. Inkeep feedback uses a server action under
-`src/app/components/inkeep/`.
+- `src/middleware.ts` rewrites `<page>.md` and `Accept: text/markdown` requests
+  to `src/app/api/markdown/[...slug]`, and handles locales.
+- `redirects.ts` sends old URLs (`/docs/...`, `/developers/guides/...`,
+  `/developers/bootcamp/...`) to their pages; each rule also gets its `.md` and
+  locale variants.
 
 ## Build Configuration
 
 - Asset prefix: `/docs-assets` for Vercel multi-project deployment
 - Memory allocation: 4096MB for builds
-- Sentry integration for error tracking
+- Sentry integration for error tracking (loaded after the page)
 - Fumadocs MDX processing runs on postinstall
-- Moved docs routes need redirects for both the page and its `.md` variant in
-  `next.config.ts` because the web app forwards raw Markdown requests.
-
-## Content Conventions
-
-### MDX Frontmatter
-
-```yaml
----
-title: Page Title
-description: Page description
-sidebarLabel: Sidebar Label (optional)
-sidebarSortOrder: 1 (optional)
----
-```
-
-### Code Blocks
-
-Use CodeHike syntax for enhanced code blocks:
-
-````mdx
-```ts title="example.ts" {1,3-5}
-// highlighted lines
-```
-````
-
-```
-
-### Cross-References
-Link to other docs using relative paths or Fumadocs link syntax.
-```

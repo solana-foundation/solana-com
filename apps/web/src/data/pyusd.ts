@@ -18,7 +18,7 @@ export const MINT_EXPLORER_LINK = {
 } as const;
 
 export const HERO_BUTTONS = [
-  { id: "payments", variant: "primary", href: "/docs/payments" },
+  { id: "payments", variant: "primary", href: "/developers/docs/payments" },
   {
     id: "reserves",
     variant: "secondary",
@@ -84,27 +84,27 @@ export const MINT_EXTENSIONS = [
   {
     id: "permanentDelegate",
     status: "active",
-    href: "/docs/tokens/extensions/permanent-delegate",
+    href: "/developers/docs/tokens/extensions/permanent-delegate",
   },
   {
     id: "metadata",
     status: "active",
-    href: "/docs/tokens/extensions/metadata",
+    href: "/developers/docs/tokens/extensions/metadata",
   },
   {
     id: "transferFee",
     status: "dormant",
-    href: "/docs/tokens/extensions/transfer-fees",
+    href: "/developers/docs/tokens/extensions/transfer-fees",
   },
   {
     id: "transferHook",
     status: "dormant",
-    href: "/docs/tokens/extensions/transfer-hook",
+    href: "/developers/docs/tokens/extensions/transfer-hook",
   },
   {
     id: "confidential",
     status: "dormant",
-    href: "/docs/tokens/extensions/confidential-transfer",
+    href: "/developers/docs/tokens/extensions/confidential-transfer",
   },
 ] as const;
 
@@ -122,8 +122,11 @@ const [pyusdAta] = await findAssociatedTokenPda({
 });`;
 
 export const MINT_LINKS = [
-  { id: "howPaymentsWork", href: "/docs/payments/how-payments-work" },
-  { id: "extensions", href: "/docs/tokens/extensions" },
+  {
+    id: "howPaymentsWork",
+    href: "/developers/docs/payments/how-payments-work",
+  },
+  { id: "extensions", href: "/developers/docs/tokens/extensions" },
 ] as const;
 
 export const BUILD_STEPS = [
@@ -140,9 +143,9 @@ export const BUILD_STEPS = [
   {
     id: "accept",
     links: [
-      { id: "quickstart", href: "/docs/payments/quickstart" },
-      { id: "solanaPay", href: "/docs/payments/accept-payments/solana-pay" },
-      { id: "commerceKit", href: "/docs/tools/commerce-kit" },
+      { id: "quickstart", href: "/developers/docs/payments/checkout" },
+      { id: "solanaPay", href: "/developers/docs/tools/solana-pay" },
+      { id: "commerceKit", href: "/developers/docs/tools/commerce-kit" },
     ],
   },
   {
@@ -150,24 +153,29 @@ export const BUILD_STEPS = [
     links: [
       {
         id: "verifyAddress",
-        href: "/docs/payments/send-payments/verify-address",
+        href: "/developers/docs/payments/send-payments/verify-address",
       },
       {
         id: "feeAbstraction",
-        href: "/docs/payments/send-payments/payment-processing/fee-abstraction",
+        href: "/developers/docs/payments/send-payments/payment-processing/fee-abstraction",
       },
     ],
   },
   {
     id: "agents",
-    links: [{ id: "x402", href: "/docs/payments/agentic-payments/x402" }],
+    links: [
+      { id: "x402", href: "/developers/docs/payments/agentic-payments/x402" },
+    ],
   },
 ] as const;
 
 export const RESOURCES = [
   { id: "paxosDocs", href: "https://docs.paxos.com/guides/stablecoin/pyusd" },
   { id: "contract", href: "https://github.com/paxosglobal/pyusd-contract" },
-  { id: "productionReadiness", href: "/docs/tools/production-readiness" },
+  {
+    id: "productionReadiness",
+    href: "/developers/docs/tools/production-readiness",
+  },
   { id: "deepDive", href: "/news/pyusd-paypal-solana-developer" },
   { id: "launch", href: "/news/paypal-pyusd-on-solana" },
   {

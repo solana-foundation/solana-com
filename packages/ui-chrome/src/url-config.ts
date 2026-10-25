@@ -16,8 +16,9 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME;
  * Routes not matching will use <a> tags for full page load.
  */
 const APP_INTERNAL_ROUTES: Record<string, RegExp> = {
-  // docs app handles: /docs/*, /learn/*, /developers, /developers/cookbook/*, /developers/bootcamp/*
-  docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:cookbook|bootcamp)(?:\/|$))/,
+  // served by apps/docs: /docs/* (redirects to /developers/docs), /learn/*, /developers,
+  // /developers/docs/*, /developers/cookbook/*, /developers/bootcamp/*
+  docs: /^\/(?:docs|learn)(?:\/|$)|^\/developers(?:$|\/(?:docs|cookbook|bootcamp)(?:\/|$))/,
   media: /^\/(?:changelog|news|podcasts)(?:\/|$)/,
   // templates app handles: /developers/templates/*
   templates: /^\/developers\/templates(?:\/|$)/,
@@ -71,4 +72,21 @@ export function shouldUseNextLink(href: string): boolean {
 
   // On non-web apps: use Link only for internal routes
   return isInternalRoute(href);
+}
+
+/**
+ * True for links into the developer docs, served by apps/docs:
+ * /developers/docs, /<locale>/developers/docs, the cookbook, the bootcamp and
+ * the /learn articles (not the /learn landing). The old /docs and
+ * /<locale>/docs prefixes still count: they redirect to /developers/docs.
+ * These always open in a new tab.
+ */
+export function isDocsHref(href: string): boolean {
+  let path = href;
+  const abs = /^https?:\/\/(www\.)?solana\.com(\/.*)?$/i.exec(href);
+  if (abs) path = abs[2] || "/";
+  if (!path.startsWith("/")) return false;
+  return /^(\/[a-z]{2}(-[A-Za-z]{2,4})?)?\/(docs|learn\/[^/?#]+|developers\/(docs|cookbook|bootcamp))(\/|$|[?#])/.test(
+    path,
+  );
 }

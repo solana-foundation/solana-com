@@ -3,18 +3,15 @@ import {
   getEffectiveOrigin,
   routingWithoutDetection,
 } from "@workspace/i18n/middleware";
-import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
-import { locales } from "@workspace/i18n/config";
-import {
-  MarkdownRequestSource,
-  trackMarkdownRequest,
-} from "@@/src/lib/posthog/server";
+import { NextRequest, NextResponse } from "next/server";
+import { defaultLocale, locales } from "@workspace/i18n/config";
 
 // These are the prefixes that we want to serve as markdown if
 // the Accept header includes "text/markdown" or if
 // the pathname ends with ".md"
 const MARKDOWN_PREFIXES = [
   "/docs",
+  "/developers/docs",
   "/developers/cookbook",
   "/developers/bootcamp",
   "/learn",
@@ -31,32 +28,16 @@ function matchesMarkdownPrefix(path: string): boolean {
   );
 }
 
-function getRouteFromMarkdownApiPath(pathname: string): string {
-  const route = pathname.slice(MARKDOWN_API_PREFIX.length);
-  if (!route) {
-    return "/";
-  }
-  return route.startsWith("/") ? route : `/${route}`;
-}
-
-function trackMarkdownRequestInBackground(
-  event: NextFetchEvent,
-  route: string,
-  source: MarkdownRequestSource,
+// The markdown route takes the public path, locale included:
+// /api/markdown/ja/developers/docs/quickstart.
+function rewriteToMarkdownApi(
+  req: NextRequest,
+  locale: string | undefined,
+  segments: string[],
 ) {
-  const normalizedRoute = route.endsWith(".md") ? route.slice(0, -3) : route;
-  event.waitUntil(
-    trackMarkdownRequest({
-      route: normalizedRoute,
-      source,
-      currentUrl: `${SOLANA_SITE_ORIGIN}${normalizedRoute}`,
-    }),
-  );
-}
-
-function rewriteToMarkdownApi(req: NextRequest, segments: string[]) {
   const url = req.nextUrl.clone();
-  url.pathname = `/api/markdown/${segments.join("/")}`;
+  const prefix = locale && locale !== defaultLocale ? `/${locale}` : "";
+  url.pathname = `${MARKDOWN_API_PREFIX}${prefix}/${segments.join("/")}`;
   return NextResponse.rewrite(url);
 }
 
@@ -79,10 +60,7 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
   preserveProxiedLocaleCookie: true,
 });
 
-export default async function middleware(
-  req: NextRequest,
-  event: NextFetchEvent,
-) {
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // The production Vercel alias is also the web app's rewrite target. Only
@@ -104,11 +82,6 @@ export default async function middleware(
     pathname === MARKDOWN_API_PREFIX ||
     pathname.startsWith(`${MARKDOWN_API_PREFIX}/`)
   ) {
-    trackMarkdownRequestInBackground(
-      event,
-      getRouteFromMarkdownApiPath(pathname),
-      "direct-api",
-    );
     return NextResponse.next();
   }
 
@@ -151,6 +124,7 @@ export default async function middleware(
   }
 
   const hasLocalePrefix = locales.includes(pathSegments[0]);
+  const locale = hasLocalePrefix ? pathSegments[0] : undefined;
   const normalizedSegments = hasLocalePrefix
     ? pathSegments.slice(1)
     : pathSegments;
@@ -179,15 +153,13 @@ export default async function middleware(
     !normalizedPath.endsWith("/llms.txt") &&
     matchesMarkdownPrefix(normalizedPath)
   ) {
-    trackMarkdownRequestInBackground(event, normalizedPath, "accept-header");
-    return rewriteToMarkdownApi(req, normalizedSegments);
+    return rewriteToMarkdownApi(req, locale, normalizedSegments);
   }
 
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
-    trackMarkdownRequestInBackground(event, normalizedPath, "md-extension");
     const segments = [...normalizedSegments];
     segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
-    return rewriteToMarkdownApi(req, segments);
+    return rewriteToMarkdownApi(req, locale, segments);
   }
 
   return handleI18nRouting(req);

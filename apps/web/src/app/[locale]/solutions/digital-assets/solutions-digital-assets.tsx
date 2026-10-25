@@ -154,7 +154,7 @@ export function SolutionsDigitalAssetsPage() {
               src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
-              url: "/docs/intro/quick-start",
+              url: "/developers/docs/quickstart",
               endIcon: "arrow-right",
               hierarchy: "outline",
             },

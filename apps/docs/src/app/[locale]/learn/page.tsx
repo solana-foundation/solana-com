@@ -1,47 +1,28 @@
-import React from "react";
-import LearnPageContent from "@@/src/components/learn/learn-page-content";
-import { learnTutorials } from "@@/src/utils/learn-tutorials";
-import { getTranslations } from "next-intl/server";
+import type { Metadata } from "next";
+import { getIndexMetadata } from "@/app/metadata";
+import { ThemePrepaint } from "@/app/(docs)/[locale]/developers/theme-prepaint";
+import { LearnLanding } from "./learn-landing";
 
-export default async function LearnPage() {
-  const t = await getTranslations();
+type Props = { params: Promise<{ locale: string }> };
 
-  const tutorials = learnTutorials.map((tutorial) => ({
-    ...tutorial,
-    title: t(`learn.tutorials.items.${tutorial.slug}.title`),
-    description: t(`learn.tutorials.items.${tutorial.slug}.description`),
-    category: t(`learn.tutorials.items.${tutorial.slug}.category`),
-  }));
+export const revalidate = 3600;
 
-  const translations = {
-    heroTitle: t("learn.hero.title"),
-    heroSubtitle: t("learn.hero.subtitle"),
-    heroStartLearning: t("learn.hero.start-learning"),
-    heroBuild: t("learn.hero.build"),
-    tutorialsAriaLabel: t("learn.tutorials.aria-label"),
-    continueJourneyTitle: t("learn.resources.continueJourneyTitle"),
-    continueJourneySubtitle: t("learn.resources.continueJourneySubtitle"),
-    resourcesAriaLabel: t("learn.resources.ariaLabel"),
-    documentationLabel: t("learn.resources.documentation.label"),
-    documentationDescription: t("learn.resources.documentation.description"),
-    documentationAriaLabel: t("learn.resources.documentation.ariaLabel"),
-    cookbookLabel: t("learn.resources.cookbook.label"),
-    cookbookDescription: t("learn.resources.cookbook.description"),
-    cookbookAriaLabel: t("learn.resources.cookbook.ariaLabel"),
-    coursesLabel: t("learn.resources.courses.label"),
-    coursesDescription: t("learn.resources.courses.description"),
-    coursesAriaLabel: t("learn.resources.courses.ariaLabel"),
-    walletsLabel: t("learn.resources.wallets.label"),
-    walletsDescription: t("learn.resources.wallets.description"),
-    walletsAriaLabel: t("learn.resources.wallets.ariaLabel"),
-    opensInNewTabAriaLabel: t("learn.resources.opensInNewTab"),
-    tutorialPartLabel: t("learn.tutorials.partLabel"),
-    readMoreLabel: t("learn.tutorials.readMore"),
-    readMoreAriaLabel: t("learn.tutorials.readMoreAriaLabel"),
-    // Developer component translations
-    developersResourcesLearnMore: t("developers.resources.learn-more"),
-    developersDocumentsViewAll: t("developers.documents.view-all"),
-  };
+export default async function LearnPage({ params }: Props) {
+  const { locale } = await params;
+  return (
+    <>
+      <ThemePrepaint />
+      <LearnLanding locale={locale} />
+    </>
+  );
+}
 
-  return <LearnPageContent tutorials={tutorials} translations={translations} />;
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { locale } = await params;
+  return getIndexMetadata({
+    titleKey: "learn.landing.metadata.title",
+    descriptionKey: "learn.landing.metadata.description",
+    path: "/learn",
+    locale,
+  });
 }

@@ -6,8 +6,8 @@ export const HERO_COMMAND =
   "npx -y create-solana-dapp@latest -t solana-foundation/templates/kit/nextjs-anchor";
 
 export const HERO_BUTTONS = [
-  { id: "quickstart", variant: "primary", href: "/docs/intro/quick-start" },
-  { id: "defiDocs", variant: "secondary", href: "/docs/defi" },
+  { id: "quickstart", variant: "primary", href: "/developers/docs/quickstart" },
+  { id: "defiDocs", variant: "secondary", href: "/developers/docs/defi" },
 ] as const;
 
 // Values and labels are dated in the English messages and recorded in
@@ -36,15 +36,15 @@ export const STATS_LIVE_LINK = { id: "liveData", href: "/data" } as const;
 export const NETWORK_PROPERTIES = [
   {
     id: "composability",
-    links: [{ id: "cpi", href: "/docs/core/cpi" }],
+    links: [{ id: "cpi", href: "/developers/docs/core/cpi" }],
   },
   {
     id: "parallel",
-    links: [{ id: "transactions", href: "/docs/core/transactions" }],
+    links: [{ id: "transactions", href: "/developers/docs/core/transactions" }],
   },
   {
     id: "fees",
-    links: [{ id: "fees", href: "/docs/core/fees/fee-structure" }],
+    links: [{ id: "fees", href: "/developers/docs/core/fees/fee-structure" }],
   },
   {
     id: "speed",
@@ -66,20 +66,20 @@ export const STACK_STEPS = [
   {
     id: "test",
     links: [
-      { id: "litesvm", href: "/docs/tools/litesvm" },
-      { id: "mollusk", href: "/docs/programs/testing/mollusk" },
-      { id: "surfpool", href: "/docs/tools/surfpool" },
+      { id: "litesvm", href: "/developers/docs/tools/litesvm" },
+      { id: "mollusk", href: "/developers/docs/programs/testing/mollusk" },
+      { id: "surfpool", href: "/developers/docs/tools/surfpool" },
     ],
   },
   {
     id: "clients",
-    links: [{ id: "codama", href: "/docs/programs/codama/clients" }],
+    links: [{ id: "codama", href: "/developers/docs/programs/codama/clients" }],
   },
   {
     id: "app",
     links: [
-      { id: "frontend", href: "/docs/frontend" },
-      { id: "migrate", href: "/docs/frontend/web3-compat" },
+      { id: "frontend", href: "/developers/docs/frontend" },
+      { id: "migrate", href: "/developers/docs/frontend/web3-compat" },
     ],
   },
 ] as const;
@@ -163,19 +163,19 @@ export const PRIMITIVES = [
     links: [
       {
         id: "transferHook",
-        href: "/docs/tokens/extensions/transfer-hook",
+        href: "/developers/docs/tokens/extensions/transfer-hook",
       },
       {
         id: "interestBearing",
-        href: "/docs/tokens/extensions/interest-bearing-tokens",
+        href: "/developers/docs/tokens/extensions/interest-bearing-tokens",
       },
       {
         id: "scaledUiAmount",
-        href: "/docs/tokens/extensions/scaled-ui-amount",
+        href: "/developers/docs/tokens/extensions/scaled-ui-amount",
       },
       {
         id: "confidential",
-        href: "/docs/tokens/extensions/confidential-transfer",
+        href: "/developers/docs/tokens/extensions/confidential-transfer",
       },
     ],
   },
@@ -208,14 +208,16 @@ export const LANDING_STEPS = [
   {
     id: "delivery",
     links: [
-      { id: "swqos", href: "/docs/defi/stake-weighted-qos" },
-      { id: "providers", href: "/docs/rpc/providers" },
+      { id: "swqos", href: "/developers/docs/defi/stake-weighted-qos" },
+      { id: "providers", href: "/developers/docs/rpc/providers" },
       { id: "rpc", href: "/rpc" },
     ],
   },
   {
     id: "mev",
-    links: [{ id: "mevProtection", href: "/docs/defi/mev-protection" }],
+    links: [
+      { id: "mevProtection", href: "/developers/docs/defi/mev-protection" },
+    ],
   },
   {
     id: "confirm",
@@ -236,7 +238,12 @@ export const SECURITY_ITEMS = [
   },
   {
     id: "verify",
-    links: [{ id: "verifiedBuilds", href: "/docs/programs/verified-builds" }],
+    links: [
+      {
+        id: "verifiedBuilds",
+        href: "/developers/docs/programs/verified-builds",
+      },
+    ],
   },
   {
     id: "audit",
@@ -250,7 +257,7 @@ export const SECURITY_ITEMS = [
 
 export const SECURITY_CHECKLIST_LINK = {
   id: "productionReadiness",
-  href: "/docs/tools/production-readiness",
+  href: "/developers/docs/tools/production-readiness",
 } as const;
 
 export const READING = [

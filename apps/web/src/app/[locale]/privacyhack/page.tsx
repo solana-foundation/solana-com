@@ -107,7 +107,7 @@ export default async function Page(_props: Props) {
         title: t("privacyhack.resources.items.docs.title"),
         description: t("privacyhack.resources.items.docs.description"),
         category: t("privacyhack.resources.items.docs.category"),
-        url: "https://solana.com/docs",
+        url: "https://solana.com/developers/docs",
       },
       {
         title: t("privacyhack.resources.items.templates.title"),

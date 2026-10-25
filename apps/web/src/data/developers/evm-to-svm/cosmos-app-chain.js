@@ -87,10 +87,10 @@ export const RUNBOOK_SECTIONS = [
         <li><strong>100M+ quarterly active wallets:</strong> a live user base to acquire from instead of bootstrapping activity on an isolated chain.</li>
         <li><strong>$2T annual DEX volume and $10B+ DeFi TVL:</strong> real liquidity and market structure for your token to plug into on day one.</li>
         <li><strong>Billions of transactions per quarter at fees under $0.0025:</strong> consumer-scale activity stays affordable for users and for your own operational jobs.</li>
-        <li><strong>Mature developer ecosystem:</strong> established program frameworks, testing resources, <a href="/docs/rpc">RPC</a> providers, indexers, wallets, and payment rails.</li>
+        <li><strong>Mature developer ecosystem:</strong> established program frameworks, testing resources, <a href="/developers/docs/rpc">RPC</a> providers, indexers, wallets, and payment rails.</li>
       </ul>
       <p>Two tradeoffs still deserve honest validation before you commit: native IBC interoperability does not carry over, so plan a bridge or protocol-specific integration, and CosmWasm contracts need a real rewrite to Solana's account model rather than a port.</p>
-      <p>On Solana, a <a href="/docs/core/programs">program</a> is executable onchain code, an <a href="/docs/core/accounts">account</a> is the durable state that programs read and write, and a <a href="/docs/core/transactions">transaction</a> is the signed bundle of instructions that asks programs to do work. If that model fits your product and operations, the migration has a stronger foundation.</p>
+      <p>On Solana, a <a href="/developers/docs/core/programs">program</a> is executable onchain code, an <a href="/developers/docs/core/accounts">account</a> is the durable state that programs read and write, and a <a href="/developers/docs/core/transactions">transaction</a> is the signed bundle of instructions that asks programs to do work. If that model fits your product and operations, the migration has a stronger foundation.</p>
       <h3>Architecture differences: Cosmos app chains vs Solana</h3>
       <p>Use this mapping when you are translating operational responsibilities and state architecture, not just contract code.</p>
       <div class="overflow-x-auto">
@@ -136,7 +136,7 @@ export const RUNBOOK_SECTIONS = [
       </ul>
       <h3>Community governance</h3>
       <p>Even if the team can coordinate a validator halt without formal governance, skipping governance usually destroys trust. The operationally clean approach is to publish a temperature-check discussion first and a binding governance action later.</p>
-      <p>The proposal should explain the new Solana asset clearly. Most migrated fungible tokens become <a href="/docs/tokens">SPL tokens</a>: tokens managed by Solana token programs rather than by your retired Cosmos chain.</p>
+      <p>The proposal should explain the new Solana asset clearly. Most migrated fungible tokens become <a href="/developers/docs/tokens">SPL tokens</a>: tokens managed by Solana token programs rather than by your retired Cosmos chain.</p>
       <pre><code class="language-text">Title: [Deprecation Proposal] Shut Down CHAIN_NAME and Migrate to Solana
 
 Summary:
@@ -229,13 +229,13 @@ The chain will halt at block HEIGHT on DATE.
     html: `
       <h2>4. Phase 2: Token Migration Architecture</h2>
       <p>For most chain shutdowns, the cleanest design is a snapshot-driven Merkle tree claimer on Solana. Instead of keeping a bridge alive after the Cosmos chain halts, you finalize balances off-chain, commit one Merkle root on Solana, fund a claim vault, and let each user prove their entitlement once.</p>
-      <p>A Merkle root is a compact cryptographic commitment to the full claims file. A claim vault is a <a href="/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">token account</a> funded with the migration supply. The claim <a href="/docs/core/programs">program</a> verifies each proof, releases the right <a href="/docs/tokens">SPL token</a> amount, and records that the claim is complete. A working reference is available in the <a href="https://github.com/solana-foundation/program-examples/tree/main/tokens/merkle-tree-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
+      <p>A Merkle root is a compact cryptographic commitment to the full claims file. A claim vault is a <a href="/developers/docs/tokens/basics/create-token-account#what-is-an-associated-token-account">token account</a> funded with the migration supply. The claim <a href="/developers/docs/core/programs">program</a> verifies each proof, releases the right <a href="/developers/docs/tokens">SPL token</a> amount, and records that the claim is complete. A working reference is available in the <a href="https://github.com/solana-foundation/program-examples/tree/main/tokens/merkle-tree-token-claimer" target="_blank" rel="noreferrer">example Merkle token claimer</a>.</p>
       <h3>Recommended architecture: Merkle tree claimer</h3>
       <ul>
         <li>Take a final Cosmos snapshot and normalize the balance dataset you intend to honor.</li>
         <li>Convert each claim into a deterministic leaf such as <code>{index, cosmos_address, solana_address, amount}</code> or <code>{index, recipient, amount}</code>.</li>
         <li>Build the Merkle tree off-chain and publish the root plus the full snapshot artifact for community review.</li>
-        <li>Deploy a Solana claim program that stores the Merkle root, vault <a href="/docs/references/terminology#authority">authority</a>, <a href="/docs/references/terminology#token-mint">token mint</a> or token-vault accounts, and claim window.</li>
+        <li>Deploy a Solana claim program that stores the Merkle root, vault <a href="/developers/docs/references/terminology#authority">authority</a>, <a href="/developers/docs/references/terminology#token-mint">token mint</a> or token-vault accounts, and claim window.</li>
         <li>Require each claimant to submit their amount, leaf index, and Merkle proof, then mark that leaf as claimed in onchain state.</li>
       </ul>
       <pre><code class="language-text">Cosmos final snapshot
@@ -246,7 +246,7 @@ The chain will halt at block HEIGHT on DATE.
   -> token vault funded
   -> users submit proof and receive SPL tokens</code></pre>
       <h3>What the Solana claimer should own</h3>
-      <p>In the Rust-style structs below, <code>Address</code> is the current Solana SDK type for an address: the base58-encoded <a href="/docs/references/terminology#public-key-pubkey">public key</a> of an account, program, mint, vault, or wallet. Anchor programs still name the same 32-byte type <code>Pubkey</code>, which is why the Anchor snippets in this guide use that name.</p>
+      <p>In the Rust-style structs below, <code>Address</code> is the current Solana SDK type for an address: the base58-encoded <a href="/developers/docs/references/terminology#public-key-pubkey">public key</a> of an account, program, mint, vault, or wallet. Anchor programs still name the same 32-byte type <code>Pubkey</code>, which is why the Anchor snippets in this guide use that name.</p>
       <pre><code class="language-rust">pub struct Distributor {
     pub merkle_root: [u8; 32],
     pub mint: Address,
@@ -259,7 +259,7 @@ pub struct ClaimStatus {
     pub index: u64,
     pub claimed: bool,
 }</code></pre>
-      <p>A simple implementation uses one <a href="/docs/core/pda">Program Derived Address (PDA)</a> or bitmap entry per leaf index to prevent double claims. A PDA is a deterministic address controlled by a program instead of a user's private key. The claim <a href="/docs/core/instructions">instruction</a> recomputes the leaf hash, verifies the Merkle proof against the stored root, transfers or mints the exact SPL amount, and then records the claim status before returning.</p>
+      <p>A simple implementation uses one <a href="/developers/docs/core/pda">Program Derived Address (PDA)</a> or bitmap entry per leaf index to prevent double claims. A PDA is a deterministic address controlled by a program instead of a user's private key. The claim <a href="/developers/docs/core/instructions">instruction</a> recomputes the leaf hash, verifies the Merkle proof against the stored root, transfers or mints the exact SPL amount, and then records the claim status before returning.</p>
       <pre><code class="language-rust">pub fn claim(
     ctx: Context&lt;Claim&gt;,
     index: u64,
@@ -280,7 +280,7 @@ pub struct ClaimStatus {
     ctx.accounts.claim_status.claimed = true;
     Ok(())
 }</code></pre>
-      <p><code>transfer_from_vault</code> is where a <a href="/docs/core/cpi">Cross Program Invocation (CPI)</a> happens: the claim program calls the SPL Token program to move tokens from the vault into the claimant's token account. Because the vault authority is a PDA, the program signs that CPI with the authority's seeds instead of a private key. In Anchor the transfer looks like this:</p>
+      <p><code>transfer_from_vault</code> is where a <a href="/developers/docs/core/cpi">Cross Program Invocation (CPI)</a> happens: the claim program calls the SPL Token program to move tokens from the vault into the claimant's token account. Because the vault authority is a PDA, the program signs that CPI with the authority's seeds instead of a private key. In Anchor the transfer looks like this:</p>
       <pre><code class="language-rust">token::transfer(
     CpiContext::new_with_signer(
         ctx.accounts.token_program.to_account_info(),
@@ -329,7 +329,7 @@ pub struct ClaimStatus {
     tone: "default",
     html: `
       <h2>5. Address Linking</h2>
-      <p>Cosmos users usually hold Bech32-encoded account addresses while Solana wallets use base58-encoded Ed25519 <a href="/docs/references/terminology#public-key-pubkey">public keys</a>, so the migration needs a deterministic way to link a source-chain account to a destination wallet before the claims file is final.</p>
+      <p>Cosmos users usually hold Bech32-encoded account addresses while Solana wallets use base58-encoded Ed25519 <a href="/developers/docs/references/terminology#public-key-pubkey">public keys</a>, so the migration needs a deterministic way to link a source-chain account to a destination wallet before the claims file is final.</p>
       <p>Keep the layers separate in your design: Bech32 is an address format, Cosmos account keys are usually secp256k1 for transaction signing, and validator consensus keys are a different identity entirely. Do not assume a validator key or node operator identity should map to a user claim.</p>
       <h3>Recommended: pre-registration plus a carefully scoped fallback</h3>
       <p><strong>Primary:</strong> before the snapshot, let users register their Solana address on Cosmos so the migration artifact already contains the intended destination.</p>
@@ -350,17 +350,17 @@ pub struct ClaimStatus {
     html: `
       <h2>6. Phase 3: Launching on Solana</h2>
       <h3>Create the SPL token</h3>
-      <p>An <a href="/docs/tokens">SPL token</a> has a <a href="/docs/tokens#mint-account">mint account</a> that defines the token's decimals, supply controls, and authorities. Match the migrated token's precision deliberately, and decide whether you need the standard <a href="/docs/references/terminology#token-program">Token Program</a> or <a href="/docs/tokens/extensions">Token Extensions</a> for features such as transfer fees, metadata, or compliance controls.</p>
+      <p>An <a href="/developers/docs/tokens">SPL token</a> has a <a href="/developers/docs/tokens#mint-account">mint account</a> that defines the token's decimals, supply controls, and authorities. Match the migrated token's precision deliberately, and decide whether you need the standard <a href="/developers/docs/references/terminology#token-program">Token Program</a> or <a href="/developers/docs/tokens/extensions">Token Extensions</a> for features such as transfer fees, metadata, or compliance controls.</p>
       <pre><code class="language-bash">solana-keygen new --outfile migration-authority.json
 solana config set --keypair migration-authority.json
 solana config set --url mainnet-beta
 
 spl-token create-token --decimals 6 &gt; token_address.txt</code></pre>
-      <p><a href="/docs/references/terminology#cluster">mainnet-beta</a> is Solana's production cluster. Rehearse the full launch on a local validator or devnet before you run these commands for real.</p>
-      <p>Since you are deploying a claim program anyway, consider creating the mint deterministically from that program instead of from a CLI keypair: initialize the mint at a <a href="/docs/core/pda">PDA</a> with a program-controlled authority, so the mint address derives from your program and the authority handoff is explicit program logic rather than an operational step. The <a href="https://github.com/solana-foundation/program-examples/tree/main/tokens/create-token" target="_blank" rel="noreferrer">create-token program example</a> shows mint creation from program code.</p>
+      <p><a href="/developers/docs/references/terminology#cluster">mainnet-beta</a> is Solana's production cluster. Rehearse the full launch on a local validator or devnet before you run these commands for real.</p>
+      <p>Since you are deploying a claim program anyway, consider creating the mint deterministically from that program instead of from a CLI keypair: initialize the mint at a <a href="/developers/docs/core/pda">PDA</a> with a program-controlled authority, so the mint address derives from your program and the authority handoff is explicit program logic rather than an operational step. The <a href="https://github.com/solana-foundation/program-examples/tree/main/tokens/create-token" target="_blank" rel="noreferrer">create-token program example</a> shows mint creation from program code.</p>
       <h3>Add metadata</h3>
-      <p>Without <a href="/docs/tokens/metaplex">token metadata</a>, wallets and aggregators will show an opaque mint address. Fix this before you send users to the new chain.</p>
-      <p>Attach it with the <a href="/docs/tokens/metaplex">Metaplex Token Metadata program</a>, which works with mints from both the Token Program and Token-2022, or use the built-in <a href="/docs/tokens/extensions/metadata">metadata extension</a> if you created the mint with Token-2022. If you script the launch instead of using the CLI, <a href="/docs/tokens/basics/create-mint">Create a Token Mint</a> walks through the same steps in code and links both metadata options at the end. Either path points to a JSON file you host:</p>
+      <p>Without <a href="/developers/docs/tokens/metaplex">token metadata</a>, wallets and aggregators will show an opaque mint address. Fix this before you send users to the new chain.</p>
+      <p>Attach it with the <a href="/developers/docs/tokens/metaplex">Metaplex Token Metadata program</a>, which works with mints from both the Token Program and Token-2022, or use the built-in <a href="/developers/docs/tokens/extensions/metadata">metadata extension</a> if you created the mint with Token-2022. If you script the launch instead of using the CLI, <a href="/developers/docs/tokens/basics/create-mint">Create a Token Mint</a> walks through the same steps in code and links both metadata options at the end. Either path points to a JSON file you host:</p>
       <pre><code class="language-json">{
   "name": "Your Token Name",
   "symbol": "TKN",
@@ -373,7 +373,7 @@ spl-token create-token --decimals 6 &gt; token_address.txt</code></pre>
 spl-token mint MINT_ADDRESS 1000000000
 spl-token authorize MINT_ADDRESS mint --disable
 spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
-      <p>A mint authority can create more tokens, and a freeze authority can freeze token accounts. Only revoke these <a href="/docs/references/terminology#authority">authorities</a> after you verify supply, vault custody, and operational signers. Disabling them is a one-way action.</p>
+      <p>A mint authority can create more tokens, and a freeze authority can freeze token accounts. Only revoke these <a href="/developers/docs/references/terminology#authority">authorities</a> after you verify supply, vault custody, and operational signers. Disabling them is a one-way action.</p>
       <h3>Multisig, token lists, and liquidity</h3>
       <ul>
         <li>Move treasury and migration vault control to a multisig such as <a href="https://squads.xyz" target="_blank" rel="noreferrer">Squads</a>.</li>
@@ -396,9 +396,9 @@ spl-token authorize MINT_ADDRESS freeze --disable</code></pre>
 Category B - Migrate logic only
 Category C - Deprecate
 Category D - Replace with native Solana equivalents</code></pre>
-      <p>For anything in Category A, design the target <a href="/docs/core/accounts">account layout</a> before writing migration jobs. Solana programs are stateless executables, so durable balances, positions, schedules, and configuration must live in accounts owned by the relevant program.</p>
+      <p>For anything in Category A, design the target <a href="/developers/docs/core/accounts">account layout</a> before writing migration jobs. Solana programs are stateless executables, so durable balances, positions, schedules, and configuration must live in accounts owned by the relevant program.</p>
       <h3>Vesting migration</h3>
-      <p>Financial obligations such as vesting schedules need exact treatment. Export them explicitly and initialize equivalent Solana state, not ad-hoc spreadsheets. In <a href="/docs/references/terminology#anchor">Anchor</a>, a Rust framework for Solana programs, <code>#[account]</code> marks a struct that will be serialized into a Solana account.</p>
+      <p>Financial obligations such as vesting schedules need exact treatment. Export them explicitly and initialize equivalent Solana state, not ad-hoc spreadsheets. In <a href="/developers/docs/references/terminology#anchor">Anchor</a>, a Rust framework for Solana programs, <code>#[account]</code> marks a struct that will be serialized into a Solana account.</p>
       <pre><code class="language-bash">cat final_state.json | jq '.app_state.wasm.contracts' | \
   python3 extract_vesting.py &gt; vesting_positions.json</code></pre>
       <pre><code class="language-rust">#[account]
@@ -412,7 +412,7 @@ pub struct VestingSchedule {
 }</code></pre>
       <p>The program around that state needs two instructions: a funding instruction that locks the tokens and a claim instruction that releases only what time has unlocked.</p>
       <ul>
-        <li><strong><code>create_new_vest</code>:</strong> validate the schedule before writing it — amounts above zero, <code>start_timestamp</code> before <code>end_timestamp</code>, and a recipient that matches the exported Cosmos data. Initialize the schedule <a href="/docs/core/pda">PDA</a> from stable seeds such as <code>[b"vesting", recipient]</code>, store the bump, set <code>claimed_amount</code> to zero, and transfer the full allocation into a vault owned by the program's PDA authority in the same transaction, so a schedule can never exist unfunded.</li>
+        <li><strong><code>create_new_vest</code>:</strong> validate the schedule before writing it — amounts above zero, <code>start_timestamp</code> before <code>end_timestamp</code>, and a recipient that matches the exported Cosmos data. Initialize the schedule <a href="/developers/docs/core/pda">PDA</a> from stable seeds such as <code>[b"vesting", recipient]</code>, store the bump, set <code>claimed_amount</code> to zero, and transfer the full allocation into a vault owned by the program's PDA authority in the same transaction, so a schedule can never exist unfunded.</li>
         <li><strong><code>claim_vest</code>:</strong> require the claimant to sign and match <code>schedule.recipient</code>, read the current time from the Clock sysvar, and compute the vested amount with checked math — linear interpolation between the timestamps, plus whatever cliff rules you exported. Pay out <code>vested - claimed_amount</code>, update <code>claimed_amount</code> before transferring from the vault via the PDA signer, and reject claims where nothing new has vested.</li>
       </ul>
       <p>You do not have to design this from scratch. The Solana developer bootcamp's <a href="https://github.com/solana-developers/developer-bootcamp-2024/tree/main/project-8-token-vesting" target="_blank" rel="noreferrer">token-vesting project</a> is a buildable Anchor program with exactly this instruction shape — create the schedule accounts, then a Clock-driven claim with cliff handling — and Bonfida's <a href="https://github.com/Bonfida/token-vesting" target="_blank" rel="noreferrer">token-vesting program</a> is a Kudelski-audited implementation deployed on mainnet. If your exported schedules are standard cliff-plus-linear shapes, also consider loading them into an existing vesting product such as <a href="https://lock.jup.ag" target="_blank" rel="noreferrer">Jupiter Lock</a> or <a href="https://streamflow.finance" target="_blank" rel="noreferrer">Streamflow</a> instead of operating a custom program.</p>
@@ -420,7 +420,7 @@ pub struct VestingSchedule {
       <p>CW721 metadata is closer to Solana's than it looks. A CW721 token points at off-chain JSON through <code>token_uri</code> (or stores the same fields on-chain in its metadata extension), and those fields follow the OpenSea-style standard. <a href="https://www.metaplex.com/docs/smart-contracts/core/json-schema#json-schema-fields" target="_blank" rel="noreferrer">Metaplex JSON</a> shares the core fields, so <code>name</code>, <code>description</code>, <code>image</code>, <code>animation_url</code>, <code>external_url</code>, and <code>attributes</code> usually carry over unchanged — a well-formed existing <code>token_uri</code> can often be reused as-is.</p>
       <p>Map the differences deliberately: Metaplex JSON also expects a <code>category</code> and a <code>properties.files</code> array with a URI and MIME type per file; royalty configuration moves out of the JSON into onchain royalty settings such as the Metaplex Core Royalties Plugin; and CW721-only fields like <code>background_color</code> and <code>youtube_url</code> have no direct equivalent. Re-host any metadata or media you do not control on durable storage before the source chain halts.</p>
       <ul>
-        <li>Pick the <a href="/docs/tokens/metaplex">Solana NFT or digital-asset standard</a> before writing claim logic. For large collections, <a href="https://www.metaplex.com/docs/smart-contracts/bubblegum-v2" target="_blank" rel="noreferrer">Bubblegum compressed NFTs</a> keep mass minting affordable — on the order of 5 SOL all-in for a million assets — but wallets and marketplaces read them through DAS-API indexers rather than plain account fetches, so confirm your target tooling supports them first.</li>
+        <li>Pick the <a href="/developers/docs/tokens/metaplex">Solana NFT or digital-asset standard</a> before writing claim logic. For large collections, <a href="https://www.metaplex.com/docs/smart-contracts/bubblegum-v2" target="_blank" rel="noreferrer">Bubblegum compressed NFTs</a> keep mass minting affordable — on the order of 5 SOL all-in for a million assets — but wallets and marketplaces read them through DAS-API indexers rather than plain account fetches, so confirm your target tooling supports them first.</li>
         <li>Preserve provenance and identifiers intentionally where external integrations depend on them.</li>
         <li>Distribute with the same Merkle pattern as the token claimer: snapshot CW721 ownership as <code>{contract, token_id, owner, solana_address}</code> leaves, publish the root, and let each owner claim a mint of the corresponding Solana asset (for compressed assets, the claim instruction mints via CPI into Bubblegum).</li>
       </ul>
@@ -452,7 +452,7 @@ pub struct VestingSchedule {
     tone: "phase",
     html: `
       <h2>8. Phase 5: Governance Migration</h2>
-      <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main DAO and treasury-management interface for Solana. It sits on top of <a href="https://github.com/solana-labs/solana-program-library/tree/master/governance" target="_blank" rel="noreferrer">SPL Governance</a>, the Solana governance program, and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for actions such as treasury transfers and <a href="/docs/core/programs/program-deployment">program upgrades</a>.</p>
+      <p><a href="https://realms.today" target="_blank" rel="noreferrer">Realms</a> is the main DAO and treasury-management interface for Solana. It sits on top of <a href="https://github.com/solana-labs/solana-program-library/tree/master/governance" target="_blank" rel="noreferrer">SPL Governance</a>, the Solana governance program, and gives you proposal workflows, voting configuration, DAO treasuries, and governed execution for actions such as treasury transfers and <a href="/developers/docs/core/programs/program-deployment">program upgrades</a>.</p>
       <p>If your Cosmos chain used on-chain governance for signaling, treasury control, or upgrade approval, the closest Solana-native destination is usually a Realm plus one or more governed treasuries. The migration is not one-to-one: Cosmos governance controls chain state, while Solana governance usually controls assets, program authorities, and operational workflows.</p>
       <div class="overflow-x-auto">
         <table>
@@ -534,7 +534,7 @@ pub struct VestingSchedule {
     html: `
       <h2>10. Phase 7: Decommissioning Cosmos Infrastructure</h2>
       <h3>Inventory everything first</h3>
-      <p>On Solana, <a href="/docs/rpc">RPC</a> services expose account and transaction data to wallets, indexers, dashboards, and support tools. Keep enough Cosmos RPC, LCD, gRPC, and explorer infrastructure online for users to verify history while the Solana-side product becomes the source of truth.</p>
+      <p>On Solana, <a href="/developers/docs/rpc">RPC</a> services expose account and transaction data to wallets, indexers, dashboards, and support tools. Keep enough Cosmos RPC, LCD, gRPC, and explorer infrastructure online for users to verify history while the Solana-side product becomes the source of truth.</p>
       <pre><code class="language-text">Validators:
   - primary validator
   - sentry nodes

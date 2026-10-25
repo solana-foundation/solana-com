@@ -69,17 +69,10 @@ const requiredClaimPaths = [
 
 const redirectSources = new Set();
 const redirectPatterns = [];
-const redirectsFile = path.join(webRoot, "rewrites-redirects.ts");
-const redirectsSource = ts.createSourceFile(
-  redirectsFile,
-  readFileSync(redirectsFile, "utf8"),
-  ts.ScriptTarget.Latest,
-  true,
-);
 function collectRedirectSources(node) {
   if (
     ts.isPropertyAssignment(node) &&
-    node.name.getText(redirectsSource) === "source" &&
+    node.name.getText() === "source" &&
     ts.isStringLiteral(node.initializer)
   ) {
     const source = node.initializer.text;
@@ -88,7 +81,20 @@ function collectRedirectSources(node) {
   }
   ts.forEachChild(node, collectRedirectSources);
 }
-collectRedirectSources(redirectsSource);
+// The docs app owns the /docs -> /developers/docs redirects.
+for (const redirectsFile of [
+  path.join(webRoot, "rewrites-redirects.ts"),
+  path.join(repoRoot, "apps/docs/redirects.ts"),
+]) {
+  collectRedirectSources(
+    ts.createSourceFile(
+      redirectsFile,
+      readFileSync(redirectsFile, "utf8"),
+      ts.ScriptTarget.Latest,
+      true,
+    ),
+  );
+}
 
 // Next.js path params: `:slug` is one segment, `:slug+` one or more and
 // `:slug*` zero or more.
@@ -131,28 +137,14 @@ function routeExists(pathname) {
       existsSync(`${base}.mdx`) || existsSync(path.join(base, "index.mdx"))
     );
   }
-  if (pathname.startsWith("/docs/")) {
-    const slug = pathname.slice("/docs/".length);
+  const docsPrefix = ["/docs/", "/developers/docs/"].find((prefix) =>
+    pathname.startsWith(prefix),
+  );
+  if (docsPrefix) {
+    const slug = pathname.slice(docsPrefix.length);
     const base = path.join(repoRoot, "apps/docs/content/docs/en", slug);
     return (
       existsSync(`${base}.mdx`) || existsSync(path.join(base, "index.mdx"))
-    );
-  }
-  if (pathname.startsWith("/developers/bootcamp/")) {
-    const segments = pathname.slice("/developers/bootcamp/".length).split("/");
-    const [courseSlug, lessonSlug] = segments;
-    const course = bootcampCourses.find((item) => item.slug === courseSlug);
-    if (!course || segments.length > 2) return false;
-    const contentRoot = path.join(
-      repoRoot,
-      "apps/docs/content/developers-learn/en",
-      courseSlug,
-    );
-    if (segments.length === 1)
-      return existsSync(path.join(contentRoot, "index.mdx"));
-    return (
-      course.lessons.includes(lessonSlug) &&
-      existsSync(path.join(contentRoot, `${lessonSlug}.mdx`))
     );
   }
   // Checked after content-backed prefixes so a catch-all rewrite such as
@@ -293,55 +285,6 @@ function readStaticExport(sourceText, relativePath, exportName) {
   const initializer = declarations.get(exportName);
   return initializer ? staticValue(initializer, declarations) : undefined;
 }
-
-const bootcampCurriculumPath = path.join(
-  repoRoot,
-  "apps/docs/src/utils/developers-learn-curriculum.ts",
-);
-function readBootcampCourses() {
-  const source = ts.createSourceFile(
-    bootcampCurriculumPath,
-    readFileSync(bootcampCurriculumPath, "utf8"),
-    ts.ScriptTarget.Latest,
-    true,
-  );
-  const courses = source.statements
-    .filter(ts.isVariableStatement)
-    .flatMap((statement) => [...statement.declarationList.declarations])
-    .find(
-      (declaration) =>
-        declaration.name.getText(source) === "developersLearnCourses",
-    )?.initializer;
-  if (!courses || !ts.isArrayLiteralExpression(courses))
-    throw new Error("Cannot resolve the bootcamp course registry");
-  function property(object, name) {
-    if (!ts.isObjectLiteralExpression(object))
-      throw new Error(`Cannot resolve bootcamp ${name}`);
-    const value = object.properties.find(
-      (item) =>
-        ts.isPropertyAssignment(item) && item.name.getText(source) === name,
-    );
-    if (!value || !ts.isPropertyAssignment(value))
-      throw new Error(`Cannot resolve bootcamp ${name}`);
-    return value.initializer;
-  }
-  return courses.elements.map((course) => {
-    const slug = property(course, "slug");
-    const lessons = property(course, "lessons");
-    if (!ts.isStringLiteral(slug) || !ts.isArrayLiteralExpression(lessons))
-      throw new Error("Cannot resolve bootcamp course or lessons");
-    return {
-      slug: slug.text,
-      lessons: lessons.elements.map((lesson) => {
-        const lessonSlug = property(lesson, "slug");
-        if (!ts.isStringLiteral(lessonSlug))
-          throw new Error("Cannot resolve bootcamp lesson slug");
-        return lessonSlug.text;
-      }),
-    };
-  });
-}
-const bootcampCourses = readBootcampCourses();
 
 export function validateSource(sourceText, relativePath) {
   const source = ts.createSourceFile(

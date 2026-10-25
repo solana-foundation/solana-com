@@ -35,4 +35,13 @@ describe("developer route matching", () => {
     expect(isThemeRoute("/data")).toBe(false);
     expect(isThemeRoute("/database")).toBe(false);
   });
+
+  it("adds light/dark support to the exact /learn landing", () => {
+    expect(isThemeRoute("/learn")).toBe(true);
+    expect(isThemeRoute("/learn/")).toBe(true);
+    expect(isThemeRoute("/fr/learn")).toBe(true);
+    expect(isThemeRoute("/learn/what-is-solana")).toBe(false);
+    expect(isThemeRoute("/learning")).toBe(false);
+    expect(isThemeRoute(null)).toBe(false);
+  });
 });

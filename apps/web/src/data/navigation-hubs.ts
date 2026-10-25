@@ -163,7 +163,7 @@ const navigationHubStaticConfigs = {
             href: "/solutions/stablecoins",
           },
           {
-            href: "/docs/payments",
+            href: "/developers/docs/payments",
           },
         ],
       },
@@ -291,7 +291,7 @@ const navigationHubStaticConfigs = {
             href: "/solutions/sdp",
           },
           {
-            href: "/docs/payments",
+            href: "/developers/docs/payments",
           },
           {
             href: "/rpc",
@@ -319,10 +319,10 @@ const navigationHubStaticConfigs = {
             href: "/solutions/actions",
           },
           {
-            href: "/docs/tools/solana-pay",
+            href: "/developers/docs/tools/solana-pay",
           },
           {
-            href: "/docs/tools/kora",
+            href: "/developers/docs/tools/kora",
           },
         ],
       },
@@ -372,13 +372,13 @@ const navigationHubStaticConfigs = {
       {
         links: [
           {
-            href: "/docs/tools/commerce-kit",
+            href: "/developers/docs/tools/commerce-kit",
           },
           {
-            href: "/docs/tools/kora",
+            href: "/developers/docs/tools/kora",
           },
           {
-            href: "/docs/tools/solana-pay",
+            href: "/developers/docs/tools/solana-pay",
           },
           {
             href: "/rpc",
@@ -397,19 +397,19 @@ const navigationHubStaticConfigs = {
       {
         links: [
           {
-            href: "/docs",
+            href: "/developers/docs",
           },
           {
-            href: "/docs/payments",
+            href: "/developers/docs/payments",
           },
           {
-            href: "/docs/tokens",
+            href: "/developers/docs/tokens",
           },
           {
             href: "/rpc",
           },
           {
-            href: "/docs/tools",
+            href: "/developers/docs/tools",
           },
         ],
       },
@@ -589,7 +589,7 @@ const navigationHubStaticConfigs = {
             href: "/validators",
           },
           {
-            href: "/docs",
+            href: "/developers/docs",
           },
           {
             href: "/research",
@@ -603,10 +603,10 @@ const navigationHubStaticConfigs = {
             href: "/rpc",
           },
           {
-            href: "/docs/rpc",
+            href: "/developers/docs/rpc",
           },
           {
-            href: "/docs",
+            href: "/developers/docs",
           },
         ],
       },
@@ -639,10 +639,10 @@ const navigationHubStaticConfigs = {
             href: "/rpc",
           },
           {
-            href: "/docs",
+            href: "/developers/docs",
           },
           {
-            href: "/docs/rpc",
+            href: "/developers/docs/rpc",
           },
         ],
       },

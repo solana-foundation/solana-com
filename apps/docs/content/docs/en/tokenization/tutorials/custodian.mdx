@@ -1,0 +1,255 @@
+---
+title: Hold a gated token as a custodian
+sidebarTitle: "Hold it as a custodian"
+description:
+  "Take the custodian side of a gated token: derive the custody address, get it
+  allowlisted, receive the asset, observe a freeze, and reconcile at a stated
+  commitment level."
+type: tutorial
+prerequisites:
+  - /developers/docs/tokenization/tutorials/issuing/gate-the-holders
+related:
+  - /developers/docs/tokenization/custody/custody-integration
+  - /developers/docs/tokenization/tutorials/issuing/operate-the-token
+  - /developers/docs/defi/exchange
+"og:title": Custodian Integration Tutorial for Gated Tokens on Solana
+"twitter:title": Custodian Integration Tutorial for Gated Tokens on Solana
+---
+
+import DeriveAta from "/snippets/examples/paths/assets/gated-token/derive-ata.mdx";
+import DisplayThawed from "/snippets/examples/paths/assets/gated-token/display-thawed.mdx";
+import ReadThawed from "/snippets/examples/paths/assets/gated-token/read-thawed.mdx";
+import DisplayFrozen from "/snippets/examples/paths/assets/gated-token/display-frozen.mdx";
+import ReadFrozen from "/snippets/examples/paths/assets/gated-token/read-frozen.mdx";
+import FinalizedConfig from "/snippets/examples/paths/assets/gated-token/finalized-config.mdx";
+import DisplayFinalized from "/snippets/examples/paths/assets/gated-token/display-finalized.mdx";
+import ReadFinalized from "/snippets/examples/paths/assets/gated-token/read-finalized.mdx";
+import SolanaAccount from "/snippets/examples/paths/assets/gated-token/solana-account.mdx";
+import PositionListing from "/snippets/examples/paths/assets/gated-token/position-listing.mdx";
+
+The [issuing tutorial](/developers/docs/tokenization/tutorials/issuing) builds
+a gated token from the issuer's side. This one takes the custodian side, where
+a custody system holds the asset for a client and has to handle what the issuer
+does with its controls. It continues with the mint from
+[gate the holders](/developers/docs/tokenization/tutorials/issuing/gate-the-holders),
+so `$MINT` and `$LIST` should already be exported, on the same network.
+
+<Info>
+**Custodian-side and issuer-side steps**
+
+The custodian-side steps read the custody account with `spl-token`, which is
+part of the Solana CLI install. To read it from code as well, use the
+`derive-ata` and `read-account` scripts in the Kit, Web3.js v3, or Rust project
+from the issuing tutorial. The `spl-token` commands use `$RPC_URL` when it is
+set and devnet otherwise. The issuer-side steps run the issuing tutorial's
+scripts and are marked where they appear: in a real integration another party
+runs them.
+</Info>
+
+<Steps titleSize="h3">
+
+<Step title="Create the custody address">
+
+A custodian holds the asset at an address it controls. Here a key file stands
+in for whatever your key-management backend produces; see
+[choosing a backend](/developers/docs/tools/keychain/choosing-a-backend) for
+what that is in production. The custodian signs nothing in this tutorial, so it
+needs no SOL.
+
+```bash Terminal
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/demo-custodian.json
+export CUSTODIAN=$(solana-keygen pubkey ~/.config/solana/demo-custodian.json)
+```
+
+</Step>
+
+<Step title="Derive the token account address before it exists">
+
+The asset does not sit at your wallet address. It sits in an associated token
+account derived from that wallet and the mint. Two addresses are involved:
+
+- The **wallet** is what the issuer allowlists. That is the onboarding
+  decision.
+- The **associated token account** holds the balance, is what the issuer
+  freezes, and is what your reconciliation reads.
+
+The associated token address is deterministic, so you can compute it before
+the account exists and set up monitoring and reconciliation ahead of the first
+transfer. Save the script as `derive-ata.ts` (in Rust, `src/bin/derive-ata.rs`)
+and run it with `$CUSTODIAN`.
+
+<DeriveAta />
+
+Export the `Associated token address` it prints as `CUSTODY_ATA`; the reads
+below use it:
+
+```bash Terminal
+export CUSTODY_ATA=<the associated token address>
+```
+
+If your platform rotates wallets per client or per deposit, each wallet needs allowlisting before it
+can receive (see
+[custody integration](/developers/docs/tokenization/custody/custody-integration)).
+
+</Step>
+
+<Step title="Get the address onto the allowlist">
+
+Issuer side. You supply the wallet address, not the token account, and the
+issuer records the onboarding decision with `allowlist-add`:
+
+<CodeGroup>
+```bash TypeScript
+npx tsx allowlist-add.ts $CUSTODIAN
+```
+
+```bash Rust
+cargo run --release --bin allowlist-add -- $CUSTODIAN
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Receive the asset">
+
+Issuer side again: a mint of 500 to the custody address. The token account is
+created and thawed in the same transaction, because the wallet is on the list.
+
+<CodeGroup>
+```bash TypeScript
+npx tsx mint.ts $CUSTODIAN 500
+```
+
+```bash Rust
+cargo run --release --bin mint -- $CUSTODIAN 500
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Confirm what you hold">
+
+Back on the custodian side. Read the token account directly with `spl-token`:
+
+<DisplayThawed />
+
+To read it from code, use the `read-account` script from
+[operate the token](/developers/docs/tokenization/tutorials/issuing/operate-the-token#offboard-a-holder),
+run with `$CUSTODY_ATA`:
+
+<ReadThawed />
+
+Read two fields. **Balance** is the position. `spl-token` applies the mint's
+six decimals and shows `Balance: 500`; the scripts print the raw amount in base
+units, `500000000`. **State** is the field a custody system must handle:
+`Initialized` means the account is thawed and usable, and `Frozen` means it is
+not. If a custody system does not show this field, a failed withdrawal cannot
+be explained from the account state.
+
+The `spl-token display` output also warns that the mint has a permanent
+delegate, which can move the balance out of the account at any time. A
+custodian needs that disclosed by the issuer, and a category for such movements
+in its reconciliation.
+
+</Step>
+
+<Step title="Observe a freeze">
+
+The issuer can freeze an account you hold without your involvement, so
+detection has to come from monitoring the account rather than from a failed
+withdrawal. Issuer side:
+
+<CodeGroup>
+```bash TypeScript
+npx tsx freeze.ts $CUSTODIAN
+```
+
+```bash Rust
+cargo run --release --bin freeze -- $CUSTODIAN
+```
+</CodeGroup>
+
+Now read the account again:
+
+<DisplayFrozen />
+
+From code, run `read-account` with `$CUSTODY_ATA` again:
+
+<ReadFrozen />
+
+**State** is now `Frozen`. The balance is unchanged: the assets are still
+there but cannot move. Report a frozen position as unavailable, not as zero.
+
+Ask the issuer to restore it before you continue:
+
+<CodeGroup>
+```bash TypeScript
+npx tsx thaw.ts $CUSTODIAN
+```
+
+```bash Rust
+cargo run --release --bin thaw -- $CUSTODIAN
+```
+</CodeGroup>
+
+</Step>
+
+<Step title="Reconcile at a stated commitment level">
+
+Reconciliation against a book of record needs a defined point in time, not
+"now." `spl-token` has no `--commitment` flag: it reads at the commitment set
+in the Solana CLI config, `confirmed` by default. For a `finalized` read, keep
+a separate config file and pass it with `-C`.
+
+The config file replaces your settings rather than adding to them, so it has
+to name the cluster as well as the commitment. Without `json_rpc_url`, the read
+goes to mainnet, where `$CUSTODY_ATA` does not exist. The command below
+writes `$RPC_URL` into it when it is set, and devnet otherwise.
+
+<FinalizedConfig />
+
+Then read the account with that config:
+
+<DisplayFinalized />
+
+The scripts take the commitment level as their second argument, so from code
+run `read-account` with `$CUSTODY_ATA finalized`:
+
+<ReadFinalized />
+
+Use a separate config file, not `solana config set --commitment finalized`,
+for a reconciliation job, so other commands keep their own commitment.
+
+`solana account` returns the raw account: its lamports, owner program, and
+data bytes, base64-encoded, with the balance inside the data:
+
+<SolanaAccount />
+
+For a list of positions across a client's holdings:
+
+<PositionListing />
+
+Use `finalized` for anything that feeds a book of record; see
+[settlement and finality](/developers/docs/defi/finality) for why the other
+levels are not appropriate there.
+
+</Step>
+
+</Steps>
+
+## Production integration requirements
+
+Everything above is a read or a single transaction. A production integration
+also needs continuous detection: subscribe to the accounts you hold and to the
+mint, where a pause is recorded, so a freeze, a pause, or a permanent-delegate
+transfer raises an alert before a client instruction fails on it.
+[Custody integration](/developers/docs/tokenization/custody/custody-integration)
+lists what a custodian's systems have to support.
+
+## Next steps
+
+- [Prepare a vault for a gated token](/developers/docs/tokenization/tutorials/vault):
+  the asset manager's side of the same token
+- [Custody integration](/developers/docs/tokenization/custody/custody-integration):
+  what a custodian has to support to hold a gated asset

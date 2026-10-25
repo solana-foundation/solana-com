@@ -1,5 +1,6 @@
 ---
 title: Confidential Balances Integration Guide
+sidebarTitle: "Confidential Balances integration guide"
 description:
   Learn how to integrate tokens that use Confidential Balances into wallets,
   explorers, exchanges, and other applications.
@@ -27,7 +28,7 @@ not anonymity.
 
 ### Resources
 
-- [Confidential Balances overview and step-by-step guides](/docs/tokens/extensions/confidential-transfer)
+- [Confidential Balances overview and step-by-step guides](/developers/docs/tokens/extensions/confidential-transfer)
 - [Extension Rust code](https://github.com/solana-program/token-2022/tree/main/program/src/extension/confidential_transfer)
 - [`@solana-program/token-2022` JS client](https://github.com/solana-program/token-2022/tree/main/clients/js)
   (instructions, account state parsing, key derivation, and high-level
@@ -125,9 +126,9 @@ store those keys is an integration choice. A few common options:
 
 The `@solana-program/token-2022` client ships helpers for the recommended path:
 
-<CodeTabs>
+<CodeGroup>
 
-```ts !! title="JS-derive-keys.ts"
+```ts JS-derive-keys.ts
 import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
 // `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
@@ -137,19 +138,19 @@ const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
 });
 ```
 
-```rust !! title="rust-derive-keys.rs"
+```rust rust-derive-keys.rs
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner. The standard derivation takes no seed: it
-// signs the constant message "solana-conf-bal/v1", so the keys match across
+// `signer` is the account owner. The standard derivation passes an empty seed
+// (`&[]`): it signs the constant message "solana-conf-bal/v1", so the keys match across
 // every standard client for the same wallet.
-let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer, &[])
     .expect("Failed to derive confidential keys");
 ```
 
-</CodeTabs>
+</CodeGroup>
 
-<Callout type="warn">
+<Warning>
   Confidential keys are decryption keys. Treat a request to sign the derivation
   message like unlocking a private view of the user's balances. Prefer deriving
   on demand over storing them; if you do store them (for example in a custodial
@@ -157,13 +158,13 @@ let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
   expose this signature through a dedicated derivation flow and refuse generic
   signMessage requests for messages starting with `solana-conf-bal/v1`, since
   that signature is the input key material for the user's decryption keys.
-</Callout>
+</Warning>
 
 The derivation helpers return serialized key material. The high-level operation
 helpers (shown later) take WASM `ElGamalKeypair` and `AeKey` objects, so rebuild
 them from the bytes when you need them:
 
-```ts !! title="JS-rebuild-keys.ts"
+```ts JS-rebuild-keys.ts
 import {
   ElGamalKeypair,
   ElGamalSecretKey,
@@ -201,13 +202,13 @@ configure confidential accounts for the user with
 configuration time, only a payer for rent. This is the mechanism to use if you
 want to provision confidential accounts for users smoothly.
 
-<Callout type="info">
+<Info>
   Registry configuration is available in the Rust `spl-token-client`
   (`confidential_transfer_configure_token_account_with_registry`) and the
   `spl-elgamal-registry` program today. Equivalent helpers in the
   `@solana-program/token-2022` JS client are not available yet, so JS
   integrations that need the registry path should track that client's releases.
-</Callout>
+</Info>
 
 ## Displaying balances
 
@@ -220,9 +221,9 @@ the AES key, which is constant time. Decrypting the ElGamal `available_balance`
 directly requires solving a discrete log and should be avoided for routine
 display.
 
-<CodeTabs>
+<CodeGroup>
 
-```ts !! title="JS-display-balance.ts"
+```ts JS-display-balance.ts
 import { AeCiphertext } from "@solana/zk-sdk/bundler";
 import { fetchToken } from "@solana-program/token-2022";
 import { unwrapOption } from "@solana/kit";
@@ -238,13 +239,13 @@ if (ct) {
   const ciphertext = AeCiphertext.fromBytes(
     new Uint8Array(ct.decryptableAvailableBalance)
   );
-  // `aesKey` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
-  const availableBalance = ciphertext?.decrypt(aesKey); // bigint | undefined
+  // `aesKeyObject` is the rebuilt AeKey object (see the rebuild snippet above), not raw bytes.
+  const availableBalance = ciphertext?.decrypt(aesKeyObject); // bigint | undefined
   console.log("Available (confidential):", availableBalance);
 }
 ```
 
-```rust !! title="rust-display-balance.rs"
+```rust rust-display-balance.rs
 // `token` is an spl_token_client `Token`. These helpers decrypt for you.
 let pending = token
     .confidential_transfer_get_pending_balance(&token_account, elgamal_keypair.secret())
@@ -257,7 +258,7 @@ let total = token
     .await?;
 ```
 
-</CodeTabs>
+</CodeGroup>
 
 When the user has not unlocked their keys, show the public balance and indicate
 that a confidential balance exists but is locked, rather than showing zero.
@@ -277,22 +278,24 @@ Integrations that hold funds on behalf of users should:
 - Apply the pending balance on the user's behalf at sensible times (for example
   before a send) so balances do not get stuck.
 
-<CodeTabs>
+<CodeGroup>
 
-```ts !! title="JS-apply-pending.ts"
-import { getApplyConfidentialPendingBalanceInstructionFromToken } from "@solana-program/token-2022";
+```ts JS-apply-pending.ts
+import {
+  getApplyConfidentialPendingBalanceInstructionFromToken
+} from "@solana-program/token-2022/confidential";
 
 // Builds a single instruction; no proofs are needed to apply.
 const instruction = getApplyConfidentialPendingBalanceInstructionFromToken({
   token: tokenAccountAddress,
   tokenAccount, // decoded Token account
   authority: owner,
-  elgamalSecretKey: elgamalKeypair.secret(),
-  aesKey
+  elgamalSecretKey: elgamalKeypairObject.secret(),
+  aesKey: aesKeyObject
 });
 ```
 
-```rust !! title="rust-apply-pending.rs"
+```rust rust-apply-pending.rs
 token
     .confidential_transfer_apply_pending_balance(
         &token_account,
@@ -305,10 +308,10 @@ token
     .await?;
 ```
 
-</CodeTabs>
+</CodeGroup>
 
 See the
-[Apply Pending Balance](/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
+[Apply Pending Balance](/developers/docs/tokens/extensions/confidential-transfer/apply-pending-balance)
 page for the full flow.
 
 ## Sending transfers
@@ -334,10 +337,12 @@ You do not have to assemble the proofs by hand. Both clients provide a
 high-level helper that builds the proofs and produces the instructions to
 submit:
 
-<CodeTabs>
+<CodeGroup>
 
-```ts !! title="JS-transfer.ts"
-import { getConfidentialTransferInstructionPlan } from "@solana-program/token-2022";
+```ts JS-transfer.ts
+import {
+  getConfidentialTransferInstructionPlan
+} from "@solana-program/token-2022/confidential";
 
 // Returns an instruction plan covering proof setup, the transfer, and cleanup.
 const plan = await getConfidentialTransferInstructionPlan({
@@ -351,15 +356,15 @@ const plan = await getConfidentialTransferInstructionPlan({
   // or pass `destinationElgamalPubkey` directly instead
   authority: owner,
   amount,
-  sourceElgamalKeypair, // ElGamal keypair for the source account
-  aesKey, // AES key for the source account
+  sourceElgamalKeypair: elgamalKeypairObject, // ElGamal keypair for the source account
+  aesKey: aesKeyObject, // AES key for the source account
   auditorElgamalPubkey // optional, read from the mint config
 });
 
 // Execute the plan with your instruction-plan executor of choice.
 ```
 
-```rust !! title="rust-transfer.rs"
+```rust rust-transfer.rs
 // Verify the three proofs into context state accounts first (see the Transfer
 // Tokens page), then reference them here. Passing None for a proof account
 // inlines that proof instead, which a full transfer cannot fit within today's
@@ -383,7 +388,7 @@ token
     .await?;
 ```
 
-</CodeTabs>
+</CodeGroup>
 
 If you need finer control, the lower-level building blocks are available too:
 `@solana/zk-sdk` generates each proof's data
@@ -394,7 +399,7 @@ proof verification instructions, and `@solana-program/token-2022` provides the
 `confidentialTransfer` and context state account instructions.
 
 See the
-[Transfer Tokens](/docs/tokens/extensions/confidential-transfer/transfer-tokens)
+[Transfer Tokens](/developers/docs/tokens/extensions/confidential-transfer/transfer-tokens)
 page for the detailed instruction sequence.
 
 ## Withdrawing
@@ -405,7 +410,7 @@ Withdrawal also requires proofs (an equality and a range proof), exposed as
 `getConfidentialWithdrawInstructionPlan` in the JS client and
 `confidential_transfer_withdraw` in the Rust client. Apply any pending balance
 first so the full amount is available. See
-[Withdraw Tokens](/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
+[Withdraw Tokens](/developers/docs/tokens/extensions/confidential-transfer/withdraw-tokens).
 
 ## Related confidential extensions
 
@@ -413,7 +418,7 @@ Two optional extensions build on Confidential Balances. Both are mainly the
 issuer's responsibility, but each changes something an integrator should handle:
 
 - **Confidential transfer fees.** When a mint pairs confidential transfers with
-  a [transfer fee](/docs/tokens/extensions/transfer-fees), sends use a with-fee
+  a [transfer fee](/developers/docs/tokens/extensions/transfer-fees), sends use a with-fee
   transfer path (`confidential_transfer_transfer_with_fee` in the Rust client),
   and the withheld fee is encrypted like the amount. Collecting withheld fees
   (harvest and withdraw) is the fee authority's job, not the integrator's.
@@ -435,9 +440,7 @@ classify each Token-2022 instruction, plus per-instruction parsers (for example
 fields. The encrypted amounts stay ciphertexts: display them as confidential
 rather than rendering the bytes as a number.
 
-<CodeTabs>
-
-```ts !! title="JS-parse-instruction.ts"
+```ts JS-parse-instruction.ts
 import {
   identifyToken2022Instruction,
   Token2022Instruction,
@@ -467,8 +470,6 @@ for (const ix of instructions) {
   }
 }
 ```
-
-</CodeTabs>
 
 Indexing limitations to plan for:
 

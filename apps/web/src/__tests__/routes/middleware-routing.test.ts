@@ -1,10 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { getPathnameWithoutLocale } from "@workspace/i18n/pathname";
 import { config, isProxiedPath } from "@@/src/middleware";
 
 describe("Cross-app middleware routing", () => {
   it("bypasses the main app middleware for media-owned changelog routes", () => {
     expect(isProxiedPath("/changelog")).toBe(true);
     expect(isProxiedPath("/changelog/rss.xml")).toBe(true);
+  });
+
+  it("bypasses the main app middleware for docs-app developer docs", () => {
+    expect(isProxiedPath(getPathnameWithoutLocale("/developers/docs/x"))).toBe(
+      true,
+    );
+    expect(
+      isProxiedPath(getPathnameWithoutLocale("/ja/developers/docs/x")),
+    ).toBe(true);
   });
 
   it("excludes the bare changelog route from the middleware matcher", () => {

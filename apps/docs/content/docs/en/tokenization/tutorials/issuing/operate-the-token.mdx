@@ -1,0 +1,217 @@
+---
+title: Operate the token
+sidebarTitle: "3. Operate the token"
+description:
+  "Run the controls an issuer operates day to day on a gated token: freeze one
+  account, pause the token, force a transfer, burn with and without the holder,
+  and offboard a wallet."
+type: tutorial
+prerequisites:
+  - /developers/docs/tokenization/tutorials/issuing/gate-the-holders
+related:
+  - /developers/docs/tokenization/design
+  - /developers/docs/defi/finality
+  - /developers/docs/tokens/extensions/permanent-delegate
+"og:title": Operating a Regulated Token on Solana
+"twitter:title": Operating a Regulated Token on Solana
+---
+
+import Freeze from "/snippets/examples/paths/assets/gated-token/freeze.mdx";
+import TransferFrozen from "/snippets/examples/paths/assets/gated-token/transfer-frozen.mdx";
+import Thaw from "/snippets/examples/paths/assets/gated-token/thaw.mdx";
+import Pause from "/snippets/examples/paths/assets/gated-token/pause.mdx";
+import TransferPaused from "/snippets/examples/paths/assets/gated-token/transfer-paused.mdx";
+import Resume from "/snippets/examples/paths/assets/gated-token/resume.mdx";
+import ForceTransfer from "/snippets/examples/paths/assets/gated-token/force-transfer.mdx";
+import Burn from "/snippets/examples/paths/assets/gated-token/burn.mdx";
+import ForceBurn from "/snippets/examples/paths/assets/gated-token/force-burn.mdx";
+import AllowlistRemove from "/snippets/examples/paths/assets/gated-token/allowlist-remove.mdx";
+import AddressOutsider from "/snippets/examples/paths/assets/gated-token/address-outsider.mdx";
+import ReadOffboarded from "/snippets/examples/paths/assets/gated-token/read-offboarded.mdx";
+
+You have a mint and an allowlist. This step runs each power an issuer operates
+day to day once, against the token from the previous two steps.
+
+Note which key signs each one: pause, forced transfer, and burn use the
+dedicated authorities from the first step, while the Token ACL operations
+(freeze, thaw, and list changes) use the fee payer, which is the Token ACL
+config authority.
+
+<Steps titleSize="h3">
+
+<Step title="Freeze one account">
+
+Freezing targets a single holder. Use it when one account needs to stop and the
+rest of the token should keep working: a suspected compromise, a client under
+investigation, or an account pending new documents. Token ACL holds the freeze
+authority, so the freeze goes through it, signed by the config authority. Save
+this as `freeze.ts` (in Rust, `src/bin/freeze.rs`) and run it with `$HOLDER`.
+
+<Freeze />
+
+Confirm the holder cannot transfer. Run `transfer.ts` again with `$OUTSIDER 1`.
+The transfer fails on the _source_ account being frozen, even though the
+recipient is on the list with a thawed account. Custom program error `0x11`
+(17) is Token-2022's `AccountFrozen`:
+
+<TransferFrozen />
+
+Then thaw it. This is the authority thaw, which does not ask the gate. Save
+this as `thaw.ts` (in Rust, `src/bin/thaw.rs`) and run it with `$HOLDER`.
+
+<Thaw />
+
+Freezing on its own leaves the wallet on the list, so its account can still be
+thawed through the gate. Removing the wallet from the list is offboarding, the
+last step on this page.
+
+</Step>
+
+<Step title="Pause the whole token">
+
+Pausing halts mint, burn, and transfer activity for every holder at once. This
+is the incident-response control, so its authority needs to be reachable on
+the timescale an incident requires. Save this as `pause.ts` (in Rust,
+`src/bin/pause.rs`) and run it.
+
+<Pause />
+
+While the token is paused, a transfer fails with custom program error `0x43`
+(67), Token-2022's `MintPaused`:
+
+<TransferPaused />
+
+Then resume. Save this as `resume.ts` (in Rust, `src/bin/resume.rs`) and run
+it.
+
+<Resume />
+
+</Step>
+
+<Step title="Force a transfer">
+
+The permanent delegate can move any holder's balance without their signature.
+This is the power used to comply with a court order, to recover from a lost
+key, and to move a balance after a fraudulent transfer. It moves tokens onward;
+the original transfer stays on the ledger. Save this as `force-transfer.ts`
+(in Rust, `src/bin/force-transfer.rs`) and run it with `$HOLDER $OUTSIDER 10`.
+
+<ForceTransfer />
+
+The destination still has to be able to hold the token. The script opens a new
+or frozen destination account through the gate, and the gate rejects that thaw
+if the wallet is not on the list, so a forced transfer to an unlisted wallet
+fails with the same `0x1002` as a blocked transfer. Move the balance to a
+listed recovery wallet.
+
+This works here because no holder has turned on Confidential Balances. On a
+mint where a holder has moved a balance into its confidential balance, the
+delegate reaches the public balance only; see
+[privacy and transfer controls](/developers/docs/tokenization/compliance/privacy-and-transfer-controls#which-controls-still-work).
+
+In this tutorial the permanent delegate is its own key. In production, holding
+it offline and behind a quorum reduces the chance that a compromise of
+day-to-day operations keys reaches it.
+
+</Step>
+
+<Step title="Redeem with the holder">
+
+This mint carries permissioned burn, so a holder cannot burn their own balance
+alone: the burn authority co-signs. On this mint, that is the redemption path:
+the holder instructs, the issuer confirms the offchain leg has settled, and the
+two signatures extinguish the position together. While the extension has a
+burn authority, Token-2022 rejects a plain `Burn` or `BurnChecked` on this mint
+with `InvalidInstruction`; a burn has to use the extension's own burn
+instruction, which the burn authority signs. Save this as `burn.ts` (in Rust,
+`src/bin/burn.rs`) and run it with `1`.
+
+<Burn />
+
+</Step>
+
+<Step title="Burn without the holder">
+
+The permanent delegate can burn a balance without the holder's signature, for
+redemptions where there is no cooperating holder: a lost key, an unresponsive
+account, or a position being extinguished under a court order. Because the
+mint carries permissioned burn on a separate key, the burn authority co-signs
+this path too. Save this as `force-burn.ts` (in Rust, `src/bin/force-burn.rs`)
+and run it with `$OUTSIDER 1`.
+
+<ForceBurn />
+
+Token-2022 does not burn from a frozen account. The script thaws a frozen
+source through the gate first, which works only while the wallet is on the
+list; for an offboarded wallet, re-add it for the duration of the burn.
+
+<Warning>
+Permissioned burn can only be added at creation, and the extension stays on
+the mint. Its authority can sign a `SetAuthority` that clears it, which lets
+holders burn alone again and cannot be undone. Pointing the permissioned burn authority at the permanent delegate's key
+at creation lets one signer cover both roles on a forced burn; keeping them
+separate, as this tutorial does, means two signatures stand behind every
+reduction of supply. Both designs are in use.
+</Warning>
+
+Where the token records an asset held elsewhere, record each burn in the
+offchain register with a shared reference; see
+[token design](/developers/docs/tokenization/design).
+
+</Step>
+
+<Step title="Offboard a holder">
+
+Offboarding removes the wallet from the allowlist. Removal alone stops future
+thaws but leaves an open account usable, so the same transaction also freezes
+the wallet's token account if it is open and thawed. An offboarded holder can
+then neither receive nor send. Save this as `allowlist-remove.ts` (in Rust,
+`src/bin/allowlist-remove.rs`) and run it with `$OUTSIDER`.
+
+<AllowlistRemove />
+
+Read the account back. The reads take the outsider's token account, not the
+wallet, so derive its address first:
+
+<AddressOutsider />
+
+`spl-token address --verbose` prints two lines. Export the address on the
+`Associated token address` line as `OUTSIDER_ATA`:
+
+```bash Terminal
+export OUTSIDER_ATA=<the associated token address>
+```
+
+Then read it with `spl-token`, or with a `read-account` script. The scripts
+need the Token-2022 client, so they run in the Kit, Web3.js v3, or Rust
+project; with the Mosaic SDK, use `spl-token`. Save this as `read-account.ts`
+(in Rust, `src/bin/read-account.rs`) and run it with `$OUTSIDER_ATA`. The
+[custodian tutorial's](/developers/docs/tokenization/tutorials/custodian#derive-the-token-account-address-before-it-exists)
+`derive-ata` script derives the same address from code.
+
+<ReadOffboarded />
+
+The balance is intact and the state is `Frozen`. The outsider received 1 and
+then 10 tokens, and 1 was burned: `spl-token` shows `Balance: 10`, and the
+scripts print the amount in base units, `10000000` at six decimals.
+
+Two limits to plan around. The scripts freeze the wallet's associated token
+account only; a wallet holding the token in other accounts needs each frozen
+separately. Re-adding the wallet with the Mosaic SDK also thaws its account in
+the same transaction; the Kit, Web3.js v3, and Rust scripts add the list entry
+only, and the next gated operation on that account thaws it.
+
+A forced transfer to a recovery wallet and a forced burn both need the source
+account thawed, so run them before the removal, or re-add the wallet for the
+duration.
+
+</Step>
+
+</Steps>
+
+## Next steps
+
+- [Hold a gated token as a custodian](/developers/docs/tokenization/tutorials/custodian):
+  the counterparty side of the token you just built
+- [Settlement and finality](/developers/docs/defi/finality): when a transfer is
+  settled for your books

@@ -1,52 +1,37 @@
-import { NextRequest, NextResponse } from "next/server";
 import { defaultLocale } from "@workspace/i18n/config";
-import { docsSource } from "@@/src/app/sources/docs";
-import { cookbookSource } from "@@/src/app/sources/cookbook";
-import { learnSource } from "@@/src/app/sources/learn";
-import { developersLearnSource } from "@@/src/app/sources/developers-learn";
+import { resolveDocsPage } from "@/lib/docs/page-data";
+import { pageMarkdown } from "@/lib/docs/llms";
+import { DOCS_LOCALES } from "@/lib/docs/locales.mjs";
+
+/**
+ * Markdown twin of a docs page. src/middleware.ts rewrites `<page>.md` and
+ * `Accept: text/markdown` requests here. The slug is the public path, locale
+ * included: /api/markdown/ar/developers/docs/payments.
+ */
+export const dynamicParams = true;
 
 export async function GET(
-  request: NextRequest,
+  _request: Request,
   { params }: { params: Promise<{ slug: string[] }> },
 ) {
   const { slug } = await params;
-  if (!slug || slug.length === 0) {
-    return new NextResponse("Not Found", { status: 404 });
+  const locale = DOCS_LOCALES.includes(slug[0] ?? "")
+    ? slug[0]!
+    : defaultLocale;
+  const rest = locale === defaultLocale ? slug : slug.slice(1);
+  const resolved = resolveDocsPage(locale, rest);
+  if (!resolved) {
+    return new Response("Not Found", {
+      status: 404,
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
   }
-
-  let page:
-    | ReturnType<typeof docsSource.getPage>
-    | ReturnType<typeof cookbookSource.getPage>
-    | ReturnType<typeof learnSource.getPage>
-    | ReturnType<typeof developersLearnSource.getPage>
-    | null = null;
-
-  if (slug[0] === "docs") {
-    const rest = slug.slice(1);
-    if (rest[0] === "payments") {
-      page = docsSource.getPage(["payments", ...rest.slice(1)], defaultLocale);
-    } else if (rest[0] === "rpc") {
-      page = docsSource.getPage(["rpc", ...rest.slice(1)], defaultLocale);
-    } else {
-      page = docsSource.getPage(rest, defaultLocale);
-    }
-  } else if (slug[0] === "developers" && slug[1] === "cookbook") {
-    page = cookbookSource.getPage(slug.slice(2), defaultLocale);
-  } else if (slug[0] === "developers" && slug[1] === "bootcamp") {
-    page = developersLearnSource.getPage(slug.slice(2), defaultLocale);
-  } else if (slug[0] === "learn") {
-    page = learnSource.getPage(slug.slice(1), defaultLocale);
-  }
-
-  if (!page) {
-    return new NextResponse("Not Found", { status: 404 });
-  }
-
-  const markdown = await page.data.getText("raw");
-  return new NextResponse(markdown, {
+  return new Response(await pageMarkdown(resolved.page), {
     headers: {
       "Content-Type": "text/markdown; charset=utf-8",
-      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      "Cache-Control":
+        "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      Vary: "Accept",
     },
   });
 }

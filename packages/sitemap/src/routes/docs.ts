@@ -25,6 +25,14 @@ function toRoutePath(baseRoute: string, relativePath: string) {
   );
 }
 
+// Frontmatter `noindex: true` pages are published but kept out of search.
+function isNoindex(filePath: string) {
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(
+    fs.readFileSync(filePath, "utf8"),
+  );
+  return /^noindex:\s*true\s*$/m.test(frontmatter?.[1] ?? "");
+}
+
 function getLocalizedContentEntries(contentDir: string, baseRoute: string) {
   if (!fs.existsSync(contentDir)) {
     return [];
@@ -40,7 +48,7 @@ function getLocalizedContentEntries(contentDir: string, baseRoute: string) {
     }
 
     for (const filePath of walkFiles(localeDir)) {
-      if (!filePath.endsWith(".mdx")) {
+      if (!filePath.endsWith(".mdx") || isNoindex(filePath)) {
         continue;
       }
 
@@ -68,7 +76,7 @@ function getDefaultLocaleContentEntries(contentDir: string, baseRoute: string) {
   }
 
   return walkFiles(contentDir)
-    .filter((filePath) => filePath.endsWith(".mdx"))
+    .filter((filePath) => filePath.endsWith(".mdx") && !isNoindex(filePath))
     .map((filePath) => {
       const relativePath = path.relative(contentDir, filePath);
       const routePath = toRoutePath(baseRoute, relativePath);
@@ -96,10 +104,6 @@ export const docsRoutes: RouteGenerator = () => {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
-      ...createLocalizedEntries("/developers/bootcamp", {
-        changeFrequency: "weekly",
-        priority: 0.8,
-      }),
       ...createLocalizedEntries("/data", {
         changeFrequency: "daily",
         priority: 0.8,
@@ -110,7 +114,7 @@ export const docsRoutes: RouteGenerator = () => {
       ...rootEntries,
       ...getLocalizedContentEntries(
         path.join(docsContentRoot, "docs"),
-        "/docs",
+        "/developers/docs",
       ),
       ...getLocalizedContentEntries(
         path.join(docsContentRoot, "learn"),
@@ -119,10 +123,6 @@ export const docsRoutes: RouteGenerator = () => {
       ...getDefaultLocaleContentEntries(
         path.join(docsContentRoot, "cookbook"),
         "/developers/cookbook",
-      ),
-      ...getLocalizedContentEntries(
-        path.join(docsContentRoot, "developers-learn"),
-        "/developers/bootcamp",
       ),
     ]);
   } catch (error) {

@@ -78,7 +78,7 @@ const RESOURCE_CARDS = [
   {
     heading: "Intro to Solana Development",
     body: "Browse official Solana development documentation.",
-    url: "https://solana.com/docs",
+    url: "https://solana.com/developers/docs",
     Icon: Code,
   },
   {

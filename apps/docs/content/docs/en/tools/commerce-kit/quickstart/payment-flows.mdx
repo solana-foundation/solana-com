@@ -1,5 +1,5 @@
 ---
-title: HeadlessPayment Flows
+title: Headless payment flows
 description: Headless commerce primitives for any framework
 ---
 
@@ -7,14 +7,14 @@ description: Headless commerce primitives for any framework
 
 The `@solana-commerce/headless` package provides framework-agnostic functions
 for building commerce payment flows. These tools help create payment request
-objects, generate Solana Pay URLs, and verify on-chain payments. The package is
+objects, generate Solana Pay URLs, and verify onchain payments. The package is
 designed to work in any JavaScript environment: React, Vue, Svelte, vanilla JS,
 Node.js, or serverless functions.
 
 ## Installation
 
 ```bash
-pnpm add @solana-commerce/headless
+npm install @solana-commerce/headless
 ```
 
 ## Payment Request Functions
@@ -55,7 +55,7 @@ function createBuyNowRequest(
     `products` array.
 
 - **`options`** (object, optional) - Customization options:
-  - `memo` (string) - On-chain memo for the transaction. Default:
+  - `memo` (string) - Onchain memo for the transaction. Default:
     `"Purchase: {product.name}"`.
   - `label` (string) - Display label for the payment request (used in Solana
     Pay). Default: `product.name`.
@@ -119,7 +119,7 @@ function createCartRequest(
 
 - **`options`** (object, optional) - Customization options:
   - `currency` (string) - Payment currency for the entire cart.
-  - `memo` (string) - On-chain memo. Default:
+  - `memo` (string) - Onchain memo. Default:
     `"Cart purchase (products.length items)"`.
   - `label` (string) - Payment label. Default: `"Cart Checkout"`.
   - `message` (string) - Success message. Default:
@@ -185,7 +185,7 @@ function createTipRequest(
 - **`options`** (object, optional) - Customization options:
   - `currency` (string) - Payment currency. Default: undefined (typically
     treated as SOL by consumers).
-  - `memo` (string) - On-chain memo. Default: `"Thank you for your support!"`.
+  - `memo` (string) - Onchain memo. Default: `"Thank you for your support!"`.
   - `label` (string) - Payment label. Default: `"Tip"`.
   - `message` (string) - Success message. Default: `"Thanks for the tip!"`.
 
@@ -219,8 +219,9 @@ confirmations. They require a Solana RPC client from the `@solana/kit` library.
 
 ### `verifyPayment()`
 
-Verifies that a transaction exists on-chain and optionally validates the payment
-amount, recipient, and token.
+Checks that a transaction exists onchain. It is meant to also validate the
+payment amount, recipient, and token, but in `@solana-commerce/headless@0.1.1`
+those checks are incomplete (see the warning below).
 
 ```typescript
 async function verifyPayment(
@@ -280,7 +281,11 @@ The function performs these checks:
 2. **Transaction Existence:** Fetches the transaction using
    `rpc.getTransaction()`. If not found, returns `verified: false`.
 
-3. **Confirmation Status:** Checks that the transaction has landed on-chain.
+3. **Confirmation Status:** Checks that the transaction has landed onchain.
+
+Steps 4 and 5 describe the intended behavior. In 0.1.1 the SOL check runs only
+when the recipient appears in the transaction, and the SPL token check never
+runs.
 
 4. **SOL Transfer Validation** (if `expectedRecipient` and `expectedAmount`
    provided, and no `expectedMint`):
@@ -300,6 +305,25 @@ The function performs these checks:
   Do not expose your RPC URL to the client.
 - **Finalization:** The function checks for confirmed transactions, but for
   high-value payments, consider waiting for `finalized` status.
+
+<Warning>
+  As of `@solana-commerce/headless@0.1.1`, `verifyPayment()` only confirms that
+  the transaction exists and has a `blockTime`. The SPL token check never runs,
+  and the SOL amount check runs only when the recipient appears in the
+  transaction, so a transfer to a different wallet or of a different token can
+  return `verified: true`. Do not use `verified: true` alone to release goods:
+  validate the transfer yourself, for example with `findReference` and
+  `validateTransfer` from `@solana/pay`, or by comparing `preTokenBalances` and
+  `postTokenBalances`.
+
+  It also does not check which order the payment is for (there is no reference
+  check), and it does not remember signatures it has already accepted, so the
+  same payment can be presented for two orders. Before you fulfill an order, also match the payment to the order (for example by a
+  [Solana Pay reference](/developers/docs/tools/solana-pay/specification/version1-1#reference))
+  and record each signature once. Run the check on your server, never only in
+  the browser. [Confirm payments from your
+  backend](/developers/docs/payments/checkout/backend) shows the full set of checks.
+</Warning>
 
 **Example:**
 
@@ -376,8 +400,8 @@ if (confirmed) {
 
 ## Solana Pay Functions
 
-These functions generate [Solana Pay](/docs/tools/solana-pay) URLs and styled QR
-codes for mobile wallet scanning.
+These functions generate [Solana Pay](/developers/docs/tools/solana-pay) URLs
+and styled QR codes for mobile wallet scanning.
 
 ### `createSolanaPayRequest()`
 
@@ -396,13 +420,15 @@ async function createSolanaPayRequest(
   request fields:
   - `recipient` - Recipient public key (use `createRecipient(address)` from
     `@solana-commerce/solana-pay`)
-  - `amount` - (optional) Payment amount in minor units (lamports for SOL)
+  - `amount` - (optional) `bigint` amount scaled to 9 decimals: lamports for
+    SOL. The encoder always divides by 1e9, so for a 6-decimal token such as
+    USDC pass `1_000_000_000n` for 1 USDC.
   - `splToken` (optional) - SPL token mint public key (use
     `createSPLToken(address)`)
   - `reference` (optional) - Reference public key for tracking
   - `label` (optional) - Merchant name
   - `message` (optional) - Success message
-  - `memo` (optional) - On-chain memo
+  - `memo` (optional) - Onchain memo
 
 - **`options`** (`SolanaPayRequestOptions`, required) - QR code styling options:
   - `size` (number) - QR code width/height in pixels. Default: `256`.
@@ -426,22 +452,20 @@ A `Promise` resolving to an object:
 
 - `url` (URL) - Solana Pay URL (e.g.,
   `solana:recipient?amount=10&spl-token=...`)
-- `qr` (string) - Base64-encoded data URL of the QR code image (use as
-  `<img src={qr} />`)
+- `qr` (string) - SVG markup of the QR code. Insert it with `innerHTML`, or wrap
+  it in a data URL (`data:image/svg+xml;utf8,${encodeURIComponent(qr)}`) to use
+  it as an `<img src>`.
 
 **Example:**
 
 ```typescript
-import {
-  createSolanaPayRequest,
-  createRecipient,
-  createSPLToken
-} from "@solana-commerce/solana-pay";
+import { createSolanaPayRequest } from "@solana-commerce/headless";
+import { createRecipient, createSPLToken } from "@solana-commerce/solana-pay";
 
 const payment = await createSolanaPayRequest(
   {
     recipient: createRecipient("merchant-wallet-address"),
-    amount: 10_000_000, // 0.01 SOL in lamports
+    amount: 10_000_000_000n, // 10 USDC (the URL encoder always divides by 1e9)
     splToken: createSPLToken("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC
     label: "My Store",
     message: "Thank you for your purchase!"
@@ -456,7 +480,8 @@ const payment = await createSolanaPayRequest(
   }
 );
 
-// Display QR code
-document.getElementById("qr").src = payment.qr;
-console.log(payment.url.toString()); // solana:merchant...?amount=10000000&spl-token=...
+// Display QR code (payment.qr is SVG markup)
+document.getElementById("qr-container").innerHTML = payment.qr;
+console.log(payment.url.toString());
+// solana:merchant...?amount=10&spl-token=EPjFWdd5...&label=My+Store&message=...
 ```

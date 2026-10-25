@@ -1,0 +1,256 @@
+---
+title: "Confirm payments from your backend"
+sidebarTitle: "Confirm from your backend"
+description: "Ship an order only after your server has looked the payment up on the network and checked the amount, the recipient, and the order reference."
+---
+
+import Stepper from "/snippets/paths/en/checkout/stepper-3.mdx";
+import RpcConcept from "/snippets/concepts/en/rpc.mdx";
+import CommitmentConcept from "/snippets/concepts/en/commitment.mdx";
+import ConfigExample from "/snippets/examples/paths/payments/checkout/config.mdx";
+import PayExample from "/snippets/examples/paths/payments/checkout/pay.mdx";
+import VerifyExample from "/snippets/examples/paths/payments/checkout/verify.mdx";
+import OrdersExample from "/snippets/examples/paths/payments/checkout/orders.mdx";
+import RouteExample from "/snippets/examples/paths/payments/checkout/route.mdx";
+import RunExample from "/snippets/examples/paths/payments/checkout/run.mdx";
+
+<Stepper />
+
+The checkout in the browser gives you a signature. Your server fetches that
+transaction and checks that it paid you the right amount of USDC for this order
+before marking the order paid. This step builds that server and runs it
+against a local test network or devnet.
+
+## 1. Create the project
+
+You need Node.js 20.18 or later. Create a project folder, `solana-payments`,
+with a `checkout` folder inside it. Every file in this tutorial goes in
+`checkout/`, and you run every command from `solana-payments`. (The Paywall an
+endpoint tutorial adds a `paywall-api/` folder next to it.)
+
+```bash Terminal
+mkdir -p solana-payments/checkout && cd solana-payments
+npm init -y && npm pkg set type=module
+npm install @solana/kit @solana-program/token
+npm install --save-dev tsx
+```
+
+`"type": "module"` lets the scripts use top-level `await`. `tsx` runs the
+TypeScript files directly. The examples are tested with `@solana/kit` 8.4 and
+`@solana-program/token` 0.17.
+
+Your server reads the network over RPC:
+
+<RpcConcept />
+
+The code reads its network settings from environment variables and defaults
+to devnet. Save this as `checkout/config.ts`:
+
+<ConfigExample />
+
+Save the payment code from the previous step as `checkout/pay.ts`:
+
+<PayExample />
+
+## 2. Verify a payment
+
+Given the signature and the order, fetch the transaction and check three
+things: it succeeded, it carries the order's reference, and the store's USDC
+balance went up by exactly the order amount. The balance is read for the USDC
+mint only, so a payment in any other token doesn't count. Save this as
+`checkout/verify-payment.ts`:
+
+<VerifyExample />
+
+The check asks for the transaction at `confirmed` commitment:
+
+<CommitmentConcept />
+
+## 3. Add a confirm endpoint
+
+The endpoint looks the order up, so it needs somewhere to keep orders. This
+in-memory store stands in for your database. Save it as `checkout/orders.ts`:
+
+<OrdersExample />
+
+In production, make `markPaidOnce` a single database transaction with a unique
+constraint on the signature and on each order's paid signature, so two
+concurrent requests can't both succeed.
+
+The endpoint receives `{ "signature": "…" }` for an order, runs
+`verifyPayment`, and marks the order paid. It refuses a signature that was
+already used, so one payment can't pay for two orders. Save the Node.js version
+as `checkout/server.ts`. It uses no framework, so the handler ports directly to
+Express, Fastify, or Hono. The Next.js tab is the same handler as an App Router
+route: save it at `app/api/orders/[orderId]/confirm/route.ts` and point its
+imports at your `config`, `orders`, and `verify-payment` files.
+
+<RouteExample />
+
+<Note>
+  `reference` is optional in `verifyPayment`, but keep it. Transactions are
+  public, so without it anyone who sees a payment to your store could submit
+  its signature for their own order of the same amount. If your checkout can't
+  attach a reference, also check who paid, for example that the signer is the
+  customer's wallet.
+</Note>
+
+The output shows the three cases your endpoint must handle:
+
+- **200** for a confirmed payment of the right amount.
+- **402 `already used`** when the same signature is sent again.
+- **402 `amount mismatch`** when a 2 USDC order was paid with 1 USDC.
+
+## 4. Call it from the checkout
+
+Build the customer's payment with `payStore`, which attaches the order's
+reference that this endpoint requires.
+
+1. When the customer checks out, create the order on your server with a fresh
+   reference (`(await generateKeyPairSigner()).address`) and send the order's
+   `storeOwner`, `amount`, and `reference` to the browser.
+2. In the browser, call `payStore(customer, order)`, where `customer` is the
+   wallet's `TransactionSigner` (for example from
+   `useWalletAccountTransactionSigner` in
+   [`@solana/react`](/developers/docs/clients/official/javascript)). It resolves to the transaction signature once the payment is
+   confirmed.
+3. `POST` that signature to `/api/orders/<order-id>/confirm` with a JSON body
+   of `{ "signature": "…" }`.
+
+Show the confirmation page only when the response is `200` with
+`"paid": true`. Treat any other response as unpaid, and let the customer
+retry.
+
+<Warning>
+  This endpoint can't confirm a `PaymentButton` payment. The button doesn't
+  attach your order's reference, so `verifyPayment` answers
+  `reference not found` and the endpoint returns `402`. If you use the button
+  anyway, drop `reference` from the `verifyPayment` call and instead check that
+  the payer is the customer's wallet and the signature hasn't paid for another
+  order.
+</Warning>
+
+## 5. Run it on your machine
+
+You now have five files in `checkout/`: `config.ts`, `pay.ts`,
+`verify-payment.ts`, `orders.ts`, and `server.ts`. This script plays both
+sides: it starts the server on port 3000, creates a store wallet and its USDC
+account, creates order `order-1001` for 1 USDC, pays it as the customer with
+`payStore`, and posts the signature to the confirm endpoint twice. Save it as
+`checkout/run.ts`:
+
+<RunExample />
+
+The script pays as the customer with a key file: the one named in
+`CUSTOMER_KEYPAIR`, or the Solana CLI default `~/.config/solana/id.json`. If
+you don't have one yet, save this as `keygen.ts` in `solana-payments`. It
+writes a new key file in the same format and prints its address:
+
+```ts keygen.ts
+import { generateKeyPairSync } from "node:crypto";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { createKeyPairSignerFromBytes } from "@solana/kit";
+
+// Writes a new key file in the Solana CLI format (64 bytes as a JSON array).
+const keyPath = join(homedir(), ".config", "solana", "id.json");
+if (existsSync(keyPath)) throw new Error(`${keyPath} exists; not overwriting it`);
+const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+const bytes = new Uint8Array([
+  ...privateKey.export({ format: "der", type: "pkcs8" }).subarray(-32),
+  ...publicKey.export({ format: "der", type: "spki" }).subarray(-32),
+]);
+mkdirSync(dirname(keyPath), { recursive: true });
+writeFileSync(keyPath, JSON.stringify([...bytes]), { mode: 0o600 });
+console.log(`Address: ${(await createKeyPairSignerFromBytes(bytes)).address}`);
+```
+
+```bash Terminal
+npx tsx keygen.ts
+```
+
+The key file is a private key. Keep it out of version control.
+
+The customer needs SOL for fees and at least 1 USDC on the same USDC mint the
+code uses. Pick a network:
+
+<Tabs>
+<Tab title="Local (Surfpool)">
+
+1. Install the [Surfpool CLI](/developers/docs/tools/surfpool/toolchain/getting-started)
+   and start a local network that copies accounts from devnet, so the devnet
+   USDC mint the code uses exists locally. It airdrops SOL to
+   `~/.config/solana/id.json` when it starts (create the key file first):
+
+   ```bash Terminal
+   surfpool start --network devnet
+   ```
+
+2. In another terminal, in `solana-payments`, give the customer 10 test USDC
+   with Surfpool's
+   [`surfnet_setTokenAccount`](/developers/docs/tools/surfpool/rpc/cheatcodes)
+   cheatcode. Replace `<customer address>` with the address of your key file:
+
+   ```bash Terminal
+   curl http://127.0.0.1:8899 -s -X POST -H "Content-Type: application/json" -d '
+     {"jsonrpc": "2.0", "id": 1, "method": "surfnet_setTokenAccount",
+      "params": ["<customer address>", "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+                 {"amount": 10000000, "state": "initialized"},
+                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"]}'
+   ```
+
+3. Point the code at Surfpool:
+
+   ```bash Terminal
+   export RPC_URL=http://127.0.0.1:8899
+   export RPC_SUBSCRIPTIONS_URL=ws://127.0.0.1:8900
+   ```
+
+</Tab>
+<Tab title="Devnet">
+
+Leave `RPC_URL` and `RPC_SUBSCRIPTIONS_URL` unset. Paste the customer's
+address into the [Solana Faucet](https://faucet.solana.com/) for devnet SOL,
+and into [Circle's faucet](https://faucet.circle.com/) with **Solana Devnet**
+selected for devnet USDC.
+
+</Tab>
+</Tabs>
+
+Then run the script:
+
+```bash Terminal
+npx tsx checkout/run.ts
+```
+
+Expect the output shown under the script, with your own addresses and
+signatures: `200` with `"paid": true` for the payment, then `402` with
+`already used` for the same signature sent again. Each run creates a new store
+wallet, so you can run it as often as the customer has USDC.
+
+<Note>
+  Port 3000 in use? Set another one for the run, for example
+  `PORT=3001 npx tsx checkout/run.ts`.
+</Note>
+
+### Run the tests instead
+
+The code on this page and its tests live in the docs repository under
+`packages/docs-examples/paths/payments/checkout`. The test starts its own
+Surfpool network and funds a test customer, so you need no Surfpool CLI, keys,
+SOL, or USDC. It also checks that `verifyPayment` rejects a wrong amount, mint,
+recipient, or reference:
+
+```bash Terminal
+git clone https://github.com/solana-foundation/solana-com.git
+cd solana-com
+corepack enable
+pnpm install
+pnpm --filter @workspace/docs-examples exec vitest run paths/payments/checkout
+```
+
+<Note>
+  The full example is in
+  [`packages/docs-examples/paths/payments/checkout`](https://github.com/solana-foundation/solana-com/tree/main/packages/docs-examples/paths/payments/checkout).
+</Note>
