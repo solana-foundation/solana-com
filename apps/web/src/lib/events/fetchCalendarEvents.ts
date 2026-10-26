@@ -309,36 +309,43 @@ async function enrichEvents(
 async function fetchCalendarSourceEvents(
   calendarId: string,
 ): Promise<{ events: CalendarEvent[]; source: "ical" | "page" }> {
-  const url = new URL("https://api.lu.ma/ics/get");
-  url.searchParams.set("entity", "calendar");
-  url.searchParams.set("id", calendarId);
-  try {
-    const response = await fetch(url, {
-      headers: { accept: "text/calendar" },
-      signal: AbortSignal.timeout(10000),
-      cache: "no-store",
-    });
-    if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
-    return { events: parseIcalEvents(await response.text()), source: "ical" };
-  } catch (error) {
-    console.warn(`Luma iCal request failed for ${calendarId}:`, error);
+  for (const host of ["api.lu.ma", "api.luma.com"]) {
+    const url = new URL(`https://${host}/ics/get`);
+    url.searchParams.set("entity", "calendar");
+    url.searchParams.set("id", calendarId);
     try {
-      return {
-        events: await fetchPublicCalendarEvents(calendarId),
-        source: "page",
-      };
-    } catch (fallbackError) {
+      const response = await fetch(url, {
+        headers: { accept: "text/calendar" },
+        signal: AbortSignal.timeout(10000),
+        cache: "no-store",
+      });
+      if (!response.ok)
+        throw new Error(`Luma iCal returned ${response.status}`);
+      return { events: parseIcalEvents(await response.text()), source: "ical" };
+    } catch (error) {
       console.warn(
-        `Luma calendar page request failed for ${calendarId}:`,
-        fallbackError,
+        `Luma iCal request failed for ${calendarId} at ${host}:`,
+        error,
       );
-      throw fallbackError;
     }
+  }
+
+  try {
+    return {
+      events: await fetchPublicCalendarEvents(calendarId),
+      source: "page",
+    };
+  } catch (fallbackError) {
+    console.warn(
+      `Luma calendar page request failed for ${calendarId}:`,
+      fallbackError,
+    );
+    throw fallbackError;
   }
 }
 
 const getCachedCalendarSourceEvents = cache(
-  unstable_cache(fetchCalendarSourceEvents, ["luma-calendar-source-v2"], {
+  unstable_cache(fetchCalendarSourceEvents, ["luma-calendar-source-v3"], {
     revalidate: CALENDAR_EVENTS_REVALIDATE_SECONDS,
   }),
 );
