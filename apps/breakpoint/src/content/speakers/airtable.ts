@@ -47,7 +47,9 @@ function normalizeSpeakerRecord(
     fields,
     ["Name", "Full Name", "Speaker", "Speaker Name"],
     asString,
-  );
+  )
+    ?.replace(/^(?:⏰\uFE0F?\s*)+/u, "")
+    .trim();
   if (!name) return null;
 
   const sortOrder =
