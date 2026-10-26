@@ -116,6 +116,29 @@ END:VEVENT`);
     });
   });
 
+  it("loads past events from the alternate iCal host when the first is rate limited", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+      .mockResolvedValueOnce(new Response(feed))
+      .mockResolvedValueOnce(new Response("<html></html>"));
+    vi.stubGlobal("fetch", fetchMock);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      expect(
+        (await fetchCalendarEvents("cal-test", { period: "past" })).map(
+          (event) => event.title,
+        ),
+      ).toEqual(["Past event"]);
+      expect(String(fetchMock.mock.calls[1][0])).toBe(
+        "https://api.luma.com/ics/get?entity=calendar&id=cal-test",
+      );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("reuses one calendar feed for past and future listings", async () => {
     const fetchMock = vi
       .fn()
@@ -134,6 +157,7 @@ END:VEVENT`);
   it("retries a calendar after both live sources fail", async () => {
     const fetchMock = vi
       .fn()
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
       .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
       .mockResolvedValueOnce(new Response("unavailable", { status: 503 }))
       .mockResolvedValueOnce(new Response(feed))
@@ -154,7 +178,7 @@ END:VEVENT`);
         fetchMock.mock.calls.filter(([url]) =>
           String(url).includes("/ics/get"),
         ),
-      ).toHaveLength(2);
+      ).toHaveLength(3);
     } finally {
       warn.mockRestore();
     }
@@ -196,6 +220,9 @@ END:VEVENT`);
           new Response("Too many requests", { status: 429 }),
         )
         .mockResolvedValueOnce(
+          new Response("Too many requests", { status: 429 }),
+        )
+        .mockResolvedValueOnce(
           new Response(
             `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(pageData)}</script>`,
           ),
@@ -215,7 +242,7 @@ END:VEVENT`);
             venue: { city: "London" },
           },
         ]);
-        expect(fetchMock.mock.calls[1][0]).toBe(
+        expect(fetchMock.mock.calls[2][0]).toBe(
           "https://luma.com/calendar/cal-test",
         );
       } finally {

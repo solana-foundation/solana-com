@@ -12,7 +12,7 @@ type Props = {
   searchParams: Promise<{ page?: string | string[] }>;
 };
 
-export const revalidate = 86400;
+export const revalidate = 300;
 
 const ARCHIVE_EVENTS_PER_PAGE = 24;
 // Pull a deep slice of past events per calendar in a single request so the
