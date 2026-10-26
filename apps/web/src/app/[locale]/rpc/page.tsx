@@ -1,4 +1,4 @@
-import { RpcPage } from "./rpc";
+import { RpcPage, type RpcCopy } from "./rpc";
 import { getIndexMetadata } from "@/app/metadata";
 import { getTranslations } from "next-intl/server";
 
@@ -6,14 +6,10 @@ type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
 
-export default async function Page(_props: Props) {
-  const t = await getTranslations("rpc");
-
-  const translations = {
-    content: t.raw("content") as string,
-  };
-
-  return <RpcPage translations={translations} />;
+export default async function Page({ params }: Props) {
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "rpc" });
+  return <RpcPage copy={t.raw("directory") as RpcCopy} />;
 }
 
 export async function generateMetadata({ params }: Props) {

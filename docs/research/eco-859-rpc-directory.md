@@ -1,0 +1,161 @@
+# ECO-859: RPC directory research and source audit
+
+Research checked 27 October 2026. This is an editorial working record, not an
+endorsement or a performance comparison. Reachability was checked with an HTTP
+HEAD request following redirects; a 200 response does not prove a provider's
+plans, clusters, or service quality. Provider capability and listing criteria
+still need content-owner review before badges are published.
+
+## Builder jobs and baseline
+
+The page needs to help a builder (1) pick local, public, or production access;
+(2) identify official shared endpoints and their limits; (3) find a provider and
+know what to verify. The checked-in `/rpc` is one Markdown block with an H1,
+lengthy advice, official endpoint URLs mixed with vendor free tiers, duplicated
+provider links, and no search. A browser walkthrough at 375px and 1440px found
+no page-wide overflow, but the narrow view wraps endpoint strings and provider
+links into a long, scan-heavy column. Keyboard visitors can reach links but
+cannot narrow the list; there is no live result count or empty state. The old
+copy cites obsolete `getProgramAccount`, `getSignaturesForAddress2`,
+`getConfirmedBlock`, and the moved test validator guide. No analytics or builder
+feedback was available; no usage claim is made.
+
+The public [current page](https://solana.com/rpc) and source were available. The
+requested Vercel preview redirected unauthenticated requests to login and could
+not be visually inspected in this session. Authorized preview comparison remains
+a review item. The public [home](https://solana.com/) and
+[wallets directory](https://solana.com/wallets), alongside their checked-in
+components, informed the page structure. Home uses large type, dark fields,
+sparse green/purple accents, and distinct sections. Wallets uses a concise hero,
+category choices, search, counts, reset, and card links, with mobile stacking.
+The current wallets implementation uses SCSS; this branch requires Tailwind for
+the RPC surface. Shared `@workspace/ui/landing` offers general sections, but the
+directory needs its own accessible search and endpoint rows. A static provider
+list avoids a wallet-style grid/list toggle with no comparison benefit.
+
+## External benchmarks and guidance
+
+| Live primary source                                                                                                | Useful pattern and job                                                                                                                        | Tradeoff / decision                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Arbitrum RPC endpoints and providers](https://developer.arbitrum.io/arbitrum-essentials/reference/node-providers) | Separates official endpoints from third-party providers and states public endpoint limitations. Helps identify the correct starting endpoint. | Dense table is effective for reference docs but too much for an orientation page. Borrow the separation and caveat.                           |
+| [ChainList](https://chainlist.org/)                                                                                | Search narrows network records; testnet choice is explicit. Helps a user find the right network.                                              | EVM wallet connection and chain IDs do not fit Solana RPC selection. Borrow search, reject wallet-connection UI.                              |
+| [Alchemy RPC benchmarks](https://www.alchemy.com/benchmarks)                                                       | Region and method controls show why measured RPC performance depends on workload. Helps frame evaluation.                                     | It is vendor-operated and cannot provide neutral scores for this directory. Borrow the idea of testing from user regions; publish no ranking. |
+| [WCAG 2.2](https://www.w3.org/TR/wcag/)                                                                            | Visible focus, labels, and accessible status changes help keyboard and assistive technology users use search and copy controls.               | Apply semantic controls, focus rings, and live count; avoid custom filter widgets.                                                            |
+
+Current Solana facts: [RPC overview](https://solana.com/docs/rpc),
+[cluster endpoints](https://solana.com/docs/references/clusters),
+[provider selection](https://solana.com/docs/rpc/providers),
+[production readiness](https://solana.com/docs/tools/production-readiness), and
+[local setup](https://solana.com/docs/intro/installation/dependencies). The
+current cluster docs use `https://api.mainnet.solana.com`; the old page used
+`api.mainnet-beta.solana.com`. Public endpoints are rate limited and have no
+production SLA. Surfpool is documented for local development. The provider guide
+advises testing methods, history, load, regions, reliability, access, cost, and
+fallback.
+
+## Concepts and decision
+
+| Concept                                                                                 | Builder-task fit                                         | Solana fit / neutrality                                   | Mobile / access                                           | Cost                  | Decision                                             |
+| --------------------------------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------------------------------- | --------------------------------------------------------- | --------------------- | ---------------------------------------------------- |
+| A. Reference table first: endpoint matrix followed by dense provider capability columns | Good for known requirements, weaker orientation          | Neutral only if every capability is verified              | Wide columns and unknown values make 320px difficult      | High editorial upkeep | Reject for this release                              |
+| B. Guided paths + official endpoint panel + alphabetical searchable provider cards      | Clear for local/public/production and provider discovery | Uses site's type/color; no ranking or unverifiable badges | Stacks into one column, labeled search, copyable URLs     | Moderate              | Selected                                             |
+| C. Ambitious interactive request path with live region/latency comparison               | Could teach app → RPC → cluster and selection            | Live metrics would need neutral measurement policy        | Motion/data loading add complexity; reduced motion needed | High                  | Keep a static three-stage diagram, drop live metrics |
+
+Concept A desktop: `hero → endpoint table → provider capability table → guide`;
+mobile: `hero → endpoint cards → horizontally dense provider rows`. Concept B
+desktop:
+`hero + request-path diagram → three path cards → endpoint rows → search/cards → checklist`;
+mobile:
+`hero → stacked path cards → wrapping endpoint rows → search → single-column cards → checklist`.
+Concept C desktop:
+`interactive request path + region controls → benchmark map → providers`;
+mobile: `stepper → metric cards → providers`. The provider discovery flow in B
+is: choose production path → read provider list caveat → search a name → open
+its human-facing page → consult evaluation guide. Alphabetical ordering is
+deterministic and neutral.
+
+## Task-based heuristic review and revision
+
+No target builder or content owner was reachable in this session, so this is a
+documented heuristic walkthrough rather than user testing. First pass through B
+showed a likely confusion: provider cards with badges copied from the legacy
+“free” and “private” groups could imply verified plans and clusters. Revision:
+remove capability badges and filters until each offering has a current provider
+source and editorial approval. A second confusion: an endpoint and a provider
+card both looked like places to click. Revision: official endpoints occupy a
+separate copyable panel; provider cards open human-facing pages. A third: the
+Foundation Server Program appeared in the private provider list. Revision: give
+it a separate self-hosting resource card.
+
+After revision, local task resolves at the local setup card; public task
+resolves at three official URLs plus the rate-limit/no-SLA caveat; production
+task resolves at searchable provider names plus the evaluation checklist and
+provider guide. The retained static `app → RPC endpoint → Solana cluster`
+diagram explains the page's subject without motion or unsupported metrics. The
+implementation should be checked at 320px and desktop, with keyboard and at
+least one non-English locale before release. This review finds the paths, but
+cannot establish real-user success.
+
+## Provider and source audit
+
+Old sections use D=Devnet free list, M=Mainnet free list, P=Private list. The
+old group is inventory provenance, **not** evidence of a current offering.
+Unless stated otherwise, the destination is also the only current source used
+for the card's name/link; no cluster, price, access model, SLA, or speed is
+displayed. Checked 27 October 2026 by following redirects with `curl -L -I`.
+HTTP codes can differ from browser GET responses.
+
+| Entry                     | Old section(s) and old URL                                                   | Result and canonical human-facing destination                                                                                 | Directory decision                                      |
+| ------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| Alchemy                   | P `alchemy.com/solana`                                                       | 200; [Solana page](https://www.alchemy.com/solana)                                                                            | Include                                                 |
+| Ankr                      | D `rpc.ankr.com/solana_devnet`; M `rpc.ankr.com/solana`; P `ankr.com`        | API URLs returned 403/404; [Solana RPC page](https://www.ankr.com/rpc/solana/) 200                                            | Include landing page                                    |
+| Blockdaemon               | M `blockdaemon.com/protocols/solana`; P `blockdaemon.com/marketplace/solana` | first redirects 200 to [network page](https://www.blockdaemon.com/networks); second 404                                       | Include network page; verify Solana offering with owner |
+| Chainflow                 | P `chainflow.io/contact/`                                                    | 200 [contact page](https://chainflow.io/contact/)                                                                             | Include; verify current offering                        |
+| Chainstack                | D, M, P `chainstack.com/build-better-with-solana/`                           | 200 [Solana page](https://chainstack.com/build-better-with-solana/)                                                           | Include once                                            |
+| Digital Energy            | P `rpc.digital-energy.io`                                                    | raw RPC URL 401; [human-facing landing](https://rpc-landing.digital-energy.io/) 200                                           | Include landing page; verify listing review             |
+| Figment                   | P `datahub.figment.io/sign_up?service=solana`                                | connection failed (000)                                                                                                       | Hold for owner review; no broken card                   |
+| FluxRPC                   | M, P `fluxrpc.com`                                                           | 200 [home](https://fluxrpc.com/)                                                                                              | Include once                                            |
+| GenesysGo                 | P `genesysgo.com`                                                            | connection failed (000)                                                                                                       | Hold for owner review; no broken card                   |
+| GetBlock                  | M, P `getblock.io/nodes/sol/`                                                | 200 [Solana page](https://getblock.io/nodes/sol/)                                                                             | Include once                                            |
+| Helius                    | D, M, P `helius.dev/solana-rpc-nodes`                                        | 200 [Solana page](https://www.helius.dev/solana-rpc-nodes)                                                                    | Include once                                            |
+| InstantNodes              | M, P `instantnodes.io`                                                       | redirects to unrelated `gavangtvttbdl.tv`                                                                                     | Hold for owner review; no unsafe card                   |
+| NOWNodes                  | P `nownodes.io/nodes/solana-sol`                                             | 200 [Solana page](https://nownodes.io/nodes/solana-sol)                                                                       | Include                                                 |
+| OrbitFlare                | D, M, P `orbitflare.com`                                                     | 200 [home](https://orbitflare.com/)                                                                                           | Include once; verify offering                           |
+| Quicknode                 | D, M, P `quicknode.com/chains/sol`                                           | 200 redirect to [Solana page](https://www.quicknode.com/chains/solana); x402 docs link 200                                    | Include once, no x402 badge                             |
+| Solana Vibe Station       | M, P `solanavibestation.com`                                                 | 200 [home](https://solanavibestation.com/)                                                                                    | Include once; verify offering                           |
+| Syndica                   | M, P `syndica.io`                                                            | 200 [home](https://syndica.io/)                                                                                               | Include once                                            |
+| Triton / RPC Pool         | P `triton.one`                                                               | 200 [home](https://triton.one/)                                                                                               | Include                                                 |
+| Foundation Server Program | P `solana.org/delegation-program`                                            | 200 [program page](https://solana.org/delegation-program)                                                                     | Separate self-hosting resource, not a provider          |
+| Official Mainnet          | M `api.mainnet-beta.solana.com`                                              | old endpoint 200; [current cluster reference](https://solana.com/docs/references/clusters) documents `api.mainnet.solana.com` | Official endpoint panel                                 |
+| Official Devnet           | D `api.devnet.solana.com`                                                    | 200; [cluster reference](https://solana.com/docs/references/clusters)                                                         | Official endpoint panel                                 |
+| Official Testnet          | Testnet `api.testnet.solana.com`                                             | 200; [cluster reference](https://solana.com/docs/references/clusters)                                                         | Official endpoint panel                                 |
+
+The old x402 links (`quicknode.com/docs/build-with-ai/x402-payments`,
+`agents.digital-energy.io`) are ancillary product links, not provider
+destinations. The first responded 200; the second 403. Neither is represented as
+an offering badge.
+
+## Maintenance and release notes
+
+English route copy lives in `packages/i18n/messages/web/en/common.json` under
+`rpc.directory`; `apps/web/src/app/[locale]/rpc/providers.ts` owns neutral URL
+records. The i18n merge provides English fallback for new keys in other locales;
+existing translated `rpc.content` remains in catalogs for editorial migration.
+Translation owners should add `rpc.directory` keys before declaring the new
+design localized. For a provider submission, check the repo's
+`apps/web/CONTRIBUTING.md` criteria, verify its human-facing destination and
+current Solana offering with the content owner, update the source audit, then
+add a record. Only add cluster/access badges after sourcing each claim and
+planning a review cadence.
+
+Release comparison: the new design keeps the current URL and metadata mechanism,
+replaces the Markdown document with task paths, an official endpoint panel, and
+a provider directory. It extends home typography and wallets search/count/reset;
+the static request-path diagram is the RPC-specific extension. Local Playwright
+walkthroughs at 320px and 1440px in English and 375px in Spanish found a visible
+H1, no horizontal overflow, and no page errors. Hydrated search reduced 15 cards
+to one and updated `?q=Helius`; reset restored 15. Clipboard copying returned
+the Devnet URL when browser clipboard permission was granted. The requested
+Vercel preview returned a login redirect in a fresh browser context; authorized
+preview comparison, content-owner review of held entries and uncertain
+offerings, and deployed visual QA remain for PR review.
