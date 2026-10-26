@@ -14,8 +14,6 @@ type Props = {
 
 export const revalidate = 86400;
 
-const ARCHIVE_REVALIDATE_SECONDS = revalidate;
-
 const ARCHIVE_EVENTS_PER_PAGE = 24;
 // Pull a deep slice of past events per calendar in a single request so the
 // archive has real depth without paginating the upstream API.
@@ -44,14 +42,10 @@ const sortByStartDateDesc = (events: CalendarEvent[]) =>
 async function fetchArchiveEvents() {
   const eventGroups = await Promise.all(
     ARCHIVE_CALENDAR_IDS.map((calendarId) =>
-      fetchCalendarEvents(
-        calendarId,
-        {
-          period: "past",
-          pagination_limit: ARCHIVE_FETCH_LIMIT,
-        },
-        { revalidate: ARCHIVE_REVALIDATE_SECONDS },
-      ),
+      fetchCalendarEvents(calendarId, {
+        period: "past",
+        pagination_limit: ARCHIVE_FETCH_LIMIT,
+      }),
     ),
   );
 

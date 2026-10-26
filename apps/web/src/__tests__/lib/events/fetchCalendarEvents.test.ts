@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock("next/cache", () => ({
+  unstable_cache: (fn: (...args: never[]) => unknown) => fn,
+}));
 import {
-  CALENDAR_FEED_REVALIDATE_SECONDS,
+  CALENDAR_EVENTS_REVALIDATE_SECONDS,
   fetchCalendarEvents,
   isUpcomingEvent,
   parseIcalEvents,
@@ -68,21 +71,17 @@ END:VEVENT`);
     expect(events[0].schedule.to).toBe("2099-11-12T23:59:59.999Z");
   });
 
-  it("uses the documented public subscription with server caching", async () => {
+  it("uses the documented public subscription", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(feed));
     vi.stubGlobal("fetch", fetchMock);
 
-    const events = await fetchCalendarEvents(
-      "cal-test",
-      { period: "future" },
-      { revalidate: 1800 },
-    );
+    const events = await fetchCalendarEvents("cal-test", { period: "future" });
 
     expect(events.map((event) => event.title)).toEqual(["Solana, meetup"]);
     expect(String(fetchMock.mock.calls[0][0])).toBe(
       "https://api.lu.ma/ics/get?entity=calendar&id=cal-test",
     );
-    expect(fetchMock.mock.calls[0][1].next).toEqual({ revalidate: 1800 });
+    expect(fetchMock.mock.calls[0][1].cache).toBe("no-store");
   });
 
   it("keeps past events available for the archive", async () => {
@@ -96,11 +95,9 @@ END:VEVENT`);
         (event) => event.title,
       ),
     ).toEqual(["Past event"]);
-    expect(fetchMock.mock.calls[0][1].next).toEqual({
-      revalidate: CALENDAR_FEED_REVALIDATE_SECONDS,
-    });
+    expect(fetchMock.mock.calls[0][1].cache).toBe("no-store");
     expect(fetchMock.mock.calls[1][1].next).toEqual({
-      revalidate: CALENDAR_FEED_REVALIDATE_SECONDS,
+      revalidate: CALENDAR_EVENTS_REVALIDATE_SECONDS,
     });
   });
 
@@ -179,6 +176,7 @@ END:VEVENT`);
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response(feed))
+      .mockResolvedValueOnce(new Response("<html></html>"))
       .mockResolvedValueOnce(
         new Response(
           `<script type="application/ld+json">${JSON.stringify(metadata)}</script>`,
@@ -196,7 +194,7 @@ END:VEVENT`);
       },
       img: { primary: "https://images.lumacdn.com/cover.png" },
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("does not fetch an unsupported event group as a calendar", async () => {

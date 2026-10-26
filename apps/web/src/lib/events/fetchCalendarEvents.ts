@@ -1,5 +1,7 @@
 import breakpointImg from "@@/assets/events/breakpoint.jpg";
 import shipordieImg from "@@/assets/events/shipordie.jpg";
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
 export type CalendarEvent = {
   key: string;
@@ -29,12 +31,8 @@ export type CalendarEvent = {
   type?: string;
 };
 
-type FetchCalendarEventsRequestOptions = {
-  revalidate?: number;
-};
-
-// Luma publishes its calendar subscriptions with a 12-hour refresh interval.
-export const CALENDAR_FEED_REVALIDATE_SECONDS = 12 * 60 * 60;
+// Cache one server-side snapshot per calendar, then filter dates per request.
+export const CALENDAR_EVENTS_REVALIDATE_SECONDS = 5 * 60;
 
 export function isUpcomingEvent(
   event: CalendarEvent,
@@ -163,11 +161,10 @@ type PublicCalendarData = {
 
 async function fetchPublicCalendarEvents(
   calendarId: string,
-  revalidate: number,
 ): Promise<CalendarEvent[]> {
   const response = await fetch(`https://luma.com/calendar/${calendarId}`, {
     signal: AbortSignal.timeout(10000),
-    next: { revalidate },
+    cache: "no-store",
   });
   if (!response.ok)
     throw new Error(`Luma calendar returned ${response.status}`);
@@ -308,59 +305,71 @@ async function enrichEvents(
   return enriched;
 }
 
-/** Fetch the calendar's published iCal subscription feed. */
-export async function fetchCalendarEvents(
+/** Read a supported public iCal subscription, with the public calendar page as a fallback. */
+async function fetchCalendarSourceEvents(
   calendarId: string,
-  options: Record<string, string | number>,
-  requestOptions: FetchCalendarEventsRequestOptions = {},
 ): Promise<CalendarEvent[]> {
-  // iCal subscriptions are Luma's supported public interface for calendars.
-  // The current Doppler key is for a legacy API and is rejected by the
-  // documented, calendar-scoped JSON API.
-  if (!calendarId.startsWith("cal-")) return [];
-
-  const revalidate =
-    requestOptions.revalidate ?? CALENDAR_FEED_REVALIDATE_SECONDS;
-
   const url = new URL("https://api.lu.ma/ics/get");
   url.searchParams.set("entity", "calendar");
   url.searchParams.set("id", calendarId);
-  let allEvents: CalendarEvent[] = [];
   try {
     const response = await fetch(url, {
       headers: { accept: "text/calendar" },
       signal: AbortSignal.timeout(10000),
-      next: { revalidate },
+      cache: "no-store",
     });
     if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
-    const now = Date.now();
-    const periodEvents = parseIcalEvents(await response.text()).filter(
-      (event) =>
-        options.period === "past"
-          ? !isUpcomingEvent(event, now)
-          : isUpcomingEvent(event, now),
-    );
-    if (options.period === "past") {
-      periodEvents.sort(
-        (a, b) =>
-          Date.parse(b.schedule.from ?? "") - Date.parse(a.schedule.from ?? ""),
-      );
-    }
-    const limit = Number(options.pagination_limit);
-    allEvents = await enrichEvents(
-      options.period === "past" && Number.isFinite(limit) && limit > 0
-        ? periodEvents.slice(0, limit)
-        : periodEvents,
-      revalidate,
+    return enrichEvents(
+      parseIcalEvents(await response.text()),
+      CALENDAR_EVENTS_REVALIDATE_SECONDS,
     );
   } catch (error) {
-    console.warn("Luma iCal request failed:", error);
-    if (options.period !== "past") {
-      try {
-        allEvents = await fetchPublicCalendarEvents(calendarId, revalidate);
-      } catch (fallbackError) {
-        console.warn("Luma calendar page request failed:", fallbackError);
-      }
+    console.warn(`Luma iCal request failed for ${calendarId}:`, error);
+    try {
+      return await fetchPublicCalendarEvents(calendarId);
+    } catch (fallbackError) {
+      console.warn(
+        `Luma calendar page request failed for ${calendarId}:`,
+        fallbackError,
+      );
+      return [];
+    }
+  }
+}
+
+const getCachedCalendarSourceEvents = cache(
+  unstable_cache(fetchCalendarSourceEvents, ["luma-calendar-source-v1"], {
+    revalidate: CALENDAR_EVENTS_REVALIDATE_SECONDS,
+  }),
+);
+
+export async function fetchCalendarEvents(
+  calendarId: string,
+  options: Record<string, string | number>,
+): Promise<CalendarEvent[]> {
+  if (!calendarId.startsWith("cal-")) return [];
+
+  const now = Date.now();
+  let allEvents = (await getCachedCalendarSourceEvents(calendarId))
+    .filter((event) =>
+      options.period === "past"
+        ? !isUpcomingEvent(event, now)
+        : isUpcomingEvent(event, now),
+    )
+    .map((event) => ({
+      ...event,
+      schedule: { ...event.schedule },
+      img: { ...event.img },
+      venue: { ...event.venue },
+    }));
+  if (options.period === "past") {
+    allEvents.sort(
+      (a, b) =>
+        Date.parse(b.schedule.from ?? "") - Date.parse(a.schedule.from ?? ""),
+    );
+    const limit = Number(options.pagination_limit);
+    if (Number.isFinite(limit) && limit > 0) {
+      allEvents = allEvents.slice(0, limit);
     }
   }
 
