@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  CALENDAR_FEED_REVALIDATE_SECONDS,
   fetchCalendarEvents,
   isUpcomingEvent,
   parseIcalEvents,
@@ -95,6 +96,12 @@ END:VEVENT`);
         (event) => event.title,
       ),
     ).toEqual(["Past event"]);
+    expect(fetchMock.mock.calls[0][1].next).toEqual({
+      revalidate: CALENDAR_FEED_REVALIDATE_SECONDS,
+    });
+    expect(fetchMock.mock.calls[1][1].next).toEqual({
+      revalidate: CALENDAR_FEED_REVALIDATE_SECONDS,
+    });
   });
 
   it("uses public event metadata for local dates and cover images", async () => {

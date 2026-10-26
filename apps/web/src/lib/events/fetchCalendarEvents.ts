@@ -33,6 +33,9 @@ type FetchCalendarEventsRequestOptions = {
   revalidate?: number;
 };
 
+// Luma publishes its calendar subscriptions with a 12-hour refresh interval.
+export const CALENDAR_FEED_REVALIDATE_SECONDS = 12 * 60 * 60;
+
 export function isUpcomingEvent(
   event: CalendarEvent,
   now = Date.now(),
@@ -233,6 +236,9 @@ export async function fetchCalendarEvents(
   // documented, calendar-scoped JSON API.
   if (!calendarId.startsWith("cal-")) return [];
 
+  const revalidate =
+    requestOptions.revalidate ?? CALENDAR_FEED_REVALIDATE_SECONDS;
+
   const url = new URL("https://api2.luma.com/ics/get");
   url.searchParams.set("entity", "calendar");
   url.searchParams.set("id", calendarId);
@@ -241,10 +247,7 @@ export async function fetchCalendarEvents(
     const response = await fetch(url, {
       headers: { accept: "text/calendar" },
       signal: AbortSignal.timeout(10000),
-      next:
-        requestOptions.revalidate === undefined
-          ? undefined
-          : { revalidate: requestOptions.revalidate },
+      next: { revalidate },
     });
     if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
     const now = Date.now();
@@ -265,7 +268,7 @@ export async function fetchCalendarEvents(
       options.period === "past" && Number.isFinite(limit) && limit > 0
         ? periodEvents.slice(0, limit)
         : periodEvents,
-      requestOptions.revalidate,
+      revalidate,
     );
   } catch (error) {
     console.warn("Luma iCal request failed:", error);

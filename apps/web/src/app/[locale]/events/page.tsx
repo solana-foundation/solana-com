@@ -11,6 +11,7 @@ import {
   serializeJsonLd,
 } from "@/lib/events/structuredData";
 import {
+  CALENDAR_FEED_REVALIDATE_SECONDS,
   type CalendarEvent,
   fetchCalendarEvents,
   isUpcomingEvent,
@@ -23,7 +24,7 @@ type Props = { params: Promise<{ locale: string }> };
 // Luma responses remain cached to avoid refetching every request.
 export const revalidate = 0;
 
-const EVENTS_REVALIDATE_SECONDS = 1800;
+const EVENTS_REVALIDATE_SECONDS = CALENDAR_FEED_REVALIDATE_SECONDS;
 
 // Private Luma events are not included in the calendar API response.
 const staticEvents: CalendarEvent[] = [
