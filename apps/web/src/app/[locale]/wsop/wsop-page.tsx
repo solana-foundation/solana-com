@@ -6,6 +6,13 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { Video } from "@/component-library/video";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@/app/components/ui/dialog";
+import {
   motion,
   MotionConfig,
   useReducedMotion,
@@ -77,6 +84,12 @@ const ParadiseScene = dynamic(() => import("./paradise-scene"), { ssr: false });
 const BUY_IN_VIDEO = {
   src: "/src/img/wsop/paradise/buy-in-walkthrough-placeholder.mp4",
   poster: "/src/img/wsop/paradise/buy-in-walkthrough-poster.webp",
+};
+
+const JAMIE_GOLD_VIDEO = {
+  square:
+    "https://xbjpr0reg4kgflon.public.blob.vercel-storage.com/wsop/2026-10-17_WSOP_JamieGold_LB_v4_SQUARE.mp4",
+  wide: "https://xbjpr0reg4kgflon.public.blob.vercel-storage.com/wsop/2026-10-17_WSOP_JamieGold_LB_v4_WIDE.mp4",
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -186,11 +199,15 @@ const ambassadors: Array<{
   unoptimized?: boolean;
   releaseDate?: string;
   href?: string;
+  squareVideo?: string;
+  wideVideo?: string;
 }> = [
   {
     id: "jamieGold",
     name: "Jamie Gold",
     image: "/src/img/wsop/jamie-gold.webp",
+    squareVideo: JAMIE_GOLD_VIDEO.square,
+    wideVideo: JAMIE_GOLD_VIDEO.wide,
   },
   {
     id: "michaelMizrachi",
@@ -539,6 +556,7 @@ export function WsopPage() {
   const t = useTranslations("wsop");
   const walletT = useTranslations("wallets.hero");
   const heroRef = useRef<HTMLElement>(null);
+  const squareVideoRef = useRef<HTMLVideoElement>(null);
   const reduceMotion = useReducedMotion();
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -831,14 +849,29 @@ export function WsopPage() {
                       "relative flex min-h-72 flex-col items-center justify-center overflow-hidden border-b border-b-[var(--wsop-border)] bg-[#121116] bg-[radial-gradient(_circle_at_50%_64%,_rgba(85,_233,_171,_0.26),_transparent_38%),linear-gradient(145deg,_rgba(202,_159,_245,_0.2),_transparent_48%)] before:absolute before:z-[1] before:inset-3 before:border before:border-[var(--wsop-border)] before:rounded-xl before:content-[''] before:pointer-events-none sm:min-h-full sm:border-r sm:border-r-[var(--wsop-border)] sm:border-b-0"
                     }
                   >
-                    <Image
-                      className={"object-cover object-center"}
-                      src={ambassador.image}
-                      alt=""
-                      fill
-                      sizes="(min-width: 1100px) 20vw, (min-width: 640px) 36vw, 100vw"
-                      unoptimized={ambassador.unoptimized}
-                    />
+                    {ambassador.squareVideo ? (
+                      <Video
+                        platform="local"
+                        id={ambassador.squareVideo}
+                        title={`${t("stories.watch")}: ${ambassador.name}`}
+                        thumbnail={ambassador.image}
+                        alt=""
+                        aspectRatio="1:1"
+                        autoplay={false}
+                        loop={false}
+                        videoRef={squareVideoRef}
+                        sizes="(min-width: 1100px) 20vw, (min-width: 640px) 36vw, 100vw"
+                      />
+                    ) : (
+                      <Image
+                        className="object-cover object-center"
+                        src={ambassador.image}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1100px) 20vw, (min-width: 640px) 36vw, 100vw"
+                        unoptimized={ambassador.unoptimized}
+                      />
+                    )}
                   </div>
                   <div
                     className={
@@ -861,7 +894,46 @@ export function WsopPage() {
                     <p className="mt-5 text-base leading-relaxed text-[var(--wsop-muted)]">
                       {t(`stories.profiles.${ambassador.id}.biography`)}
                     </p>
-                    {ambassador.href ? (
+                    {ambassador.wideVideo ? (
+                      <Dialog
+                        onOpenChange={(open) => {
+                          if (open) squareVideoRef.current?.pause();
+                        }}
+                      >
+                        <DialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="flex items-center justify-between gap-2 mt-6 pt-4 w-full border-t border-t-[var(--wsop-border)] text-[var(--wsop-muted)] font-[family-name:var(--wsop-font-label)] text-[0.6875rem] tracking-[0.05em] uppercase text-left hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--wsop-accent)]"
+                          >
+                            {t("stories.watch")}
+                            <ArrowUpRight
+                              aria-hidden="true"
+                              className="size-[0.9rem]"
+                            />
+                          </button>
+                        </DialogTrigger>
+                        <DialogContent
+                          className="w-[calc(100vw_-_2rem)] max-w-5xl overflow-hidden border-0 bg-black p-0 shadow-xl"
+                          closeClassName="z-10 bg-black/80 text-white hover:opacity-100"
+                        >
+                          <DialogTitle className="sr-only">
+                            {`${t("stories.watch")}: ${ambassador.name}`}
+                          </DialogTitle>
+                          <DialogDescription className="sr-only">
+                            {t("stories.watch")}
+                          </DialogDescription>
+                          <video
+                            className="block aspect-video w-full"
+                            src={ambassador.wideVideo}
+                            title={ambassador.name}
+                            controls
+                            autoPlay
+                            playsInline
+                            preload="none"
+                          />
+                        </DialogContent>
+                      </Dialog>
+                    ) : ambassador.href ? (
                       <a
                         className={
                           "flex items-center justify-between gap-2 mt-6 pt-4 border-t border-t-[var(--wsop-border)] text-[var(--wsop-muted)] font-[family-name:var(--wsop-font-label)] text-[0.6875rem] tracking-[0.05em] uppercase [&_svg]:w-[0.9rem]"

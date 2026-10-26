@@ -49,6 +49,7 @@
 
 import { Play } from "@boxicons/react/Play";
 import { useState } from "react";
+import type { Ref } from "react";
 import Image from "next/image";
 
 const ASPECT_RATIOS = {
@@ -74,6 +75,7 @@ export interface VideoProps {
   playButtonIconClassName?: string;
   privacyMode?: boolean;
   startTime?: number; // Start time in seconds
+  videoRef?: Ref<HTMLVideoElement>;
 }
 
 export function Video(props: VideoProps) {
@@ -94,6 +96,7 @@ export function Video(props: VideoProps) {
     playButtonIconClassName,
     privacyMode = false,
     startTime,
+    videoRef,
   } = props;
 
   const autoshow = autoplay || !thumbnail;
@@ -179,6 +182,7 @@ export function Video(props: VideoProps) {
         className={`relative w-full ${ASPECT_RATIOS[aspectRatio]} overflow-hidden ${className}`}
       >
         <video
+          ref={videoRef}
           src={id}
           title={title || "Video player"}
           className="absolute inset-0 h-full w-full rounded-[inherit]"
