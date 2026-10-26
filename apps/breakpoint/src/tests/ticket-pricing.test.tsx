@@ -7,8 +7,10 @@ import {
 } from "@/components/TicketPriceChange";
 import {
   GENERAL_ADMISSION_PRICE_INCREASE_AT,
+  LATE_BIRD_START_AT,
   getTicketPriceCountdownParts,
   hasGeneralAdmissionPriceIncreased,
+  hasLateBirdStarted,
 } from "@/content/ticket-pricing";
 
 describe("Breakpoint general admission price change", () => {
@@ -44,7 +46,7 @@ describe("Breakpoint general admission price change", () => {
     ).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 1 });
   });
 
-  it("updates the displayed price and removes the timer at the cutoff", () => {
+  it("updates the displayed price and continues counting down to late bird", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-08-01T08:59:58Z"));
 
@@ -72,7 +74,7 @@ describe("Breakpoint general admission price change", () => {
     });
 
     expect(screen.getByText("$550")).toBeInTheDocument();
-    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    expect(screen.getByRole("timer")).toBeInTheDocument();
   });
 
   it("renders the increased price in post-cutoff server HTML", () => {
@@ -94,6 +96,39 @@ describe("Breakpoint general admission price change", () => {
           label="Prices increase in"
         />,
       ),
-    ).toBe("");
+    ).toContain("Prices increase in");
+  });
+
+  it("switches to late bird at midnight in London on November 9", () => {
+    expect(LATE_BIRD_START_AT).toBe(Date.parse("2026-11-09T00:00:00Z"));
+    expect(hasLateBirdStarted(LATE_BIRD_START_AT - 1)).toBe(false);
+    expect(hasLateBirdStarted(LATE_BIRD_START_AT)).toBe(true);
+
+    vi.useFakeTimers();
+    vi.setSystemTime(LATE_BIRD_START_AT - 2000);
+    render(
+      <>
+        <GeneralAdmissionPrice
+          currentPrice="$450"
+          increasedPrice="$550"
+          lateBirdPrice="$800"
+          initialNow={Date.now()}
+        />
+        <TicketPriceChangeCountdown
+          initialNow={Date.now()}
+          label="Prices increase in"
+        />
+      </>,
+    );
+
+    expect(screen.getByText("$550")).toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveAccessibleName(
+      "Prices increase in 0H 0M 2S",
+    );
+
+    act(() => vi.advanceTimersByTime(2000));
+
+    expect(screen.getByText("$800")).toBeInTheDocument();
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
   });
 });

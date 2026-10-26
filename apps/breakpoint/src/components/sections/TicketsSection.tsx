@@ -6,7 +6,9 @@ import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import {
   GeneralAdmissionPrice,
   TicketPriceChangeCountdown,
+  usePriceChangeClock,
 } from "@/components/TicketPriceChange";
+import { hasLateBirdStarted } from "@/content/ticket-pricing";
 import {
   BREAKPOINT_LUMA_EVENT_ID,
   DEVELOPER_APPLICATION_HREF,
@@ -197,6 +199,7 @@ function HorizontalTicketCard({
 export default function TicketsSection({ initialNow }: { initialNow: number }) {
   const t = useTranslations("breakpoint");
   const variant = useVariant();
+  const lateBirdStarted = hasLateBirdStarted(usePriceChangeClock(initialNow));
 
   useEffect(() => {
     window.luma?.initCheckout?.();
@@ -226,13 +229,21 @@ export default function TicketsSection({ initialNow }: { initialNow: number }) {
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">
           <FeaturedTicketCard
-            heading={t("tickets.categories.general.label")}
-            description={t("tickets.categories.general.description")}
-            initialNow={initialNow}
-            price={t("tickets.categories.general.price")}
-            priceAfterIncrease={t(
-              "tickets.categories.general.priceAfterIncrease",
+            heading={t(
+              `tickets.categories.${lateBirdStarted ? "lateBird" : "general"}.label`,
             )}
+            description={t(
+              `tickets.categories.${lateBirdStarted ? "lateBird" : "general"}.description`,
+            )}
+            initialNow={initialNow}
+            price={t(
+              `tickets.categories.${lateBirdStarted ? "lateBird" : "general"}.price`,
+            )}
+            priceAfterIncrease={
+              lateBirdStarted
+                ? undefined
+                : t("tickets.categories.general.priceAfterIncrease")
+            }
             href={lumaHref}
             lumaEventId={lumaEventId}
           />
@@ -247,11 +258,13 @@ export default function TicketsSection({ initialNow }: { initialNow: number }) {
               price={t("tickets.categories.students.price")}
               href={STUDENT_APPLICATION_HREF}
             />
-            <HorizontalTicketCard
-              heading={t("tickets.categories.lateBird.label")}
-              price={t("tickets.categories.lateBird.price")}
-              disabled
-            />
+            {!lateBirdStarted && (
+              <HorizontalTicketCard
+                heading={t("tickets.categories.lateBird.label")}
+                price={t("tickets.categories.lateBird.price")}
+                disabled
+              />
+            )}
           </div>
         </div>
       </div>
