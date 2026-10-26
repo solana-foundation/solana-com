@@ -1,4 +1,6 @@
 import type { CompanyRecord } from "../../types";
+import jupiterMarkColor from "../../../assets/companies/jupiter/mark-color.png";
+import jupiterLogoMonotone from "../../../assets/companies/jupiter/logo-monotone.svg";
 import jupiterBreakpoint2026White from "../../../assets/companies/jupiter/breakpoint-2026-white.svg";
 import jupiterLogoDark from "../../../assets/companies/jupiter/logo-dark.svg";
 
@@ -28,6 +30,21 @@ export const jupiter = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "logo-monotone",
+      fileName: "logo-monotone.svg",
+      format: "svg",
+      source: jupiterLogoMonotone,
+      treatment: "monotone",
+      kind: "logo",
+    },
+    {
+      id: "mark-color",
+      fileName: "mark-color.png",
+      format: "png",
+      source: jupiterMarkColor,
+      kind: "mark",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",

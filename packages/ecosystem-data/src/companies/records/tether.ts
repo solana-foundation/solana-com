@@ -1,4 +1,6 @@
 import type { CompanyRecord } from "../../types";
+import tetherLogoLight from "../../../assets/companies/tether/logo-light.svg";
+import tetherLogoDark from "../../../assets/companies/tether/logo-dark.svg";
 import tetherBreakpoint2026White from "../../../assets/companies/tether/breakpoint-2026-white.svg";
 
 export const tether = {
@@ -19,8 +21,24 @@ export const tether = {
       linkedin: "https://www.linkedin.com/company/tether",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "logo-light",
+      fileName: "logo-light.svg",
+      format: "svg",
+      source: tetherLogoLight,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-dark",
+      fileName: "logo-dark.svg",
+      format: "svg",
+      source: tetherLogoDark,
+      theme: "light",
+      kind: "logo",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",

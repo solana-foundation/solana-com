@@ -122,6 +122,7 @@ import { solflare } from "./records/solflare";
 import { solpay } from "./records/solpay";
 import { spi } from "./records/spi";
 import { squads } from "./records/squads";
+import { stablecard } from "./records/stablecard";
 import { stateStreet } from "./records/state-street";
 import { stripe } from "./records/stripe";
 import { streamflow } from "./records/streamflow";
@@ -274,6 +275,7 @@ export const companies = [
   solpay,
   spi,
   squads,
+  stablecard,
   stateStreet,
   stripe,
   streamflow,

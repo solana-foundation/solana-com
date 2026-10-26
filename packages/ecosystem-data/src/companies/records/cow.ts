@@ -1,4 +1,12 @@
 import type { CompanyRecord } from "../../types";
+import cowLogoLightBlue from "../../../assets/companies/cow/logo-light-blue.svg";
+import cowLogoDarkBlue from "../../../assets/companies/cow/logo-dark-blue.svg";
+import cowMarkLightBlue from "../../../assets/companies/cow/mark-light-blue.svg";
+import cowMarkDarkBlue from "../../../assets/companies/cow/mark-dark-blue.svg";
+import cowMarkCircleLightBlue from "../../../assets/companies/cow/mark-circle-light-blue.svg";
+import cowMarkCircleDarkBlue from "../../../assets/companies/cow/mark-circle-dark-blue.svg";
+import cowMarkSquareLightBlue from "../../../assets/companies/cow/mark-square-light-blue.svg";
+import cowMarkSquareDarkBlue from "../../../assets/companies/cow/mark-square-dark-blue.svg";
 import cowBreakpoint2026White from "../../../assets/companies/cow/breakpoint-2026-white.svg";
 import cowLogoDark from "../../../assets/companies/cow/logo-dark.svg";
 import cowLogoLight from "../../../assets/companies/cow/logo-light.svg";
@@ -30,6 +38,70 @@ export const cow = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "logo-light-blue",
+      fileName: "logo-light-blue.svg",
+      format: "svg",
+      source: cowLogoLightBlue,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-dark-blue",
+      fileName: "logo-dark-blue.svg",
+      format: "svg",
+      source: cowLogoDarkBlue,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "mark-light-blue",
+      fileName: "mark-light-blue.svg",
+      format: "svg",
+      source: cowMarkLightBlue,
+      theme: "dark",
+      kind: "mark",
+    },
+    {
+      id: "mark-dark-blue",
+      fileName: "mark-dark-blue.svg",
+      format: "svg",
+      source: cowMarkDarkBlue,
+      theme: "light",
+      kind: "mark",
+    },
+    {
+      id: "mark-circle-light-blue",
+      fileName: "mark-circle-light-blue.svg",
+      format: "svg",
+      source: cowMarkCircleLightBlue,
+      theme: "dark",
+      kind: "mark",
+    },
+    {
+      id: "mark-circle-dark-blue",
+      fileName: "mark-circle-dark-blue.svg",
+      format: "svg",
+      source: cowMarkCircleDarkBlue,
+      theme: "light",
+      kind: "mark",
+    },
+    {
+      id: "mark-square-light-blue",
+      fileName: "mark-square-light-blue.svg",
+      format: "svg",
+      source: cowMarkSquareLightBlue,
+      theme: "dark",
+      kind: "mark",
+    },
+    {
+      id: "mark-square-dark-blue",
+      fileName: "mark-square-dark-blue.svg",
+      format: "svg",
+      source: cowMarkSquareDarkBlue,
+      theme: "light",
+      kind: "mark",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",

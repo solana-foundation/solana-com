@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import westernUnionLogoColor from "../../../assets/companies/western-union/logo-color.svg";
 import westernUnionBreakpoint2026White from "../../../assets/companies/western-union/breakpoint-2026-white.svg";
 
 export const westernUnion = {
@@ -18,8 +19,15 @@ export const westernUnion = {
       x: "https://x.com/WesternUnion",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "logo-color",
   logos: [
+    {
+      id: "logo-color",
+      fileName: "logo-color.svg",
+      format: "svg",
+      source: westernUnionLogoColor,
+      kind: "logo",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",

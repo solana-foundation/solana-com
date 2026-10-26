@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import jurassicfiMarkColor from "../../../assets/companies/jurassicfi/mark-color.png";
 import jurassicfiBreakpoint2026White from "../../../assets/companies/jurassicfi/breakpoint-2026-white.png";
 
 export const jurassicfi = {
@@ -18,8 +19,15 @@ export const jurassicfi = {
       x: "https://x.com/JurassicFi",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "mark-color",
   logos: [
+    {
+      id: "mark-color",
+      fileName: "mark-color.png",
+      format: "png",
+      source: jurassicfiMarkColor,
+      kind: "mark",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.png",

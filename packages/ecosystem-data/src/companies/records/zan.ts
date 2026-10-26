@@ -1,4 +1,10 @@
 import type { CompanyRecord } from "../../types";
+import zanLogoColor from "../../../assets/companies/zan/logo-color.png";
+import zanLogoLight from "../../../assets/companies/zan/logo-light.png";
+import zanLogoPoweredByColor from "../../../assets/companies/zan/logo-powered-by-color.png";
+import zanLogoPoweredByLight from "../../../assets/companies/zan/logo-powered-by-light.png";
+import zanLogoPoweredByCompactColor from "../../../assets/companies/zan/logo-powered-by-compact-color.png";
+import zanLogoPoweredByCompactLight from "../../../assets/companies/zan/logo-powered-by-compact-light.png";
 import zanBreakpoint2026White from "../../../assets/companies/zan/breakpoint-2026-white.png";
 
 export const zan = {
@@ -18,8 +24,56 @@ export const zan = {
       x: "https://x.com/zan_team",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "logo-color",
   logos: [
+    {
+      id: "logo-powered-by-color",
+      fileName: "logo-powered-by-color.png",
+      format: "png",
+      source: zanLogoPoweredByColor,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-powered-by-light",
+      fileName: "logo-powered-by-light.png",
+      format: "png",
+      source: zanLogoPoweredByLight,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-powered-by-compact-color",
+      fileName: "logo-powered-by-compact-color.png",
+      format: "png",
+      source: zanLogoPoweredByCompactColor,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-powered-by-compact-light",
+      fileName: "logo-powered-by-compact-light.png",
+      format: "png",
+      source: zanLogoPoweredByCompactLight,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-color",
+      fileName: "logo-color.png",
+      format: "png",
+      source: zanLogoColor,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-light",
+      fileName: "logo-light.png",
+      format: "png",
+      source: zanLogoLight,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.png",

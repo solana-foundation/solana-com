@@ -1,4 +1,9 @@
 import type { CompanyRecord } from "../../types";
+import payoneerLogoColor from "../../../assets/companies/payoneer/logo-color.svg";
+import payoneerLogoColorDark from "../../../assets/companies/payoneer/logo-color-dark.png";
+import payoneerLogoStackedColorDark from "../../../assets/companies/payoneer/logo-stacked-color-dark.svg";
+import payoneerLogoStackedColor from "../../../assets/companies/payoneer/logo-stacked-color.png";
+import payoneerMarkColor from "../../../assets/companies/payoneer/mark-color.png";
 import payoneerBreakpoint2026White from "../../../assets/companies/payoneer/breakpoint-2026-white.png";
 
 export const payoneer = {
@@ -19,8 +24,47 @@ export const payoneer = {
       linkedin: "https://www.linkedin.com/company/payoneer",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "logo-color",
   logos: [
+    {
+      id: "logo-color",
+      fileName: "logo-color.svg",
+      format: "svg",
+      source: payoneerLogoColor,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-color-dark",
+      fileName: "logo-color-dark.png",
+      format: "png",
+      source: payoneerLogoColorDark,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-stacked-color-dark",
+      fileName: "logo-stacked-color-dark.svg",
+      format: "svg",
+      source: payoneerLogoStackedColorDark,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-stacked-color",
+      fileName: "logo-stacked-color.png",
+      format: "png",
+      source: payoneerLogoStackedColor,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "mark-color",
+      fileName: "mark-color.png",
+      format: "png",
+      source: payoneerMarkColor,
+      kind: "mark",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.png",

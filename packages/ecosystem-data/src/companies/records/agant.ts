@@ -1,4 +1,10 @@
 import type { CompanyRecord } from "../../types";
+import agantWordmarkLight from "../../../assets/companies/agant/wordmark-light.svg";
+import agantWordmarkDark from "../../../assets/companies/agant/wordmark-dark.svg";
+import agantWordmarkColor from "../../../assets/companies/agant/wordmark-color.svg";
+import agantMarkLight from "../../../assets/companies/agant/mark-light.svg";
+import agantMarkDark from "../../../assets/companies/agant/mark-dark.svg";
+import agantMarkColor from "../../../assets/companies/agant/mark-color.svg";
 import agantBreakpoint2026White from "../../../assets/companies/agant/breakpoint-2026-white.svg";
 
 export const agant = {
@@ -19,8 +25,56 @@ export const agant = {
       linkedin: "https://www.linkedin.com/company/agant-finance",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "wordmark-dark",
   logos: [
+    {
+      id: "wordmark-light",
+      fileName: "wordmark-light.svg",
+      format: "svg",
+      source: agantWordmarkLight,
+      theme: "dark",
+      kind: "wordmark",
+    },
+    {
+      id: "wordmark-dark",
+      fileName: "wordmark-dark.svg",
+      format: "svg",
+      source: agantWordmarkDark,
+      theme: "light",
+      kind: "wordmark",
+    },
+    {
+      id: "wordmark-color",
+      fileName: "wordmark-color.svg",
+      format: "svg",
+      source: agantWordmarkColor,
+      theme: "light",
+      kind: "wordmark",
+    },
+    {
+      id: "mark-light",
+      fileName: "mark-light.svg",
+      format: "svg",
+      source: agantMarkLight,
+      theme: "dark",
+      kind: "mark",
+    },
+    {
+      id: "mark-dark",
+      fileName: "mark-dark.svg",
+      format: "svg",
+      source: agantMarkDark,
+      theme: "light",
+      kind: "mark",
+    },
+    {
+      id: "mark-color",
+      fileName: "mark-color.svg",
+      format: "svg",
+      source: agantMarkColor,
+      theme: "light",
+      kind: "mark",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",
