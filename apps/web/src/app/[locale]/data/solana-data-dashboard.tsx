@@ -32,7 +32,11 @@ import {
   rpcLatencyRepositoryUrl,
   backfillRequestsUrl,
 } from "./dashboard-constants";
-import { formatTimestamp, getTabContent } from "./dashboard-copy";
+import {
+  formatTimestamp,
+  getRangeLabel,
+  getTabContent,
+} from "./dashboard-copy";
 import { DashboardControls } from "./dashboard-controls";
 import { ChartGrid, DataError, KpiGrid } from "./dashboard-charts";
 import { fetchData, fetchRpcFilters } from "./dashboard-fetch";
@@ -82,7 +86,7 @@ export function SolanaDataDashboard() {
     linkedChartId,
     providerParam,
     queryString,
-    rangeDays,
+    range,
     rpcInfra,
     rpcMethod,
     rpcRegion,
@@ -105,8 +109,8 @@ export function SolanaDataDashboard() {
   const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const dataUrl = getDashboardDataUrl({
     activeTab,
+    range,
     rpcInfra,
-    rangeDays,
     rpcMethod,
     rpcRegion,
     rpcTimeframe,
@@ -281,7 +285,7 @@ export function SolanaDataDashboard() {
             activeTab={activeTab}
             availableProviders={availableProviders}
             isRefreshing={isRefreshing}
-            rangeDays={rangeDays}
+            range={range}
             rpcInfra={rpcInfra}
             rpcMethod={rpcMethod}
             rpcRegion={rpcRegion}
@@ -350,7 +354,7 @@ export function SolanaDataDashboard() {
                 isConnectedToPrevious={hasKpiGrid}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
-                rangeDays={rangeDays}
+                range={range}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -377,7 +381,7 @@ export function SolanaDataDashboard() {
               />
               {isLiveInfrastructureTab
                 ? t("footer.lastTimeframe", { timeframe: rpcTimeframe })
-                : t("footer.lastDays", { days: rangeDays })}
+                : getRangeLabel(t, range, locale)}
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
               {isRpcTab ? (

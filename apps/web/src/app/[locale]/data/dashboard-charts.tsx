@@ -52,6 +52,7 @@ import {
   getKpiSummary,
 } from "./dashboard-metrics";
 import type { KpiAggregation, KpiItem } from "./dashboard-types";
+import { getRangeDayCount, type DashboardRange } from "./date-range";
 import {
   formatValue,
   TimeSeriesChart,
@@ -108,7 +109,7 @@ export function ChartGrid({
   isLoading,
   isRefreshing,
   isConnectedToPrevious,
-  rangeDays,
+  range,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -119,7 +120,7 @@ export function ChartGrid({
   isConnectedToPrevious: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
-  rangeDays: number;
+  range: DashboardRange;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
@@ -163,7 +164,7 @@ export function ChartGrid({
                 index={index}
                 isRefreshing={isRefreshing}
                 key={chart.id}
-                rangeDays={rangeDays}
+                range={range}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -179,7 +180,7 @@ function ChartCard({
   className,
   index,
   isRefreshing,
-  rangeDays,
+  range,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -188,7 +189,7 @@ function ChartCard({
   className?: string;
   index: number;
   isRefreshing: boolean;
-  rangeDays: number;
+  range: DashboardRange;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
@@ -196,7 +197,11 @@ function ChartCard({
   const t = useTranslations("dataDashboard");
   const [selectedPeriodView, setSelectedPeriodView] =
     useState<ChartPeriodView>("daily");
-  const periodViewOptions = getPeriodViewOptions(chart, rangeDays);
+  const locale = useLocale();
+  const periodViewOptions = getPeriodViewOptions(
+    chart,
+    getRangeDayCount(range),
+  );
   // Falls back to daily while the selected view is unavailable (e.g. monthly
   // on a 30D range) and restores it once the option returns.
   const periodView = periodViewOptions.includes(selectedPeriodView)
@@ -218,7 +223,13 @@ function ChartCard({
   const caption = getChartCaption(t, chart, {
     timeframe: getRpcTimeframeOption(rpcTimeframe).label,
   });
-  const periodCaption = getPeriodViewCaption(t, chart, periodView, rangeDays);
+  const periodCaption = getPeriodViewCaption(
+    t,
+    chart,
+    periodView,
+    range,
+    locale,
+  );
   const note = getChartNote(t, chart);
   const resolvedChartHeight =
     chart.visualization === "bar"
