@@ -2,13 +2,23 @@ import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@/config";
 import { WsopPage } from "./wsop-page";
+import { fetchSolutionNews } from "@/lib/media/solution-news";
 
 const WSOP_PATH = "/wsop";
 const WSOP_LOCALE = "en";
 const WSOP_SOCIAL_IMAGE = "/src/img/wsop/paradise/paradise-social.jpg";
 
-export default function Page() {
-  return <WsopPage />;
+export const revalidate = 60;
+
+export default async function Page() {
+  const news = await fetchSolutionNews({
+    tags: ["wsop"],
+    limit: 5,
+    fallbackImage: WSOP_SOCIAL_IMAGE,
+    fallbackImageAspectRatio: "1200 / 630",
+  });
+
+  return <WsopPage news={news} />;
 }
 
 export async function generateMetadata(): Promise<Metadata> {

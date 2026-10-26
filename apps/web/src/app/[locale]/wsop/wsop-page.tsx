@@ -5,6 +5,8 @@ import { useRef } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { Video } from "@/component-library/video";
+import { LatestNews } from "@/components/solutions/latest-news.v2";
+import type { NewsItem } from "@/components/solutions/latest-news.v2";
 import {
   Dialog,
   DialogContent,
@@ -547,7 +549,7 @@ function AppDownloadButtons() {
   );
 }
 
-export function WsopPage() {
+export function WsopPage({ news }: { news: NewsItem[] }) {
   const t = useTranslations("wsop");
   const walletT = useTranslations("wallets.hero");
   const heroRef = useRef<HTMLElement>(null);
@@ -1248,6 +1250,7 @@ export function WsopPage() {
             </div>
           </Reveal>
         </section>
+        <LatestNews title={t("news.title")} items={news} />
       </main>
     </MotionConfig>
   );
