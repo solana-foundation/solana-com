@@ -156,6 +156,11 @@ type PublicCalendarEntry = {
   };
 };
 
+type PublicCalendarData = {
+  calendar?: { api_id?: string };
+  upcoming?: { entries?: PublicCalendarEntry[] };
+};
+
 async function fetchPublicCalendarEvents(
   calendarId: string,
   revalidate: number,
@@ -177,13 +182,15 @@ async function fetchPublicCalendarEvents(
     props?: {
       pageProps?: {
         initialData?: {
-          calendar?: { api_id?: string };
-          upcoming?: { entries?: PublicCalendarEntry[] };
-        };
+          kind?: string;
+          data?: PublicCalendarData;
+        } & PublicCalendarData;
       };
     };
   };
-  const calendar = data.props?.pageProps?.initialData;
+  const initialData = data.props?.pageProps?.initialData;
+  const calendar =
+    initialData?.kind === "calendar" ? initialData.data : initialData;
   if (calendar?.calendar?.api_id !== calendarId) {
     throw new Error("Luma calendar ID did not match");
   }

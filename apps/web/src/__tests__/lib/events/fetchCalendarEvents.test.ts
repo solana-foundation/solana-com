@@ -104,61 +104,69 @@ END:VEVENT`);
     });
   });
 
-  it("loads upcoming events from the public calendar page when iCal is rate limited", async () => {
-    const pageData = {
-      props: {
-        pageProps: {
-          initialData: {
-            calendar: { api_id: "cal-test" },
-            upcoming: {
-              entries: [
-                {
-                  event: {
-                    name: "Solana Meetup",
-                    url: "solana-meetup",
-                    start_at: "2099-11-15T10:00:00Z",
-                    end_at: "2099-11-15T11:00:00Z",
-                    timezone: "Europe/London",
-                    cover_url: "https://images.lumacdn.com/cover.png",
-                    geo_address_info: { city: "London", country: "UK" },
-                  },
-                },
-              ],
+  it.each([false, true])(
+    "loads upcoming events from a public calendar page (wrapped: %s)",
+    async (wrapped) => {
+      const calendarData = {
+        calendar: { api_id: "cal-test" },
+        upcoming: {
+          entries: [
+            {
+              event: {
+                name: "Solana Meetup",
+                url: "solana-meetup",
+                start_at: "2099-11-15T10:00:00Z",
+                end_at: "2099-11-15T11:00:00Z",
+                timezone: "Europe/London",
+                cover_url: "https://images.lumacdn.com/cover.png",
+                geo_address_info: { city: "London", country: "UK" },
+              },
             },
+          ],
+        },
+      };
+      const pageData = {
+        props: {
+          pageProps: {
+            initialData: wrapped
+              ? { kind: "calendar", data: calendarData }
+              : calendarData,
           },
         },
-      },
-    };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response("Too many requests", { status: 429 }))
-      .mockResolvedValueOnce(
-        new Response(
-          `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(pageData)}</script>`,
-        ),
-      );
-    vi.stubGlobal("fetch", fetchMock);
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      };
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response("Too many requests", { status: 429 }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(pageData)}</script>`,
+          ),
+        );
+      vi.stubGlobal("fetch", fetchMock);
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    try {
-      const events = await fetchCalendarEvents("cal-test", {
-        period: "future",
-      });
-      expect(events).toMatchObject([
-        {
-          title: "Solana Meetup",
-          rsvp: "https://luma.com/solana-meetup",
-          img: { primary: "https://images.lumacdn.com/cover.png" },
-          venue: { city: "London" },
-        },
-      ]);
-      expect(fetchMock.mock.calls[1][0]).toBe(
-        "https://luma.com/calendar/cal-test",
-      );
-    } finally {
-      warn.mockRestore();
-    }
-  });
+      try {
+        const events = await fetchCalendarEvents("cal-test", {
+          period: "future",
+        });
+        expect(events).toMatchObject([
+          {
+            title: "Solana Meetup",
+            rsvp: "https://luma.com/solana-meetup",
+            img: { primary: "https://images.lumacdn.com/cover.png" },
+            venue: { city: "London" },
+          },
+        ]);
+        expect(fetchMock.mock.calls[1][0]).toBe(
+          "https://luma.com/calendar/cal-test",
+        );
+      } finally {
+        warn.mockRestore();
+      }
+    },
+  );
 
   it("uses public event metadata for local dates and cover images", async () => {
     const metadata = {
