@@ -1,0 +1,136 @@
+---
+title: Rewards Program
+seoTitle: Solana Rewards Program for Token Vesting and Merkle Distributions
+description:
+  Distribute SPL Token and Token-2022 tokens with vesting schedules, using
+  per-recipient accounts or a merkle root, with optional revocation and
+  clawback.
+---
+
+The Rewards program distributes tokens from a program-owned vault to a set of
+recipients, each on a vesting schedule. An authority funds the vault and defines
+who receives what. Recipients claim their vested tokens over time, and the
+authority can revoke recipients or reclaim leftover tokens when the distribution
+allows it. The program is built with Pinocchio, maintained by the Solana
+Foundation, and works with both SPL Token and Token-2022 mints, except
+Token-2022 mints with the transfer hook extension.
+
+Program ID (mainnet and devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  The program was audited by OtterSec. See
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)
+  for the audited-through commit.
+</Callout>
+
+## Choose a distribution type
+
+The program supports two distribution types. Both use the same vesting schedules
+and revocation modes.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **How it works** | Creates an onchain account per recipient     | Stores a single merkle root onchain; recipients provide proofs to claim  |
+| **Upfront cost** | Payer funds rent for every recipient account | No per-recipient accounts until someone claims                           |
+| **Scale**        | Practical up to low thousands of recipients  | Scales to millions of recipients; storage grows only as recipients claim |
+| **Mutability**   | Recipients can be added after creation       | Recipient set is fixed at creation                                       |
+| **Use it for**   | Small distributions that change over time    | Large, fixed distributions such as airdrops                              |
+
+## Vesting schedules
+
+Each allocation carries one of four schedules. Timestamps are Unix seconds.
+
+| Schedule      | Behavior                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | All tokens are claimable right away                                                                                    |
+| `Linear`      | Tokens unlock proportionally between `startTs` and `endTs`                                                             |
+| `Cliff`       | Nothing unlocks until `cliffTs`, then everything unlocks at once                                                       |
+| `CliffLinear` | Linear vesting from `startTs` to `endTs`, with nothing claimable until `cliffTs`; earlier accrual unlocks at the cliff |
+
+## Accounts
+
+| Account              | PDA seeds                                        | Stores                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Authority, mint, and allocation totals       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | One recipient's allocation and vesting       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Authority, mint, totals, and the merkle root |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Amount claimed so far by one claimant        |
+| `Revocation`         | `["revocation", distribution, user]`             | Marker that blocks a revoked merkle claimant |
+
+The `seed` is the address of an extra signer passed at creation, so one
+authority can run several distributions for the same mint. Each distribution's
+vault is the associated token account of the distribution PDA for its mint.
+
+## Instructions
+
+### Direct distribution
+
+1. The authority calls `CreateDirectDistribution` to create the distribution PDA
+   and its vault.
+2. The authority calls `AddDirectRecipient` once per recipient with an amount
+   and a vesting schedule. Each call transfers that amount from the authority's
+   token account into the vault.
+3. Recipients call `ClaimDirect` to withdraw vested tokens. Pass `amount: 0` to
+   claim everything currently vested.
+4. Once a recipient has claimed everything, or the distribution is closed,
+   `CloseDirectRecipient` closes the recipient account and refunds rent to the
+   account that paid for it.
+5. The authority calls `CloseDirectDistribution` to recover the remaining vault
+   balance and rent. If `clawbackTs` is set, closing is allowed only after that
+   time.
+
+### Merkle distribution
+
+1. The authority builds a merkle tree offchain. Each leaf commits to a claimant,
+   that claimant's total amount, and a vesting schedule.
+2. The authority calls `CreateMerkleDistribution` with the root, the total
+   claimable amount, and a `clawbackTs`, and funds the vault in the same
+   instruction.
+3. Claimants call `ClaimMerkle` with their leaf data and proof. The first claim
+   creates the claimant's `MerkleClaim` account. Pass `amount: 0` to claim
+   everything currently vested.
+4. After `clawbackTs`, the authority calls `CloseMerkleDistribution` to recover
+   the remaining vault balance and rent.
+5. After the distribution is closed, claimants call `CloseMerkleClaim` to
+   recover the rent for their claim account.
+
+The program hashes leaves with Keccak-256 as
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, where
+`totalAmount` is a little-endian `u64` and `schedule` uses the same encoding as
+the instruction's `VestingSchedule` argument. Proof nodes are hashed as sorted
+pairs, smaller hash first.
+
+### Revocation
+
+Revocation is opt-in. The `revocable` bitmask set at creation chooses which
+modes the authority may use: bit 0 enables `NonVested`, bit 1 enables `Full`,
+and `0` disables revocation.
+
+| Mode        | Instruction                                    | Result                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` or `RevokeMerkleClaim` | Vested, unclaimed tokens go to the user; unvested tokens return to the authority |
+| `Full`      | `RevokeDirectRecipient` or `RevokeMerkleClaim` | All unclaimed tokens, vested and unvested, return to the authority               |
+
+Revoking a merkle claimant creates a `Revocation` marker that blocks future
+claims, even if they have never claimed. Revoking a direct recipient closes
+their `DirectRecipient` account and refunds its rent.
+
+## Clients
+
+The repository includes [`@solana/kit`](/docs/clients/official/javascript) and
+Rust clients generated from the program IDL with Codama, in
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+The client isn't published to npm yet. Build it from source with
+`just generate-clients`.
+
+## Resources
+
+- [Source code](https://github.com/solana-foundation/rewards)
+- [OtterSec audit report](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Report an issue](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), tag
+  `rewards-program`
