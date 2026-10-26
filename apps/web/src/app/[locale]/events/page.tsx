@@ -23,8 +23,6 @@ type Props = { params: Promise<{ locale: string }> };
 // Luma responses remain cached to avoid refetching every request.
 export const revalidate = 0;
 
-const EVENTS_REVALIDATE_SECONDS = 1800;
-
 // Private Luma events are not included in the calendar API response.
 const staticEvents: CalendarEvent[] = [
   {
@@ -78,51 +76,27 @@ export default async function Page({ params }: Props) {
   ] = await Promise.all([
     params,
     // Solana Foundation calendar
-    fetchCalendarEvents(
-      "cal-J8WZ4jDbwzD9TWi",
-      {
-        period: "future",
-      },
-      { revalidate: EVENTS_REVALIDATE_SECONDS },
-    ),
+    fetchCalendarEvents("cal-J8WZ4jDbwzD9TWi", {
+      period: "future",
+    }),
     // Breakpoint 2026 calendar (https://luma.com/bp26)
-    fetchCalendarEvents(
-      "cal-vSUPHVSJHqgysCR",
-      {
-        period: "future",
-      },
-      { revalidate: EVENTS_REVALIDATE_SECONDS },
-    ),
+    fetchCalendarEvents("cal-vSUPHVSJHqgysCR", {
+      period: "future",
+    }),
     // Solana Accelerate calendar (https://luma.com/solana-accelerate)
-    fetchCalendarEvents(
-      "cal-78uQDEIMsmrT3GN",
-      {
-        period: "future",
-      },
-      { revalidate: EVENTS_REVALIDATE_SECONDS },
-    ),
+    fetchCalendarEvents("cal-78uQDEIMsmrT3GN", {
+      period: "future",
+    }),
     // Solanamerica calendar
-    fetchCalendarEvents(
-      "cal-TLgSVhf1CeO04x3",
-      {
-        period: "future",
-      },
-      { revalidate: EVENTS_REVALIDATE_SECONDS },
-    ),
+    fetchCalendarEvents("cal-TLgSVhf1CeO04x3", {
+      period: "future",
+    }),
     // Community calendar
-    fetchCalendarEvents(
-      "cal-C0cmhNE8Qz3xF5r",
-      {
-        period: "future",
-      },
-      { revalidate: EVENTS_REVALIDATE_SECONDS },
-    ),
+    fetchCalendarEvents("cal-C0cmhNE8Qz3xF5r", {
+      period: "future",
+    }),
     // Breakpoint 2026 community side events (https://luma.com/BP-SideEvents)
-    fetchCalendarEvents(
-      "cal-NFEDisEmJoSg0TU",
-      { period: "future" },
-      { revalidate: EVENTS_REVALIDATE_SECONDS },
-    ),
+    fetchCalendarEvents("cal-NFEDisEmJoSg0TU", { period: "future" }),
     fetchEventsNews(),
     getTranslations(),
   ]);
