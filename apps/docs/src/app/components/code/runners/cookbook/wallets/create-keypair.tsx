@@ -34,4 +34,3 @@ async function keyPair() {
     );
   }
 }
-
