@@ -239,7 +239,7 @@ export async function fetchCalendarEvents(
   const revalidate =
     requestOptions.revalidate ?? CALENDAR_FEED_REVALIDATE_SECONDS;
 
-  const url = new URL("https://api2.luma.com/ics/get");
+  const url = new URL("https://api.lu.ma/ics/get");
   url.searchParams.set("entity", "calendar");
   url.searchParams.set("id", calendarId);
   let allEvents: CalendarEvent[] = [];

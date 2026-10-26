@@ -80,7 +80,7 @@ END:VEVENT`);
 
     expect(events.map((event) => event.title)).toEqual(["Solana, meetup"]);
     expect(String(fetchMock.mock.calls[0][0])).toBe(
-      "https://api2.luma.com/ics/get?entity=calendar&id=cal-test",
+      "https://api.lu.ma/ics/get?entity=calendar&id=cal-test",
     );
     expect(fetchMock.mock.calls[0][1].next).toEqual({ revalidate: 1800 });
   });
