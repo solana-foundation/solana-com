@@ -58,9 +58,14 @@ export default async function Page() {
     fallbackImageAspectRatio: "1200 / 630",
   });
 
-  const items = news.some((item) => item.link.startsWith("/news/"))
-    ? news
-    : WSOP_NEWS_FALLBACK;
+  const hasPosts = news.some((item) => item.link.startsWith("/news/"));
+  const fallbackPosts = WSOP_NEWS_FALLBACK.filter((item) =>
+    item.link.startsWith("/news/"),
+  );
+  const items =
+    news.length === 0
+      ? WSOP_NEWS_FALLBACK
+      : [...(hasPosts ? [] : fallbackPosts), ...news];
   const postsFirst = [...items].sort(
     (left, right) =>
       Number(right.link.startsWith("/news/")) -
