@@ -36,7 +36,8 @@ export type RpcCopy = {
   directoryBody: string;
   searchLabel: string;
   searchPlaceholder: string;
-  resultCount: string;
+  resultOne: string;
+  resultMany: string;
   noResults: string;
   clear: string;
   visit: string;
@@ -284,7 +285,8 @@ export function RpcPage({ copy }: { copy: RpcCopy }) {
             role="status"
             aria-live="polite"
           >
-            {results.length} {copy.resultCount}
+            {results.length}{" "}
+            {results.length === 1 ? copy.resultOne : copy.resultMany}
           </p>
           {results.length ? (
             <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
