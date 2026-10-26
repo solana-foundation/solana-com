@@ -5,7 +5,20 @@ export const tether = {
   id: "tether",
   slug: "tether",
   name: "Tether",
-  profile: null,
+  profile: {
+    tagline: "Fiat-pegged digital tokens across blockchains.",
+    summary:
+      "Tether issues fiat-pegged digital tokens, including USD₮, on Solana and other blockchain networks.",
+    description:
+      "Tether develops and issues digital tokens designed to track the value of fiat currencies. USD₮ is available on Solana and other supported networks, enabling transfers between compatible wallets and services.",
+    sector: "Payments",
+    type: "Company",
+    links: { website: "https://tether.to/" },
+    socials: {
+      x: "https://x.com/tether",
+      linkedin: "https://www.linkedin.com/company/tether",
+    },
+  },
   defaultLogoId: "breakpoint-2026-white",
   logos: [
     {

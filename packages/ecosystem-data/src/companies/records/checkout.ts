@@ -5,7 +5,20 @@ export const checkout = {
   id: "checkout",
   slug: "checkout",
   name: "Checkout.com",
-  profile: null,
+  profile: {
+    tagline: "Payment processing for digital businesses.",
+    summary:
+      "Checkout.com provides a global payments platform with gateway, acquiring, processing, and fraud prevention services.",
+    description:
+      "Checkout.com helps businesses accept online payments through cards and local payment methods. Its platform combines payment processing, acquiring, and fraud prevention tools across multiple currencies.",
+    sector: "Payments",
+    type: "Company",
+    links: { website: "https://www.checkout.com/" },
+    socials: {
+      x: "https://x.com/checkout",
+      linkedin: "https://www.linkedin.com/company/checkout",
+    },
+  },
   defaultLogoId: "breakpoint-2026-white",
   logos: [
     {

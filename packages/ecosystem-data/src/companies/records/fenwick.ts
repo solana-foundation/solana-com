@@ -5,7 +5,19 @@ export const fenwick = {
   id: "fenwick",
   slug: "fenwick",
   name: "Fenwick",
-  profile: null,
+  profile: {
+    tagline: "Legal counsel for technology and life sciences companies.",
+    summary:
+      "Fenwick is a law firm advising technology and life sciences companies on corporate, intellectual property, litigation, and regulatory matters.",
+    description:
+      "Fenwick works with companies across technology and life sciences. Its practices include corporate transactions, intellectual property, litigation, tax, and regulatory advice for businesses at different stages of growth.",
+    sector: "Policy",
+    type: "Company",
+    links: { website: "https://www.fenwick.com/" },
+    socials: {
+      linkedin: "https://www.linkedin.com/company/fenwick-%26-west/",
+    },
+  },
   defaultLogoId: "breakpoint-2026-white",
   logos: [
     {

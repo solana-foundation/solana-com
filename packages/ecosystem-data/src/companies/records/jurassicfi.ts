@@ -5,7 +5,19 @@ export const jurassicfi = {
   id: "jurassicfi",
   slug: "jurassicfi",
   name: "JurassicFi",
-  profile: null,
+  profile: {
+    tagline: "Tokenized dinosaur fossils on Solana.",
+    summary:
+      "Jurassic Finance structures ownership of authenticated dinosaur fossils through asset-specific entities and Solana tokens.",
+    description:
+      "Jurassic Finance Labs sources and acquires authenticated dinosaur fossils. Each specimen is held through a dedicated legal entity, with related ownership interests represented by transferable SPL tokens on Solana.",
+    sector: "Tokenization",
+    type: "Platform",
+    links: { website: "https://jurassic.finance/" },
+    socials: {
+      x: "https://x.com/JurassicFi",
+    },
+  },
   defaultLogoId: "breakpoint-2026-white",
   logos: [
     {
