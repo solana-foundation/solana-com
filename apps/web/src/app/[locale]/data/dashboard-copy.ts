@@ -86,6 +86,8 @@ export function getValueLabel(t: DashboardTranslator, valueLabel: string) {
       return t("valueLabels.percent");
     case "SOL":
       return t("valueLabels.sol");
+    case "TPS":
+      return t("valueLabels.tps");
     case "USD":
       return t("valueLabels.usd");
     default:
