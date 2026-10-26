@@ -144,6 +144,82 @@ type PublicEventMetadata = {
   };
 };
 
+type PublicCalendarEntry = {
+  event?: {
+    name?: string;
+    url?: string;
+    start_at?: string;
+    end_at?: string;
+    timezone?: string;
+    cover_url?: string;
+    geo_address_info?: CalendarEvent["venue"];
+  };
+};
+
+async function fetchPublicCalendarEvents(
+  calendarId: string,
+  revalidate: number,
+): Promise<CalendarEvent[]> {
+  const response = await fetch(`https://luma.com/calendar/${calendarId}`, {
+    signal: AbortSignal.timeout(10000),
+    next: { revalidate },
+  });
+  if (!response.ok)
+    throw new Error(`Luma calendar returned ${response.status}`);
+
+  const html = await response.text();
+  const match = html.match(
+    /<script[^>]*id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/,
+  );
+  if (!match) throw new Error("Luma calendar data was not found");
+
+  const data = JSON.parse(match[1]) as {
+    props?: {
+      pageProps?: {
+        initialData?: {
+          calendar?: { api_id?: string };
+          upcoming?: { entries?: PublicCalendarEntry[] };
+        };
+      };
+    };
+  };
+  const calendar = data.props?.pageProps?.initialData;
+  if (calendar?.calendar?.api_id !== calendarId) {
+    throw new Error("Luma calendar ID did not match");
+  }
+
+  return (calendar.upcoming?.entries ?? []).flatMap(({ event }) => {
+    if (!event?.name || !event.url || !event.start_at || !event.end_at) {
+      return [];
+    }
+    if (!URL.canParse(event.url, "https://luma.com/")) return [];
+    const url = new URL(event.url, "https://luma.com/");
+    if (url.hostname !== "luma.com" && url.hostname !== "lu.ma") return [];
+    const venue = event.geo_address_info;
+    return [
+      {
+        key: url.href.toLowerCase(),
+        title: event.name,
+        description: event.name,
+        rsvp: url.href,
+        schedule: {
+          from: event.start_at,
+          to: event.end_at,
+          timezone: event.timezone || "UTC",
+        },
+        img: { primary: event.cover_url || null, alt: event.name },
+        venue: {
+          city: venue?.city || null,
+          region: venue?.region || null,
+          city_state: venue?.city_state || null,
+          country: venue?.country || null,
+          address: venue?.address || null,
+        },
+      },
+    ];
+  });
+}
+
 async function enrichEvent(
   event: CalendarEvent,
   revalidate?: number,
@@ -250,20 +326,12 @@ export async function fetchCalendarEvents(
       next: { revalidate },
     });
     if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
-    const ical = await response.text();
-    if (process.env.VERCEL_ENV === "preview") {
-      console.info("Luma iCal diagnostic", {
-        calendarId,
-        status: response.status,
-        bytes: ical.length,
-        parsed: parseIcalEvents(ical).length,
-      });
-    }
     const now = Date.now();
-    const periodEvents = parseIcalEvents(ical).filter((event) =>
-      options.period === "past"
-        ? !isUpcomingEvent(event, now)
-        : isUpcomingEvent(event, now),
+    const periodEvents = parseIcalEvents(await response.text()).filter(
+      (event) =>
+        options.period === "past"
+          ? !isUpcomingEvent(event, now)
+          : isUpcomingEvent(event, now),
     );
     if (options.period === "past") {
       periodEvents.sort(
@@ -280,6 +348,13 @@ export async function fetchCalendarEvents(
     );
   } catch (error) {
     console.warn("Luma iCal request failed:", error);
+    if (options.period !== "past") {
+      try {
+        allEvents = await fetchPublicCalendarEvents(calendarId, revalidate);
+      } catch (fallbackError) {
+        console.warn("Luma calendar page request failed:", fallbackError);
+      }
+    }
   }
 
   // Append static signup form events before overrides so they can be customized here too
