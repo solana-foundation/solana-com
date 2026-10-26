@@ -250,12 +250,20 @@ export async function fetchCalendarEvents(
       next: { revalidate },
     });
     if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
+    const ical = await response.text();
+    if (process.env.VERCEL_ENV === "preview") {
+      console.info("Luma iCal diagnostic", {
+        calendarId,
+        status: response.status,
+        bytes: ical.length,
+        parsed: parseIcalEvents(ical).length,
+      });
+    }
     const now = Date.now();
-    const periodEvents = parseIcalEvents(await response.text()).filter(
-      (event) =>
-        options.period === "past"
-          ? !isUpcomingEvent(event, now)
-          : isUpcomingEvent(event, now),
+    const periodEvents = parseIcalEvents(ical).filter((event) =>
+      options.period === "past"
+        ? !isUpcomingEvent(event, now)
+        : isUpcomingEvent(event, now),
     );
     if (options.period === "past") {
       periodEvents.sort(
