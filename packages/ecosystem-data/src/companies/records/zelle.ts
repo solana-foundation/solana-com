@@ -21,7 +21,6 @@ export const zelle = {
     links: { website: "https://www.zelle.com/" },
     socials: {
       x: "https://x.com/zelle",
-      linkedin: "https://www.linkedin.com/showcase/zelle/",
     },
   },
   defaultLogoId: "logo-color",

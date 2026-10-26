@@ -22,10 +22,10 @@ export const raydium = {
       docs: "https://docs.raydium.io/",
     },
     socials: {
-      x: "https://x.com/RaydiumProtocol",
+      x: "https://x.com/Raydium",
       discord: "https://discord.gg/raydium",
       github: "https://github.com/raydium-io",
-      medium: "https://medium.com/@raydium",
+      medium: "https://raydium.medium.com/",
     },
   },
   defaultLogoId: "logo-dark",

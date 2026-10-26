@@ -19,9 +19,9 @@ export const kilpatrickTownsend = {
       website: "https://ktslaw.com/",
     },
     socials: {
-      x: "https://twitter.com/KTS_Law",
+      x: "https://x.com/KTS_Law",
       linkedin:
-        "https://www.linkedin.com/company/kilpatrick-townsend-&-stockton-llp/",
+        "https://www.linkedin.com/company/kilpatrick-townsend-stockton-llp",
     },
   },
   defaultLogoId: "logo-color",
