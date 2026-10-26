@@ -308,7 +308,7 @@ async function enrichEvents(
 /** Read a supported public iCal subscription, with the public calendar page as a fallback. */
 async function fetchCalendarSourceEvents(
   calendarId: string,
-): Promise<CalendarEvent[]> {
+): Promise<{ events: CalendarEvent[]; source: "ical" | "page" }> {
   const url = new URL("https://api.lu.ma/ics/get");
   url.searchParams.set("entity", "calendar");
   url.searchParams.set("id", calendarId);
@@ -319,26 +319,26 @@ async function fetchCalendarSourceEvents(
       cache: "no-store",
     });
     if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
-    return enrichEvents(
-      parseIcalEvents(await response.text()),
-      CALENDAR_EVENTS_REVALIDATE_SECONDS,
-    );
+    return { events: parseIcalEvents(await response.text()), source: "ical" };
   } catch (error) {
     console.warn(`Luma iCal request failed for ${calendarId}:`, error);
     try {
-      return await fetchPublicCalendarEvents(calendarId);
+      return {
+        events: await fetchPublicCalendarEvents(calendarId),
+        source: "page",
+      };
     } catch (fallbackError) {
       console.warn(
         `Luma calendar page request failed for ${calendarId}:`,
         fallbackError,
       );
-      return [];
+      throw fallbackError;
     }
   }
 }
 
 const getCachedCalendarSourceEvents = cache(
-  unstable_cache(fetchCalendarSourceEvents, ["luma-calendar-source-v1"], {
+  unstable_cache(fetchCalendarSourceEvents, ["luma-calendar-source-v2"], {
     revalidate: CALENDAR_EVENTS_REVALIDATE_SECONDS,
   }),
 );
@@ -349,9 +349,14 @@ export async function fetchCalendarEvents(
 ): Promise<CalendarEvent[]> {
   if (!calendarId.startsWith("cal-")) return [];
 
-  const sourceEvents = await getCachedCalendarSourceEvents(calendarId);
+  let source: Awaited<ReturnType<typeof fetchCalendarSourceEvents>>;
+  try {
+    source = await getCachedCalendarSourceEvents(calendarId);
+  } catch {
+    return [];
+  }
   const now = Date.now();
-  let allEvents = sourceEvents
+  let allEvents = source.events
     .filter((event) =>
       options.period === "past"
         ? !isUpcomingEvent(event, now)
@@ -372,6 +377,17 @@ export async function fetchCalendarEvents(
     if (Number.isFinite(limit) && limit > 0) {
       allEvents = allEvents.slice(0, limit);
     }
+  }
+  if (source.source === "ical") {
+    allEvents = await enrichEvents(
+      allEvents,
+      CALENDAR_EVENTS_REVALIDATE_SECONDS,
+    );
+    allEvents = allEvents.filter((event) =>
+      options.period === "past"
+        ? !isUpcomingEvent(event)
+        : isUpcomingEvent(event),
+    );
   }
 
   // Append static signup form events before overrides so they can be customized here too

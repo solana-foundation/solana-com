@@ -1,6 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+const cacheStore = vi.hoisted(() => new Map<string, Promise<unknown>>());
 vi.mock("next/cache", () => ({
-  unstable_cache: (fn: (...args: never[]) => unknown) => fn,
+  unstable_cache:
+    (fn: (...args: unknown[]) => Promise<unknown>) =>
+    (...args: unknown[]) => {
+      const key = JSON.stringify(args);
+      let result = cacheStore.get(key);
+      if (!result) {
+        result = fn(...args).catch((error: unknown) => {
+          cacheStore.delete(key);
+          throw error;
+        });
+        cacheStore.set(key, result);
+      }
+      return result;
+    },
 }));
 import {
   CALENDAR_EVENTS_REVALIDATE_SECONDS,
@@ -31,6 +45,7 @@ END:VCALENDAR`;
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  cacheStore.clear();
 });
 
 describe("events calendar", () => {
@@ -99,6 +114,50 @@ END:VEVENT`);
     expect(fetchMock.mock.calls[1][1].next).toEqual({
       revalidate: CALENDAR_EVENTS_REVALIDATE_SECONDS,
     });
+  });
+
+  it("reuses one calendar feed for past and future listings", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(feed))
+      .mockResolvedValue(new Response("<html></html>"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchCalendarEvents("cal-test", { period: "future" });
+    await fetchCalendarEvents("cal-test", { period: "past" });
+
+    expect(
+      fetchMock.mock.calls.filter(([url]) => String(url).includes("/ics/get")),
+    ).toHaveLength(1);
+  });
+
+  it("retries a calendar after both live sources fail", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("rate limited", { status: 429 }))
+      .mockResolvedValueOnce(new Response("unavailable", { status: 503 }))
+      .mockResolvedValueOnce(new Response(feed))
+      .mockResolvedValueOnce(new Response("<html></html>"));
+    vi.stubGlobal("fetch", fetchMock);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      expect(
+        await fetchCalendarEvents("cal-test", { period: "future" }),
+      ).toEqual([]);
+      expect(
+        (await fetchCalendarEvents("cal-test", { period: "future" })).map(
+          (event) => event.title,
+        ),
+      ).toEqual(["Solana, meetup"]);
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).includes("/ics/get"),
+        ),
+      ).toHaveLength(2);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it.each([false, true])(
@@ -176,7 +235,6 @@ END:VEVENT`);
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response(feed))
-      .mockResolvedValueOnce(new Response("<html></html>"))
       .mockResolvedValueOnce(
         new Response(
           `<script type="application/ld+json">${JSON.stringify(metadata)}</script>`,
@@ -194,7 +252,7 @@ END:VEVENT`);
       },
       img: { primary: "https://images.lumacdn.com/cover.png" },
     });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("does not fetch an unsupported event group as a calendar", async () => {
