@@ -9,70 +9,26 @@ const WSOP_PATH = "/wsop";
 const WSOP_LOCALE = "en";
 const WSOP_SOCIAL_IMAGE = "/src/img/wsop/paradise/paradise-social.jpg";
 // Protected media previews cannot be fetched from the web preview server.
-// Keep the currently published WSOP records visible until the tagged API responds.
-const WSOP_NEWS_FALLBACK: NewsItem[] = [
-  {
-    id: "wsop-august-roundup",
-    title: "Solana Ecosystem Roundup: August 2026",
-    date: "2026-09-04T04:18:00.000Z",
-    link: "/news/solana-ecosystem-roundup-august-2026",
-  },
-  {
-    id: "wsop-july-roundup",
-    title: "Solana Ecosystem Roundup: July 2026",
-    date: "2026-08-05T09:33:00.000Z",
-    link: "/news/solana-ecosystem-roundup-july-2026",
-  },
-  {
-    id: "wsop-june-roundup",
-    title: "Solana Ecosystem Roundup: June 2026",
-    date: "2026-07-06T06:00:00.000Z",
-    link: "/news/solana-ecosystem-roundup-june-2026",
-  },
-  {
-    id: "wsop-announcement",
-    title: "World Series of Poker, Dealt by Solana",
-    date: "2026-06-10T12:50:00.000Z",
-    link: "/news/world-series-of-poker",
-  },
-  {
-    id: "wsop-presenting-sponsor",
-    title:
-      "Solana is the official Presenting Sponsor of the 2026 WSOP and WSOP Paradise",
-    date: "2026-06-16T06:47:00.000Z",
-    link: "https://x.com/WSOP/status/2064695861901398228",
-  },
-].map((item) => ({
-  ...item,
+// Keep the WSOP post visible until the tagged posts API responds.
+const WSOP_POST_FALLBACK: NewsItem = {
+  id: "wsop-announcement",
+  title: "World Series of Poker, Dealt by Solana",
+  date: "2026-06-10T12:50:00.000Z",
+  link: "/news/world-series-of-poker",
   image: WSOP_SOCIAL_IMAGE,
   imageAspectRatio: "1200 / 630",
-}));
+};
 
 export const revalidate = 60;
 
 export default async function Page() {
   const news = await fetchSolutionNews({
     tags: ["wsop"],
-    limit: 9,
-    fallbackImage: WSOP_SOCIAL_IMAGE,
-    fallbackImageAspectRatio: "1200 / 630",
+    limit: 4,
+    includeLinks: false,
   });
 
-  const hasPosts = news.some((item) => item.link.startsWith("/news/"));
-  const fallbackPosts = WSOP_NEWS_FALLBACK.filter((item) =>
-    item.link.startsWith("/news/"),
-  );
-  const items =
-    news.length === 0
-      ? WSOP_NEWS_FALLBACK
-      : [...(hasPosts ? [] : fallbackPosts), ...news];
-  const postsFirst = [...items].sort(
-    (left, right) =>
-      Number(right.link.startsWith("/news/")) -
-      Number(left.link.startsWith("/news/")),
-  );
-
-  return <WsopPage news={postsFirst.slice(0, 5)} />;
+  return <WsopPage news={news.length > 0 ? news : [WSOP_POST_FALLBACK]} />;
 }
 
 export async function generateMetadata(): Promise<Metadata> {
