@@ -13,13 +13,17 @@ import {
 import {
   type CalendarEvent,
   fetchCalendarEvents,
+  isUpcomingEvent,
 } from "@/lib/events/fetchCalendarEvents";
+import { fetchEventsNews } from "@/lib/media/events-news";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 86400;
+// Rebuild the listing on each request so an event disappears when it ends.
+// Luma responses remain cached to avoid refetching every request.
+export const revalidate = 0;
 
-const EVENTS_REVALIDATE_SECONDS = revalidate;
+const EVENTS_REVALIDATE_SECONDS = 1800;
 
 // Private Luma events are not included in the calendar API response.
 const staticEvents: CalendarEvent[] = [
@@ -48,16 +52,6 @@ const staticEvents: CalendarEvent[] = [
   },
 ];
 
-const upcomingStaticEvents = () => {
-  const now = Date.now();
-
-  return staticEvents.filter((event) => {
-    const endTime = event.schedule.to || event.schedule.from;
-
-    return endTime ? new Date(endTime).getTime() >= now : true;
-  });
-};
-
 const sortByStartDate = (events: CalendarEvent[]) =>
   orderBy(
     events,
@@ -78,6 +72,8 @@ export default async function Page({ params }: Props) {
     solanaAccelerateEvents,
     usEvents,
     communityEvents,
+    breakpointSideEvents,
+    newsPosts,
     t,
   ] = await Promise.all([
     params,
@@ -91,7 +87,7 @@ export default async function Page({ params }: Props) {
     ),
     // Breakpoint 2026 calendar (https://luma.com/bp26)
     fetchCalendarEvents(
-      "evgrp-f8F1bDAHhBNDM1f",
+      "cal-vSUPHVSJHqgysCR",
       {
         period: "future",
       },
@@ -121,20 +117,41 @@ export default async function Page({ params }: Props) {
       },
       { revalidate: EVENTS_REVALIDATE_SECONDS },
     ),
+    // Breakpoint 2026 community side events (https://luma.com/BP-SideEvents)
+    fetchCalendarEvents(
+      "cal-NFEDisEmJoSg0TU",
+      { period: "future" },
+      { revalidate: EVENTS_REVALIDATE_SECONDS },
+    ),
+    fetchEventsNews(),
     getTranslations(),
   ]);
 
+  const now = Date.now();
   // sorted and unique main events
-  const sorted = sortByStartDate([
-    ...upcomingStaticEvents(),
-    ...mainEvents,
-    ...breakpointEvents,
-    ...solanaAccelerateEvents,
-  ]);
+  const sorted = sortByStartDate(
+    [
+      ...staticEvents,
+      ...mainEvents,
+      ...breakpointEvents,
+      ...solanaAccelerateEvents,
+    ].filter((event) => isUpcomingEvent(event, now)),
+  );
   const unique = uniqBy(sorted, "key");
+  const mainEventKeys = new Set(unique.map((event) => event.key));
 
   // sorted community events
-  const sortedCommunity = uniqBy(sortByStartDate(communityEvents), "key");
+  const sortedCommunity = uniqBy(
+    sortByStartDate(
+      [...communityEvents, ...breakpointSideEvents].filter(
+        (event) => isUpcomingEvent(event, now) && !mainEventKeys.has(event.key),
+      ),
+    ),
+    "key",
+  );
+  const upcomingUsEvents = usEvents.filter((event) =>
+    isUpcomingEvent(event, now),
+  );
 
   // Set featured event: prefer explicitly marked featured, else first by date
   const featuredEvent =
@@ -144,7 +161,7 @@ export default async function Page({ params }: Props) {
   const seoTitle = t("events.meta.seoTitle");
   const seoDescription = t("events.meta.seoDescription");
   const structuredData = buildEventsJsonLd({
-    events: uniqBy([...events, ...usEvents, ...sortedCommunity], "key"),
+    events: uniqBy([...events, ...upcomingUsEvents, ...sortedCommunity], "key"),
     locale,
     title: seoTitle,
     description: seoDescription,
@@ -169,7 +186,8 @@ export default async function Page({ params }: Props) {
         events={events}
         communityEvents={sortedCommunity}
         featuredEvent={featuredEvent}
-        usEvents={usEvents}
+        usEvents={upcomingUsEvents}
+        newsPosts={newsPosts}
         translations={translations}
       />
     </>

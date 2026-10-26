@@ -1,29 +1,5 @@
-import slugify from "@sindresorhus/slugify";
-import { isExternalLink } from "../utils/isExternalLink";
 import breakpointImg from "@@/assets/events/breakpoint.jpg";
 import shipordieImg from "@@/assets/events/shipordie.jpg";
-import solanaEventImg from "@@/assets/events/solana-event.jpg";
-
-export type LumaEvent = {
-  event: {
-    api_id: string;
-    name: string;
-    url: string;
-    start_at: string;
-    end_at: string;
-    timezone: string;
-    geo_address_info: {
-      city: string | null;
-      region: string | null;
-      city_state: string | null;
-      country: string | null;
-      address: string | null;
-    };
-    cover_url: string | null;
-    event_type: string;
-  };
-  platform?: string;
-};
 
 export type CalendarEvent = {
   key: string;
@@ -57,160 +33,243 @@ type FetchCalendarEventsRequestOptions = {
   revalidate?: number;
 };
 
-const dummyEvent = [
-  {
-    key: "dummy-event",
-    title: "Event example",
-    description: "This is a dummy event description.",
-    platform: "Zoom",
-    rsvp: "https://solana.com",
-    schedule: {
-      from: "2024-06-01T10:00:00Z",
-      to: "2024-06-03T10:00:00Z",
-      timezone: "UTC",
-    },
-    img: {
-      primary: solanaEventImg.src,
-      alt: "Dummy Event",
-    },
-    venue: {
-      city: "Dummy City",
-      region: "Dummy Region",
-      city_state: "Dummy City, Dummy Region",
-      country: "Dummy Country",
-      address: "123 Dummy St",
-    },
-  },
-];
+export function isUpcomingEvent(
+  event: CalendarEvent,
+  now = Date.now(),
+): boolean {
+  const endTime = event.schedule.to || event.schedule.from;
+  if (!endTime) return false;
+  const endTimestamp = Date.parse(endTime);
+  return Number.isFinite(endTimestamp) && endTimestamp > now;
+}
 
 /** Static signup form events (e.g. link-in-bio) shown on the events calendar */
 const signupFormEvents: CalendarEvent[] = [];
 
-/**
- *
- * @param {string} calendarId The calendar ID to fetch events from.
- * @param {object} options Options for the query.
- * @returns {Promise<Array>} An array of events.
- */
+function parseIcalDate(value: string): string | null {
+  const match = value.match(
+    /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})Z)?$/,
+  );
+  if (!match) return null;
+  const [, year, month, day, hour = "00", minute = "00", second = "00"] = match;
+  const iso = `${year}-${month}-${day}T${hour}:${minute}:${second}Z`;
+  return Number.isFinite(Date.parse(iso)) ? iso : null;
+}
+
+function unescapeIcalText(value: string): string {
+  return value.replace(/\\([nN,;\\])/g, (_, escaped: string) =>
+    escaped.toLowerCase() === "n" ? "\n" : escaped,
+  );
+}
+
+export function parseIcalEvents(ical: string): CalendarEvent[] {
+  // RFC 5545 folds long lines by adding a space or tab to the next line.
+  const lines = ical.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
+  const events: CalendarEvent[] = [];
+  let fields: Record<string, string> | null = null;
+
+  for (const line of lines) {
+    if (line === "BEGIN:VEVENT") {
+      fields = {};
+      continue;
+    }
+    if (line === "END:VEVENT") {
+      if (fields && fields.STATUS !== "CANCELLED") {
+        const from = parseIcalDate(fields.DTSTART ?? "");
+        const rawEnd = parseIcalDate(fields.DTEND ?? "");
+        // RFC 5545 DTEND for all-day events is exclusive. Show the final day
+        // while keeping the event visible until that day's midnight.
+        const to =
+          rawEnd && fields.DTEND_ALL_DAY
+            ? new Date(Date.parse(rawEnd) - 1).toISOString()
+            : rawEnd;
+        const title = unescapeIcalText(fields.SUMMARY ?? "");
+        const eventId = fields.UID?.split("@")[0];
+        const description = unescapeIcalText(fields.DESCRIPTION ?? "");
+        const url =
+          fields.URL ||
+          description.match(/https:\/\/luma\.com\/[^\s]+/)?.[0] ||
+          (eventId ? `https://luma.com/event/${eventId}` : "");
+        const location = unescapeIcalText(fields.LOCATION ?? "");
+
+        if (from && to && title && url) {
+          events.push({
+            key: url.toLowerCase(),
+            title,
+            description: title,
+            rsvp: url,
+            schedule: { from, to, timezone: "UTC" },
+            img: { primary: null, alt: title },
+            venue: {
+              city: null,
+              region: null,
+              city_state: null,
+              country: null,
+              address: location.startsWith("http") ? null : location || null,
+            },
+          });
+        }
+      }
+      fields = null;
+      continue;
+    }
+    if (!fields) continue;
+    const colon = line.indexOf(":");
+    if (colon < 0) continue;
+    const name = line.slice(0, colon).split(";")[0];
+    fields[name] = line.slice(colon + 1);
+    if (name === "DTEND" && line.slice(0, colon).includes("VALUE=DATE")) {
+      fields.DTEND_ALL_DAY = "true";
+    }
+  }
+  return events;
+}
+
+type PublicEventMetadata = {
+  "@type"?: string;
+  "@id"?: string;
+  startDate?: string;
+  endDate?: string;
+  image?: string | string[];
+  location?: {
+    address?: {
+      streetAddress?: string;
+      addressLocality?: string;
+      addressRegion?: string;
+      addressCountry?: string;
+    };
+  };
+};
+
+async function enrichEvent(
+  event: CalendarEvent,
+  revalidate?: number,
+  timeoutMs = 6000,
+): Promise<CalendarEvent> {
+  try {
+    const eventUrl = new URL(event.rsvp);
+    if (eventUrl.hostname !== "luma.com") return event;
+    const response = await fetch(eventUrl, {
+      signal: AbortSignal.timeout(timeoutMs),
+      next: revalidate === undefined ? undefined : { revalidate },
+    });
+    if (!response.ok) return event;
+    const html = await response.text();
+    const match = html.match(
+      /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/,
+    );
+    if (!match) return event;
+    const data = JSON.parse(match[1]) as PublicEventMetadata;
+    if (
+      data["@type"] !== "Event" ||
+      !data["@id"] ||
+      new URL(data["@id"]).pathname !== eventUrl.pathname
+    ) {
+      return event;
+    }
+    const image = Array.isArray(data.image) ? data.image[0] : data.image;
+    const offset = data.startDate?.match(/([+-]\d{2}:\d{2}|Z)$/)?.[1];
+    const address = data.location?.address;
+    return {
+      ...event,
+      schedule: {
+        from:
+          data.startDate && Number.isFinite(Date.parse(data.startDate))
+            ? data.startDate
+            : event.schedule.from,
+        to:
+          data.endDate && Number.isFinite(Date.parse(data.endDate))
+            ? data.endDate
+            : event.schedule.to,
+        timezone: offset === "Z" ? "UTC" : offset || event.schedule.timezone,
+      },
+      img: { ...event.img, primary: image || event.img.primary },
+      venue: {
+        ...event.venue,
+        city: address?.addressLocality || event.venue.city,
+        region: address?.addressRegion || event.venue.region,
+        country: address?.addressCountry || event.venue.country,
+        address: address?.streetAddress || event.venue.address,
+      },
+    };
+  } catch {
+    return event;
+  }
+}
+
+async function enrichEvents(
+  events: CalendarEvent[],
+  revalidate?: number,
+): Promise<CalendarEvent[]> {
+  const enriched: CalendarEvent[] = [];
+  const deadline = Date.now() + 7000;
+  for (let i = 0; i < events.length; i += 12) {
+    const remainingMs = deadline - Date.now();
+    if (remainingMs < 500) {
+      enriched.push(...events.slice(i));
+      break;
+    }
+    enriched.push(
+      ...(await Promise.all(
+        events
+          .slice(i, i + 12)
+          .map((event) =>
+            enrichEvent(event, revalidate, Math.min(6000, remainingMs)),
+          ),
+      )),
+    );
+  }
+  return enriched;
+}
+
+/** Fetch the calendar's published iCal subscription feed. */
 export async function fetchCalendarEvents(
   calendarId: string,
   options: Record<string, string | number>,
   requestOptions: FetchCalendarEventsRequestOptions = {},
 ): Promise<CalendarEvent[]> {
-  if (!process.env.LUMA_PRIVATE_API_KEY) {
-    console.warn("LUMA_PRIVATE_API_KEY is not set. Returning dummy data.");
-    return dummyEvent;
-  }
+  // iCal subscriptions are Luma's supported public interface for calendars.
+  // The current Doppler key is for a legacy API and is rejected by the
+  // documented, calendar-scoped JSON API.
+  if (!calendarId.startsWith("cal-")) return [];
 
+  const url = new URL("https://api2.luma.com/ics/get");
+  url.searchParams.set("entity", "calendar");
+  url.searchParams.set("id", calendarId);
   let allEvents: CalendarEvent[] = [];
-
-  const getCalendarEventsUrl = new URL("https://api.lu.ma/calendar/get-items");
-
-  const query = {
-    calendar_api_id: calendarId,
-    series_mode: "sessions",
-    ...options,
-  };
-
-  getCalendarEventsUrl.search = new URLSearchParams(query).toString();
-
-  let res: Response;
   try {
-    // Add timeout to prevent hanging during build
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-
-    res = await fetch(getCalendarEventsUrl, {
-      method: "GET",
-      headers: {
-        accept: "application/json",
-        "x-luma-api-key": process.env.LUMA_PRIVATE_API_KEY,
-      },
-      signal: controller.signal,
+    const response = await fetch(url, {
+      headers: { accept: "text/calendar" },
+      signal: AbortSignal.timeout(10000),
       next:
         requestOptions.revalidate === undefined
           ? undefined
           : { revalidate: requestOptions.revalidate },
     });
-
-    clearTimeout(timeoutId);
-  } catch (error: unknown) {
-    // Handle network errors, timeouts, and other fetch failures
-    const err = error as { name?: string; code?: string; message?: string };
-    if (err.name === "AbortError" || err.code === "ETIMEDOUT") {
-      console.warn("LUMA API request timed out. Returning empty array.");
-    } else {
-      console.warn("LUMA API request failed:", err.message || error);
+    if (!response.ok) throw new Error(`Luma iCal returned ${response.status}`);
+    const now = Date.now();
+    const periodEvents = parseIcalEvents(await response.text()).filter(
+      (event) =>
+        options.period === "past"
+          ? !isUpcomingEvent(event, now)
+          : isUpcomingEvent(event, now),
+    );
+    if (options.period === "past") {
+      periodEvents.sort(
+        (a, b) =>
+          Date.parse(b.schedule.from ?? "") - Date.parse(a.schedule.from ?? ""),
+      );
     }
-    return [];
-  }
-
-  if (!res.ok) {
-    console.warn(`LUMA API returned status ${res.status}`);
-    return [];
-  }
-
-  let events: LumaEvent[] = [];
-
-  try {
-    const data = await res.json();
-    events = data.entries;
+    const limit = Number(options.pagination_limit);
+    allEvents = await enrichEvents(
+      options.period === "past" && Number.isFinite(limit) && limit > 0
+        ? periodEvents.slice(0, limit)
+        : periodEvents,
+      requestOptions.revalidate,
+    );
   } catch (error) {
-    console.warn("Failed to parse LUMA API response:", error);
-    return [];
+    console.warn("Luma iCal request failed:", error);
   }
-
-  if (!events) {
-    return allEvents;
-  }
-
-  allEvents = allEvents.concat(
-    events.map((el) => {
-      const {
-        name,
-        api_id,
-        url,
-        start_at,
-        end_at,
-        timezone,
-        geo_address_info,
-        cover_url,
-        event_type,
-      } = el.event;
-      const startDate = start_at ?? null;
-      const endDate = end_at ?? null;
-      const platform = el.platform;
-
-      const slug =
-        event_type === "session"
-          ? `${slugify(name, { separator: "" })}?id=${api_id}`
-          : `${url.toLowerCase()}`;
-
-      return {
-        key: slug,
-        title: name,
-        description: name,
-        platform: platform,
-        rsvp: isExternalLink(url) ? url : `https://lu.ma/${url}`,
-        schedule: {
-          from: startDate,
-          to: endDate,
-          timezone,
-        },
-        img: {
-          primary: cover_url || null,
-          alt: name || null,
-        },
-        venue: {
-          city: geo_address_info?.city || null,
-          region: geo_address_info?.region || null,
-          city_state: geo_address_info?.city_state || null,
-          country: geo_address_info?.country || null,
-          address: geo_address_info?.address || null,
-        },
-      };
-    }),
-  );
 
   // Append static signup form events before overrides so they can be customized here too
   allEvents = allEvents.concat(signupFormEvents);
