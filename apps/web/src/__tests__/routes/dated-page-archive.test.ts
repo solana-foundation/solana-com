@@ -9,6 +9,9 @@ import { generateMetadata as epoch1000CardMetadata } from "@/app/[locale]/epoch1
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
+vi.mock("@workspace/i18n/server", () => ({
+  getTranslations: async () => (key: string) => key,
+}));
 vi.mock("@/app/[locale]/2023outlook/outlook-2023", () => ({
   Outlook2023Page: () => null,
 }));

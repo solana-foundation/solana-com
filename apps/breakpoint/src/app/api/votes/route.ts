@@ -211,7 +211,7 @@ export async function POST(request: NextRequest) {
         "finalists_unavailable",
         "Finalists are not available yet.",
       );
-    if (await enforceVotingRateLimit(request))
+    if (await enforceVotingRateLimit(request, ballotId))
       return failure(
         "POST",
         429,
