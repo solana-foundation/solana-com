@@ -9,7 +9,7 @@ export const revalidate = 60;
 export default async function Page({ params }: Props) {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "rpc" });
-  return <RpcPage copy={t.raw("directory") as RpcCopy} />;
+  return <RpcPage copy={t.raw("directory") as RpcCopy} locale={locale} />;
 }
 
 export async function generateMetadata({ params }: Props) {

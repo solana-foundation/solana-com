@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link } from "@solana-com/ui-chrome/link";
 import { RPC_PROVIDERS } from "./providers";
-import { parseRpcQuery, searchRpcProviders } from "./directory-state";
+import {
+  localizeRpcHref,
+  parseRpcQuery,
+  searchRpcProviders,
+} from "./directory-state";
 
 export type RpcCopy = {
   eyebrow: string;
@@ -32,6 +35,8 @@ export type RpcCopy = {
   testnet: string;
   copy: string;
   copied: string;
+  copyFailed: string;
+  copyManually: string;
   directoryTitle: string;
   directoryBody: string;
   searchLabel: string;
@@ -61,12 +66,15 @@ const endpoints = [
   { id: "devnet", url: "https://api.devnet.solana.com" },
   { id: "testnet", url: "https://api.testnet.solana.com" },
 ] as const;
+type EndpointId = (typeof endpoints)[number]["id"];
 const focus =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#14F195]";
 
-export function RpcPage({ copy }: { copy: RpcCopy }) {
+export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
   const [query, setQuery] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<EndpointId | null>(null);
+  const [copyAnnouncement, setCopyAnnouncement] = useState("");
 
   useEffect(() => {
     const sync = () =>
@@ -84,12 +92,18 @@ export function RpcPage({ copy }: { copy: RpcCopy }) {
     else url.searchParams.delete("q");
     window.history.replaceState(window.history.state, "", url);
   };
-  const copyEndpoint = async (id: string, url: string) => {
+  const copyEndpoint = async (id: EndpointId, url: string) => {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(id);
+      setCopyError(null);
+      setCopyAnnouncement(`${copy.copied}: ${copy[id]}`);
     } catch {
       setCopied(null);
+      setCopyError(id);
+      setCopyAnnouncement(
+        `${copy.copyFailed}: ${copy[id]}. ${copy.copyManually}`,
+      );
     }
   };
 
@@ -117,12 +131,12 @@ export function RpcPage({ copy }: { copy: RpcCopy }) {
             >
               {copy.compare}
             </a>
-            <Link
-              href="/docs/rpc/providers"
+            <a
+              href={localizeRpcHref("/docs/rpc/providers", locale)}
               className={`rounded-full border border-white/40 px-6 py-3 font-semibold text-white hover:border-white ${focus}`}
             >
               {copy.guide} ↗
-            </Link>
+            </a>
           </div>
           <div
             className="mt-16 flex max-w-3xl flex-wrap items-center gap-3 font-mono text-xs text-white/65"
@@ -181,7 +195,7 @@ export function RpcPage({ copy }: { copy: RpcCopy }) {
                   {path.body}
                 </p>
                 <a
-                  href={path.href}
+                  href={localizeRpcHref(path.href, locale)}
                   className={`mt-auto pt-8 font-semibold text-[#14F195] hover:underline ${focus}`}
                 >
                   {path.action} →
@@ -221,19 +235,27 @@ export function RpcPage({ copy }: { copy: RpcCopy }) {
                   type="button"
                   onClick={() => copyEndpoint(id, url)}
                   className={`rounded-full border border-white/30 px-4 py-2 text-sm hover:border-[#14F195] ${focus}`}
-                  aria-label={`${copy.copy} ${copy[id]}`}
+                  aria-label={`${copied === id ? copy.copied : copy.copy} ${copy[id]}`}
                 >
                   {copied === id ? copy.copied : copy.copy}
                 </button>
               </div>
             ))}
           </div>
-          <Link
-            href="/docs/references/clusters"
+          <p className="sr-only" role="status" aria-live="polite">
+            {copyAnnouncement}
+          </p>
+          {copyError && (
+            <p className="mt-4 text-sm text-white/80">
+              {copy.copyFailed}: {copy[copyError]}. {copy.copyManually}
+            </p>
+          )}
+          <a
+            href={localizeRpcHref("/docs/references/clusters", locale)}
             className={`mt-6 inline-block text-[#14F195] hover:underline ${focus}`}
           >
             {copy.publicAction} →
-          </Link>
+          </a>
         </div>
       </section>
 
@@ -358,24 +380,24 @@ export function RpcPage({ copy }: { copy: RpcCopy }) {
             ))}
           </div>
           <div className="flex flex-wrap gap-x-7 gap-y-3 lg:col-start-2">
-            <Link
-              href="/docs/rpc/providers"
+            <a
+              href={localizeRpcHref("/docs/rpc/providers", locale)}
               className={`text-[#14F195] hover:underline ${focus}`}
             >
               {copy.guide} →
-            </Link>
-            <Link
-              href="/docs/rpc"
+            </a>
+            <a
+              href={localizeRpcHref("/docs/rpc", locale)}
               className={`text-[#14F195] hover:underline ${focus}`}
             >
               {copy.reference} →
-            </Link>
-            <Link
-              href="/docs/tools/production-readiness"
+            </a>
+            <a
+              href={localizeRpcHref("/docs/tools/production-readiness", locale)}
               className={`text-[#14F195] hover:underline ${focus}`}
             >
               {copy.readiness} →
-            </Link>
+            </a>
           </div>
         </div>
       </section>

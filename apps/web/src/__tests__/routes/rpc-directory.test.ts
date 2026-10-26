@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+  localizeRpcHref,
   parseRpcQuery,
   searchRpcProviders,
 } from "@/app/[locale]/rpc/directory-state";
 import { RPC_PROVIDERS } from "@/app/[locale]/rpc/providers";
 
 describe("RPC directory", () => {
+  it("keeps the locale on cross-app documentation links", () => {
+    expect(localizeRpcHref("/docs/rpc/providers", "es")).toBe(
+      "/es/docs/rpc/providers",
+    );
+    expect(localizeRpcHref("/docs/rpc/providers", "en")).toBe(
+      "/docs/rpc/providers",
+    );
+    expect(localizeRpcHref("#providers", "es")).toBe("#providers");
+  });
   it("keeps one safe, sourced link per provider in neutral alphabetical order", () => {
     expect(new Set(RPC_PROVIDERS.map((provider) => provider.id)).size).toBe(
       RPC_PROVIDERS.length,
