@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import jupiterBreakpoint2026White from "../../../assets/companies/jupiter/breakpoint-2026-white.svg";
 import jupiterLogoDark from "../../../assets/companies/jupiter/logo-dark.svg";
 
 export const jupiter = {
@@ -27,6 +28,14 @@ export const jupiter = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: jupiterBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-dark",
       fileName: "logo-dark.svg",

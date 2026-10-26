@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import cowBreakpoint2026White from "../../../assets/companies/cow/breakpoint-2026-white.svg";
 import cowLogoDark from "../../../assets/companies/cow/logo-dark.svg";
 import cowLogoLight from "../../../assets/companies/cow/logo-light.svg";
 import cowMarkDark from "../../../assets/companies/cow/mark-dark.svg";
@@ -29,6 +30,14 @@ export const cow = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: cowBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-dark",
       fileName: "logo-dark.svg",

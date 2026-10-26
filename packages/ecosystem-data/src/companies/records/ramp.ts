@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import rampBreakpoint2026White from "../../../assets/companies/ramp/breakpoint-2026-white.png";
 import rampLogoMonotone from "../../../assets/companies/ramp/logo-monotone.svg";
 
 export const ramp = {
@@ -24,6 +25,14 @@ export const ramp = {
   },
   defaultLogoId: "logo-monotone",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: rampBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-monotone",
       fileName: "logo-monotone.svg",

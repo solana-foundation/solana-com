@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import kaminoBreakpoint2026White from "../../../assets/companies/kamino/breakpoint-2026-white.svg";
 import kaminoLogoDark from "../../../assets/companies/kamino/logo-dark.svg";
 
 export const kamino = {
@@ -24,6 +25,14 @@ export const kamino = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: kaminoBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-dark",
       fileName: "logo-dark.svg",

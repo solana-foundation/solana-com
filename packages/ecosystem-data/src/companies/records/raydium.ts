@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import raydiumBreakpoint2026White from "../../../assets/companies/raydium/breakpoint-2026-white.png";
 import raydiumLogoDark from "../../../assets/companies/raydium/logo-dark.svg";
 
 export const raydium = {
@@ -26,6 +27,14 @@ export const raydium = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: raydiumBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-dark",
       fileName: "logo-dark.svg",
