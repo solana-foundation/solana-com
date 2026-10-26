@@ -143,7 +143,29 @@ Python snippets follow the same layout, one file per rendered block:
 3. Point the fence at it:
    ` ```py !! title="Python" file=packages/docs-examples/cookbook/<section>/<page>/python.py#region=<name> `
 
-There is no Python test suite yet, so these are not covered by CI.
+Dependencies are pinned in `packages/docs-examples/requirements.txt`. Run
+locally with `bash packages/docs-examples/scripts/run-python-examples.sh`, which
+runs every `*python*.py` file once against a local validator (CI does the same
+in the `examples-python` job).
+
+### Go
+
+Go snippets use [solana-go](https://github.com/solana-foundation/solana-go) and
+live in the single Go module at `packages/docs-examples/go.mod`:
+
+1. Put the snippet in
+   `packages/docs-examples/cookbook/<section>/<page>/go/main.go` — or
+   `go-<variant>/main.go` when the page has more than one runnable block.
+2. Wrap the rendered region in `// #region <name>` / `// #endregion <name>`,
+   reusing the region name the other tabs on that block use.
+3. Point the fence at it, right after the Python tab:
+   ` ```go !! title="Go" file=packages/docs-examples/cookbook/<section>/<page>/go/main.go#region=<name> `
+
+Run locally with `bash packages/docs-examples/scripts/run-go-examples.sh`. CI
+runs it in the `examples-go` job.
+
+Python and Go examples show the purpose of the page in the simplest idiomatic
+code for their SDK; they do not need to mirror the Kit code step by step.
 
 ### Runnable blocks and their console output
 

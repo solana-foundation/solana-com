@@ -38,3 +38,19 @@ the `surfpool` CLI on `$PATH`:
 ```sh
 cargo install --git https://github.com/solana-foundation/surfpool --locked surfpool-cli
 ```
+
+The Python and Go examples are driven the same way by
+`scripts/run-python-examples.sh` and `scripts/run-go-examples.sh`. Both reuse a
+validator that is already listening on `localhost:8899` (for example
+`solana-test-validator`) and otherwise spawn surfpool:
+
+```sh
+pip install -r requirements.txt
+bash scripts/run-python-examples.sh
+bash scripts/run-go-examples.sh
+```
+
+Python examples live at `cookbook/<section>/<page>/python.py` (or
+`<variant>-python.py`) and use `# #region <name>` markers; Go examples live at
+`cookbook/<section>/<page>/go/main.go` (or `go-<variant>/main.go`) inside this
+directory's Go module.

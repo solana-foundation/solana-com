@@ -16,11 +16,8 @@ const runners: PageRunners = {
   "Web3.js v3": async () => `address: ${(await keyPair()).address}`,
   "Web3.js (legacy)": async () => `address: ${(await keyPair()).address}`,
   Rust: async () => `address: ${(await keyPair()).address}`,
-  Python: async () => {
-    const { address, privateKeyBytes } = await keyPair();
-    // solders prints the secret as a Python bytes literal, not base58.
-    return `address: ${address}\nsecret: ${pythonBytes(privateKeyBytes)}`;
-  },
+  Python: async () => `address: ${(await keyPair()).address}`,
+  Go: async () => `address: ${(await keyPair()).address}`,
 };
 
 export default runners;
@@ -30,10 +27,7 @@ async function keyPair() {
   try {
     const { publicKey } =
       await createKeyPairFromPrivateKeyBytes(privateKeyBytes);
-    return {
-      address: await getAddressFromPublicKey(publicKey),
-      privateKeyBytes,
-    };
+    return { address: await getAddressFromPublicKey(publicKey) };
   } catch {
     throw new Error(
       "This browser can't generate Ed25519 keys, so the output of this example can't be shown here.",
@@ -41,17 +35,3 @@ async function keyPair() {
   }
 }
 
-/** Renders bytes the way Python's `repr()` does, e.g. `b'G\xcd\xfd\x7e'`. */
-function pythonBytes(bytes: Uint8Array): string {
-  let out = "";
-  for (const byte of bytes) {
-    const char = String.fromCharCode(byte);
-    if (char === "\\" || char === "'") out += `\\${char}`;
-    else if (char === "\n") out += "\\n";
-    else if (char === "\r") out += "\\r";
-    else if (char === "\t") out += "\\t";
-    else if (byte >= 0x20 && byte < 0x7f) out += char;
-    else out += `\\x${byte.toString(16).padStart(2, "0")}`;
-  }
-  return `b'${out}'`;
-}
