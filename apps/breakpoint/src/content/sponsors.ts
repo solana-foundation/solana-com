@@ -373,7 +373,7 @@ const goldSponsors = [
   { companyId: "raydium", width: 847, height: 231 },
   { companyId: "zan", displayName: "ZAN", width: 1593, height: 324 },
   { companyId: "western-union", width: 300, height: 70 },
-  { companyId: "jupiter", width: 78, height: 21 },
+  { companyId: "jupiter", width: 780, height: 210 },
   {
     companyId: "checkout",
     displayName: "Checkout.com",
