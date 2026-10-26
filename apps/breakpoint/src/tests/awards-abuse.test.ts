@@ -1,9 +1,40 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { hasSameOrigin } from "@/lib/awards-abuse";
+import { enforceVotingRateLimit, hasSameOrigin } from "@/lib/awards-abuse";
+
+const { checkRateLimit } = vi.hoisted(() => ({ checkRateLimit: vi.fn() }));
+
+vi.mock("@vercel/firewall", () => ({ checkRateLimit }));
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.clearAllMocks();
+});
+
+describe("awards voting rate limits", () => {
+  it("counts both vote limits by ballot instead of shared network address", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    checkRateLimit.mockResolvedValue({ rateLimited: false });
+    const request = new NextRequest(
+      "https://example.com/breakpoint/api/votes",
+      {
+        headers: { "x-real-ip": "203.0.113.1" },
+      },
+    );
+
+    expect(await enforceVotingRateLimit(request, "validated-ballot")).toBe(
+      false,
+    );
+    expect(checkRateLimit).toHaveBeenCalledTimes(2);
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "breakpoint-awards-vote-burst",
+      { request, rateLimitKey: "validated-ballot" },
+    );
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "breakpoint-awards-vote-hourly",
+      { request, rateLimitKey: "validated-ballot" },
+    );
+  });
 });
 
 describe("awards nomination origin check", () => {

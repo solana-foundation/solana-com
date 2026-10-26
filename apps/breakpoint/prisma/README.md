@@ -118,7 +118,9 @@ the API, so production fails closed if either is missing.
 Add voting WAF rate-limit rules with IDs `breakpoint-awards-vote-burst` and
 `breakpoint-awards-vote-hourly` before opening voting. Both are checked by the
 vote API in Production; a missing rule fails closed. The existing ballot read
-rule should also cover `/breakpoint/api/votes` GET requests.
+rule should also cover `/breakpoint/api/votes` GET requests. Voting checks use
+the validated ballot ID as their rate-limit key so voters sharing a network do
+not consume each other's vote allowance.
 
 ## Production database operations
 
