@@ -33,6 +33,7 @@ describe("canLinkToChart", () => {
       "lending",
       "network",
       "overview",
+      "perps",
       "stablecoins",
     ]);
   });
