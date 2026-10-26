@@ -91,7 +91,11 @@ export function createMiddleware<
   const handleI18nRouting = createNextIntlMiddleware(routingConfig);
 
   return async function middleware(req: NextRequest) {
-    const response = await handleI18nRouting(req);
+    // pnpm can resolve Next.js through different optional peer contexts in this
+    // workspace. Both request types come from the same Next.js version at runtime.
+    const response = await handleI18nRouting(
+      req as unknown as Parameters<typeof handleI18nRouting>[0],
+    );
 
     // Check if request came through a proxy (e.g., rewrite from another Vercel app)
     const forwardedHost = req.headers.get("x-forwarded-host");
