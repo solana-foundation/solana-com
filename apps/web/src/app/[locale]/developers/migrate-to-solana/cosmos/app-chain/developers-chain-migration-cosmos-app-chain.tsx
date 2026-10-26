@@ -86,7 +86,7 @@ function renderRunbookSegment(segment: RunbookSegment, key: number) {
     return (
       <div
         key={key}
-        className={cn("tw-html_parser", styles.articleHtml)}
+        className={styles.articleHtml}
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: segment.html }}
       />
@@ -281,7 +281,7 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
                 <section
                   key={section.id}
                   id={section.id}
-                  className={cn(styles.articleSection, "tw-scroll-mt-20")}
+                  className={cn(styles.articleSection, "scroll-mt-20")}
                 >
                   <div
                     style={{

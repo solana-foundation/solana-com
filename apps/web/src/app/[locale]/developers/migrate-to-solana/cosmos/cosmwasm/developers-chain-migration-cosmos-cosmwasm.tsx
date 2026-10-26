@@ -58,7 +58,9 @@ type ComparisonGroupConfig =
     }
   | {
       kind: "code-order";
-      anchorHeading: string;
+      // Omit to anchor on the section's own h2, so renumbering sections
+      // doesn't silently drop the tabs.
+      anchorHeading?: string;
       labels: string[];
     };
 
@@ -113,49 +115,42 @@ const SECTION_COMPARISON_GROUPS: Partial<
   "cross-program": [
     {
       kind: "code-order",
-      anchorHeading: "7. Cross-Contract Communication: Sub-Messages vs CPIs",
       labels: ["CosmWasm", "Solana"],
     },
   ],
   serialization: [
     {
       kind: "code-order",
-      anchorHeading: "8. Serialization: JSON / serde vs Binary Data",
       labels: ["CosmWasm", "Solana"],
     },
   ],
   "error-handling": [
     {
       kind: "code-order",
-      anchorHeading: "9. Error Handling",
       labels: ["CosmWasm", "Anchor", "Anchor"],
     },
   ],
   "time-block": [
     {
       kind: "code-order",
-      anchorHeading: "10. Time & Block Information",
       labels: ["CosmWasm", "Solana"],
     },
   ],
   testing: [
     {
       kind: "code-order",
-      anchorHeading: "11. Testing",
       labels: ["CosmWasm", "LiteSVM", "LiteSVM", "Surfpool"],
     },
   ],
   "deployment-upgrades": [
     {
       kind: "code-order",
-      anchorHeading: "12. Deployment & Upgrades",
       labels: ["CosmWasm", "Anchor", "Pinocchio"],
     },
   ],
   "counter-example": [
     {
       kind: "code-order",
-      anchorHeading: "13. Full Side-by-Side Example: Counter Contract",
       labels: ["CosmWasm", "Anchor", "Anchor", "Pinocchio"],
     },
   ],
@@ -240,7 +235,7 @@ function renderGuideToken(token: GuideToken, key: string) {
     return (
       <div
         key={key}
-        className={cn("tw-html_parser", styles.articleHtml)}
+        className={styles.articleHtml}
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: token.html }}
       />
@@ -252,7 +247,7 @@ function renderGuideToken(token: GuideToken, key: string) {
   return (
     <div
       key={key}
-      className={cn("tw-html_parser", styles.articleHtml)}
+      className={styles.articleHtml}
       suppressHydrationWarning
       dangerouslySetInnerHTML={{ __html: token.html }}
     />
@@ -370,7 +365,9 @@ function buildCodeOrderComparisonGroup(
   const startToken = tokens[startIndex];
   if (
     startToken?.type !== "heading" ||
-    startToken.text !== config.anchorHeading
+    (config.anchorHeading
+      ? startToken.text !== config.anchorHeading
+      : startToken.level !== 2)
   ) {
     return null;
   }
@@ -748,7 +745,7 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
                 <section
                   key={section.id}
                   id={section.id}
-                  className={cn(styles.articleSection, "tw-scroll-mt-20")}
+                  className={cn(styles.articleSection, "scroll-mt-20")}
                 >
                   <div
                     style={{

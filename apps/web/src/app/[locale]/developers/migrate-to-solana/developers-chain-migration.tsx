@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Container } from "@/component-library/container";
 import { FeatureHighlight } from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
@@ -63,7 +62,6 @@ const RESOURCE_ICONS = [Code, FileText, Youtube, Tools];
 
 export function DevelopersChainMigrationPage() {
   const t = useTranslations("developers-evm-to-svm");
-  const blockSpacing = { large: { marginTop: "48px" } }; // used by chain selector
 
   const chainSelectorCards = CHAIN_SELECTOR_CARDS.map((card, index) => ({
     ...card,
@@ -100,7 +98,7 @@ export function DevelopersChainMigrationPage() {
       />
 
       {/* Chain selector */}
-      <ResponsiveBox responsiveStyles={blockSpacing}>
+      <div className="mt-12">
         <div
           id="choose-your-chain"
           className="scroll-mt-24 xl:[&_section]:!px-0 [&_section]:!py-20 [&_[data-slot=feature-card]]:!min-h-[220px] [&_[data-slot=feature-card]]:!p-8 [&_[data-slot=feature-card]_h3]:!text-[2rem] [&_[data-slot=feature-card]_h3]:!leading-[1.2] [&_[data-slot=feature-card]_a]:!rounded-full [&_[data-slot=feature-card]_a]:!border-white/30 [&_[data-slot=feature-card]_a]:!bg-transparent [&_[data-slot=feature-card]_a]:!px-6 [&_[data-slot=feature-card]_a]:!py-3 [&_[data-slot=feature-card]_a]:!text-sm [&_[data-slot=feature-card]_a]:!font-semibold [&_[data-slot=feature-card]_a]:!normal-case [&_[data-slot=feature-card]_a]:!tracking-normal [&_h2]:!text-[32px] md:[&_h2]:!text-[40px] xl:[&_h2]:!text-[64px]"
@@ -114,7 +112,7 @@ export function DevelopersChainMigrationPage() {
             buttons={[]}
           />
         </div>
-      </ResponsiveBox>
+      </div>
 
       <SectionDivider />
 

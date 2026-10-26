@@ -1,19 +1,13 @@
 "use client";
 
-import { Columns } from "@/component-library/columns";
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import {
-  CardDeck,
-  Heading,
-  Hero,
-  HtmlParser,
-  Section,
-} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
+import {
+  DocsHtml,
+  MigrationDocsLayout,
+} from "../components/migration-docs-layout";
 import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
-  TABLE_OF_CONTENTS_ANCHORS,
 } from "@/data/developers/evm-to-svm/consensus";
 
 export function DevelopersEvmToSvmConsensusPage() {
@@ -26,9 +20,6 @@ export function DevelopersEvmToSvmConsensusPage() {
     headers: string[];
     rows: { cells: string[] }[];
   };
-
-  const tableCellStyle = { padding: "8px 10px", border: "1px solid #414141" };
-  const tableHeaderStyle = { ...tableCellStyle, fontWeight: 600 };
 
   const navButtons = NAV_BUTTONS.map((button, index) => ({
     ...button,
@@ -48,13 +39,11 @@ export function DevelopersEvmToSvmConsensusPage() {
     headers: string[];
     rows: { cells: string[] }[];
   }) => (
-    <table style={{ width: "100%" }}>
+    <table>
       <thead>
         <tr>
           {table.headers.map((header) => (
-            <td key={header} style={tableHeaderStyle}>
-              {header}
-            </td>
+            <td key={header}>{header}</td>
           ))}
         </tr>
       </thead>
@@ -62,9 +51,7 @@ export function DevelopersEvmToSvmConsensusPage() {
         {table.rows.map((row, rowIndex) => (
           <tr key={`${row.cells[0]}-${rowIndex}`}>
             {row.cells.map((cell, cellIndex) => (
-              <td key={cellIndex} style={tableCellStyle}>
-                {cell}
-              </td>
+              <td key={cellIndex}>{cell}</td>
             ))}
           </tr>
         ))}
@@ -73,119 +60,58 @@ export function DevelopersEvmToSvmConsensusPage() {
   );
 
   return (
-    <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
-        eyebrow={t("hero.eyebrow")}
-        headline={t("hero.headline")}
-        body={t.raw("hero.body")}
-      />
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/consensus"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body")}
+      buttons={navButtons.map((button) => ({
+        url: button.url,
+        label: button.label,
+      }))}
+      tocHeadline={tableOfContents.title}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceCards={resourceCards.map((card) => ({
+        heading: card.heading,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      <DocsHtml rawHtml={t.raw("intro")} />
 
-      <Section>
-        <Columns space={30} stackColumnsAt="tablet">
-          <ResponsiveBox
-            responsiveStyles={{
-              large: {
-                paddingTop: "20px",
-                paddingLeft: "20px",
-                paddingBottom: "20px",
-                paddingRight: "20px",
-                backgroundColor: "rgba(21, 21, 21, 1)",
-                borderRadius: "20px",
-              },
-            }}
-          >
-            <p>
-              <strong>{tableOfContents.title}</strong>
-            </p>
-            {tableOfContents.items.map((item, index) => {
-              const href = TABLE_OF_CONTENTS_ANCHORS[index] ?? "#";
-              return (
-                <p key={item} style={{ textIndent: "2em" }}>
-                  <a href={href} rel="noopener noreferrer">
-                    {item}
-                  </a>
-                </p>
-              );
-            })}
-          </ResponsiveBox>
-          <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-            <HtmlParser rawHtml={t.raw("intro")} />
-          </ResponsiveBox>
-        </Columns>
+      <div>
+        <div id="ethereums-original-consensus">
+          <DocsHtml rawHtml={t.raw("ethereumsOriginalConsensus")} />
+        </div>
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="ethereums-original-consensus">
-            <HtmlParser rawHtml={t.raw("ethereumsOriginalConsensus")} />
-          </div>
-        </ResponsiveBox>
+      <div>
+        <div id="ethereums-current-consensus">
+          <DocsHtml rawHtml={t.raw("ethereumsCurrentConsensus")} />
+        </div>
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="ethereums-current-consensus">
-            <HtmlParser rawHtml={t.raw("ethereumsCurrentConsensus")} />
-          </div>
-        </ResponsiveBox>
+      <div>
+        <div id="solanas-consensus">
+          <DocsHtml rawHtml={t.raw("solanasConsensusHeading")} />
+        </div>
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="solanas-consensus">
-            <HtmlParser rawHtml={t.raw("solanasConsensusHeading")} />
-          </div>
-        </ResponsiveBox>
+      <div>
+        <DocsHtml rawHtml={t.raw("solanasConsensusBody")} />
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <HtmlParser rawHtml={t.raw("solanasConsensusBody")} />
-        </ResponsiveBox>
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {renderTable(comparisonTable)}
+        </div>
+      </div>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {renderTable(comparisonTable)}
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="summary">
-            <HtmlParser rawHtml={t.raw("summary")} />
-          </div>
-        </ResponsiveBox>
-
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
-
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox
-          responsiveStyles={{ large: { paddingTop: "0px", marginTop: "-3px" } }}
-        >
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
-    </>
+      <div>
+        <div>
+          <DocsHtml rawHtml={t.raw("summary")} />
+        </div>
+      </div>
+    </MigrationDocsLayout>
   );
 }

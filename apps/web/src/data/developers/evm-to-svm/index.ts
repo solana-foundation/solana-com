@@ -25,12 +25,6 @@ export const CHAIN_SELECTOR = {
 export const CHAIN_SELECTOR_CARDS = [
   {
     color: "purple",
-    stat: {
-      value: {
-        statType: "none",
-      },
-      description: "",
-    },
     button: {
       hierarchy: "outline",
       size: "md",
@@ -39,12 +33,6 @@ export const CHAIN_SELECTOR_CARDS = [
   },
   {
     color: "aqua",
-    stat: {
-      value: {
-        statType: "none",
-      },
-      description: "",
-    },
     button: {
       hierarchy: "outline",
       size: "md",

@@ -1,19 +1,13 @@
 "use client";
 
-import { Columns } from "@/component-library/columns";
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import {
-  CardDeck,
-  Heading,
-  Hero,
-  HtmlParser,
-  Section,
-} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
+import {
+  DocsHtml,
+  MigrationDocsLayout,
+} from "../components/migration-docs-layout";
 import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
-  TABLE_OF_CONTENTS_ANCHORS,
 } from "@/data/developers/evm-to-svm/client-differences";
 
 export function DevelopersEvmToSvmClientDifferencesPage() {
@@ -43,9 +37,6 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
   };
   const summary = t.raw("summary") as { title: string; items: string[] };
 
-  const tableCellStyle = { padding: "8px 10px", border: "1px solid #414141" };
-  const tableHeaderStyle = { ...tableCellStyle, fontWeight: 600 };
-
   const navButtons = NAV_BUTTONS.map((button, index) => ({
     ...button,
     label: t(`navHeading.buttons.${index}.label`),
@@ -64,13 +55,11 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
     headers: string[];
     rows: { cells: string[] }[];
   }) => (
-    <table style={{ width: "100%" }}>
+    <table>
       <thead>
         <tr>
           {table.headers.map((header) => (
-            <td key={header} style={tableHeaderStyle}>
-              {header}
-            </td>
+            <td key={header}>{header}</td>
           ))}
         </tr>
       </thead>
@@ -78,9 +67,7 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
         {table.rows.map((row, rowIndex) => (
           <tr key={`${row.cells[0]}-${rowIndex}`}>
             {row.cells.map((cell, cellIndex) => (
-              <td key={cellIndex} style={tableCellStyle}>
-                {cell}
-              </td>
+              <td key={cellIndex}>{cell}</td>
             ))}
           </tr>
         ))}
@@ -89,206 +76,112 @@ export function DevelopersEvmToSvmClientDifferencesPage() {
   );
 
   return (
-    <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
-        eyebrow={t("hero.eyebrow")}
-        headline={t("hero.headline")}
-        body={t.raw("hero.body")}
-      />
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/client-differences"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body")}
+      buttons={navButtons.map((button) => ({
+        url: button.url,
+        label: button.label,
+      }))}
+      tocHeadline={tableOfContents.title}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceCards={resourceCards.map((card) => ({
+        heading: card.heading,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      <DocsHtml rawHtml={t.raw("intro")} />
 
-      <Section>
-        <Columns space={30} stackColumnsAt="tablet">
-          <ResponsiveBox
-            responsiveStyles={{
-              large: {
-                paddingTop: "20px",
-                paddingLeft: "20px",
-                paddingBottom: "20px",
-                paddingRight: "20px",
-                backgroundColor: "rgba(21, 21, 21, 1)",
-                borderRadius: "20px",
-              },
-            }}
-          >
-            <p>
-              <strong>{tableOfContents.title}</strong>
-            </p>
-            {tableOfContents.items.map((item, index) => {
-              const href = TABLE_OF_CONTENTS_ANCHORS[index] ?? "#";
-              return (
-                <p key={item} style={{ textIndent: "2em" }}>
-                  <a href={href} rel="noopener noreferrer">
-                    {item}
-                  </a>
-                </p>
-              );
-            })}
-          </ResponsiveBox>
-          <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-            <HtmlParser rawHtml={t.raw("intro")} />
-          </ResponsiveBox>
-        </Columns>
+      <div>
+        <div id="types-clients">
+          <DocsHtml rawHtml={t.raw("typesOfClients")} />
+        </div>
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="types-clients">
-            <HtmlParser rawHtml={t.raw("typesOfClients")} />
-          </div>
-        </ResponsiveBox>
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {renderTable(executionClientsTable)}
+        </div>
+      </div>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {renderTable(executionClientsTable)}
-          </div>
-        </ResponsiveBox>
+      <div>
+        <DocsHtml rawHtml={t.raw("consensusClientsIntro")} />
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <HtmlParser rawHtml={t.raw("consensusClientsIntro")} />
-        </ResponsiveBox>
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {renderTable(consensusClientsTable)}
+        </div>
+      </div>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {renderTable(consensusClientsTable)}
-          </div>
-        </ResponsiveBox>
+      <div>
+        <DocsHtml rawHtml={t.raw("solanaClientsIntro")} />
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <HtmlParser rawHtml={t.raw("solanaClientsIntro")} />
-        </ResponsiveBox>
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {renderTable(solanaClientsTable)}
+        </div>
+      </div>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {renderTable(solanaClientsTable)}
-          </div>
-        </ResponsiveBox>
+      <div>
+        <div id="number">
+          <DocsHtml rawHtml={t.raw("numberOfNodes")} />
+        </div>
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="number">
-            <HtmlParser rawHtml={t.raw("numberOfNodes")} />
-          </div>
-        </ResponsiveBox>
+      <div>
+        <div id="types-node">
+          <DocsHtml rawHtml={t.raw("typesOfNode")} />
+        </div>
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="types-node">
-            <HtmlParser rawHtml={t.raw("typesOfNode")} />
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox
-          responsiveStyles={{
-            large: { display: "none" },
-            medium: { display: "none" },
-            small: { display: "flex" },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {nodeTypeSummary.sections.map((section) => (
-              <div key={section.title}>
-                <p>
-                  <strong>{section.title}</strong>
-                </p>
-                <ul>
-                  {section.items.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              display: "flex",
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-            medium: { display: "flex" },
-            small: { display: "none" },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {renderTable(nodeComparisonTable)}
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="rpc">
-            <HtmlParser rawHtml={t.raw("rpcServices")} />
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="summary">
-            <div className="min-w-0 max-w-full overflow-x-auto">
-              <h2>
-                <strong>{summary.title}</strong>
-              </h2>
+      <div className="md:hidden">
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {nodeTypeSummary.sections.map((section) => (
+            <div key={section.title}>
+              <p>
+                <strong>{section.title}</strong>
+              </p>
               <ul>
-                {summary.items.map((item) => (
+                {section.items.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
             </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="hidden md:block">
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {renderTable(nodeComparisonTable)}
+        </div>
+      </div>
+
+      <div>
+        <div id="rpc">
+          <DocsHtml rawHtml={t.raw("rpcServices")} />
+        </div>
+      </div>
+
+      <div>
+        <div id="summary">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <h2>
+              <strong>{summary.title}</strong>
+            </h2>
+            <ul>
+              {summary.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           </div>
-        </ResponsiveBox>
-
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
-
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox
-          responsiveStyles={{ large: { paddingTop: "0px", marginTop: "-3px" } }}
-        >
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
-    </>
+        </div>
+      </div>
+    </MigrationDocsLayout>
   );
 }
