@@ -60,8 +60,8 @@ const HERO_BANNERS = [
     bannerDescription:
       "Solana's flagship gathering returns to London, November 15-17, 2026.",
     bannerImgSrc: "/src/img/index/breakpoint-2026-promo.webp",
-    bannerHref: "/breakpoint",
-    bannerLabel: "Learn More",
+    bannerHref: "https://luma.com/breakpoint2026",
+    bannerLabel: "Buy Breakpoint tickets",
     bannerExpiryDate: "2026-11-17",
   },
 ] as const;
