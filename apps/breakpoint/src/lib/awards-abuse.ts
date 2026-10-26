@@ -41,12 +41,15 @@ export function hashIp(ip: string | null) {
 async function enforceRateLimit(
   request: NextRequest,
   ids: readonly string[],
-  rateLimitKey?: string,
+  rateLimitKey?: (id: string) => string | undefined,
 ) {
   if (process.env.NODE_ENV !== "production") return false;
 
   for (const id of ids) {
-    const result = await checkRateLimit(id, { request, rateLimitKey });
+    const result = await checkRateLimit(id, {
+      request,
+      rateLimitKey: rateLimitKey?.(id),
+    });
     if (result.error === "not-found") {
       throw new Error(`Vercel WAF rate limit '${id}' is not configured.`);
     }
@@ -60,7 +63,9 @@ export function enforceSubmissionRateLimit(request: NextRequest) {
 }
 
 export function enforceVotingRateLimit(request: NextRequest, ballotId: string) {
-  return enforceRateLimit(request, VOTE_RATE_LIMIT_IDS, ballotId);
+  return enforceRateLimit(request, VOTE_RATE_LIMIT_IDS, (id) =>
+    id === VOTE_RATE_LIMIT_IDS[0] ? ballotId : undefined,
+  );
 }
 
 export function hasSameOrigin(request: NextRequest) {

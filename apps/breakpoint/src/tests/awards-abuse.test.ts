@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 describe("awards voting rate limits", () => {
-  it("counts both vote limits by ballot instead of shared network address", async () => {
+  it("limits bursts by ballot and sustained traffic by network", async () => {
     vi.stubEnv("NODE_ENV", "production");
     checkRateLimit.mockResolvedValue({ rateLimited: false });
     const request = new NextRequest(
@@ -22,18 +22,26 @@ describe("awards voting rate limits", () => {
       },
     );
 
-    expect(await enforceVotingRateLimit(request, "validated-ballot")).toBe(
-      false,
-    );
-    expect(checkRateLimit).toHaveBeenCalledTimes(2);
+    expect(await enforceVotingRateLimit(request, "first-ballot")).toBe(false);
+    expect(await enforceVotingRateLimit(request, "second-ballot")).toBe(false);
+    expect(checkRateLimit).toHaveBeenCalledTimes(4);
     expect(checkRateLimit).toHaveBeenCalledWith(
       "breakpoint-awards-vote-burst",
-      { request, rateLimitKey: "validated-ballot" },
+      { request, rateLimitKey: "first-ballot" },
+    );
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "breakpoint-awards-vote-burst",
+      { request, rateLimitKey: "second-ballot" },
     );
     expect(checkRateLimit).toHaveBeenCalledWith(
       "breakpoint-awards-vote-hourly",
-      { request, rateLimitKey: "validated-ballot" },
+      { request, rateLimitKey: undefined },
     );
+    expect(
+      checkRateLimit.mock.calls.filter(
+        ([id]) => id === "breakpoint-awards-vote-hourly",
+      ),
+    ).toHaveLength(2);
   });
 });
 
