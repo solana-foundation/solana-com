@@ -81,8 +81,19 @@ func main() {
 	defer resp.Body.Close()
 	var result struct {
 		Result string `json:"result"`
+		Error  *struct {
+			Message string `json:"message"`
+		} `json:"error"`
 	}
-	json.NewDecoder(resp.Body).Decode(&result)
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		panic(err)
+	}
+	if result.Error != nil {
+		panic("Jito rejected the transaction: " + result.Error.Message)
+	}
+	if resp.StatusCode != http.StatusOK {
+		panic("Jito returned " + resp.Status)
+	}
 	fmt.Println("Sent with dontfront protection:", result.Result)
 }
 

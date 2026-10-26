@@ -8,6 +8,7 @@ from solders.keypair import Keypair
 from solders.message import Message
 from solders.system_program import TransferParams, transfer
 from solders.transaction import Transaction
+from solders.transaction_status import TransactionConfirmationStatus
 
 client = Client("http://localhost:8899", commitment=Confirmed)
 
@@ -40,7 +41,11 @@ while client.get_block_height().value <= latest.last_valid_block_height:
         raw_transaction, opts=TxOpts(skip_preflight=True, max_retries=0)
     )
     time.sleep(0.5)
-    if client.get_signature_statuses([signature]).value[0] is not None:
+    status = client.get_signature_statuses([signature]).value[0]
+    # Keep resending until confirmed: a "processed" transaction can still be dropped.
+    if status is not None and status.confirmation_status != TransactionConfirmationStatus.Processed:
+        if status.err:
+            raise RuntimeError(f"Transaction failed: {status.err}")
         break
 
 print("Signature:", signature)

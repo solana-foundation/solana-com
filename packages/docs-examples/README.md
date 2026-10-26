@@ -40,9 +40,12 @@ cargo install --git https://github.com/solana-foundation/surfpool --locked surfp
 ```
 
 The Python and Go examples are driven the same way by
-`scripts/run-python-examples.sh` and `scripts/run-go-examples.sh`. Both reuse a
-validator that is already listening on `localhost:8899` (for example
-`solana-test-validator`) and otherwise spawn surfpool:
+`scripts/run-python-examples.sh` and `scripts/run-go-examples.sh`. Both spawn
+surfpool with a mainnet datasource, or reuse a validator already listening on
+`localhost:8899`. A reused validator must also be a mainnet-backed surfpool
+(`surfpool start --network mainnet`): several examples read real mainnet
+accounts such as the USDC and PYUSD mints, which a plain `solana-test-validator`
+does not have.
 
 ```sh
 pip install -r requirements.txt

@@ -73,5 +73,9 @@ response = httpx.post(
         ],
     },
 )
-print("Sent with dontfront protection:", response.json().get("result"))
+result = response.json()
+if "error" in result:
+    raise RuntimeError(f"Jito rejected the transaction: {result['error']}")
+response.raise_for_status()
+print("Sent with dontfront protection:", result["result"])
 # #endregion dontfront

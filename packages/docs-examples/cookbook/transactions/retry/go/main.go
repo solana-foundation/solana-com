@@ -58,7 +58,14 @@ func main() {
 		client.SendRawTransactionWithOpts(ctx, rawTx, rpc.TransactionOpts{SkipPreflight: true, MaxRetries: &maxRetries})
 		time.Sleep(500 * time.Millisecond)
 		statuses, err := client.GetSignatureStatuses(ctx, false, signature)
-		if err == nil && statuses.Value[0] != nil {
+		if err != nil {
+			panic(err)
+		}
+		// Keep resending until confirmed: a "processed" transaction can still be dropped.
+		if status := statuses.Value[0]; status != nil && status.ConfirmationStatus != rpc.ConfirmationStatusProcessed {
+			if status.Err != nil {
+				panic(fmt.Sprintf("transaction failed: %v", status.Err))
+			}
 			break
 		}
 	}

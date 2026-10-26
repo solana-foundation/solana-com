@@ -1,7 +1,9 @@
 # Sourced by the run-*-examples.sh scripts. Makes sure a validator is
-# answering on $RPC_URL: reuses one that is already running (handy locally,
-# e.g. `solana-test-validator`), otherwise spawns surfpool in the background
-# and stops it on exit.
+# answering on $RPC_URL: reuses one that is already running, otherwise spawns
+# surfpool in the background and stops it on exit. A reused validator must be
+# a mainnet-backed surfpool (`surfpool start --network mainnet`), because
+# several examples read real mainnet accounts that a plain
+# `solana-test-validator` does not have.
 
 RPC_URL="http://localhost:8899"
 
