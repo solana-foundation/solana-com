@@ -349,8 +349,9 @@ export async function fetchCalendarEvents(
 ): Promise<CalendarEvent[]> {
   if (!calendarId.startsWith("cal-")) return [];
 
+  const sourceEvents = await getCachedCalendarSourceEvents(calendarId);
   const now = Date.now();
-  let allEvents = (await getCachedCalendarSourceEvents(calendarId))
+  let allEvents = sourceEvents
     .filter((event) =>
       options.period === "past"
         ? !isUpcomingEvent(event, now)
