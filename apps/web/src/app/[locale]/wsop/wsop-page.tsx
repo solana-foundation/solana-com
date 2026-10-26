@@ -913,7 +913,7 @@ export function WsopPage() {
                           </button>
                         </DialogTrigger>
                         <DialogContent
-                          className="w-[calc(100vw_-_2rem)] max-w-5xl overflow-hidden border-0 bg-black p-0 shadow-xl"
+                          className="w-[min(calc(100vw_-_2rem),calc(177.78dvh_-_3.56rem),64rem)] max-w-none overflow-hidden border-0 bg-black p-0 shadow-xl"
                           closeClassName="z-10 bg-black/80 text-white hover:opacity-100"
                         >
                           <DialogTitle className="sr-only">
