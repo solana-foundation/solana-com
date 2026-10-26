@@ -68,6 +68,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     category: DEFI,
   },
   {
+    slug: "eterna-solana-skill",
+    title: "Eterna Solana Skill",
+    description:
+      "Agent skill to fund an Eterna trading account with Solana USDC, trade via the Eterna MCP, and withdraw back.",
+    url: "https://github.com/EternaHybridExchange/eterna-solana-skill/tree/v1.0.0",
+    category: DEFI,
+  },
+  {
     slug: "glam-skill",
     title: "GLAM Skill",
     description:
