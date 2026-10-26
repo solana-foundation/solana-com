@@ -57,6 +57,10 @@ describe("Cross-app rewrites", () => {
     );
     expectBeforeFileRewrite("/docs/:path*", `${DOCS_APP_URL}/docs/:path*`);
     expectBeforeFileRewrite(
+      "/api/ask/:path*",
+      `${DOCS_APP_URL}/api/ask/:path*`,
+    );
+    expectBeforeFileRewrite(
       "/developers/cookbook/:path*",
       `${DOCS_APP_URL}/developers/cookbook/:path*`,
     );

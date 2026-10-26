@@ -591,6 +591,13 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
+      // Ask Solana (docs AI agent) proxy. The docs app owns the route handler
+      // that injects X-Ask-Proxy-Secret before forwarding to the bot service.
+      {
+        source: "/api/ask/:path*",
+        destination: `${DOCS_APP_URL}/api/ask/:path*`,
+        locale: false,
+      },
       // Proxy /_next/image requests for /uploads/* to the media app's image
       // optimizer. The web app's /_next/image reads from its own filesystem,
       // but /uploads/ files live in the media app's deployment.
