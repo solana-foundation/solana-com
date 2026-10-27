@@ -207,6 +207,31 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
     );
   };
 
+  const viewSwitch = (className: string) => (
+    <div
+      role="group"
+      aria-label={copy.viewLabel}
+      className={`shrink-0 border border-nd-border-prominent ${className}`}
+    >
+      {(
+        [
+          ["cards", copy.viewCards, Grid],
+          ["table", copy.viewTable, Table],
+        ] as const
+      ).map(([id, viewName, Icon]) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={view === id}
+          onClick={() => changeView(id)}
+          className={`inline-flex items-center gap-2 px-3 text-sm first:border-r first:border-nd-border-prominent ${view === id ? "!bg-white/10 text-white" : "text-nd-mid-em-text hover:text-white"} ${focus}`}
+        >
+          <Icon className="size-4" aria-hidden="true" />
+          <span className="sr-only sm:not-sr-only">{viewName}</span>
+        </button>
+      ))}
+    </div>
+  );
   const featureCount = (id: RpcFeatureId) =>
     filterRpcProviders(
       RPC_PROVIDERS,
@@ -329,29 +354,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
               </span>
             )}
           </button>
-          <div
-            role="group"
-            aria-label={copy.viewLabel}
-            className="hidden h-12 shrink-0 border border-nd-border-prominent sm:flex"
-          >
-            {(
-              [
-                ["cards", copy.viewCards, Grid],
-                ["table", copy.viewTable, Table],
-              ] as const
-            ).map(([id, viewName, Icon]) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={view === id}
-                onClick={() => changeView(id)}
-                className={`inline-flex items-center gap-2 px-3 text-sm first:border-r first:border-nd-border-prominent ${view === id ? "!bg-white/10 text-white" : "text-nd-mid-em-text hover:text-white"} ${focus}`}
-              >
-                <Icon className="size-4" aria-hidden="true" />
-                <span className="sr-only sm:not-sr-only">{viewName}</span>
-              </button>
-            ))}
-          </div>
+          {viewSwitch("hidden h-12 sm:flex")}
         </div>
 
         {features.length > 0 && (
@@ -494,6 +497,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                   : ""}
                 {copy.resultMany}
               </p>
+              {viewSwitch("flex h-9 sm:hidden")}
               {pins.length > 0 && (
                 <a
                   href="#rpc-compare"

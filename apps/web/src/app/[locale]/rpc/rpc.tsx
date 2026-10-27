@@ -230,6 +230,15 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
     event: React.MouseEvent<HTMLAnchorElement>,
     feature: RpcFeatureId,
   ) => {
+    // Let modified clicks open the filtered directory in a new tab or window.
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
     event.preventDefault();
     const url = new URL(window.location.href);
     url.searchParams.set("f", feature);
