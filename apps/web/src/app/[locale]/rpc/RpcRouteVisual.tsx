@@ -10,7 +10,13 @@ const RpcRouteScene = dynamic(
   { ssr: false },
 );
 
-function RouteFallback({ path }: { path: RpcPath }) {
+function RouteFallback({
+  path,
+  labels,
+}: {
+  path: RpcPath;
+  labels: RpcSceneLabels;
+}) {
   const local = path === "local";
   const shared = path === "public";
   return (
@@ -135,6 +141,28 @@ function RouteFallback({ path }: { path: RpcPath }) {
         </g>
       )}
       <circle cx="205" cy="158" r="5" fill="white" />
+      <g className="hidden fill-[#A7A7B2] font-mono text-[10px] uppercase tracking-wide md:block">
+        <text x="65" y="233">
+          {labels.app}
+        </text>
+        <text x="270" y="99">
+          {local ? labels.machine : shared ? labels.official : labels.provider}
+        </text>
+        {local ? (
+          <text x="270" y="199">
+            {labels.localValidator}
+          </text>
+        ) : (
+          <text x="475" y="240">
+            {shared ? labels.devnet : labels.mainnet}
+          </text>
+        )}
+        {!local && !shared && (
+          <text x="270" y="307">
+            {labels.fallback}
+          </text>
+        )}
+      </g>
     </svg>
   );
 }
@@ -226,14 +254,14 @@ export function RpcRouteVisual({
       aria-hidden="true"
     >
       <div className="md:hidden">
-        <RouteFallback path={path} />
+        <RouteFallback path={path} labels={labels} />
       </div>
       <div
         className={
           sceneReady ? "hidden md:block md:opacity-0" : "hidden md:block"
         }
       >
-        <RouteFallback path={path} />
+        <RouteFallback path={path} labels={labels} />
       </div>
       {loadScene && (
         <div className="hidden md:block">

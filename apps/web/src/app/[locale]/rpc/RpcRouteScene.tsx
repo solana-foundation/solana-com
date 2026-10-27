@@ -712,6 +712,10 @@ export function RpcRouteScene({
     controller.current = {
       switchPath(next, allowMotion) {
         motionEnabled = allowMotion;
+        if (!allowMotion) {
+          duration = 0;
+          targetYaw = targetPitch = yaw = pitch = 0;
+        }
         if (next === current) {
           schedule();
           return;
