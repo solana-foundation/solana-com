@@ -15,6 +15,7 @@ import {
   parseRpcFeatures,
   parseRpcPins,
   parseRpcQuery,
+  searchRpcProviders,
 } from "./directory-state";
 import type { RpcCopy } from "./rpc";
 
@@ -22,10 +23,10 @@ const focus =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
 const shell = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
 const groups: RpcFeatureGroup[] = [
-  "interfaces",
+  "streaming",
   "data",
-  "infrastructure",
-  "terms",
+  "access",
+  "reliability",
 ];
 
 function documentedFeatures(provider: RpcProvider) {
@@ -39,7 +40,9 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
   const [features, setFeatures] = useState<RpcFeatureId[]>([]);
   const [pins, setPins] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showUnsourced, setShowUnsourced] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const [resultAnnouncement, setResultAnnouncement] = useState("");
 
   useEffect(() => {
     const sync = () => {
@@ -54,6 +57,16 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
   }, []);
 
   const results = filterRpcProviders(RPC_PROVIDERS, query, features);
+  const resultSummary = `${results.length} ${query || features.length ? `${copy.resultsOf} ${RPC_PROVIDERS.length} ` : ""}${copy.resultMany}`;
+  useEffect(() => {
+    const timer = setTimeout(() => setResultAnnouncement(resultSummary), 300);
+    return () => clearTimeout(timer);
+  }, [resultSummary]);
+  const unsourced = features.length
+    ? searchRpcProviders(RPC_PROVIDERS, query).filter((provider) =>
+        features.some((feature) => !provider.features[feature]?.sourceUrl),
+      )
+    : [];
   const selected = RPC_PROVIDERS.filter((provider) =>
     pins.includes(provider.id),
   );
@@ -80,13 +93,31 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
           (feature) => feature === id || features.includes(feature),
         );
     setFeatures(next);
+    setShowUnsourced(false);
     setUrl("f", next.join(","));
     setAnnouncement("");
   };
   const clearFilters = () => {
     setFeatures([]);
+    setShowUnsourced(false);
     setUrl("f", "");
     setAnnouncement("");
+    window.requestAnimationFrame(() => {
+      document.getElementById("rpc-search")?.focus();
+    });
+  };
+  const removeFeatureChip = (id: RpcFeatureId) => {
+    const index = features.indexOf(id);
+    toggleFeature(id);
+    window.requestAnimationFrame(() => {
+      const remaining = document.querySelectorAll<HTMLButtonElement>(
+        "#rpc-active-filters button",
+      );
+      (
+        remaining[Math.min(index, remaining.length - 1)] ??
+        document.getElementById("rpc-filter-toggle")
+      )?.focus();
+    });
   };
   const togglePin = (provider: RpcProvider) => {
     if (!pins.includes(provider.id) && pins.length === 3) {
@@ -105,6 +136,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
   const clearAll = () => {
     setQuery("");
     setFeatures([]);
+    setShowUnsourced(false);
     const url = new URL(window.location.href);
     url.searchParams.delete("q");
     url.searchParams.delete("f");
@@ -119,23 +151,21 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
       aria-labelledby="providers-heading"
     >
       <div className={`${shell} py-16 md:py-28 xl:py-40`}>
-        <div className="grid items-end gap-8 xl:grid-cols-[5fr_7fr] xl:gap-10">
-          <div>
-            <h2 id="providers-heading" className="nd-heading-l">
-              {copy.directoryTitle}
-            </h2>
-            <p className="nd-body-l mt-6 max-w-xl text-nd-mid-em-text">
-              {copy.directoryBody}
-            </p>
-          </div>
-          <div className="xl:justify-self-end">
-            <label
-              htmlFor="rpc-search"
-              className="mb-2 block text-xs text-nd-mid-em-text"
-            >
+        <div className="max-w-3xl">
+          <h2 id="providers-heading" className="nd-heading-l">
+            {copy.directoryTitle}
+          </h2>
+          <p className="nd-body-l mt-6 max-w-xl text-nd-mid-em-text">
+            {copy.directoryBody}
+          </p>
+        </div>
+
+        <div className="mt-10 border-y border-nd-border-light py-7 md:mt-14 md:py-9">
+          <div className="w-full md:max-w-[420px]">
+            <label htmlFor="rpc-search" className="sr-only">
               {copy.searchLabel}
             </label>
-            <div className="relative w-full xl:w-[400px]">
+            <div className="relative">
               <Search
                 className="pointer-events-none absolute left-5 top-3.5 size-5 text-nd-mid-em-text"
                 aria-hidden="true"
@@ -159,60 +189,58 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                 </button>
               )}
             </div>
-            <p
-              className="mt-3 text-xs text-nd-mid-em-text"
-              role="status"
-              aria-live="polite"
-            >
-              {results.length}{" "}
-              {results.length === 1 ? copy.resultOne : copy.resultMany}
-              <span className="sr-only"> {announcement}</span>
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-10 border-y border-nd-border-light py-6 md:mt-16 md:py-8">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <h3 className="nd-heading-xs">{copy.filterTitle}</h3>
-              <p className="nd-body-s mt-2 max-w-2xl text-nd-mid-em-text">
-                {copy.filterRule}
-              </p>
-            </div>
-            {features.length > 0 && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className={`hidden shrink-0 text-sm text-white underline underline-offset-4 md:block ${focus}`}
-              >
-                {copy.clearFilters}
-              </button>
-            )}
           </div>
           <button
+            id="rpc-filter-toggle"
             type="button"
             aria-expanded={filtersOpen}
             aria-controls="rpc-feature-filters"
             onClick={() => setFiltersOpen(!filtersOpen)}
             className={`mt-5 inline-flex w-full items-center justify-between rounded-full border border-nd-border-prominent px-5 py-3 text-sm md:hidden ${focus}`}
           >
-            <span>
+            <span className="flex items-center gap-2">
               {copy.filterToggle}
-              {features.length > 0 ? ` · ${features.length}` : ""}
+              {features.length > 0 && (
+                <span className="rounded-full bg-white px-2 py-0.5 font-brand-mono text-xs text-black">
+                  {features.length}
+                </span>
+              )}
             </span>
-            <span aria-hidden="true">{filtersOpen ? "−" : "+"}</span>
+            <span aria-hidden="true">{filtersOpen ? "↑" : "↓"}</span>
           </button>
           <div
             id="rpc-feature-filters"
-            className={`${filtersOpen ? "block" : "hidden"} mt-6 md:block`}
+            className={`${filtersOpen ? "block" : "hidden"} mt-7 md:block`}
           >
-            <div className="grid gap-7 md:grid-cols-2 xl:grid-cols-4">
+            <div className="mb-6 hidden items-start justify-between gap-6 md:flex">
+              <div>
+                <h3 className="text-sm font-medium text-white">
+                  {copy.filterTitle}
+                </h3>
+                <p className="mt-1 text-xs text-nd-mid-em-text">
+                  {copy.filterRule}
+                </p>
+              </div>
+              {features.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className={`shrink-0 text-sm text-white underline underline-offset-4 ${focus}`}
+                >
+                  {copy.clearFilters}
+                </button>
+              )}
+            </div>
+            <p className="mb-6 text-xs leading-relaxed text-nd-mid-em-text md:hidden">
+              {copy.filterRule}
+            </p>
+            <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-[auto_auto_auto_auto] xl:justify-between xl:gap-5">
               {groups.map((group) => (
                 <fieldset key={group} className="min-w-0">
-                  <legend className="float-none mb-4 font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
+                  <legend className="float-none mb-3 font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
                     {copy.featureGroups[group]}
                   </legend>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 md:gap-1.5 xl:flex-nowrap">
                     {RPC_FEATURES.filter(
                       (feature) => feature.group === group,
                     ).map(({ id }) => {
@@ -221,27 +249,43 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                         query,
                         features.includes(id) ? features : [...features, id],
                       ).length;
+                      const unavailable = count === 0 && !features.includes(id);
                       return (
                         <label
                           key={id}
-                          className="group relative cursor-pointer"
+                          className={`group relative ${unavailable ? "cursor-not-allowed opacity-40" : "cursor-pointer"}`}
                         >
                           <input
                             type="checkbox"
                             checked={features.includes(id)}
+                            disabled={unavailable}
+                            aria-describedby={
+                              id === "enhanced"
+                                ? "rpc-extended-hint"
+                                : undefined
+                            }
                             onChange={() => toggleFeature(id)}
                             className="peer sr-only"
                           />
-                          <span className="inline-flex min-h-11 items-center gap-2 rounded-full border border-nd-border-prominent px-4 py-2 text-sm text-white hover:border-white peer-checked:!bg-white peer-checked:text-black peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-white">
+                          <span className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-nd-border-prominent px-4 py-2 text-sm text-white hover:border-white md:min-h-9 md:px-3 md:text-[13px] peer-checked:!bg-white peer-checked:text-black peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-white">
                             <span>{copy.featureLabels[id]}</span>
-                            <span className="font-brand-mono text-xs opacity-60">
+                            <span className="font-brand-mono text-xs text-current">
                               {count}
+                              <span className="sr-only">
+                                {" "}
+                                {count === 1 ? copy.resultOne : copy.resultMany}
+                              </span>
                             </span>
                           </span>
                         </label>
                       );
                     })}
                   </div>
+                  {group === "data" && (
+                    <p id="rpc-extended-hint" className="sr-only">
+                      {copy.extendedHint}
+                    </p>
+                  )}
                 </fieldset>
               ))}
             </div>
@@ -254,38 +298,85 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                 {copy.clearFilters}
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setFiltersOpen(false);
+                window.requestAnimationFrame(() => {
+                  document.getElementById("rpc-results")?.scrollIntoView({
+                    behavior: window.matchMedia(
+                      "(prefers-reduced-motion: reduce)",
+                    ).matches
+                      ? "auto"
+                      : "smooth",
+                    block: "start",
+                  });
+                });
+              }}
+              className={`sticky bottom-4 z-10 mt-6 w-full rounded-full bg-white px-5 py-3 text-sm font-medium text-black shadow-[0_0_0_6px_#000] md:hidden ${focus}`}
+            >
+              {copy.showResults} · {results.length}
+            </button>
           </div>
         </div>
 
-        {(features.length > 0 || pins.length > 0) && (
-          <div className="mt-5 flex flex-wrap items-center gap-2">
+        {features.length > 0 && !filtersOpen && (
+          <div
+            id="rpc-active-filters"
+            className="mt-5 flex flex-wrap items-center gap-2 md:hidden"
+          >
             {features.map((id) => (
               <button
                 key={id}
                 type="button"
-                onClick={() => toggleFeature(id)}
+                onClick={() => removeFeatureChip(id)}
                 aria-label={`${copy.remove} ${copy.featureLabels[id]}`}
                 className={`rounded-full border border-white px-3 py-1.5 text-sm text-white hover:!bg-white/10 ${focus}`}
               >
                 {copy.featureLabels[id]} <span aria-hidden="true">×</span>
               </button>
             ))}
-            {pins.length > 0 && (
-              <a
-                href="#rpc-compare"
-                className={`ml-auto inline-flex items-center gap-2 text-sm text-white underline underline-offset-4 ${focus}`}
-              >
-                {copy.compareSelected} ({pins.length})
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </a>
-            )}
           </div>
         )}
+
+        <div
+          id="rpc-results"
+          className="mt-8 flex scroll-mt-24 flex-wrap items-center justify-between gap-4"
+        >
+          <p className="font-brand-mono text-xs text-nd-mid-em-text">
+            <span className="text-white">{results.length}</span>{" "}
+            {query || features.length
+              ? `${copy.resultsOf} ${RPC_PROVIDERS.length} `
+              : ""}
+            {copy.resultMany}
+          </p>
+          <span
+            className="sr-only"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {resultAnnouncement} {announcement}
+          </span>
+          {pins.length > 0 && (
+            <a
+              href="#rpc-compare"
+              className={`inline-flex items-center gap-2 text-sm text-white underline underline-offset-4 ${focus}`}
+            >
+              {copy.compareSelected} ({pins.length})
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </a>
+          )}
+        </div>
 
         {results.length > 0 ? (
           <div className="mt-10 grid border-l border-t border-nd-border-light md:grid-cols-2 xl:grid-cols-3">
             {results.map((provider) => {
-              const cited = documentedFeatures(provider);
+              const cited = documentedFeatures(provider).sort(
+                (a, b) =>
+                  Number(features.includes(b.id)) -
+                  Number(features.includes(a.id)),
+              );
               const pinned = pins.includes(provider.id);
               return (
                 <article
@@ -311,8 +402,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                               target="_blank"
                               rel="noopener noreferrer"
                               aria-label={`${copy.sourceFor} ${copy.featureLabels[id]}, ${provider.name} (${copy.newTab})`}
-                              title={provider.features[id]?.note}
-                              className={`inline-flex items-center gap-1 rounded-full border border-nd-border-light px-3 py-1.5 text-xs text-white hover:border-white ${focus}`}
+                              className={`inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs text-white hover:border-white ${features.includes(id) ? "border-white" : "border-nd-border-light"} ${focus}`}
                             >
                               {copy.featureLabels[id]}
                               <ArrowUpRight
@@ -325,7 +415,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                       </ul>
                     ) : (
                       <p className="nd-body-s mt-3 text-nd-mid-em-text">
-                        {copy.notYetSourced}
+                        {copy.noFeaturesSourced}
                       </p>
                     )}
                   </div>
@@ -370,6 +460,58 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
             >
               {copy.clearAll}
             </button>
+          </div>
+        )}
+
+        {unsourced.length > 0 && (
+          <div className="mt-8 border-t border-nd-border-light pt-6">
+            <p className="text-sm text-nd-mid-em-text">
+              {unsourced.length}{" "}
+              {unsourced.length === 1
+                ? copy.unsourcedSummaryOne
+                : copy.unsourcedSummaryMany}
+            </p>
+            <button
+              type="button"
+              aria-expanded={showUnsourced}
+              aria-controls="rpc-unsourced"
+              onClick={() => setShowUnsourced((value) => !value)}
+              className={`mt-3 text-sm text-white underline underline-offset-4 ${focus}`}
+            >
+              {showUnsourced ? copy.hideUnsourced : copy.showUnsourced}
+            </button>
+            <ul
+              id="rpc-unsourced"
+              hidden={!showUnsourced}
+              className={`${showUnsourced ? "grid" : "hidden"} mt-6 border-l border-t border-nd-border-light md:grid-cols-2 xl:grid-cols-3`}
+            >
+              {unsourced.map((provider) => (
+                <li
+                  key={provider.id}
+                  className="border-b border-r border-nd-border-light p-5"
+                >
+                  <a
+                    href={provider.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-2 text-base text-white ${focus}`}
+                  >
+                    {provider.name}
+                    <ArrowUpRight className="size-4" aria-hidden="true" />
+                    <span className="sr-only">({copy.newTab})</span>
+                  </a>
+                  <p className="mt-2 text-xs text-nd-mid-em-text">
+                    {copy.noSourceFor}:{" "}
+                    {features
+                      .filter(
+                        (feature) => !provider.features[feature]?.sourceUrl,
+                      )
+                      .map((feature) => copy.featureLabels[feature])
+                      .join(", ")}
+                  </p>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 

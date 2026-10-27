@@ -52,6 +52,7 @@ export type RpcCopy = {
   searchPlaceholder: string;
   resultOne: string;
   resultMany: string;
+  resultsOf: string;
   noResults: string;
   clear: string;
   visit: string;
@@ -62,9 +63,17 @@ export type RpcCopy = {
   filterTitle: string;
   filterRule: string;
   filterToggle: string;
+  extendedHint: string;
+  showResults: string;
+  unsourcedSummaryOne: string;
+  unsourcedSummaryMany: string;
+  showUnsourced: string;
+  hideUnsourced: string;
+  noSourceFor: string;
   clearFilters: string;
   documentedFeatures: string;
   notYetSourced: string;
+  noFeaturesSourced: string;
   sourceFor: string;
   shortlist: string;
   shortlisted: string;

@@ -3,15 +3,15 @@
  * Availability can vary by plan; see each linked source before selecting a service.
  */
 export const RPC_FEATURES = [
-  { id: "websocket", group: "interfaces" },
-  { id: "grpc", group: "interfaces" },
+  { id: "websocket", group: "streaming" },
+  { id: "grpc", group: "streaming" },
   { id: "history", group: "data" },
   { id: "enhanced", group: "data" },
-  { id: "dedicated", group: "infrastructure" },
-  { id: "regions", group: "infrastructure" },
-  { id: "free", group: "terms" },
-  { id: "trial", group: "terms" },
-  { id: "sla", group: "terms" },
+  { id: "free", group: "access" },
+  { id: "trial", group: "access" },
+  { id: "dedicated", group: "access" },
+  { id: "regions", group: "reliability" },
+  { id: "sla", group: "reliability" },
 ] as const;
 
 export type RpcFeatureId = (typeof RPC_FEATURES)[number]["id"];
@@ -201,96 +201,96 @@ export const RPC_PROVIDER_FEATURES: Record<
     websocket: {
       sourceUrl: "https://nownodes.io/nodes/solana-sol",
       checkedOn: "2026-10-27",
-      note: "Solana-specific",
+      note: "Solana RPC supports WebSocket subscriptions.",
     },
     dedicated: {
       sourceUrl: "https://nownodes.io/nodes/solana-sol",
       checkedOn: "2026-10-27",
-      note: "Solana-specific",
+      note: "Shared and dedicated Solana nodes are listed.",
     },
     trial: {
       sourceUrl: "https://nownodes.io/nodes/solana-sol",
       checkedOn: "2026-10-27",
-      note: "Solana-specific, time limited",
+      note: "START plan includes 100,000 requests for one month.",
     },
     regions: {
       sourceUrl: "https://nownodes.io/nodes/solana-sol",
       checkedOn: "2026-10-27",
-      note: "Solana-specific product page; SLA terms vary by plan",
+      note: "Requests use geo-distributed, load-balanced node clusters.",
     },
     sla: {
       sourceUrl: "https://nownodes.io/nodes/solana-sol",
       checkedOn: "2026-10-27",
-      note: "Solana-specific product page; SLA terms vary by plan",
+      note: "An uptime and support SLA is stated; check the plan terms.",
     },
   },
   orbitflare: {
     websocket: {
       sourceUrl: "https://orbitflare.com/products/rpc-nodes",
       checkedOn: "2026-10-27",
-      note: "Solana-specific; paid-plan SLA only",
+      note: "WebSockets are included across RPC plans.",
     },
     history: {
       sourceUrl: "https://orbitflare.com/products/rpc-nodes",
       checkedOn: "2026-10-27",
-      note: "Solana-specific; paid-plan SLA only",
+      note: "Archival data is included across RPC plans.",
     },
     free: {
       sourceUrl: "https://orbitflare.com/products/rpc-nodes",
       checkedOn: "2026-10-27",
-      note: "Solana-specific; paid-plan SLA only",
+      note: "A $0 Solana RPC plan is listed.",
     },
     regions: {
       sourceUrl: "https://orbitflare.com/products/rpc-nodes",
       checkedOn: "2026-10-27",
-      note: "Solana-specific; paid-plan SLA only",
+      note: "RPC is available in 11 global regions.",
     },
     sla: {
       sourceUrl: "https://orbitflare.com/products/rpc-nodes",
       checkedOn: "2026-10-27",
-      note: "Solana-specific; paid-plan SLA only",
+      note: "The published uptime SLA applies to paid plans.",
     },
     grpc: {
       sourceUrl: "https://orbitflare.com/products/rpc-nodes",
       checkedOn: "2026-10-27",
-      note: "Feature availability depends on cluster and plan",
+      note: "Devnet gRPC is listed on lower plans; Mainnet gRPC requires a higher plan or add-on.",
     },
     dedicated: {
       sourceUrl: "https://orbitflare.com/products/dedicated-nodes",
       checkedOn: "2026-10-27",
-      note: "Separate dedicated product",
+      note: "Dedicated RPC infrastructure is a separately priced option.",
     },
     enhanced: {
       sourceUrl: "https://orbitflare.com/",
       checkedOn: "2026-10-27",
-      note: "Separate product, not standard RPC",
+      note: "Digital Asset API is a separate product beyond standard RPC.",
     },
   },
   quicknode: {
     websocket: {
       sourceUrl: "https://www.quicknode.com/docs/solana/api-overview",
       checkedOn: "2026-10-27",
-      note: "Archive documented for Mainnet, not Devnet or Testnet",
+      note: "Solana WebSocket methods are documented for Mainnet, Devnet, and Testnet.",
     },
     history: {
       sourceUrl: "https://www.quicknode.com/docs/solana/api-overview",
       checkedOn: "2026-10-27",
-      note: "Archive documented for Mainnet, not Devnet or Testnet",
+      note: "Mainnet archive is documented; Devnet and Testnet do not list archive access.",
     },
     grpc: {
       sourceUrl: "https://www.quicknode.com/docs/solana/api-overview",
       checkedOn: "2026-10-27",
-      note: "Plan dependent",
+      note: "Solana gRPC is included with Scale and Business plans.",
     },
     dedicated: {
       sourceUrl: "https://www.quicknode.com/chains/solana",
       checkedOn: "2026-10-27",
-      note: "Dedicated and SLA are enterprise options",
+      note: "Dedicated Solana access is listed as an enterprise option.",
     },
     sla: {
       sourceUrl: "https://www.quicknode.com/chains/solana",
       checkedOn: "2026-10-27",
-      note: "Dedicated and SLA are enterprise options",
+      note: "An SLA is listed for enterprise access.",
     },
     trial: {
       sourceUrl: "https://www.quicknode.com/chains/solana",
@@ -305,49 +305,49 @@ export const RPC_PROVIDER_FEATURES: Record<
     regions: {
       sourceUrl: "https://www.quicknode.com/chains/solana",
       checkedOn: "2026-10-27",
-      note: "Solana-specific product claim",
+      note: "The Solana product page lists regional infrastructure.",
     },
   },
   "solana-vibe-station": {
     websocket: {
       sourceUrl: "https://solanavibestation.com/services",
       checkedOn: "2026-10-27",
-      note: "RPC product; regions listed as Atlanta and Amsterdam",
+      note: "The Solana RPC product includes WebSocket support.",
     },
     free: {
       sourceUrl: "https://solanavibestation.com/services",
       checkedOn: "2026-10-27",
-      note: "RPC product; regions listed as Atlanta and Amsterdam",
+      note: "The Solana RPC product offers a free starting tier.",
     },
     regions: {
       sourceUrl: "https://solanavibestation.com/services",
       checkedOn: "2026-10-27",
-      note: "RPC product; regions listed as Atlanta and Amsterdam",
+      note: "Atlanta and Amsterdam regions are listed.",
     },
     history: {
       sourceUrl: "https://solanavibestation.com/services",
       checkedOn: "2026-10-27",
-      note: "Partial historical range, not full archive from genesis",
+      note: "Paid archival reads extend back to block 297,562,244.",
     },
     grpc: {
       sourceUrl: "https://solanavibestation.com/services",
       checkedOn: "2026-10-27",
-      note: "Separate paid streaming product",
+      note: "Yellowstone gRPC is a separately priced streaming service.",
     },
     dedicated: {
       sourceUrl: "https://solanavibestation.com/pricing",
       checkedOn: "2026-10-27",
-      note: "Quoted enterprise option",
+      note: "Dedicated infrastructure is offered by quote.",
     },
     enhanced: {
       sourceUrl: "https://solanavibestation.com/services",
       checkedOn: "2026-10-27",
-      note: "Current Solana RPC extension; avoid Rewind beta as proof",
+      note: "Hyperion account queries are included on paid RPC tiers.",
     },
     sla: {
       sourceUrl: "https://solanavibestation.com/sla",
       checkedOn: "2026-10-27",
-      note: "Terms document controls; marketing services page says 99.99%",
+      note: "The SLA terms govern availability; check them before choosing a plan.",
     },
   },
   "triton-rpc-pool": {
@@ -364,17 +364,17 @@ export const RPC_PROVIDER_FEATURES: Record<
     dedicated: {
       sourceUrl: "https://www.triton.one/chains/solana",
       checkedOn: "2026-10-27",
-      note: "Separate access models",
+      note: "Dedicated Solana nodes are offered separately from shared RPC access.",
     },
     regions: {
       sourceUrl: "https://www.triton.one/chains/solana",
       checkedOn: "2026-10-27",
-      note: "Separate access models",
+      note: "Shared RPC uses GeoDNS across global data centers; dedicated nodes can be deployed in multiple regions.",
     },
     history: {
       sourceUrl: "https://triton.one/",
       checkedOn: "2026-10-27",
-      note: "Solana-specific; Old Faithful gRPC is private beta",
+      note: "The Solana product page documents full historical transactions and signatures.",
     },
     enhanced: {
       sourceUrl: "https://www.triton.one/chains/solana",
