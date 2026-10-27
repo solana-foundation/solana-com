@@ -142,13 +142,17 @@ English route copy lives in `packages/i18n/messages/web/en/common.json` under
 `rpc.directory`; `apps/web/src/app/[locale]/rpc/providers.ts` owns neutral URL
 records. The i18n merge provides English fallback for new keys in other locales;
 existing translated `rpc.content` remains in catalogs for editorial migration.
-Translation owners should add `rpc.directory` keys before declaring the new
-design localized. For a provider submission, check the repo's
-`apps/web/CONTRIBUTING.md` criteria, verify its human-facing destination and
-current Solana offering with the content owner, update the source audit, then
-add a record. The sourced feature ledger below records current evidence for
-filter tags. Review each source before changing tags, and treat missing tags as
-unknown.
+All 18 target locales now carry `rpc.directory`. A local Lingo.dev run on 27
+October 2026 stalled at 0/18 targets, so these strings were translated against
+each locale's existing `rpc` terminology; Lingo.dev reconciles its lock on the
+next main-branch run. Count strings use one plural form, which reads imperfectly
+for 2–4 items in ar, pl, ru, and uk; ICU plurals are a follow-up. Code samples,
+endpoint URLs, and limit values render left to right in RTL locales. For a
+provider submission, check the repo's `apps/web/CONTRIBUTING.md` criteria,
+verify its human-facing destination and current Solana offering with the content
+owner, update the source audit, then add a record. The sourced feature ledger
+below records current evidence for filter tags. Review each source before
+changing tags, and treat missing tags as unknown.
 
 Release comparison: the new design keeps the current URL and metadata mechanism,
 replaces the Markdown document with task paths, an official endpoint panel, and
