@@ -84,8 +84,9 @@ remove capability badges and filters until each offering has a current provider
 source and editorial approval. A second confusion: an endpoint and a provider
 card both looked like places to click. Revision: official endpoints occupy a
 separate copyable panel; provider cards open human-facing pages. A third: the
-Foundation Server Program appeared in the private provider list. Revision: give
-it a separate self-hosting resource card.
+Foundation Server Program appeared in the private provider list. Revision: keep
+it out of the provider directory. The follow-up page revision removed the
+delegation program section at the requester’s direction.
 
 After revision, local task resolves at the local setup card; public task
 resolves at three official URLs plus the rate-limit/no-SLA caveat; production
@@ -125,7 +126,7 @@ HTTP codes can differ from browser GET responses.
 | Solana Vibe Station       | M, P `solanavibestation.com`                                                 | 200 [home](https://solanavibestation.com/)                                                                                    | Include once; verify offering                           |
 | Syndica                   | M, P `syndica.io`                                                            | 200 [home](https://syndica.io/)                                                                                               | Include once                                            |
 | Triton / RPC Pool         | P `triton.one`                                                               | 200 [home](https://triton.one/)                                                                                               | Include                                                 |
-| Foundation Server Program | P `solana.org/delegation-program`                                            | 200 [program page](https://solana.org/delegation-program)                                                                     | Separate self-hosting resource, not a provider          |
+| Foundation Server Program | P `solana.org/delegation-program`                                            | 200 [program page](https://solana.org/delegation-program)                                                                     | Excluded from the redesigned page                       |
 | Official Mainnet          | M `api.mainnet-beta.solana.com`                                              | old endpoint 200; [current cluster reference](https://solana.com/docs/references/clusters) documents `api.mainnet.solana.com` | Official endpoint panel                                 |
 | Official Devnet           | D `api.devnet.solana.com`                                                    | 200; [cluster reference](https://solana.com/docs/references/clusters)                                                         | Official endpoint panel                                 |
 | Official Testnet          | Testnet `api.testnet.solana.com`                                             | 200; [cluster reference](https://solana.com/docs/references/clusters)                                                         | Official endpoint panel                                 |
@@ -145,8 +146,9 @@ Translation owners should add `rpc.directory` keys before declaring the new
 design localized. For a provider submission, check the repo's
 `apps/web/CONTRIBUTING.md` criteria, verify its human-facing destination and
 current Solana offering with the content owner, update the source audit, then
-add a record. Only add cluster/access badges after sourcing each claim and
-planning a review cadence.
+add a record. The sourced feature ledger below records current evidence for
+filter tags. Review each source before changing tags, and treat missing tags as
+unknown.
 
 Release comparison: the new design keeps the current URL and metadata mechanism,
 replaces the Markdown document with task paths, an official endpoint panel, and
@@ -177,15 +179,75 @@ and validator within one machine boundary; Public shows other apps sharing an
 official endpoint; Production shows a provider and a separate fallback. A white
 RPC-to-cluster link gives context without suggesting that an app's RPC request
 is forwarded directly to the cluster. No traffic, latency, price, or quality
-metrics are implied. The scene renders on demand and disposes WebGL resources
-when replaced. Mobile uses an equivalent SVG, as do desktop clients with
-Save-Data or unavailable WebGL; reduced-motion clients see the route without
-packet animation.
+metrics are implied. The scene keeps one WebGL context across path changes,
+renders during finite animations or pointer movement, and disposes geometry,
+materials, and textures on unmount. Mobile uses an equivalent SVG, as do desktop
+clients with Save-Data or unavailable WebGL; reduced-motion clients see the
+route without packet animation.
+
+The render approach follows Three.js guidance on
+[screen-space line width](https://threejs.org/docs/pages/LineMaterial.html),
+[rendering on demand](https://threejs.org/manual/pages/rendering-on-demand.html),
+[responsive canvas sizing](https://threejs.org/manual/pages/responsive.html),
+and
+[disposing GPU resources](https://threejs.org/manual/pages/how-to-dispose-of-objects.html).
 
 Official endpoints remain separate from the neutral, alphabetical 15-provider
 grid. Search and path changes preserve each other's URL parameters. The
-Foundation Server Program is in its own closing band. Copy controls report
-success or failure. At 1440px and 320px the route strip, CTA, and diagrams were
-checked in Chromium; the desktop test confirmed a WebGL canvas and mobile
-confirmed SVG without horizontal overflow. This visual revision does not alter
-provider sources or the held-entry decisions above.
+delegation program section has been removed at the requester’s direction. Copy
+controls report success or failure. At 1440px and 320px the route strip, CTA,
+and diagrams were checked in Chromium; the desktop test confirmed a WebGL canvas
+and mobile confirmed SVG without horizontal overflow. This visual revision does
+not alter provider sources or the held-entry decisions above.
+
+## Feature evidence for directory filters
+
+Checked 27 October 2026 against current first-party Solana product pages,
+documentation, plans, and terms. All 33 distinct feature evidence URLs responded
+with HTTP 200 after redirects in a HEAD check that day. A filter match means a
+provider documents that capability somewhere in its offering. It does **not**
+mean every plan or cluster includes it. An absent tag means no sufficiently
+current, specific source was found; it does not mean the provider lacks the
+capability. The published URLs in `provider-features.ts` are the source of truth
+for the cards and comparison view.
+
+| Provider            | Sourced features                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Limits and review notes                                                              |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Alchemy             | [Free plan](https://www.alchemy.com/solana), [WebSocket](https://www.alchemy.com/docs/reference/solana-subscription-api-endpoints), [Yellowstone gRPC](https://www.alchemy.com/docs/reference/yellowstone-grpc-api-overview), [Historical data](https://www.alchemy.com/blog/how-alchemy-built-the-fastest-archival-methods-on-solana), [Enhanced APIs](https://www.alchemy.com/docs/reference/feature-support-by-chain)                                                                                                  | Account Archive for historical account state requires a paid plan.                   |
+| Ankr                | [Free plan](https://www.ankr.com/docs/whats-new/), [WebSocket](https://www.ankr.com/docs/rpc-service/pricing/)                                                                                                                                                                                                                                                                                                                                                                                                            | Solana docs describe about 16 hours of transaction history; no history tag.          |
+| Blockdaemon         | [Dedicated access](https://www.blockdaemon.com/networks), [WebSocket](https://docs.blockdaemon.com/reference/rpc-websocket), [Historical data](https://docs.blockdaemon.com/docs/historical-data)                                                                                                                                                                                                                                                                                                                         | A free test key is not an ongoing plan; no Solana gRPC source was found.             |
+| Chainflow           | None confirmed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Project-specific contact offering; no current feature claims were verified.          |
+| Chainstack          | [Free plan](https://chainstack.com/build-better-with-solana/), [Dedicated access](https://chainstack.com/build-better-with-solana/), [WebSocket](https://chainstack.com/build-better-with-solana/), [Yellowstone gRPC](https://chainstack.com/build-better-with-solana/), [Historical data](https://chainstack.com/archive-data/)                                                                                                                                                                                         | Features vary by plan; archive is a separate product.                                |
+| Digital Energy      | [Historical data](https://digital-energy.io/)                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Dedicated bare metal describes operator infrastructure, not isolated customer nodes. |
+| FluxRPC             | [Free plan](https://fluxrpc.com/), [WebSocket](https://fluxrpc.com/docs), [Yellowstone gRPC](https://fluxrpc.com/docs)                                                                                                                                                                                                                                                                                                                                                                                                    | Solana history is recent-only; its Fogo history product is separate.                 |
+| GetBlock            | [Free plan](https://getblock.io/nodes/sol/), [Dedicated access](https://getblock.io/pricing/), [WebSocket](https://getblock.io/nodes/sol/), [Yellowstone gRPC](https://getblock.io/pricing/), [Historical data](https://getblock.io/blog/getblock-dev-update-april-2025/)                                                                                                                                                                                                                                                 | Archive access is not established for its free plan.                                 |
+| Helius              | [Free plan](https://www.helius.dev/pricing), [Dedicated access](https://www.helius.dev/pricing), [WebSocket](https://www.helius.dev/blog/laserstream-websockets), [Yellowstone gRPC](https://www.helius.dev/pricing), [Historical data](https://www.helius.dev/solana-rpc-nodes), [Enhanced APIs](https://www.helius.dev/solana-rpc-nodes)                                                                                                                                                                                | Streaming, archive and dedicated options vary by plan.                               |
+| NOWNodes            | [WebSocket](https://nownodes.io/nodes/solana-sol), [Dedicated access](https://nownodes.io/nodes/solana-sol), [Free trial](https://nownodes.io/nodes/solana-sol), [Multiple regions](https://nownodes.io/nodes/solana-sol), [Published SLA](https://nownodes.io/nodes/solana-sol)                                                                                                                                                                                                                                          | Archive sources conflict; platform gRPC is not confirmed for Solana.                 |
+| OrbitFlare          | [WebSocket](https://orbitflare.com/products/rpc-nodes), [Historical data](https://orbitflare.com/products/rpc-nodes), [Free plan](https://orbitflare.com/products/rpc-nodes), [Multiple regions](https://orbitflare.com/products/rpc-nodes), [Published SLA](https://orbitflare.com/products/rpc-nodes), [Yellowstone gRPC](https://orbitflare.com/products/rpc-nodes), [Dedicated access](https://orbitflare.com/products/dedicated-nodes), [Enhanced APIs](https://orbitflare.com/)                                     | SLA and gRPC availability depend on plan and cluster.                                |
+| Quicknode           | [WebSocket](https://www.quicknode.com/docs/solana/api-overview), [Historical data](https://www.quicknode.com/docs/solana/api-overview), [Yellowstone gRPC](https://www.quicknode.com/docs/solana/api-overview), [Dedicated access](https://www.quicknode.com/chains/solana), [Published SLA](https://www.quicknode.com/chains/solana), [Free trial](https://www.quicknode.com/chains/solana), [Enhanced APIs](https://www.quicknode.com/docs/solana/add-ons), [Multiple regions](https://www.quicknode.com/chains/solana) | The trial is one month; gRPC, history and dedicated terms vary by plan.              |
+| Solana Vibe Station | [WebSocket](https://solanavibestation.com/services), [Free plan](https://solanavibestation.com/services), [Multiple regions](https://solanavibestation.com/services), [Historical data](https://solanavibestation.com/services), [Yellowstone gRPC](https://solanavibestation.com/services), [Dedicated access](https://solanavibestation.com/pricing), [Enhanced APIs](https://solanavibestation.com/services), [Published SLA](https://solanavibestation.com/sla)                                                       | History begins at block 297,562,244; SLA terms say 99.9% monthly.                    |
+| Syndica             | None confirmed                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Current pages did not provide enough verifiable feature detail.                      |
+| Triton / RPC Pool   | [WebSocket](https://www.triton.one/chains/solana), [Yellowstone gRPC](https://www.triton.one/chains/solana), [Dedicated access](https://www.triton.one/chains/solana), [Multiple regions](https://www.triton.one/chains/solana), [Historical data](https://triton.one/), [Enhanced APIs](https://www.triton.one/chains/solana)                                                                                                                                                                                            | Old Faithful historical gRPC is private beta; no free plan was verified.             |
+
+Conflict checks that affect filtering:
+
+- Ankr's Solana docs describe about 16 hours of transaction history. Its generic
+  archive plan table does not establish Solana archive support, so Ankr is not
+  tagged for historical data.
+- FluxRPC's Solana docs say recent data only; its historical transaction and
+  block product currently applies to Fogo. It is not tagged for Solana history.
+- NOWNodes' archive product says Solana is coming soon while other pages imply
+  archive access. It is not tagged for history pending a consistent source.
+- Quicknode and NOWNodes have time-limited free offers. They are tagged as
+  trials, not ongoing free plans.
+- Solana Vibe Station's SLA terms set a 99.9% monthly target; its services page
+  advertises 99.99%. The UI links the terms and publishes no percentage. Its
+  historical range starts at block 297,562,244, so the tag does not imply full
+  history from genesis.
+- Syndica's current first-party pages did not expose enough product detail to
+  verify feature tags. It remains listed for provider discovery with features
+  marked not yet sourced.
+
+The feature list and checked date require a content review cadence; provider
+plans, API support and terms can change. The comparison view is an evidence
+ledger, not a recommendation or performance ranking.

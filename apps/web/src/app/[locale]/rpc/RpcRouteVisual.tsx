@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import type { RpcPath } from "./directory-state";
+import type { RpcSceneLabels } from "./RpcRouteScene";
 
 const RpcRouteScene = dynamic(
   () => import("./RpcRouteScene").then((module) => module.RpcRouteScene),
@@ -138,7 +139,13 @@ function RouteFallback({ path }: { path: RpcPath }) {
   );
 }
 
-export function RpcRouteVisual({ path }: { path: RpcPath }) {
+export function RpcRouteVisual({
+  path,
+  labels,
+}: {
+  path: RpcPath;
+  labels: RpcSceneLabels;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [loadScene, setLoadScene] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
@@ -166,32 +173,56 @@ export function RpcRouteVisual({ path }: { path: RpcPath }) {
     const desktop = window.matchMedia("(min-width: 768px)");
     let timer: ReturnType<typeof setTimeout> | undefined;
     let observer: IntersectionObserver | undefined;
-    const schedule = () => {
-      if (!desktop.matches || observer) return;
+    let idle: number | undefined;
+    let loaded = false;
+    const cancelPending = () => {
+      if (timer) clearTimeout(timer);
+      if (idle) window.cancelIdleCallback(idle);
+      observer?.disconnect();
+      timer = undefined;
+      idle = undefined;
+      observer = undefined;
+    };
+    const syncDesktop = () => {
+      if (!desktop.matches) {
+        cancelPending();
+        loaded = false;
+        setLoadScene(false);
+        setSceneReady(false);
+        return;
+      }
+      if (observer || loaded) return;
       observer = new IntersectionObserver(
         ([entry]) => {
           if (entry.isIntersecting) {
-            timer = setTimeout(() => setLoadScene(true), 150);
             observer?.disconnect();
+            observer = undefined;
+            const load = () => {
+              if (!desktop.matches) return;
+              loaded = true;
+              setLoadScene(true);
+            };
+            if (window.requestIdleCallback)
+              idle = window.requestIdleCallback(load, { timeout: 700 });
+            else timer = setTimeout(load, 150);
           }
         },
         { rootMargin: "200px" },
       );
       observer.observe(host);
     };
-    schedule();
-    desktop.addEventListener("change", schedule);
+    syncDesktop();
+    desktop.addEventListener("change", syncDesktop);
     return () => {
-      desktop.removeEventListener("change", schedule);
-      observer?.disconnect();
-      if (timer) clearTimeout(timer);
+      desktop.removeEventListener("change", syncDesktop);
+      cancelPending();
     };
   }, []);
 
   return (
     <div
       ref={hostRef}
-      className="relative h-[240px] w-full overflow-hidden md:h-[400px] xl:h-[520px]"
+      className="relative h-[240px] w-full overflow-hidden md:h-[400px] xl:h-[470px]"
       aria-hidden="true"
     >
       <div className="md:hidden">
@@ -209,6 +240,7 @@ export function RpcRouteVisual({ path }: { path: RpcPath }) {
           <RpcRouteScene
             path={path}
             animate={!reducedMotion}
+            labels={labels}
             onReady={() => setSceneReady(true)}
             onLost={() => setSceneReady(false)}
           />

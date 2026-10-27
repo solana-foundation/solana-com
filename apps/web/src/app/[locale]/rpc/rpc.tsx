@@ -2,16 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
-import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
-import { Search } from "@boxicons/react/Search";
 import { RPC_PROVIDERS } from "./providers";
+import type { RpcFeatureGroup, RpcFeatureId } from "./provider-features";
 import { RpcRouteVisual } from "./RpcRouteVisual";
+import { RpcProviderDirectory } from "./RpcProviderDirectory";
 import {
   localizeRpcHref,
   parseRpcPath,
-  parseRpcQuery,
   RPC_PATHS,
-  searchRpcProviders,
   type RpcPath,
 } from "./directory-state";
 
@@ -59,6 +57,33 @@ export type RpcCopy = {
   visit: string;
   newTab: string;
   descriptions: Record<string, string>;
+  featureGroups: Record<RpcFeatureGroup, string>;
+  featureLabels: Record<RpcFeatureId, string>;
+  filterTitle: string;
+  filterRule: string;
+  filterToggle: string;
+  clearFilters: string;
+  documentedFeatures: string;
+  notYetSourced: string;
+  sourceFor: string;
+  shortlist: string;
+  shortlisted: string;
+  compareLimit: string;
+  removedFromCompare: string;
+  addedToCompare: string;
+  selectedForCompare: string;
+  compareSelected: string;
+  compareNote: string;
+  scrollCompare: string;
+  compareCaption: string;
+  featureColumn: string;
+  remove: string;
+  documented: string;
+  checkedOn: string;
+  sourceCaveat: string;
+  emptyFiltered: string;
+  emptyEvidence: string;
+  clearAll: string;
   evaluateTitle: string;
   evaluateBody: string;
   methods: string;
@@ -67,9 +92,6 @@ export type RpcCopy = {
   credentials: string;
   readiness: string;
   reference: string;
-  serverTitle: string;
-  serverBody: string;
-  serverAction: string;
   diagramApp: string;
   diagramEndpoint: string;
   diagramCluster: string;
@@ -81,6 +103,8 @@ export type RpcCopy = {
   sceneDevnet: string;
   sceneMainnet: string;
   sceneFallback: string;
+  sceneMachine: string;
+  sceneOtherApps: string;
 };
 
 const endpoints = [
@@ -95,7 +119,6 @@ const shell = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
 const primary = `inline-flex items-center gap-3 rounded-full bg-white py-2 pl-5 pr-2 font-medium text-black hover:bg-white/90 ${focus}`;
 
 export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
-  const [query, setQuery] = useState("");
   const [path, setPath] = useState<RpcPath>("production");
   const [copied, setCopied] = useState<EndpointId | null>(null);
   const [copyError, setCopyError] = useState<EndpointId | null>(null);
@@ -105,7 +128,6 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
   useEffect(() => {
     const sync = () => {
       const params = new URLSearchParams(window.location.search);
-      setQuery(parseRpcQuery(params));
       setPath(parseRpcPath(params));
     };
     sync();
@@ -119,13 +141,6 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
     if (next === "production") url.searchParams.delete("path");
     else url.searchParams.set("path", next);
     window.history.pushState(window.history.state, "", url);
-  };
-  const updateQuery = (value: string) => {
-    setQuery(value);
-    const url = new URL(window.location.href);
-    if (value.trim()) url.searchParams.set("q", value.trim());
-    else url.searchParams.delete("q");
-    window.history.replaceState(window.history.state, "", url);
   };
   const copyEndpoint = async (id: EndpointId, url: string) => {
     try {
@@ -167,7 +182,6 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
     production: copy.pathProduction,
   };
   const selected = pathDetails[path];
-  const results = searchRpcProviders(RPC_PROVIDERS, query);
 
   const onPathKeyDown = (
     event: React.KeyboardEvent<HTMLButtonElement>,
@@ -223,8 +237,21 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
             </div>
           </div>
           <div className="order-2 mt-10 xl:absolute xl:inset-y-0 xl:right-10 xl:order-none xl:mt-0 xl:flex xl:w-[47%] xl:-translate-y-14 xl:flex-col xl:justify-center xl:pt-14">
-            <RpcRouteVisual path={path} />
-            <div className="flex justify-between border-t border-nd-border-light pt-3 font-brand-mono text-[10px] uppercase tracking-wide text-nd-mid-em-text md:text-xs">
+            <RpcRouteVisual
+              path={path}
+              labels={{
+                app: copy.sceneApp,
+                provider: copy.sceneProvider,
+                fallback: copy.sceneFallback,
+                official: copy.sceneOfficial,
+                otherApps: copy.sceneOtherApps,
+                machine: copy.sceneMachine,
+                localValidator: copy.sceneLocalValidator,
+                mainnet: copy.sceneMainnet,
+                devnet: copy.sceneDevnet,
+              }}
+            />
+            <div className="flex justify-between border-t border-nd-border-light pt-3 font-brand-mono text-[10px] uppercase tracking-wide text-nd-mid-em-text md:hidden">
               <span>{copy.sceneApp}</span>
               <span>
                 {path === "local"
@@ -417,105 +444,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         </div>
       </section>
 
-      <section
-        id="providers"
-        className="border-b border-nd-border-light"
-        aria-labelledby="providers-heading"
-      >
-        <div className={`${shell} py-16 md:py-28 xl:py-40`}>
-          <div className="grid items-end gap-8 xl:grid-cols-[5fr_7fr] xl:gap-10">
-            <div>
-              <h2 id="providers-heading" className="nd-heading-l">
-                {copy.directoryTitle}
-              </h2>
-              <p className="nd-body-l mt-6 max-w-xl text-nd-mid-em-text">
-                {copy.directoryBody}
-              </p>
-            </div>
-            <div className="xl:justify-self-end">
-              <label
-                htmlFor="rpc-search"
-                className="mb-2 block text-xs text-nd-mid-em-text"
-              >
-                {copy.searchLabel}
-              </label>
-              <div className="relative w-full xl:w-[400px]">
-                <Search
-                  className="pointer-events-none absolute left-5 top-3.5 size-5 text-nd-mid-em-text"
-                  aria-hidden="true"
-                />
-                <input
-                  id="rpc-search"
-                  type="search"
-                  maxLength={100}
-                  value={query}
-                  onChange={(event) => updateQuery(event.target.value)}
-                  placeholder={copy.searchPlaceholder}
-                  className={`h-12 w-full rounded-full border border-nd-border-prominent bg-transparent pl-12 pr-24 text-base text-white placeholder:text-nd-mid-em-text focus:border-white focus:outline-none ${focus}`}
-                />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => updateQuery("")}
-                    className={`absolute right-5 top-3 text-sm text-nd-mid-em-text hover:text-white ${focus}`}
-                  >
-                    {copy.clear}
-                  </button>
-                )}
-              </div>
-              <p
-                className="mt-3 text-xs text-nd-mid-em-text"
-                role="status"
-                aria-live="polite"
-              >
-                {results.length}{" "}
-                {results.length === 1 ? copy.resultOne : copy.resultMany}
-              </p>
-            </div>
-          </div>
-          {results.length ? (
-            <div className="mt-10 grid border-l border-t border-nd-border-light md:grid-cols-2 xl:grid-cols-3">
-              {results.map((provider) => (
-                <article
-                  key={provider.id}
-                  className="group relative flex min-h-[200px] flex-col justify-between border-b border-r border-nd-border-light p-6 motion-safe:transition-colors hover:bg-white/[0.03] xl:min-h-[220px] xl:p-8"
-                >
-                  <div>
-                    <h3 className="nd-heading-xs">{provider.name}</h3>
-                    <p className="nd-body-s mt-4 text-nd-mid-em-text">
-                      {copy.descriptions[provider.id]}
-                    </p>
-                  </div>
-                  <a
-                    href={provider.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`mt-8 inline-flex items-center gap-2 text-sm font-medium text-white after:absolute after:inset-0 ${focus}`}
-                    aria-label={`${copy.visit} ${provider.name} (${copy.newTab})`}
-                  >
-                    {copy.visit}
-                    <ArrowUpRight
-                      className="size-4 motion-safe:transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                      aria-hidden="true"
-                    />
-                  </a>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-6 border-y border-nd-border-light py-12">
-              <p>{copy.noResults}</p>
-              <button
-                type="button"
-                onClick={() => updateQuery("")}
-                className={`mt-4 underline underline-offset-4 ${focus}`}
-              >
-                {copy.clear}
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
+      <RpcProviderDirectory copy={copy} />
 
       <section
         className="border-b border-nd-border-light"
@@ -566,29 +495,6 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                   <ArrowRight className="size-5" aria-hidden="true" />
                 </a>
               ))}
-            </div>
-          </div>
-        </div>
-      </section>
-      <section className="py-16 md:py-28 xl:py-40">
-        <div className={shell}>
-          <div className="grid gap-8 border-t border-nd-border-light pt-10 xl:grid-cols-[5fr_7fr]">
-            <div>
-              <h2 className="nd-heading-m max-w-[560px]">{copy.serverTitle}</h2>
-              <p className="nd-body-l mt-5 max-w-[560px] text-nd-mid-em-text">
-                {copy.serverBody}
-              </p>
-            </div>
-            <div className="xl:justify-self-end">
-              <a
-                href="https://solana.org/delegation-program"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center gap-3 rounded-full border border-nd-border-prominent px-5 py-3 text-base font-medium text-white hover:border-white ${focus}`}
-              >
-                {copy.serverAction}
-                <ArrowUpRight className="size-5" aria-hidden="true" />
-              </a>
             </div>
           </div>
         </div>

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  filterRpcProviders,
   localizeRpcHref,
+  parseRpcFeatures,
   parseRpcPath,
+  parseRpcPins,
   parseRpcQuery,
   searchRpcProviders,
 } from "@/app/[locale]/rpc/directory-state";
@@ -38,7 +41,9 @@ describe("RPC directory", () => {
     );
     for (const provider of RPC_PROVIDERS) {
       expect(new URL(provider.url).protocol).toBe("https:");
-      expect(new URL(provider.evidenceUrl).protocol).toBe("https:");
+      for (const evidence of Object.values(provider.features)) {
+        expect(new URL(evidence.sourceUrl).protocol).toBe("https:");
+      }
       expect(provider.url).not.toMatch(
         /rpc\.digital-energy\.io|rpc\.ankr\.com|instantnodes\.io/,
       );
@@ -62,5 +67,29 @@ describe("RPC directory", () => {
     expect(
       parseRpcQuery(new URLSearchParams(`q=${"x".repeat(150)}`)),
     ).toHaveLength(100);
+  });
+
+  it("uses allowlisted feature and provider ids from shareable state", () => {
+    expect(
+      parseRpcFeatures(new URLSearchParams("f=grpc,unknown,grpc,free")),
+    ).toEqual(["grpc", "free"]);
+    expect(
+      parseRpcPins(
+        new URLSearchParams("pin=helius,unknown,alchemy,getblock,ankr"),
+        RPC_PROVIDERS,
+      ),
+    ).toEqual(["alchemy", "ankr", "getblock"]);
+  });
+
+  it("matches only sourced affirmative features and intersects with search", () => {
+    expect(
+      filterRpcProviders(RPC_PROVIDERS, "helius", ["grpc", "history"]).map(
+        (provider) => provider.id,
+      ),
+    ).toEqual(["helius"]);
+    expect(filterRpcProviders(RPC_PROVIDERS, "chainflow", ["grpc"])).toEqual(
+      [],
+    );
+    expect(filterRpcProviders(RPC_PROVIDERS, "helius", ["trial"])).toEqual([]);
   });
 });

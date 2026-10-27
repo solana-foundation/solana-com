@@ -1,9 +1,15 @@
 /** Source audit: docs/research/eco-859-rpc-directory.md. Unknown offerings are deliberately omitted. */
+import {
+  RPC_PROVIDER_FEATURES,
+  type RpcFeatureEvidence,
+  type RpcFeatureId,
+} from "./provider-features";
+
 export type RpcProvider = {
   id: string;
   name: string;
   url: string;
-  evidenceUrl: string;
+  features: Partial<Record<RpcFeatureId, RpcFeatureEvidence>>;
 };
 
 export const RPC_PROVIDERS: readonly RpcProvider[] = [
@@ -55,5 +61,8 @@ export const RPC_PROVIDERS: readonly RpcProvider[] = [
     url: "https://triton.one/",
   },
 ]
-  .map((provider) => ({ ...provider, evidenceUrl: provider.url }))
+  .map((provider) => ({
+    ...provider,
+    features: RPC_PROVIDER_FEATURES[provider.id] ?? {},
+  }))
   .sort((a, b) => a.name.localeCompare(b.name));
