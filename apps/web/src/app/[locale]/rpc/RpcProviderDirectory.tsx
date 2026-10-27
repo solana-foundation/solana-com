@@ -1,7 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
-import { ArrowRight } from "@boxicons/react/ArrowRight";
+import { useEffect, useState } from "react";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { Check } from "@boxicons/react/Check";
 import { Filter } from "@boxicons/react/Filter";
@@ -28,6 +27,7 @@ import {
   searchRpcProviders,
   type RpcView,
 } from "./directory-state";
+import { Jack } from "./Jack";
 import type { RpcCopy } from "./rpc";
 import { typeScale } from "./typography";
 
@@ -213,8 +213,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
       query,
       features.includes(id) ? features : [...features, id],
     ).length;
-  const label =
-    "font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text";
+  const label = "text-sm text-nd-mid-em-text";
 
   return (
     <section
@@ -225,13 +224,14 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
       <div className={`${shell} py-16 md:py-28 xl:py-40`}>
         <div className="grid border-y border-nd-border-light lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]">
           <div className="py-8 lg:py-10 lg:pr-10">
-            <p className={label}>{copy.eyebrow}</p>
-            <h2 id="providers-heading" className={`${typeScale.headingL} mt-3`}>
+            <h2 id="providers-heading" className={typeScale.headingL}>
               {copy.directoryTitle}
             </h2>
           </div>
           <div className="border-t border-nd-border-light py-8 lg:border-l lg:border-t-0 lg:py-10 lg:pl-10">
-            <p className={label}>{copy.policyLabel}</p>
+            <h3 className="text-sm font-medium text-white">
+              {copy.policyLabel}
+            </h3>
             <p className="mt-3 text-sm text-nd-mid-em-text">
               {copy.directoryBody}
             </p>
@@ -332,7 +332,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
           <div
             role="group"
             aria-label={copy.viewLabel}
-            className="flex h-12 shrink-0 border border-nd-border-prominent"
+            className="hidden h-12 shrink-0 border border-nd-border-prominent sm:flex"
           >
             {(
               [
@@ -500,7 +500,6 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                   className={`inline-flex items-center gap-2 text-sm text-white underline underline-offset-4 ${focus}`}
                 >
                   {copy.compareSelected} ({pins.length})
-                  <ArrowRight className="size-4" aria-hidden="true" />
                 </a>
               )}
               <span
@@ -580,7 +579,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                           colSpan={
                             RPC_FEATURES.filter((f) => f.group === group).length
                           }
-                          className="border-b border-r border-nd-border-light px-3 py-2 font-brand-mono text-[11px] font-normal uppercase tracking-wide text-nd-mid-em-text last:border-r-0"
+                          className="border-b border-r border-nd-border-light px-3 py-2 text-xs font-normal text-nd-mid-em-text last:border-r-0"
                         >
                           {copy.featureGroups[group]}
                         </th>
@@ -678,13 +677,18 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                         className="flex flex-1 flex-col p-5 hover:bg-white/[0.03] md:p-6"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <span
-                            aria-hidden="true"
-                            className="inline-flex size-10 items-center justify-center border border-nd-border-prominent bg-white/[0.04] font-brand-mono text-sm text-white"
-                          >
-                            {provider.name.slice(0, 1)}
-                          </span>
-                          <div className="flex items-center gap-1">
+                          <div className="min-w-0">
+                            <h3
+                              id={`rpc-provider-${provider.id}`}
+                              className={typeScale.headingXs}
+                            >
+                              {provider.name}
+                            </h3>
+                            <p className="mt-1 truncate font-brand-mono text-xs text-nd-mid-em-text">
+                              {rpcProviderHost(provider.url)}
+                            </p>
+                          </div>
+                          <div className="-mr-2 -mt-1 flex shrink-0 items-center gap-1">
                             {pinButton(provider, true)}
                             <a
                               href={provider.url}
@@ -700,37 +704,30 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                             </a>
                           </div>
                         </div>
-                        <h3
-                          id={`rpc-provider-${provider.id}`}
-                          className={`${typeScale.headingXs} mt-4 md:mt-5`}
-                        >
-                          {provider.name}
-                        </h3>
-                        <p className="mt-1 truncate font-brand-mono text-[11px] uppercase tracking-wide text-nd-mid-em-text">
-                          {rpcProviderHost(provider.url)}
-                        </p>
-                        <p className="mt-4 text-sm text-nd-mid-em-text">
+                        <p className="mt-5 text-sm text-nd-mid-em-text">
                           <span className="text-white">{cited.length}</span>{" "}
                           {copy.featuresDocumented}
                         </p>
-                        <p className="mt-auto pt-4 font-brand-mono text-[11px] uppercase leading-relaxed tracking-wide text-nd-mid-em-text">
-                          {cited.length
-                            ? cited.map(({ id }, index) => (
-                                <Fragment key={id}>
-                                  {index > 0 && " · "}
-                                  <span
-                                    className={
-                                      features.includes(id)
-                                        ? "text-nd-highlight-green"
-                                        : undefined
-                                    }
-                                  >
-                                    {copy.featureLabels[id]}
-                                  </span>
-                                </Fragment>
-                              ))
-                            : copy.noFeaturesSourced}
-                        </p>
+                        {cited.length ? (
+                          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+                            {cited.map(({ id }) => {
+                              const selected = features.includes(id);
+                              return (
+                                <li
+                                  key={id}
+                                  className={`flex items-center gap-2 text-[13px] ${selected ? "text-white" : "text-nd-mid-em-text"}`}
+                                >
+                                  <Jack plugged={selected} small />
+                                  {copy.featureLabels[id]}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : (
+                          <p className="mt-3 text-[13px] text-nd-mid-em-text">
+                            {copy.noFeaturesSourced}
+                          </p>
+                        )}
                       </article>
                     </li>
                   );
@@ -883,7 +880,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                         <th
                           scope="colgroup"
                           colSpan={selected.length + 1}
-                          className="border-b border-nd-border-light bg-white/[0.03] px-4 py-2 font-brand-mono text-[11px] font-normal uppercase tracking-wide text-nd-mid-em-text"
+                          className="border-b border-nd-border-light bg-white/[0.03] px-4 py-2 text-xs font-normal text-nd-mid-em-text"
                         >
                           {copy.featureGroups[group]}
                         </th>

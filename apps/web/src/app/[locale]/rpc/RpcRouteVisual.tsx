@@ -395,7 +395,7 @@ export function RpcRouteVisual({
   return (
     <div
       ref={hostRef}
-      className="relative h-[240px] w-full overflow-hidden md:h-[400px] xl:h-[470px]"
+      className="relative aspect-[12/7] w-full overflow-hidden"
       aria-hidden="true"
     >
       <div className="md:hidden">

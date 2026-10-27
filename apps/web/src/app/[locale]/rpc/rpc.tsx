@@ -5,6 +5,7 @@ import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { RPC_PROVIDERS } from "./providers";
 import type { RpcFeatureGroup, RpcFeatureId } from "./provider-features";
 import { RpcRouteVisual } from "./RpcRouteVisual";
+import { Jack } from "./Jack";
 import { RpcProviderDirectory } from "./RpcProviderDirectory";
 import { typeScale } from "./typography";
 import {
@@ -141,7 +142,6 @@ export type RpcCopy = {
   listingLink: string;
   policyLabel: string;
   popularNeeds: string;
-  eyebrow: string;
 };
 
 const endpoints = [
@@ -179,6 +179,13 @@ console.log(await rpc.getHealth().send());`,
 const focus =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
 const shell = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
+const quickFeatures: RpcFeatureId[] = [
+  "websocket",
+  "grpc",
+  "history",
+  "free",
+  "dedicated",
+];
 const primary = `inline-flex items-center gap-3 rounded-full bg-white py-2 pl-5 pr-2 font-medium text-black hover:bg-white/90 ${focus}`;
 
 export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
@@ -218,6 +225,23 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         `${copy.copyFailed}: ${copy[id]}. ${copy.copyManually}`,
       );
     }
+  };
+  const openFiltered = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    feature: RpcFeatureId,
+  ) => {
+    event.preventDefault();
+    const url = new URL(window.location.href);
+    url.searchParams.set("f", feature);
+    url.hash = "providers";
+    window.history.pushState(window.history.state, "", url);
+    // The directory re-reads its filters from the URL on popstate.
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    document.getElementById("providers")?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   };
   const pathDetails = {
     local: {
@@ -270,24 +294,21 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         aria-labelledby="rpc-title"
       >
         <div
-          className={`${shell} relative flex flex-col pb-10 md:min-h-[max(880px,calc(100svh-70px))] md:pb-0 xl:justify-between`}
+          className={`${shell} pb-12 pt-16 md:pb-16 md:pt-24 xl:pb-20 xl:pt-32`}
         >
-          <div className="relative z-10 pt-16 md:pt-28 xl:pt-40">
-            <div className="max-w-[710px] xl:max-w-[850px]">
-              <h1
-                id="rpc-title"
-                className={`${typeScale.heading2xl} max-w-[900px]`}
-              >
-                {copy.title}
-                <br />
-                <span className="font-light">{copy.titleLight}</span>
-              </h1>
+          <h1 id="rpc-title" className={typeScale.heading2xl}>
+            {copy.title}
+            <br />
+            <span className="font-light">{copy.titleLight}</span>
+          </h1>
+          <div className="mt-10 grid gap-y-8 md:mt-14 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-rows-[auto_auto_1fr] xl:gap-x-16 xl:gap-y-12">
+            <div className="xl:col-start-1 xl:row-start-1">
               <p
-                className={`${typeScale.bodyXl} mt-6 max-w-[576px] text-nd-mid-em-text`}
+                className={`${typeScale.bodyXl} max-w-[520px] text-nd-mid-em-text`}
               >
                 {copy.intro}
               </p>
-              <div className="mt-8 flex flex-wrap items-center gap-5 xl:mt-16">
+              <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
                 <a href={selected.href} className={primary}>
                   <span className="-ml-2 inline-flex size-7 items-center justify-center rounded-full bg-black text-white">
                     <ArrowRight className="size-4" aria-hidden="true" />
@@ -296,93 +317,92 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 </a>
                 <a
                   href={localizeRpcHref("/docs/rpc/providers", locale)}
-                  className={`${typeScale.bodyM} inline-flex items-center gap-2 text-white underline-offset-4 hover:underline ${focus}`}
+                  className={`${typeScale.bodyM} text-white underline decoration-white/40 underline-offset-[6px] hover:decoration-white ${focus}`}
                 >
                   {copy.guide}
-                  <ArrowRight className="size-5" aria-hidden="true" />
                 </a>
               </div>
             </div>
-          </div>
-          <div className="order-2 mt-10 xl:absolute xl:inset-y-0 xl:right-10 xl:order-none xl:mt-0 xl:flex xl:w-[47%] xl:-translate-y-14 xl:flex-col xl:justify-center xl:pt-14">
-            <RpcRouteVisual
-              path={path}
-              labels={{
-                app: copy.sceneApp,
-                provider: copy.sceneProvider,
-                fallback: copy.sceneFallback,
-                official: copy.sceneOfficial,
-                otherApps: copy.sceneOtherApps,
-                machine: copy.sceneMachine,
-                localValidator: copy.sceneLocalValidator,
-                mainnet: copy.sceneMainnet,
-                devnet: copy.sceneDevnet,
-              }}
-            />
-            <div className="flex justify-between border-t border-nd-border-light pt-3 font-brand-mono text-[10px] uppercase tracking-wide text-nd-mid-em-text md:hidden">
-              <span>{copy.sceneApp}</span>
-              <span>
-                {path === "local"
-                  ? copy.sceneLocalValidator
-                  : path === "public"
-                    ? copy.sceneOfficial
-                    : copy.sceneProvider}
-              </span>
-              <span>
-                {path === "local"
-                  ? copy.sceneLocalCluster
-                  : path === "public"
-                    ? copy.sceneDevnet
-                    : copy.sceneMainnet}
-              </span>
+            <div className="min-w-0 xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:self-center">
+              <RpcRouteVisual
+                path={path}
+                labels={{
+                  app: copy.sceneApp,
+                  provider: copy.sceneProvider,
+                  fallback: copy.sceneFallback,
+                  official: copy.sceneOfficial,
+                  otherApps: copy.sceneOtherApps,
+                  machine: copy.sceneMachine,
+                  localValidator: copy.sceneLocalValidator,
+                  mainnet: copy.sceneMainnet,
+                  devnet: copy.sceneDevnet,
+                }}
+              />
+              <div className="flex justify-between pt-3 font-brand-mono text-[10px] uppercase tracking-wide text-[#E7DFD0]/70 md:hidden">
+                <span>{copy.sceneApp}</span>
+                <span>
+                  {path === "local"
+                    ? copy.sceneLocalValidator
+                    : path === "public"
+                      ? copy.sceneOfficial
+                      : copy.sceneProvider}
+                </span>
+                <span>
+                  {path === "local"
+                    ? copy.sceneLocalCluster
+                    : path === "public"
+                      ? copy.sceneDevnet
+                      : copy.sceneMainnet}
+                </span>
+              </div>
             </div>
-            <p
-              className="mt-4 min-h-12 max-w-[570px] text-sm text-nd-mid-em-text md:text-base"
-              aria-live="polite"
-            >
-              {copy.pathCaptions[path]}
-            </p>
-          </div>
-          <div className="order-1 mt-10 xl:order-none xl:mt-auto">
-            <p
-              id="rpc-path-label"
-              className="pb-3 font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text"
-            >
-              {copy.pathsTitle}
-            </p>
-            <div
-              role="tablist"
-              aria-labelledby="rpc-path-label"
-              className="-mx-5 grid grid-cols-3 border-t border-nd-border-light md:mx-0"
-            >
-              {RPC_PATHS.map((item, index) => (
-                <button
-                  key={item}
-                  id={`rpc-path-${item}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={path === item}
-                  aria-controls="rpc-path-panel"
-                  tabIndex={path === item ? 0 : -1}
-                  onClick={() => changePath(item)}
-                  onKeyDown={(event) => onPathKeyDown(event, index)}
-                  className={`relative min-w-0 cursor-pointer border-r border-nd-border-light px-3 py-3 text-left text-sm font-medium last:border-r-0 hover:!bg-white/[0.03] md:min-h-[132px] md:px-6 md:py-5 md:text-lg ${focus} ${path === item ? "text-white before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-nd-highlight-green" : "text-nd-mid-em-text hover:text-white"}`}
-                >
-                  <span className="block font-brand-mono text-xs text-nd-mid-em-text">
-                    0{index + 1}
-                  </span>
-                  <span className="mt-2 block truncate">
-                    {pathLabels[item]}
-                  </span>
-                  <span className="mt-2 hidden text-sm font-normal text-nd-mid-em-text md:block">
-                    {item === "local"
-                      ? copy.localTitle
-                      : item === "public"
-                        ? copy.publicTitle
-                        : copy.productionTitle}
-                  </span>
-                </button>
-              ))}
+            <div className="min-w-0 xl:col-start-1 xl:row-start-2">
+              <p id="rpc-path-label" className="text-sm text-nd-mid-em-text">
+                {copy.pathsTitle}
+              </p>
+              <div
+                role="tablist"
+                aria-labelledby="rpc-path-label"
+                className="mt-3 grid grid-cols-3 border-y border-nd-border-light xl:grid-cols-1"
+              >
+                {RPC_PATHS.map((item, index) => (
+                  <button
+                    key={item}
+                    id={`rpc-path-${item}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={path === item}
+                    aria-controls="rpc-path-panel"
+                    tabIndex={path === item ? 0 : -1}
+                    onClick={() => changePath(item)}
+                    onKeyDown={(event) => onPathKeyDown(event, index)}
+                    className={`flex min-w-0 cursor-pointer flex-col items-start gap-2 border-r border-nd-border-light px-3 py-4 text-left last:border-r-0 hover:!bg-white/[0.03] md:flex-row md:gap-3 md:px-5 md:py-5 xl:border-b xl:border-r-0 xl:px-1 xl:last:border-b-0 ${focus} ${path === item ? "text-white" : "text-nd-mid-em-text hover:text-white"}`}
+                  >
+                    <Jack
+                      plugged={path === item}
+                      className="mt-0.5 md:mt-1.5"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium md:text-lg">
+                        {pathLabels[item]}
+                      </span>
+                      <span className="mt-1 hidden text-sm text-nd-mid-em-text md:block">
+                        {item === "local"
+                          ? copy.localTitle
+                          : item === "public"
+                            ? copy.publicTitle
+                            : copy.productionTitle}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p
+                className="mt-4 min-h-12 max-w-[620px] text-sm text-nd-mid-em-text md:text-base"
+                aria-live="polite"
+              >
+                {copy.pathCaptions[path]}
+              </p>
             </div>
           </div>
         </div>
@@ -412,9 +432,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 ] as const
               ).map(([label, items, marker]) => (
                 <div key={label}>
-                  <h3 className="font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
-                    {label}
-                  </h3>
+                  <h3 className="text-sm font-medium text-white">{label}</h3>
                   <ul className="mt-4 space-y-3">
                     {items.map((item) => (
                       <li key={item} className="flex gap-3 text-base">
@@ -476,17 +494,43 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                   </button>
                 </>
               ) : (
-                <span className={`${typeScale.bodyM}`}>
-                  {RPC_PROVIDERS.length} {copy.providerCountNote}
-                </span>
+                <div className="w-full">
+                  <p className={typeScale.bodyM}>
+                    {RPC_PROVIDERS.length} {copy.providerCountNote}
+                  </p>
+                  <ul className="mt-4 border-t border-nd-border-light">
+                    {quickFeatures.map((id) => {
+                      const count = RPC_PROVIDERS.filter(
+                        (provider) => provider.features[id],
+                      ).length;
+                      return (
+                        <li key={id}>
+                          <a
+                            href={`?f=${id}#providers`}
+                            onClick={(event) => openFiltered(event, id)}
+                            className={`flex items-center gap-3 border-b border-nd-border-light py-3 text-sm text-nd-mid-em-text hover:text-white ${focus}`}
+                          >
+                            <Jack plugged={false} small />
+                            <span className="flex-1 text-white">
+                              {copy.featureLabels[id]}
+                            </span>
+                            <span className="font-brand-mono text-xs">
+                              {count}{" "}
+                              {count === 1 ? copy.resultOne : copy.resultMany}
+                            </span>
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               )}
             </div>
             <a
               href={selected.href}
-              className={`mt-6 inline-flex items-center gap-2 text-base font-medium text-white underline underline-offset-4 hover:text-nd-highlight-green ${focus}`}
+              className={`mt-6 text-base font-medium text-white underline decoration-white/40 underline-offset-[6px] hover:decoration-white ${focus}`}
             >
               {selected.action}
-              <ArrowRight className="size-5" aria-hidden="true" />
             </a>
           </div>
         </div>
@@ -512,7 +556,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
             >
               {copy.endpointsBody}
             </p>
-            <h3 className="mt-10 font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
+            <h3 className="mt-10 text-sm font-medium text-white">
               {copy.limitsTitle}
             </h3>
             <dl className="mt-4 grid max-w-xl grid-cols-2 border-l border-t border-nd-border-light">
@@ -574,10 +618,9 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
             )}
             <a
               href={localizeRpcHref("/docs/references/clusters", locale)}
-              className={`mt-8 inline-flex items-center gap-2 font-medium text-white underline underline-offset-4 hover:text-nd-highlight-green ${focus}`}
+              className={`mt-8 font-medium text-white underline decoration-white/40 underline-offset-[6px] hover:decoration-white ${focus}`}
             >
               {copy.clustersAction}
-              <ArrowRight className="size-5" aria-hidden="true" />
             </a>
             <TryIt copy={copy} />
           </div>
@@ -607,24 +650,22 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
             </p>
           </div>
           <div>
-            <div className="grid border-l border-t border-nd-border-light md:grid-cols-2">
+            <ul className="grid border-l border-t border-nd-border-light md:grid-cols-2">
               {[
                 copy.methods,
                 copy.regions,
                 copy.reliability,
                 copy.credentials,
-              ].map((item, index) => (
-                <div
+              ].map((item) => (
+                <li
                   key={item}
-                  className="border-b border-r border-nd-border-light p-6 md:min-h-40"
+                  className="flex gap-4 border-b border-r border-nd-border-light p-6 md:min-h-36"
                 >
-                  <span className="font-brand-mono text-xs text-nd-mid-em-text">
-                    0{index + 1}
-                  </span>
-                  <p className={`${typeScale.bodyM} mt-6`}>{item}</p>
-                </div>
+                  <Jack plugged={false} className="mt-1" />
+                  <p className={typeScale.bodyM}>{item}</p>
+                </li>
               ))}
-            </div>
+            </ul>
             <div className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-4">
               {[
                 [copy.guide, "/docs/rpc/providers"],
@@ -634,10 +675,9 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 <a
                   key={href}
                   href={localizeRpcHref(href, locale)}
-                  className={`inline-flex items-center gap-2 text-base font-medium underline underline-offset-4 hover:text-nd-highlight-green ${focus}`}
+                  className={`text-base font-medium text-white underline decoration-white/40 underline-offset-[6px] hover:decoration-white ${focus}`}
                 >
                   {label}
-                  <ArrowRight className="size-5" aria-hidden="true" />
                 </a>
               ))}
             </div>
@@ -727,9 +767,7 @@ function TryIt({ copy }: { copy: RpcCopy }) {
           <code>{snippet.code}</code>
         </pre>
         <div className="border-t border-nd-border-light px-5 py-4">
-          <p className="font-brand-mono text-[11px] uppercase tracking-wide text-nd-mid-em-text">
-            {copy.tryResponse}
-          </p>
+          <p className="text-xs text-nd-mid-em-text">{copy.tryResponse}</p>
           <pre
             dir="ltr"
             className="text-left mt-2 overflow-x-auto font-brand-mono text-[13px] text-nd-highlight-green"

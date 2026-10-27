@@ -157,7 +157,15 @@ export const PATCH_LAYOUTS: Record<RpcPath, PatchLayout> = {
         knobs: 2,
         leds: true,
       },
-      { id: "fallback", x: 0, y: -1.02, w: 1.8, h: 0.9, jacks: 2, dim: true },
+      {
+        id: "fallback",
+        x: -0.15,
+        y: -1.02,
+        w: 1.9,
+        h: 0.9,
+        jacks: 2,
+        dim: true,
+      },
       cluster,
     ],
     cables: [
@@ -174,7 +182,7 @@ export const PATCH_LAYOUTS: Record<RpcPath, PatchLayout> = {
     labels: [
       { key: "app", x: -3.1, y: 0.82 },
       { key: "provider", x: -0.25, y: 1.39 },
-      { key: "fallback", x: 0, y: -0.79 },
+      { key: "fallback", x: -0.45, y: -0.79 },
       { key: "mainnet", x: 3.05, y: 1.48 },
     ],
   },

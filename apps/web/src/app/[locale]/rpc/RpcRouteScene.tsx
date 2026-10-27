@@ -601,6 +601,12 @@ export function RpcRouteScene({
       const height = host.clientHeight;
       if (!width || !height) return;
       camera.aspect = width / height;
+      // Fit the rack to the canvas at any aspect ratio, with a small margin.
+      const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      cameraBase.z = Math.max(
+        (PATCH_RACK.h * 1.1) / 2 / tan,
+        (PATCH_RACK.w * 1.05) / 2 / (tan * camera.aspect),
+      );
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
       schedule();
