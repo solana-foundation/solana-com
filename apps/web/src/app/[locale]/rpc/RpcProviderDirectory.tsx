@@ -28,6 +28,7 @@ import {
   type RpcView,
 } from "./directory-state";
 import type { RpcCopy } from "./rpc";
+import { typeScale } from "./typography";
 
 const focus =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
@@ -197,10 +198,12 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
       <div className={`${shell} py-16 md:py-28 xl:py-40`}>
         <div className="flex flex-wrap items-end justify-between gap-6">
           <div className="max-w-3xl">
-            <h2 id="providers-heading" className="nd-heading-l">
+            <h2 id="providers-heading" className={`${typeScale.headingL}`}>
               {copy.directoryTitle}
             </h2>
-            <p className="nd-body-l !mt-6 max-w-xl text-nd-mid-em-text">
+            <p
+              className={`${typeScale.bodyL} mt-6 max-w-xl text-nd-mid-em-text`}
+            >
               {copy.directoryBody}
             </p>
           </div>
@@ -287,7 +290,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                 </button>
               )}
             </div>
-            <p className="mb-6 text-xs leading-relaxed text-nd-mid-em-text md:hidden">
+            <p className="pb-6 text-xs leading-relaxed text-nd-mid-em-text md:hidden">
               {copy.filterRule}
             </p>
             <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-[auto_auto_auto_auto] xl:justify-between xl:gap-5">
@@ -346,7 +349,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                 />
                 {copy.definitionsToggle}
               </summary>
-              <dl className="!mb-0 !pl-0 mt-5 grid gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+              <dl className="mt-5 grid gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
                 {RPC_FEATURES.map(({ id }) => (
                   <div key={id}>
                     <dt className="text-sm font-medium text-white">
@@ -354,7 +357,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                     </dt>
                     <dd
                       id={`rpc-def-${id}`}
-                      className="!mb-0 mt-1 text-sm text-nd-mid-em-text"
+                      className="mt-1 text-sm text-nd-mid-em-text"
                     >
                       {copy.featureDefinitions[id]}
                     </dd>
@@ -473,15 +476,17 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
 
         {results.length === 0 ? (
           <div className="mt-10 border border-nd-border-light p-8">
-            <p className="nd-heading-xs">
+            <p className={`${typeScale.headingXs}`}>
               {features.length ? copy.emptyFiltered : copy.noResults}
             </p>
             {features.length > 0 && (
               <>
-                <p className="nd-body-s !mt-3 max-w-xl text-nd-mid-em-text">
+                <p
+                  className={`${typeScale.bodyS} mt-3 max-w-xl text-nd-mid-em-text`}
+                >
                   {copy.emptyEvidence}
                 </p>
-                <ul className="!mb-0 !pl-0 mt-6 flex flex-wrap gap-2">
+                <ul className="mt-6 flex flex-wrap gap-2">
                   {features.map((id) => {
                     const count = filterRpcProviders(
                       RPC_PROVIDERS,
@@ -610,7 +615,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
             </table>
           </div>
         ) : (
-          <ul className="!mb-0 !pl-0 mt-10 grid border-l border-t border-nd-border-light md:grid-cols-2 xl:grid-cols-3">
+          <ul className="mt-10 grid border-l border-t border-nd-border-light md:grid-cols-2 xl:grid-cols-3">
             {results.map((provider) => {
               const total = documentedCount(provider);
               return (
@@ -626,7 +631,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                       <div className="min-w-0">
                         <h3
                           id={`rpc-provider-${provider.id}`}
-                          className="nd-heading-xs"
+                          className={`${typeScale.headingXs}`}
                         >
                           {provider.name}
                         </h3>
@@ -658,7 +663,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                           .join(" · ")}
                       </p>
                     )}
-                    <ul className="!mb-0 !pl-0 mt-3 hidden flex-1 grid-cols-2 content-start gap-x-4 gap-y-2 md:grid">
+                    <ul className="mt-3 hidden flex-1 grid-cols-2 content-start gap-x-4 gap-y-2 md:grid">
                       {RPC_FEATURES.map(({ id }) => {
                         const documented = Boolean(provider.features[id]);
                         const active = features.includes(id);
@@ -727,7 +732,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
             <ul
               id="rpc-unsourced"
               hidden={!showUnsourced}
-              className={`!mb-0 !pl-0 ${showUnsourced ? "grid" : "hidden"} mt-6 border-l border-t border-nd-border-light md:grid-cols-2 xl:grid-cols-3`}
+              className={`${showUnsourced ? "grid" : "hidden"} mt-6 border-l border-t border-nd-border-light md:grid-cols-2 xl:grid-cols-3`}
             >
               {unsourced.map((provider) => (
                 <li
@@ -770,10 +775,12 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
           >
             <div className="flex flex-wrap items-end justify-between gap-6">
               <div>
-                <h3 id="rpc-compare-title" className="nd-heading-m">
+                <h3 id="rpc-compare-title" className={`${typeScale.headingM}`}>
                   {copy.compareSelected}
                 </h3>
-                <p className="nd-body-s !mt-3 max-w-2xl text-nd-mid-em-text">
+                <p
+                  className={`${typeScale.bodyS} mt-3 max-w-2xl text-nd-mid-em-text`}
+                >
                   {copy.compareNote}
                 </p>
               </div>
@@ -922,7 +929,7 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
             </div>
           </div>
         )}
-        <p className="nd-body-s !mt-6 max-w-3xl text-nd-mid-em-text">
+        <p className={`${typeScale.bodyS} mt-6 max-w-3xl text-nd-mid-em-text`}>
           {copy.sourceCaveat}
         </p>
       </div>

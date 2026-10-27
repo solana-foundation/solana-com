@@ -6,6 +6,7 @@ import { RPC_PROVIDERS } from "./providers";
 import type { RpcFeatureGroup, RpcFeatureId } from "./provider-features";
 import { RpcRouteVisual } from "./RpcRouteVisual";
 import { RpcProviderDirectory } from "./RpcProviderDirectory";
+import { typeScale } from "./typography";
 import {
   localizeRpcHref,
   parseRpcPath,
@@ -260,7 +261,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
   };
 
   return (
-    <main className="bg-nd-bg font-brand text-nd-high-em-text">
+    <main className="bg-nd-bg font-brand text-nd-high-em-text [&_:where(h1,h2,h3,h4,p,ul,ol,dl,dd)]:mb-0 [&_:where(ul,ol)]:pl-0">
       <section
         className="relative overflow-hidden border-b border-nd-border-light"
         aria-labelledby="rpc-title"
@@ -270,12 +271,17 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         >
           <div className="relative z-10 pt-16 md:pt-28 xl:pt-40">
             <div className="max-w-[710px] xl:max-w-[850px]">
-              <h1 id="rpc-title" className="nd-heading-2xl max-w-[900px]">
+              <h1
+                id="rpc-title"
+                className={`${typeScale.heading2xl} max-w-[900px]`}
+              >
                 {copy.title}
                 <br />
                 <span className="font-light">{copy.titleLight}</span>
               </h1>
-              <p className="nd-body-xl !mt-6 max-w-[576px] text-nd-mid-em-text">
+              <p
+                className={`${typeScale.bodyXl} mt-6 max-w-[576px] text-nd-mid-em-text`}
+              >
                 {copy.intro}
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-5 xl:mt-16">
@@ -287,7 +293,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 </a>
                 <a
                   href={localizeRpcHref("/docs/rpc/providers", locale)}
-                  className={`nd-body-m inline-flex items-center gap-2 text-white underline-offset-4 hover:underline ${focus}`}
+                  className={`${typeScale.bodyM} inline-flex items-center gap-2 text-white underline-offset-4 hover:underline ${focus}`}
                 >
                   {copy.guide}
                   <ArrowRight className="size-5" aria-hidden="true" />
@@ -387,8 +393,12 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
       >
         <div className={`${shell} grid gap-10 py-16 xl:grid-cols-2 xl:py-24`}>
           <div>
-            <h2 className="nd-heading-m max-w-[700px]">{selected.title}</h2>
-            <p className="nd-body-l !mt-5 max-w-[640px] text-nd-mid-em-text">
+            <h2 className={`${typeScale.headingM} max-w-[700px]`}>
+              {selected.title}
+            </h2>
+            <p
+              className={`${typeScale.bodyL} mt-5 max-w-[640px] text-nd-mid-em-text`}
+            >
               {selected.body}
             </p>
             <div className="mt-10 grid gap-8 sm:grid-cols-2">
@@ -402,7 +412,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                   <h3 className="font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
                     {label}
                   </h3>
-                  <ul className="!mb-0 !pl-0 mt-4 space-y-3">
+                  <ul className="mt-4 space-y-3">
                     {items.map((item) => (
                       <li key={item} className="flex gap-3 text-base">
                         <span
@@ -457,7 +467,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                   </button>
                 </>
               ) : (
-                <span className="nd-body-m">
+                <span className={`${typeScale.bodyM}`}>
                   {RPC_PROVIDERS.length} {copy.providerCountNote}
                 </span>
               )}
@@ -482,16 +492,21 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
           className={`${shell} grid grid-cols-[minmax(0,1fr)] gap-10 py-16 md:py-28 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:py-40`}
         >
           <div>
-            <h2 id="endpoints-heading" className="nd-heading-l max-w-[760px]">
+            <h2
+              id="endpoints-heading"
+              className={`${typeScale.headingL} max-w-[760px]`}
+            >
               {copy.endpointsTitle}
             </h2>
-            <p className="nd-body-l !mt-6 max-w-xl text-nd-mid-em-text">
+            <p
+              className={`${typeScale.bodyL} mt-6 max-w-xl text-nd-mid-em-text`}
+            >
               {copy.endpointsBody}
             </p>
             <h3 className="mt-10 font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
               {copy.limitsTitle}
             </h3>
-            <dl className="!mb-0 !pl-0 mt-4 grid max-w-xl grid-cols-2 border-l border-t border-nd-border-light">
+            <dl className="mt-4 grid max-w-xl grid-cols-2 border-l border-t border-nd-border-light">
               {limits.map(({ id, value }) => (
                 <div
                   key={id}
@@ -500,7 +515,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                   <dt className="mt-1 text-sm text-nd-mid-em-text">
                     {copy.limits[id]}
                   </dt>
-                  <dd className="!mb-0 text-2xl font-medium tracking-tight md:text-[28px]">
+                  <dd className="text-2xl font-medium tracking-tight md:text-[28px]">
                     {value}
                   </dd>
                 </div>
@@ -517,7 +532,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 className="grid grid-cols-[1fr_auto] gap-2 border-b border-nd-border-light py-5 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center md:gap-4"
               >
                 <div>
-                  <strong className="nd-body-m block font-medium">
+                  <strong className={`${typeScale.bodyM} block font-medium`}>
                     {copy[id]}
                   </strong>
                   <span className="block text-sm leading-snug text-nd-mid-em-text">
@@ -567,10 +582,15 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
           className={`${shell} grid grid-cols-[minmax(0,1fr)] gap-10 py-16 md:py-28 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:py-40`}
         >
           <div>
-            <h2 id="evaluate-heading" className="nd-heading-l max-w-[700px]">
+            <h2
+              id="evaluate-heading"
+              className={`${typeScale.headingL} max-w-[700px]`}
+            >
               {copy.evaluateTitle}
             </h2>
-            <p className="nd-body-l !mt-6 max-w-xl text-nd-mid-em-text">
+            <p
+              className={`${typeScale.bodyL} mt-6 max-w-xl text-nd-mid-em-text`}
+            >
               {copy.evaluateBody}
             </p>
           </div>
@@ -589,7 +609,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                   <span className="font-brand-mono text-xs text-nd-mid-em-text">
                     0{index + 1}
                   </span>
-                  <p className="nd-body-m !mt-6">{item}</p>
+                  <p className={`${typeScale.bodyM} mt-6`}>{item}</p>
                 </div>
               ))}
             </div>
