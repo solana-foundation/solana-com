@@ -59,3 +59,25 @@ export function searchRpcProviders<T extends { name: string }>(
       )
     : [...providers];
 }
+
+export const RPC_VIEWS = ["cards", "table"] as const;
+export type RpcView = (typeof RPC_VIEWS)[number];
+
+export function parseRpcView(params: URLSearchParams): RpcView {
+  return params.get("view") === "table" ? "table" : "cards";
+}
+
+/** True when the selected providers do not all share one evidence state for a feature. */
+export function rpcFeatureDiffers(
+  providers: readonly RpcProvider[],
+  feature: RpcFeatureId,
+): boolean {
+  return (
+    new Set(providers.map((provider) => Boolean(provider.features[feature])))
+      .size > 1
+  );
+}
+
+export function rpcProviderHost(url: string): string {
+  return new URL(url).hostname.replace(/^www\./, "");
+}

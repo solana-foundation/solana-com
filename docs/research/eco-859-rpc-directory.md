@@ -267,3 +267,45 @@ The final UI puts search, filter choices, the evidence rule, result count, and
 comparison link in one sequence. Provider source notes were rewritten as
 reader-facing facts, and card-chip browser tooltips were removed; the source
 links and checked dates remain in the comparison table.
+
+## Best-in-class review
+
+A second benchmark pass on 27 October 2026 compared the page with
+[ethereum.org nodes as a service](https://ethereum.org/en/developers/docs/nodes-and-clients/nodes-as-a-service/),
+[Arbitrum node providers](https://docs.arbitrum.io/build-decentralized-apps/reference/node-providers),
+[Base node providers](https://docs.base.org/base-chain/tools/node-providers),
+[Chainlist](https://chainlist.org/), [caniuse](https://caniuse.com/), and
+[Stripe's get-started paths](https://docs.stripe.com/get-started), plus Baymard
+research on
+[applied filters](https://baymard.com/research-articles/how-to-design-applied-filters)
+and
+[comparison tools](https://baymard.com/research-articles/user-friendly-comparison-tools)
+and NN/g on
+[comparison tables](https://www.nngroup.com/articles/comparison-tables/) and
+[cards](https://www.nngroup.com/articles/cards-component/). Rankings, scores,
+featured blocks, and tracked outbound links were rejected for neutrality.
+
+Changes adopted:
+
+- Each path lists what it is for and what to keep in mind. Public-path cautions
+  quote the cluster reference.
+- Endpoint rows state each cluster's documented purpose. The shared per-IP
+  limits from the
+  [cluster reference](https://solana.com/docs/references/clusters) sit beside
+  them with the 429 / Retry-After note, followed by a copyable Devnet
+  `getHealth` request (curl and `@solana/kit`) with its expected response.
+- Provider cards show all nine features in fixed positions, documented or not,
+  instead of only sourced chips, and drop the reviewer-facing descriptions in
+  favour of the destination host. Below `md`, cards collapse to one line of
+  documented features to keep the single-column list short.
+- A table view (`?view=table`) shows every provider against every feature. Each
+  check links to its source; a dash means no source was found.
+- Filters have in-place definitions, applied-filter chips appear at every width,
+  and the empty state offers per-feature removal with its resulting count.
+- Comparison rows are grouped by Streaming, Data, Access, and Reliability, with
+  a "Show differences only" toggle.
+- The directory links to the listing criteria in `apps/web/CONTRIBUTING.md` for
+  listing and correction requests.
+
+The `nd-*` type classes in `globals.css` reset vertical margins after Tailwind
+utilities, so spacing on those elements uses `!mt-*`.

@@ -57,13 +57,13 @@ export type RpcCopy = {
   clear: string;
   visit: string;
   newTab: string;
-  descriptions: Record<string, string>;
   featureGroups: Record<RpcFeatureGroup, string>;
   featureLabels: Record<RpcFeatureId, string>;
+  featureDefinitions: Record<RpcFeatureId, string>;
+  definitionsToggle: string;
   filterTitle: string;
   filterRule: string;
   filterToggle: string;
-  extendedHint: string;
   showResults: string;
   unsourcedSummaryOne: string;
   unsourcedSummaryMany: string;
@@ -114,6 +114,30 @@ export type RpcCopy = {
   sceneFallback: string;
   sceneMachine: string;
   sceneOtherApps: string;
+  useFor: string;
+  keepInMind: string;
+  pathUse: Record<RpcPath, string[]>;
+  pathWatch: Record<RpcPath, string[]>;
+  purposes: Record<EndpointId, string>;
+  limitsTitle: string;
+  limits: Record<"requests" | "perMethod" | "connections" | "data", string>;
+  limitsNote: string;
+  tryTitle: string;
+  tryBody: string;
+  tryResponse: string;
+  copyCode: string;
+  copyCodeFailed: string;
+  viewLabel: string;
+  viewCards: string;
+  viewTable: string;
+  tableCaption: string;
+  providerColumn: string;
+  featuresDocumented: string;
+  removeFilter: string;
+  matchesWithout: string;
+  diffOnly: string;
+  noDifferences: string;
+  listingLink: string;
 };
 
 const endpoints = [
@@ -122,6 +146,32 @@ const endpoints = [
   { id: "testnet", url: "https://api.testnet.solana.com" },
 ] as const;
 type EndpointId = (typeof endpoints)[number]["id"];
+/** Source: docs/references/clusters (identical for Mainnet, Devnet, Testnet). */
+const limits = [
+  { id: "requests", value: "100" },
+  { id: "perMethod", value: "40" },
+  { id: "connections", value: "40" },
+  { id: "data", value: "100 MB" },
+] as const;
+const snippets = [
+  {
+    id: "curl",
+    label: "curl",
+    code: `curl https://api.devnet.solana.com -s -X POST \\
+  -H "Content-Type: application/json" \\
+  -d '{"jsonrpc":"2.0","id":1,"method":"getHealth"}'`,
+    response: `{"jsonrpc":"2.0","result":"ok","id":1}`,
+  },
+  {
+    id: "kit",
+    label: "@solana/kit",
+    code: `import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+console.log(await rpc.getHealth().send());`,
+    response: `ok`,
+  },
+] as const;
 const focus =
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white";
 const shell = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
@@ -216,7 +266,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         aria-labelledby="rpc-title"
       >
         <div
-          className={`${shell} relative flex min-h-[max(880px,calc(100svh-70px))] flex-col xl:justify-between`}
+          className={`${shell} relative flex flex-col pb-10 md:min-h-[max(880px,calc(100svh-70px))] md:pb-0 xl:justify-between`}
         >
           <div className="relative z-10 pt-16 md:pt-28 xl:pt-40">
             <div className="max-w-[710px] xl:max-w-[850px]">
@@ -225,7 +275,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 <br />
                 <span className="font-light">{copy.titleLight}</span>
               </h1>
-              <p className="nd-body-xl mt-6 max-w-[576px] text-nd-mid-em-text">
+              <p className="nd-body-xl !mt-6 max-w-[576px] text-nd-mid-em-text">
                 {copy.intro}
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-5 xl:mt-16">
@@ -338,9 +388,34 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         <div className={`${shell} grid gap-10 py-16 xl:grid-cols-2 xl:py-24`}>
           <div>
             <h2 className="nd-heading-m max-w-[700px]">{selected.title}</h2>
-            <p className="nd-body-l mt-5 max-w-[640px] text-nd-mid-em-text">
+            <p className="nd-body-l !mt-5 max-w-[640px] text-nd-mid-em-text">
               {selected.body}
             </p>
+            <div className="mt-10 grid gap-8 sm:grid-cols-2">
+              {(
+                [
+                  [copy.useFor, copy.pathUse[path], "bg-nd-highlight-green"],
+                  [copy.keepInMind, copy.pathWatch[path], "bg-nd-mid-em-text"],
+                ] as const
+              ).map(([label, items, marker]) => (
+                <div key={label}>
+                  <h3 className="font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
+                    {label}
+                  </h3>
+                  <ul className="!mb-0 !pl-0 mt-4 space-y-3">
+                    {items.map((item) => (
+                      <li key={item} className="flex gap-3 text-base">
+                        <span
+                          className={`mt-2.5 size-1.5 shrink-0 rounded-full ${marker}`}
+                          aria-hidden="true"
+                        />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </div>
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-y border-nd-border-light py-5">
@@ -404,23 +479,51 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         aria-labelledby="endpoints-heading"
       >
         <div
-          className={`${shell} grid gap-10 py-16 md:py-28 xl:grid-cols-[5fr_7fr] xl:py-40`}
+          className={`${shell} grid grid-cols-[minmax(0,1fr)] gap-10 py-16 md:py-28 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:py-40`}
         >
           <div>
             <h2 id="endpoints-heading" className="nd-heading-l max-w-[760px]">
               {copy.endpointsTitle}
             </h2>
-            <p className="nd-body-l mt-6 max-w-xl text-nd-mid-em-text">
+            <p className="nd-body-l !mt-6 max-w-xl text-nd-mid-em-text">
               {copy.endpointsBody}
+            </p>
+            <h3 className="mt-10 font-brand-mono text-xs uppercase tracking-wide text-nd-mid-em-text">
+              {copy.limitsTitle}
+            </h3>
+            <dl className="!mb-0 !pl-0 mt-4 grid max-w-xl grid-cols-2 border-l border-t border-nd-border-light">
+              {limits.map(({ id, value }) => (
+                <div
+                  key={id}
+                  className="flex flex-col-reverse justify-end border-b border-r border-nd-border-light p-4 md:p-5"
+                >
+                  <dt className="mt-1 text-sm text-nd-mid-em-text">
+                    {copy.limits[id]}
+                  </dt>
+                  <dd className="!mb-0 text-2xl font-medium tracking-tight md:text-[28px]">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-4 max-w-xl text-sm text-nd-mid-em-text">
+              {copy.limitsNote}
             </p>
           </div>
           <div className="border-t border-nd-border-prominent">
             {endpoints.map(({ id, url }) => (
               <div
                 key={id}
-                className="grid grid-cols-[1fr_auto] gap-2 border-b border-nd-border-light py-5 md:grid-cols-[96px_minmax(0,1fr)_auto] md:items-center md:gap-4"
+                className="grid grid-cols-[1fr_auto] gap-2 border-b border-nd-border-light py-5 md:grid-cols-[180px_minmax(0,1fr)_auto] md:items-center md:gap-4"
               >
-                <strong className="nd-body-m font-medium">{copy[id]}</strong>
+                <div>
+                  <strong className="nd-body-m block font-medium">
+                    {copy[id]}
+                  </strong>
+                  <span className="block text-sm leading-snug text-nd-mid-em-text">
+                    {copy.purposes[id]}
+                  </span>
+                </div>
                 <code className="order-3 col-span-2 break-all font-brand-mono text-sm text-white md:order-none md:col-span-1 md:text-base">
                   {url}
                 </code>
@@ -449,6 +552,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
               {copy.clustersAction}
               <ArrowRight className="size-5" aria-hidden="true" />
             </a>
+            <TryIt copy={copy} />
           </div>
         </div>
       </section>
@@ -460,13 +564,13 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         aria-labelledby="evaluate-heading"
       >
         <div
-          className={`${shell} grid gap-10 py-16 md:py-28 xl:grid-cols-[5fr_7fr] xl:py-40`}
+          className={`${shell} grid grid-cols-[minmax(0,1fr)] gap-10 py-16 md:py-28 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:py-40`}
         >
           <div>
             <h2 id="evaluate-heading" className="nd-heading-l max-w-[700px]">
               {copy.evaluateTitle}
             </h2>
-            <p className="nd-body-l mt-6 max-w-xl text-nd-mid-em-text">
+            <p className="nd-body-l !mt-6 max-w-xl text-nd-mid-em-text">
               {copy.evaluateBody}
             </p>
           </div>
@@ -480,12 +584,12 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
               ].map((item, index) => (
                 <div
                   key={item}
-                  className="min-h-40 border-b border-r border-nd-border-light p-6"
+                  className="border-b border-r border-nd-border-light p-6 md:min-h-40"
                 >
                   <span className="font-brand-mono text-xs text-nd-mid-em-text">
                     0{index + 1}
                   </span>
-                  <p className="nd-body-m mt-6">{item}</p>
+                  <p className="nd-body-m !mt-6">{item}</p>
                 </div>
               ))}
             </div>
@@ -509,5 +613,96 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
         </div>
       </section>
     </main>
+  );
+}
+
+function TryIt({ copy }: { copy: RpcCopy }) {
+  const [active, setActive] = useState(0);
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const snippet = snippets[active];
+  const select = (index: number) => {
+    setActive(index);
+    setStatus("idle");
+  };
+  const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const next = (active + 1) % snippets.length;
+    select(next);
+    document.getElementById(`rpc-try-${snippets[next].id}`)?.focus();
+  };
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(snippet.code);
+      setStatus("copied");
+    } catch {
+      setStatus("failed");
+    }
+  };
+
+  return (
+    <div className="mt-14 border border-nd-border-light">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-nd-border-light px-5 py-4">
+        <div>
+          <h3 className="text-base font-medium">{copy.tryTitle}</h3>
+          <p className="mt-1 text-sm text-nd-mid-em-text">{copy.tryBody}</p>
+        </div>
+        <div
+          role="tablist"
+          aria-label={copy.tryTitle}
+          className="flex rounded-full border border-nd-border-prominent p-1"
+        >
+          {snippets.map((item, index) => (
+            <button
+              key={item.id}
+              id={`rpc-try-${item.id}`}
+              type="button"
+              role="tab"
+              aria-selected={active === index}
+              aria-controls="rpc-try-panel"
+              tabIndex={active === index ? 0 : -1}
+              onClick={() => select(index)}
+              onKeyDown={onKeyDown}
+              className={`rounded-full px-3 py-1 font-brand-mono text-xs ${active === index ? "!bg-white text-black" : "text-nd-mid-em-text hover:text-white"} ${focus}`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div
+        id="rpc-try-panel"
+        role="tabpanel"
+        aria-labelledby={`rpc-try-${snippet.id}`}
+      >
+        <div className="relative">
+          <pre className="overflow-x-auto p-5 pr-28 font-brand-mono text-[13px] leading-relaxed text-white">
+            <code>{snippet.code}</code>
+          </pre>
+          <button
+            type="button"
+            onClick={copyCode}
+            className={`absolute right-4 top-4 rounded-full border border-nd-border-prominent bg-nd-bg px-3 py-1.5 text-xs hover:border-white ${focus}`}
+          >
+            {status === "copied" ? copy.copied : copy.copyCode}
+          </button>
+        </div>
+        <div className="border-t border-nd-border-light px-5 py-4">
+          <p className="font-brand-mono text-[11px] uppercase tracking-wide text-nd-mid-em-text">
+            {copy.tryResponse}
+          </p>
+          <pre className="mt-2 overflow-x-auto font-brand-mono text-[13px] text-nd-highlight-green">
+            <code>{snippet.response}</code>
+          </pre>
+        </div>
+      </div>
+      <p className="sr-only" role="status" aria-live="polite">
+        {status === "copied"
+          ? copy.copied
+          : status === "failed"
+            ? copy.copyCodeFailed
+            : ""}
+      </p>
+    </div>
   );
 }

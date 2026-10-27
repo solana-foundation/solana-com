@@ -6,6 +6,9 @@ import {
   parseRpcPath,
   parseRpcPins,
   parseRpcQuery,
+  parseRpcView,
+  rpcFeatureDiffers,
+  rpcProviderHost,
   searchRpcProviders,
 } from "@/app/[locale]/rpc/directory-state";
 import { RPC_PROVIDERS } from "@/app/[locale]/rpc/providers";
@@ -91,5 +94,27 @@ describe("RPC directory", () => {
       [],
     );
     expect(filterRpcProviders(RPC_PROVIDERS, "helius", ["trial"])).toEqual([]);
+  });
+
+  it("accepts only known directory views from the URL", () => {
+    expect(parseRpcView(new URLSearchParams("view=table"))).toBe("table");
+    expect(parseRpcView(new URLSearchParams("view=grid"))).toBe("cards");
+    expect(parseRpcView(new URLSearchParams(""))).toBe("cards");
+  });
+
+  it("flags comparison rows only where evidence differs", () => {
+    const byId = (...ids: string[]) =>
+      RPC_PROVIDERS.filter((provider) => ids.includes(provider.id));
+    expect(rpcFeatureDiffers(byId("helius", "chainflow"), "grpc")).toBe(true);
+    expect(rpcFeatureDiffers(byId("helius", "chainstack"), "websocket")).toBe(
+      false,
+    );
+    expect(rpcFeatureDiffers(byId("chainflow", "syndica"), "sla")).toBe(false);
+  });
+
+  it("shows a bare host for each provider destination", () => {
+    expect(rpcProviderHost("https://www.helius.dev/solana-rpc-nodes")).toBe(
+      "helius.dev",
+    );
   });
 });
