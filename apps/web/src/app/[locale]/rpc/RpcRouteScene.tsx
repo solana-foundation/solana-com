@@ -215,7 +215,7 @@ export function RpcRouteScene({ path, animate, onReady, onLost }: Props) {
       camera.aspect = width / height;
       camera.position.z = width < 450 ? 17 : 13;
       camera.updateProjectionMatrix();
-      renderer.setSize(width, height, false);
+      renderer.setSize(width, height);
       renderer.render(scene, camera);
     };
     const observer = new ResizeObserver(resize);
