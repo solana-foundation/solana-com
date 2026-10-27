@@ -90,11 +90,11 @@ it a separate self-hosting resource card.
 After revision, local task resolves at the local setup card; public task
 resolves at three official URLs plus the rate-limit/no-SLA caveat; production
 task resolves at searchable provider names plus the evaluation checklist and
-provider guide. The retained static `app → RPC endpoint → Solana cluster`
-diagram explains the page's subject without motion or unsupported metrics. The
-implementation should be checked at 320px and desktop, with keyboard and at
-least one non-English locale before release. This review finds the paths, but
-cannot establish real-user success.
+provider guide. The revised route selector and request diagram described below
+now replace the static diagram while keeping these three task outcomes and
+source constraints. The implementation should be checked at 320px and desktop,
+with keyboard and at least one non-English locale before release. This review
+finds the paths, but cannot establish real-user success.
 
 ## Provider and source audit
 
@@ -151,11 +151,41 @@ planning a review cadence.
 Release comparison: the new design keeps the current URL and metadata mechanism,
 replaces the Markdown document with task paths, an official endpoint panel, and
 a provider directory. It extends home typography and wallets search/count/reset;
-the static request-path diagram is the RPC-specific extension. Local Playwright
-walkthroughs at 320px and 1440px in English and 375px in Spanish found a visible
-H1, no horizontal overflow, and no page errors. Hydrated search reduced 15 cards
-to one and updated `?q=Helius`; reset restored 15. Clipboard copying returned
-the Devnet URL when browser clipboard permission was granted. The requested
-Vercel preview returned a login redirect in a fresh browser context; authorized
-preview comparison, content-owner review of held entries and uncertain
-offerings, and deployed visual QA remain for PR review.
+the route-controlled Three.js request diagram is the RPC-specific extension.
+Local Playwright walkthroughs at 320px and 1440px in English and 375px in
+Spanish found a visible H1, no horizontal overflow, and no page errors. Hydrated
+search reduced 15 cards to one and updated `?q=Helius`; reset restored 15.
+Clipboard copying returned the Devnet URL when browser clipboard permission was
+granted. The requested Vercel preview returned a login redirect in a fresh
+browser context; authorized preview comparison, content-owner review of held
+entries and uncertain offerings, and deployed visual QA remain for PR review.
+
+## Design revision after reference review
+
+The first implementation followed the old `/rpc` visual system too closely. The
+current home page and `/solutions/tokenization` are the reference surfaces for
+the newer system. Claude drafted the second design brief from those references,
+the issue requirements, and this provider audit; implementation and source
+checks were then performed in this repo. The brief chose a route switcher:
+Local, Public, and Production tabs drive the hero CTA, an explanatory panel, a
+route caption, and a Three.js scene.
+
+The hero now uses the new design's black ground, Diatype heading and light
+second line, white pill CTA, muted copy, hairline dividers, and a single green
+accent. The active request travels from app to RPC endpoint. Local shows the app
+and validator within one machine boundary; Public shows other apps sharing an
+official endpoint; Production shows a provider and a separate fallback. A white
+RPC-to-cluster link gives context without suggesting that an app's RPC request
+is forwarded directly to the cluster. No traffic, latency, price, or quality
+metrics are implied. The scene renders on demand and disposes WebGL resources
+when replaced. Mobile uses an equivalent SVG, as do desktop clients with
+Save-Data or unavailable WebGL; reduced-motion clients see the route without
+packet animation.
+
+Official endpoints remain separate from the neutral, alphabetical 15-provider
+grid. Search and path changes preserve each other's URL parameters. The
+Foundation Server Program is in its own closing band. Copy controls report
+success or failure. At 1440px and 320px the route strip, CTA, and diagrams were
+checked in Chromium; the desktop test confirmed a WebGL canvas and mobile
+confirmed SVG without horizontal overflow. This visual revision does not alter
+provider sources or the held-entry decisions above.

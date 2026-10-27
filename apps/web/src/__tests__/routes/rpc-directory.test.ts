@@ -1,12 +1,20 @@
 import { describe, expect, it } from "vitest";
 import {
   localizeRpcHref,
+  parseRpcPath,
   parseRpcQuery,
   searchRpcProviders,
 } from "@/app/[locale]/rpc/directory-state";
 import { RPC_PROVIDERS } from "@/app/[locale]/rpc/providers";
 
 describe("RPC directory", () => {
+  it("accepts only known connection paths from the URL", () => {
+    expect(parseRpcPath(new URLSearchParams("path=local"))).toBe("local");
+    expect(parseRpcPath(new URLSearchParams("path=public"))).toBe("public");
+    expect(parseRpcPath(new URLSearchParams("path=unexpected"))).toBe(
+      "production",
+    );
+  });
   it("keeps the locale on cross-app documentation links", () => {
     expect(localizeRpcHref("/docs/rpc/providers", "es")).toBe(
       "/es/docs/rpc/providers",
