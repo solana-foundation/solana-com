@@ -70,7 +70,9 @@ export const DOCS_PROSE = cn(
   "[&_h3]:mb-3 [&_h3]:mt-8 [&_h3]:scroll-mt-32 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:leading-[1.45] [&_h3]:text-white",
   "[&_h4]:mb-2 [&_h4]:mt-6 [&_h4]:font-semibold [&_h4]:text-white",
   "[&_p]:my-4 [&_p]:text-white/65",
-  "[&_ol]:my-3 [&_ol]:pl-[1.375rem] [&_ol]:text-white/65 [&_ul]:my-3 [&_ul]:pl-[1.375rem] [&_ul]:text-white/65",
+  // Tailwind preflight strips list markers; restore them for lists written
+  // directly in JSX as well as those parsed from HTML.
+  "[&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-[1.375rem] [&_ol]:text-white/65 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-[1.375rem] [&_ul]:text-white/65",
   "[&_li]:my-[0.45rem] [&_ol_li]:marker:text-white/35 [&_ul_li]:marker:text-[#14f195]",
   "[&_:not(pre)>code]:rounded-[0.3rem] [&_:not(pre)>code]:border [&_:not(pre)>code]:border-white/10 [&_:not(pre)>code]:bg-white/5 [&_:not(pre)>code]:px-[0.35rem] [&_:not(pre)>code]:py-[0.1rem] [&_:not(pre)>code]:text-[0.88em] [&_:not(pre)>code]:text-[#f0f6fc]",
   "[&_a]:text-[#00ffbd] [&_a]:no-underline hover:[&_a]:text-white",
