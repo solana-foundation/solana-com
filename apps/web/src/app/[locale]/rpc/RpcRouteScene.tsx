@@ -2,11 +2,20 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { Line2 } from "three/addons/lines/Line2.js";
-import { LineGeometry } from "three/addons/lines/LineGeometry.js";
-import { LineMaterial } from "three/addons/lines/LineMaterial.js";
 import type { RpcPath } from "./directory-state";
+import {
+  APP_GLYPHS,
+  cableEnds,
+  GLYPH_SIZE,
+  GLYPH_Y,
+  grilleDots,
+  jackPosition,
+  PATCH_COLORS,
+  PATCH_LAYOUTS,
+  PATCH_RACK,
+  PATCH_TONES,
+  type PatchLabel,
+} from "./rpc-patch-layout";
 
 type Props = {
   path: RpcPath;
@@ -37,12 +46,10 @@ type RouteLayout = {
   faded: Faded[];
   request: THREE.CatmullRomCurve3;
   downstream?: THREE.CatmullRomCurve3;
+  labels: PatchLabel[];
 };
 type Controller = { switchPath: (path: RpcPath, animate: boolean) => void };
 
-const WHITE = 0xffffff;
-const LILAC = 0xece4fd;
-const GREEN = 0x55e9ab;
 const v = (x: number, y: number, z = 0) => new THREE.Vector3(x, y, z);
 const ease = (t: number) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 
@@ -88,7 +95,7 @@ export function RpcRouteScene({
     const labelElements = Array.from({ length: 4 }, () => {
       const element = document.createElement("span");
       element.className =
-        "absolute -translate-x-1/2 whitespace-nowrap font-brand-mono text-[10px] uppercase tracking-wider text-nd-mid-em-text";
+        "absolute -translate-x-1/2 -translate-y-1/2 whitespace-nowrap font-brand-mono text-[10px] uppercase tracking-wider text-[#E7DFD0]/70";
       labelLayer.appendChild(element);
       return element;
     });
@@ -106,409 +113,371 @@ export function RpcRouteScene({
     };
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(28, 1, 0.1, 100);
-    camera.position.set(1.1, 2.5, 14.5);
-    camera.lookAt(0.15, -0.1, 0);
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const key = new THREE.DirectionalLight(0xffffff, 3.2);
-    key.position.set(-2, 5, 7);
-    scene.add(key);
-    const rim = new THREE.DirectionalLight(WHITE, 1.25);
-    rim.position.set(4, 2, -3);
-    scene.add(rim);
+    const target = v(PATCH_RACK.x, PATCH_RACK.y, 0);
+    const cameraBase = v(PATCH_RACK.x + 0.35, PATCH_RACK.y + 0.5, 12.8);
+    camera.position.copy(cameraBase);
+    camera.lookAt(target);
 
-    // A radial haze adds depth without a full-screen post-processing pass.
-    const hazeCanvas = document.createElement("canvas");
-    hazeCanvas.width = hazeCanvas.height = 128;
-    const context = hazeCanvas.getContext("2d");
-    if (context) {
-      const gradient = context.createRadialGradient(64, 64, 8, 64, 64, 64);
-      gradient.addColorStop(0, "rgba(236,228,253,0.22)");
-      gradient.addColorStop(0.5, "rgba(236,228,253,0.055)");
-      gradient.addColorStop(1, "rgba(236,228,253,0)");
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, 128, 128);
-    }
-    const hazeTexture = new THREE.CanvasTexture(hazeCanvas);
-    hazeTexture.colorSpace = THREE.SRGBColorSpace;
-    textures.add(hazeTexture);
-    const haze = new THREE.Mesh(
-      geo(new THREE.PlaneGeometry(10, 7)),
-      mat(
-        new THREE.MeshBasicMaterial({
-          map: hazeTexture,
-          transparent: true,
-          opacity: 0.45,
-          depthWrite: false,
-          blending: THREE.AdditiveBlending,
-        }),
+    // Flat, unlit materials keep the poster-like patch-bay look; depth comes
+    // from layered z offsets and pointer parallax.
+    const basicMaterial = (color: THREE.ColorRepresentation, opacity: number) =>
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+    const rectPoints = (w: number, h: number) => [
+      v(-w / 2, -h / 2),
+      v(w / 2, -h / 2),
+      v(w / 2, h / 2),
+      v(-w / 2, h / 2),
+      v(-w / 2, -h / 2),
+    ];
+    const screwGeometry = geo(new THREE.CircleGeometry(0.032, 16));
+    const jackGeometry = geo(new THREE.RingGeometry(0.05, 0.078, 32));
+    const socketGeometry = geo(new THREE.CircleGeometry(0.034, 16));
+    const plugGeometry = geo(new THREE.CircleGeometry(0.085, 24));
+    const knobGeometry = geo(new THREE.CircleGeometry(0.15, 40));
+    const tickGeometry = geo(new THREE.CircleGeometry(0.013, 8));
+    const ledGeometry = geo(new THREE.PlaneGeometry(0.07, 0.07));
+    const dotGeometry = geo(new THREE.CircleGeometry(0.026, 10));
+    const ringGeometry = geo(
+      new THREE.BufferGeometry().setFromPoints(
+        new THREE.EllipseCurve(0, 0, 0.9, 0.9)
+          .getPoints(96)
+          .map((point) => v(point.x, point.y)),
       ),
     );
-    haze.position.set(0.8, 0, -3.8);
-    scene.add(haze);
 
-    const grid = new THREE.GridHelper(11, 22, LILAC, LILAC);
-    grid.position.set(0, -1.28, -0.6);
-    const gridMaterial = grid.material as THREE.LineBasicMaterial;
-    gridMaterial.transparent = true;
-    gridMaterial.opacity = 0.04;
-    geo(grid.geometry);
-    mat(gridMaterial);
-    scene.add(grid);
-
-    const slabGeometry = geo(
-      new RoundedBoxGeometry(0.96, 1.16, 0.32, 4, 0.055),
+    // The rack stays put across paths; only the patch changes.
+    const rack = new THREE.Group();
+    rack.position.set(PATCH_RACK.x, PATCH_RACK.y, -0.05);
+    scene.add(rack);
+    rack.add(
+      new THREE.Mesh(
+        geo(new THREE.PlaneGeometry(PATCH_RACK.w, PATCH_RACK.h)),
+        mat(basicMaterial(PATCH_COLORS.rack, 1)),
+      ),
     );
-    const slabEdges = geo(new THREE.EdgesGeometry(slabGeometry, 24));
-    const slabMaterial = mat(
-      new THREE.MeshPhongMaterial({
-        color: 0x0a0c0e,
-        specular: 0xc7cbd0,
-        shininess: 100,
-        transparent: true,
-        opacity: 0.98,
-      }),
+    rack.add(
+      new THREE.Line(
+        geo(
+          new THREE.BufferGeometry().setFromPoints(
+            rectPoints(PATCH_RACK.w, PATCH_RACK.h),
+          ),
+        ),
+        mat(
+          new THREE.LineBasicMaterial({
+            color: PATCH_COLORS.cream,
+            transparent: true,
+            opacity: 0.16,
+          }),
+        ),
+      ),
     );
-    const routeBodyMaterial = mat(
-      new THREE.MeshPhongMaterial({
-        color: 0x111519,
-        specular: 0xa0a5aa,
-        shininess: 110,
-        transparent: true,
-        opacity: 0.82,
-      }),
-    );
+    const railScrew = mat(basicMaterial(PATCH_COLORS.cream, 0.32));
+    for (const side of [-1, 1])
+      for (let index = 0; index < 8; index++) {
+        const screw = new THREE.Mesh(screwGeometry, railScrew);
+        screw.position.set(
+          -PATCH_RACK.w / 2 + 0.2 + (index * (PATCH_RACK.w - 0.4)) / 7,
+          side * (PATCH_RACK.h / 2 - 0.16),
+          0.001,
+        );
+        rack.add(screw);
+      }
 
     const makeLayout = (kind: RpcPath): RouteLayout => {
+      const spec = PATCH_LAYOUTS[kind];
       const group = new THREE.Group();
-      group.position.x = 0.48;
       scene.add(group);
       const faded: Faded[] = [];
-      const fade = <T extends THREE.Material & { opacity: number }>(
-        material: T,
-        opacity = material.opacity,
-      ) => {
-        faded.push({ material, opacity });
-        return mat(material);
-      };
-      const node = (
-        position: THREE.Vector3,
-        options?: {
-          scale?: number;
-          dim?: boolean;
-          standby?: boolean;
-          port?: boolean;
-        },
-      ) => {
-        const size = options?.scale ?? 1;
-        const assembly = new THREE.Group();
-        assembly.position.copy(position);
-        assembly.scale.setScalar(size);
-        assembly.rotation.y = -0.16;
-        const faceMaterial = slabMaterial.clone();
-        faceMaterial.opacity = options?.standby
-          ? 0.78
-          : options?.dim
-            ? 0.48
-            : 0.98;
-        const face = new THREE.Mesh(slabGeometry, fade(faceMaterial));
-        assembly.add(face);
-        const edgeMaterial = fade(
-          new THREE.LineBasicMaterial({
-            color: options?.dim ? LILAC : WHITE,
-            transparent: true,
-            opacity: options?.dim ? 0.25 : 0.58,
-            depthWrite: false,
-          }),
-        );
-        assembly.add(new THREE.LineSegments(slabEdges, edgeMaterial));
-        if (options?.port) {
-          const aperture = new THREE.Mesh(
-            geo(new THREE.RingGeometry(0.075, 0.105, 32)),
-            fade(
-              new THREE.MeshBasicMaterial({
-                color: GREEN,
-                side: THREE.DoubleSide,
-                transparent: true,
-                opacity: 1,
-                depthWrite: false,
-              }),
-            ),
-          );
-          aperture.position.set(-0.39, 0, 0.18);
-          assembly.add(aperture);
+      const cache = new Map<string, THREE.MeshBasicMaterial>();
+      const basic = (color: THREE.ColorRepresentation, opacity: number) => {
+        const key = `${color}:${opacity.toFixed(3)}`;
+        let material = cache.get(key);
+        if (!material) {
+          material = mat(basicMaterial(color, opacity));
+          faded.push({ material, opacity });
+          cache.set(key, material);
         }
-        group.add(assembly);
-        return assembly;
+        return material;
       };
-      const route = (
-        points: THREE.Vector3[],
-        color: number,
+      const line = (
+        points: THREE.Vector3[] | THREE.BufferGeometry,
         opacity: number,
-        dashed = false,
-        body = false,
       ) => {
-        const curve = new THREE.CatmullRomCurve3(points, false, "centripetal");
-        const samples = curve.getPoints(64);
-        if (body) {
-          const tube = new THREE.Mesh(
-            geo(new THREE.TubeGeometry(curve, 64, 0.038, 8, false)),
-            fade(routeBodyMaterial.clone()),
-          );
-          group.add(tube);
-        }
-        const geometry = geo(new LineGeometry());
-        geometry.setPositions(
-          samples.flatMap((point) => [point.x, point.y, point.z]),
-        );
-        const material = fade(
-          new LineMaterial({
-            color,
-            linewidth: dashed ? 1.35 : color === GREEN ? 3.2 : 1.3,
+        const material = mat(
+          new THREE.LineBasicMaterial({
+            color: PATCH_COLORS.cream,
             transparent: true,
             opacity,
-            dashed,
-            dashSize: 0.13,
-            gapSize: 0.11,
             depthWrite: false,
-            depthTest: color !== GREEN && opacity < 0.7,
-            worldUnits: false,
           }),
         );
-        lineMaterials.add(material);
-        const line = new Line2(geometry, material);
-        if (color === GREEN || opacity >= 0.7) line.renderOrder = 3;
-        if (dashed) line.computeLineDistances();
-        group.add(line);
-        return curve;
+        faded.push({ material, opacity });
+        return new THREE.Line(
+          Array.isArray(points)
+            ? geo(new THREE.BufferGeometry().setFromPoints(points))
+            : points,
+          material,
+        );
       };
-      const app = kind === "local" ? v(-2.3, 0.05, 0.35) : v(-3.1, 0.05, 0.35);
-      const rpc =
-        kind === "production"
-          ? v(-0.1, 0.55, 0.45)
-          : kind === "public"
-            ? v(0.05, 0.05, 0.45)
-            : v(0.9, 0.05, 0.45);
-      node(app);
-      node(rpc, { port: true });
-      const request = route(
-        [
-          v(app.x + 0.51, app.y, app.z + 0.2),
-          v((app.x + rpc.x) / 2, (app.y + rpc.y) / 2 + 0.17, 0.7),
-          v(rpc.x - 0.39, rpc.y, rpc.z + 0.2),
-        ],
-        GREEN,
-        1,
-        false,
-        true,
-      );
-      let downstream: THREE.CatmullRomCurve3 | undefined;
+      const add = (
+        object: THREE.Object3D,
+        x: number,
+        y: number,
+        z: number,
+        order: number,
+      ) => {
+        object.position.set(x, y, z);
+        object.renderOrder = order;
+        group.add(object);
+      };
+      const screws = (
+        x: number,
+        y: number,
+        w: number,
+        h: number,
+        opacity: number,
+      ) => {
+        for (const [sx, sy] of [
+          [-1, -1],
+          [1, -1],
+          [1, 1],
+          [-1, 1],
+        ])
+          add(
+            new THREE.Mesh(screwGeometry, basic(PATCH_COLORS.cream, opacity)),
+            x + sx * (w / 2 - 0.09),
+            y + sy * (h / 2 - 0.09),
+            0.01,
+            1,
+          );
+      };
+      const jackTones = new Map<string, string>();
+      for (const cable of spec.cables) {
+        jackTones.set(cable.from.join(":"), PATCH_TONES[cable.tone]);
+        jackTones.set(cable.to.join(":"), PATCH_TONES[cable.tone]);
+      }
 
-      if (kind === "local") {
-        const boundaryBox = new THREE.BoxGeometry(5.2, 2.65, 1.45);
-        const boundary = geo(new THREE.EdgesGeometry(boundaryBox));
-        boundaryBox.dispose();
-        const frame = new THREE.LineSegments(
-          boundary,
-          fade(
-            new THREE.LineBasicMaterial({
-              color: LILAC,
-              transparent: true,
-              opacity: 0.36,
-              depthWrite: false,
-            }),
+      if (spec.frame) {
+        const { x, y, w, h } = spec.frame;
+        add(line(rectPoints(w, h), 0.4), x, y, 0.005, 1);
+        screws(x, y, w, h, 0.4);
+      }
+      for (const part of spec.modules) {
+        const k = part.dim ? 0.5 : 1;
+        add(
+          new THREE.Mesh(
+            geo(new THREE.PlaneGeometry(part.w, part.h)),
+            basic(PATCH_COLORS.panel, 0.97),
           ),
+          part.x,
+          part.y,
+          0,
+          0,
         );
-        frame.position.set(-0.8, 0.05, 0);
-        group.add(frame);
-        for (let index = 0; index < 4; index++) {
-          const plate = new THREE.Mesh(
-            geo(new THREE.BoxGeometry(0.72, 0.025, 0.28)),
-            fade(
-              new THREE.MeshBasicMaterial({
-                color: LILAC,
-                transparent: true,
-                opacity: 0.14 + index * 0.045,
-              }),
+        add(
+          line(rectPoints(part.w, part.h), 0.6 * k),
+          part.x,
+          part.y,
+          0.005,
+          1,
+        );
+        screws(part.x, part.y, part.w, part.h, 0.65 * k);
+        for (let index = 0; index < part.jacks; index++) {
+          const { x, y } = jackPosition(part, index);
+          const tone = jackTones.get(`${part.id}:${index}`);
+          add(
+            new THREE.Mesh(
+              jackGeometry,
+              basic(tone ?? PATCH_COLORS.cream, tone ? 1 : 0.75 * k),
             ),
+            x,
+            y,
+            0.01,
+            1,
           );
-          plate.position.set(
-            rpc.x + 0.05,
-            rpc.y - 0.42 + index * 0.11,
-            rpc.z - 0.28,
-          );
-          group.add(plate);
-        }
-      } else {
-        const cluster = new THREE.Group();
-        cluster.position.set(3.12, 0.02, -0.5);
-        group.add(cluster);
-        const validatorGeometry = geo(
-          new THREE.BoxGeometry(0.075, 0.095, 0.065),
-        );
-        const validatorMaterial = fade(
-          new THREE.MeshPhongMaterial({
-            color: WHITE,
-            specular: WHITE,
-            shininess: 60,
-            transparent: true,
-            opacity: 0.4,
-            depthWrite: false,
-          }),
-        );
-        const validatorCount = 100;
-        const validators = new THREE.InstancedMesh(
-          validatorGeometry,
-          validatorMaterial,
-          validatorCount,
-        );
-        const dummy = new THREE.Object3D();
-        const positions: THREE.Vector3[] = [];
-        for (let index = 0; index < validatorCount; index++) {
-          const y = 1 - 2 * ((index + 0.5) / validatorCount);
-          const radial = Math.sqrt(1 - y * y);
-          const angle = index * 2.399963229728653;
-          const point = v(
-            Math.cos(angle) * radial * 1.12,
-            y * 1.18,
-            Math.sin(angle) * radial * 0.72,
-          );
-          positions.push(point);
-          dummy.position.copy(point);
-          dummy.rotation.set(angle * 0.08, angle * 0.12, angle * 0.05);
-          dummy.scale.setScalar(0.8 + 0.25 * Math.sin(index * 1.7) ** 2);
-          dummy.updateMatrix();
-          validators.setMatrixAt(index, dummy.matrix);
-          validators.setColorAt(
-            index,
-            new THREE.Color(WHITE).multiplyScalar(0.55 + 0.2 * radial),
+          add(
+            new THREE.Mesh(socketGeometry, basic(PATCH_COLORS.socket, 1)),
+            x,
+            y,
+            0.012,
+            1,
           );
         }
-        validators.instanceMatrix.needsUpdate = true;
-        if (validators.instanceColor)
-          validators.instanceColor.needsUpdate = true;
-        cluster.add(validators);
-        const links: number[] = [];
-        for (let index = 0; index < validatorCount - 8; index++) {
-          const a = positions[index];
-          const b = positions[index + 8];
-          if (a.distanceTo(b) < 0.72) links.push(a.x, a.y, a.z, b.x, b.y, b.z);
-        }
-        const linkGeometry = geo(new THREE.BufferGeometry());
-        linkGeometry.setAttribute(
-          "position",
-          new THREE.Float32BufferAttribute(links, 3),
-        );
-        cluster.add(
-          new THREE.LineSegments(
-            linkGeometry,
-            fade(
-              new THREE.LineBasicMaterial({
-                color: WHITE,
-                transparent: true,
-                opacity: 0.075,
-                depthWrite: false,
-              }),
-            ),
-          ),
-        );
-        downstream = route(
-          [
-            v(rpc.x + 0.51, rpc.y, rpc.z),
-            v(1.6, rpc.y * 0.35, 0.15),
-            v(2.08, 0.08, -0.15),
-          ],
-          WHITE,
-          0.72,
-          false,
-          true,
-        );
-        if (kind === "public") {
-          for (const [index, y] of [0.96, -0.72, 0.38].entries()) {
-            const ghost = v(
-              index === 2 ? -3.75 : -3.35,
-              y,
-              -0.75 - index * 0.25,
-            );
-            node(ghost, { scale: 0.48, dim: true });
-            route(
-              [
-                v(ghost.x + 0.27, ghost.y, ghost.z),
-                v(-1.3, ghost.y * 0.5, -0.3),
-                v(rpc.x - 0.52, rpc.y + (y > 0 ? 0.15 : -0.15), rpc.z - 0.1),
-              ],
-              LILAC,
-              0.25,
+        const knobs = part.knobs ?? 0;
+        for (let index = 0; index < knobs; index++) {
+          const x = part.x + (index - (knobs - 1) / 2) * 0.4;
+          const y = part.y + part.h / 2 - 0.36;
+          add(
+            new THREE.Mesh(knobGeometry, basic(PATCH_COLORS.cream, 0.9 * k)),
+            x,
+            y,
+            0.01,
+            1,
+          );
+          const angle = 0.5 + index * 1.9;
+          add(
+            new THREE.Mesh(tickGeometry, basic(PATCH_COLORS.socket, 1)),
+            x + Math.cos(angle) * 0.09,
+            y + Math.sin(angle) * 0.09,
+            0.012,
+            2,
+          );
+          for (let tick = 0; tick < 9; tick++) {
+            const a = Math.PI * 1.25 - (tick * Math.PI * 1.5) / 8;
+            add(
+              new THREE.Mesh(tickGeometry, basic(PATCH_COLORS.cream, 0.5 * k)),
+              x + Math.cos(a) * 0.215,
+              y + Math.sin(a) * 0.215,
+              0.01,
+              1,
             );
           }
-        } else {
-          const backup = v(0.36, -0.94, 0.56);
-          node(backup, { standby: true, scale: 0.84 });
-          const frameGeometry = geo(new LineGeometry());
-          frameGeometry.setPositions([
-            -0.52, -1.64, 0.12, 1.25, -1.64, 0.12, 1.25, -0.25, 0.12, -0.52,
-            -0.25, 0.12, -0.52, -1.64, 0.12,
-          ]);
-          const frameMaterial = fade(
-            new LineMaterial({
-              color: LILAC,
-              linewidth: 1.15,
-              transparent: true,
-              opacity: 0.42,
-              dashed: true,
-              dashSize: 0.11,
-              gapSize: 0.11,
-              depthWrite: false,
-            }),
+        }
+        if (part.glyphs)
+          for (const glyph of APP_GLYPHS) {
+            const r = GLYPH_SIZE;
+            const points =
+              glyph.kind === "circle"
+                ? new THREE.EllipseCurve(0, 0, r, r)
+                    .getPoints(40)
+                    .map((point) => v(point.x, point.y))
+                : glyph.kind === "triangle"
+                  ? [v(0, r), v(r, -r * 0.8), v(-r, -r * 0.8), v(0, r)]
+                  : rectPoints(r * 1.7, r * 1.7);
+            add(
+              line(points, 0.85),
+              part.x + glyph.dx,
+              part.y + GLYPH_Y,
+              0.01,
+              1,
+            );
+          }
+        if (part.leds)
+          for (let index = 0; index < 15; index++) {
+            const lit = index % 4 === 1;
+            add(
+              new THREE.Mesh(
+                ledGeometry,
+                basic(
+                  lit ? PATCH_TONES.request : PATCH_COLORS.cream,
+                  lit ? 0.95 : 0.4,
+                ),
+              ),
+              part.x + ((index % 5) - 2) * 0.13,
+              part.y - 0.12 + (1 - Math.floor(index / 5)) * 0.13,
+              0.01,
+              1,
+            );
+          }
+        if (part.grille) {
+          const y = part.y + 0.17;
+          add(line(ringGeometry, 0.7), part.x, y, 0.01, 1);
+          const dots = grilleDots(0.9);
+          const grille = new THREE.InstancedMesh(
+            dotGeometry,
+            basic(0xffffff, 0.85),
+            dots.length,
           );
-          lineMaterials.add(frameMaterial);
-          const frame = new Line2(frameGeometry, frameMaterial);
-          frame.computeLineDistances();
-          group.add(frame);
-          route(
-            [
-              v(app.x + 0.51, app.y - 0.15, app.z - 0.15),
-              v(-1.5, -0.5, -0.35),
-              v(backup.x - 0.39, backup.y, backup.z + 0.18),
-            ],
-            LILAC,
-            0.38,
-            true,
-          );
-          route(
-            [
-              v(backup.x + 0.39, backup.y, backup.z),
-              v(1.62, -0.7, -0.25),
-              v(2.1, -0.36, -0.35),
-            ],
-            LILAC,
-            0.26,
-          );
+          const dummy = new THREE.Object3D();
+          const cream = new THREE.Color(PATCH_COLORS.cream);
+          const lit = new THREE.Color(PATCH_TONES.cluster);
+          dots.forEach((dot, index) => {
+            dummy.position.set(dot.x, dot.y, 0);
+            dummy.updateMatrix();
+            grille.setMatrixAt(index, dummy.matrix);
+            grille.setColorAt(index, dot.lit ? lit : cream);
+          });
+          grille.instanceMatrix.needsUpdate = true;
+          if (grille.instanceColor) grille.instanceColor.needsUpdate = true;
+          add(grille, part.x, y, 0.012, 1);
         }
       }
-      return { group, faded, request, downstream };
+
+      let request: THREE.CatmullRomCurve3 | undefined;
+      let downstream: THREE.CatmullRomCurve3 | undefined;
+      for (const cable of spec.cables) {
+        const { a, b, low } = cableEnds(spec, cable);
+        const color = PATCH_TONES[cable.tone];
+        const opacity = cable.role ? 1 : cable.tone === "shared" ? 0.7 : 0.6;
+        const lead = (b.x - a.x) * 0.08;
+        const curve = new THREE.CatmullRomCurve3(
+          [
+            v(a.x, a.y, 0.06),
+            v(a.x + lead, a.y - 0.22, 0.32),
+            v((a.x + b.x) / 2, low, 0.55),
+            v(b.x - lead, b.y - 0.22, 0.32),
+            v(b.x, b.y, 0.06),
+          ],
+          false,
+          "centripetal",
+        );
+        const tube = geo(
+          new THREE.TubeGeometry(
+            curve,
+            96,
+            cable.role ? 0.046 : 0.034,
+            10,
+            false,
+          ),
+        );
+        add(
+          new THREE.Mesh(tube, basic(0x000000, 0.5 * opacity)),
+          0.04,
+          -0.07,
+          -0.04,
+          2,
+        );
+        add(
+          new THREE.Mesh(tube, basic(color, opacity)),
+          0,
+          0,
+          0,
+          cable.role ? 4 : 3,
+        );
+        for (const end of [a, b])
+          add(
+            new THREE.Mesh(plugGeometry, basic(color, opacity)),
+            end.x,
+            end.y,
+            0.065,
+            cable.role ? 5 : 4,
+          );
+        if (cable.role === "request") request = curve;
+        if (cable.role === "downstream") downstream = curve;
+      }
+      if (!request)
+        throw new Error(`Patch layout ${kind} has no request cable`);
+      return { group, faded, request, downstream, labels: spec.labels };
     };
 
-    const lineMaterials = new Set<LineMaterial>();
     const layouts: Record<RpcPath, RouteLayout> = {
       local: makeLayout("local"),
       public: makeLayout("public"),
       production: makeLayout("production"),
     };
     const requestPulse = new THREE.Mesh(
-      geo(new THREE.SphereGeometry(0.095, 16, 12)),
-      mat(new THREE.MeshBasicMaterial({ color: GREEN })),
+      geo(new THREE.SphereGeometry(0.075, 16, 12)),
+      mat(new THREE.MeshBasicMaterial({ color: PATCH_TONES.request })),
     );
     const pulseHalo = new THREE.Mesh(
-      geo(new THREE.SphereGeometry(0.18, 16, 12)),
+      geo(new THREE.SphereGeometry(0.16, 16, 12)),
       mat(
         new THREE.MeshBasicMaterial({
-          color: GREEN,
+          color: PATCH_TONES.request,
           transparent: true,
-          opacity: 0.14,
+          opacity: 0.2,
           depthWrite: false,
         }),
       ),
     );
+    requestPulse.renderOrder = 6;
+    pulseHalo.renderOrder = 5;
     requestPulse.add(pulseHalo);
     scene.add(requestPulse);
     requestPulse.visible = false;
@@ -551,86 +520,63 @@ export function RpcRouteScene({
       }
       yaw += (targetYaw - yaw) * 0.13;
       pitch += (targetPitch - pitch) * 0.13;
-      camera.position.x = 1.1 + yaw;
-      camera.position.y = 2.5 + pitch;
-      camera.lookAt(0.15, -0.1, 0);
+      camera.position.set(
+        cameraBase.x + yaw,
+        cameraBase.y + pitch,
+        cameraBase.z,
+      );
+      camera.lookAt(target);
       const layout = layouts[current];
       requestPulse.visible = false;
       if (motionEnabled) {
-        const requestAt = 0.33;
-        const requestEnd = 0.62;
-        if (progress >= requestAt && progress <= requestEnd) {
+        // Request out on the green cable, upstream on purple, response back.
+        const segment =
+          progress >= 0.33 && progress <= 0.62
+            ? {
+                curve: layout.request,
+                t: (progress - 0.33) / 0.29,
+                tone: PATCH_TONES.request,
+              }
+            : progress > 0.65 && progress < 0.78 && layout.downstream
+              ? {
+                  curve: layout.downstream,
+                  t: (progress - 0.65) / 0.13,
+                  tone: PATCH_TONES.cluster,
+                }
+              : progress > 0.8 && progress < 0.97
+                ? {
+                    curve: layout.request,
+                    t: 1 - (progress - 0.8) / 0.17,
+                    tone: PATCH_TONES.request,
+                  }
+                : undefined;
+        if (segment) {
           requestPulse.visible = true;
-          (requestPulse.material as THREE.MeshBasicMaterial).color.setHex(
-            GREEN,
+          (requestPulse.material as THREE.MeshBasicMaterial).color.set(
+            segment.tone,
           );
-          (pulseHalo.material as THREE.MeshBasicMaterial).color.setHex(GREEN);
-          requestPulse.position.copy(
-            layout.request.getPoint(
-              ease((progress - requestAt) / (requestEnd - requestAt)),
-            ),
+          (pulseHalo.material as THREE.MeshBasicMaterial).color.set(
+            segment.tone,
           );
-          requestPulse.position.x += layout.group.position.x;
-          requestPulse.position.y += layout.group.position.y;
-        } else if (progress > 0.65 && progress < 0.78 && layout.downstream) {
-          requestPulse.visible = true;
-          (requestPulse.material as THREE.MeshBasicMaterial).color.setHex(
-            WHITE,
-          );
-          (pulseHalo.material as THREE.MeshBasicMaterial).color.setHex(WHITE);
-          requestPulse.position.copy(
-            layout.downstream.getPoint(ease((progress - 0.65) / 0.13)),
-          );
-          requestPulse.position.x += layout.group.position.x;
-          requestPulse.position.y += layout.group.position.y;
-        } else if (progress > 0.8 && progress < 0.97) {
-          requestPulse.visible = true;
-          (requestPulse.material as THREE.MeshBasicMaterial).color.setHex(
-            WHITE,
-          );
-          (pulseHalo.material as THREE.MeshBasicMaterial).color.setHex(WHITE);
-          requestPulse.position.copy(
-            layout.request.getPoint(1 - ease((progress - 0.8) / 0.17)),
-          );
-          requestPulse.position.x += layout.group.position.x;
-          requestPulse.position.y += layout.group.position.y;
+          requestPulse.position
+            .copy(segment.curve.getPoint(ease(segment.t)))
+            .add(layout.group.position);
+          requestPulse.position.z += 0.06;
         }
       }
       renderer.render(scene, camera);
-      const labelAnchors: Record<
-        RpcPath,
-        { text: string; point: THREE.Vector3 }[]
-      > = {
-        local: [
-          { text: labelsRef.current.machine, point: v(-1, 1.82, 0.7) },
-          { text: labelsRef.current.app, point: v(-2.3, -0.68, 0.5) },
-          { text: labelsRef.current.localValidator, point: v(0.9, -0.68, 0.5) },
-        ],
-        public: [
-          { text: labelsRef.current.otherApps, point: v(-3.6, 1.28, -0.7) },
-          { text: labelsRef.current.app, point: v(-3.1, -0.82, 0.5) },
-          { text: labelsRef.current.official, point: v(0.05, -0.82, 0.5) },
-          { text: labelsRef.current.devnet, point: v(3.12, -1.5, -0.5) },
-        ],
-        production: [
-          { text: labelsRef.current.app, point: v(-3.1, -0.82, 0.5) },
-          { text: labelsRef.current.provider, point: v(-0.1, 1.57, 0.5) },
-          { text: labelsRef.current.fallback, point: v(0.36, -1.67, 0.6) },
-          { text: labelsRef.current.mainnet, point: v(3.12, -1.5, -0.5) },
-        ],
-      };
-      labelAnchors[current].forEach(({ text, point }, index) => {
-        const projected = point
-          .add(v(layout.group.position.x, layout.group.position.y))
+      layout.labels.forEach(({ key, x, y }, index) => {
+        const projected = v(x, y, 0.05)
+          .add(layout.group.position)
           .project(camera);
         const element = labelElements[index];
-        element.textContent = text;
+        element.textContent = labelsRef.current[key];
         element.style.left = `${(projected.x * 0.5 + 0.5) * host.clientWidth}px`;
         element.style.top = `${(-projected.y * 0.5 + 0.5) * host.clientHeight}px`;
         element.hidden = false;
       });
       labelElements.forEach((element, index) => {
-        if (index >= labelAnchors[current].length) element.hidden = true;
+        if (index >= layout.labels.length) element.hidden = true;
       });
       host.dataset.sceneState = progress < 1 ? "animating" : "idle";
       host.dataset.path = current;
@@ -657,8 +603,6 @@ export function RpcRouteScene({
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-      for (const material of lineMaterials)
-        material.resolution.set(width, height);
       schedule();
     };
     const resizeObserver = new ResizeObserver(resize);
