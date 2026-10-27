@@ -113,7 +113,7 @@ export function DevelopersChainMigrationPage() {
     url: group.url,
     ctaLabel: t(`chainSelector.cards.${index}.button.label`),
     // The Ethereum overview is the hub itself; don't list it as a guide.
-    guides: group.guides.filter((guide) => guide.url !== group.url),
+    guides: group.guides.filter((guide) => !("isOverview" in guide)),
   }));
 
   const secondaryCards = SECONDARY_CARD_DECK.cards.map((card, index) => ({

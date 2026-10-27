@@ -1,32 +1,3 @@
-const CONTENT_BLOCK_STYLE_KEYS = {
-  spacing: "spacing",
-  spacingWithMargins: "spacingWithMargins",
-  spacingLastBlock: "spacingLastBlock",
-  cardDeckWrapper: "cardDeckWrapper",
-};
-
-/** @type {Record<string, import("@/component-library/responsive-box").ResponsiveStyles>} */
-export const BLOCK_STYLES = {
-  [CONTENT_BLOCK_STYLE_KEYS.spacing]: {
-    large: { paddingTop: "20px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.spacingWithMargins]: {
-    large: { paddingTop: "20px", marginTop: "auto", marginBottom: "auto" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.spacingLastBlock]: {
-    large: { paddingTop: "20px", paddingBottom: "48px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
-    large: { paddingTop: "0px", marginTop: "-3px" },
-  },
-};
-
-export const CONTENT_EDITOR_CTA = {
-  button: {
-    url: "/developers/migrate-to-solana/cosmos",
-  },
-};
-
 export const NAV_BUTTONS = [
   {
     label: "",

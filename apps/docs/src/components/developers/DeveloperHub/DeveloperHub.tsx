@@ -128,7 +128,7 @@ const pathways: Pathway[] = [
         titleKey: "pathways.items.moveToSolana.links.cosmosToSvm.title",
         descriptionKey:
           "pathways.items.moveToSolana.links.cosmosToSvm.description",
-        href: "/developers/migrate-to-solana/cosmos",
+        href: "/developers/migrate-to-solana/cosmos/cosmwasm",
       },
       {
         id: "completeGuide",

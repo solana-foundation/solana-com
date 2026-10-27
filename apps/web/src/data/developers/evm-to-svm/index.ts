@@ -38,7 +38,7 @@ export const COSMOS_CARD_DECK = {
       },
       backgroundGradient: "aqua",
       callToAction: {
-        url: "/developers/migrate-to-solana/cosmos",
+        url: "/developers/migrate-to-solana/cosmos/cosmwasm",
         size: "md",
         hierarchy: "primary",
       },

@@ -19,7 +19,7 @@ export const MIGRATION_NAV = [
     url: `${MIGRATE}/ethereum`,
     eyebrow: "EVM -> Solana",
     guides: [
-      { url: `${MIGRATE}/ethereum`, label: "Overview" },
+      { url: `${MIGRATE}/ethereum`, label: "Overview", isOverview: true },
       { url: `${MIGRATE}/complete-guide`, label: "Complete Guide" },
       { url: `${MIGRATE}/erc20`, label: "ERC20" },
       { url: `${MIGRATE}/erc721`, label: "ERC721" },
@@ -35,11 +35,20 @@ export const MIGRATION_NAV = [
   },
   {
     label: "Cosmos",
-    url: `${MIGRATE}/cosmos`,
+    // No Cosmos overview page: the group lands on its first guide.
+    url: `${MIGRATE}/cosmos/cosmwasm`,
     eyebrow: "Cosmos -> Solana",
     guides: [
-      { url: `${MIGRATE}/cosmos/cosmwasm`, label: "CosmWasm" },
-      { url: `${MIGRATE}/cosmos/app-chain`, label: "App Chain" },
+      {
+        url: `${MIGRATE}/cosmos/cosmwasm`,
+        label: "CosmWasm",
+        description: "Port CosmWasm contracts",
+      },
+      {
+        url: `${MIGRATE}/cosmos/app-chain`,
+        label: "App Chain",
+        description: "Migrate a Cosmos app chain",
+      },
     ],
   },
 ] as const;
@@ -194,22 +203,34 @@ function LeftSidebar({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
         <div key={group.label} className="mb-6">
           <span className={labelClass}>{group.label}</span>
           <ul className="m-0 list-none p-0">
-            {group.guides.map((guide) => (
-              <li key={guide.url}>
-                {guide.url === activeUrl ? (
-                  <span
-                    className={cn(linkClass, activeClass)}
-                    aria-current="page"
-                  >
-                    {guide.label}
-                  </span>
-                ) : (
-                  <Link href={guide.url} className={linkClass}>
-                    {guide.label}
-                  </Link>
-                )}
-              </li>
-            ))}
+            {group.guides.map((guide) => {
+              const content = (
+                <>
+                  {guide.label}
+                  {"description" in guide ? (
+                    <span className="block text-xs font-normal text-white/35">
+                      {guide.description}
+                    </span>
+                  ) : null}
+                </>
+              );
+              return (
+                <li key={guide.url}>
+                  {guide.url === activeUrl ? (
+                    <span
+                      className={cn(linkClass, "block", activeClass)}
+                      aria-current="page"
+                    >
+                      {content}
+                    </span>
+                  ) : (
+                    <Link href={guide.url} className={cn(linkClass, "block")}>
+                      {content}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ))}
@@ -241,9 +262,13 @@ function Breadcrumbs({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
         Migrate to Solana
       </Link>
       {separator}
-      <Link href={group.url} className={linkClass}>
-        {group.label}
-      </Link>
+      {group.url === activeUrl ? (
+        <span>{group.label}</span>
+      ) : (
+        <Link href={group.url} className={linkClass}>
+          {group.label}
+        </Link>
+      )}
       {separator}
       <span className="text-white/80">{guide.label}</span>
     </nav>

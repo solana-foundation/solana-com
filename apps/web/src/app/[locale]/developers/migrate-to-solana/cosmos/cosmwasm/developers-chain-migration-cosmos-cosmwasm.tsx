@@ -619,10 +619,13 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
       eyebrow={t("hero.eyebrow")}
       headline={t("hero.headline")}
       bodyHtml={t.raw("hero.body") as string}
+      // The Cosmos hub now redirects here; the sidebar covers "back to hub".
       buttons={NAV_BUTTONS.map((button, index) => ({
         url: button.url,
         label: t(`navHeading.buttons.${index}.label`),
-      }))}
+      })).filter(
+        (button) => button.url !== "/developers/migrate-to-solana/cosmos",
+      )}
       tocHeadline={t("contentEditor.tocHeadline")}
       toc={GUIDE_SECTIONS.map((section) => ({
         id: section.id,
