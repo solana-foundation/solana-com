@@ -2,10 +2,10 @@
 title: Account Data Direct Mapping
 description: >-
   Validators will stop copying account data in and out of the virtual machine.
-  To make that safe, the runtime now rejects memory accesses that used to slip
-  through, which breaks a small number of programs.
-subtitle: Validators stop copying account data, and programs lose a few unsafe shortcuts
-publishedAt: 2026-10-14T00:00:00.000Z
+  To make that safe, the runtime will reject memory accesses that used to slip
+  through, which will break a small number of programs.
+subtitle: Validators will stop copying account data, and programs will lose a few unsafe shortcuts
+publishedAt: 2026-10-27T00:00:00.000Z
 status: published
 author: solana-foundation
 stage: pending_activation
@@ -13,7 +13,7 @@ metrics:
   - value: "4 → 0"
     label: Account data copy paths
   - value: "5"
-    label: Access patterns that now fail or change behavior
+    label: Access patterns that will fail or change behavior
   - value: "4 → 8"
     label: CPI nesting depth this unblocks
 additionalResources:
@@ -36,15 +36,15 @@ October 2026 • Solana Foundation
 Before a program runs, the validator copies every account's data into the
 program's virtual machine. When the program finishes, it copies the data back.
 Cross-program invocations (CPIs) repeat this in both directions. Direct mapping
-removes the copying: the program reads and writes account data where it already
-lives.
+will remove the copying: the program will read and write account data where it
+already lives.
 
 <DmCopyPaths />
 
 For that to be safe, the runtime has to check every memory access. Today a
 program can read past the end of an account, write to a read-only account as
-long as it puts the old value back, or copy across memory regions, and nothing
-happens. After this upgrade, each of those fails with an instruction error.
+long as it puts the old value back, or access two memory regions in one go, and
+nothing happens. After this upgrade, each of those will fail with an instruction error.
 
 Two feature gates deliver the change:
 
@@ -92,7 +92,8 @@ prove a stack-dependent path is safe. See
 | Feature Gate                     | `7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz` (`virtual_address_space_adjustments`), `CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE` (`account_data_direct_mapping`)                                                                                                                                                                                             |
 | Proposals                        | [SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md), split from [SIMD-0219](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md). `account_data_direct_mapping` has no SIMD of its own. |
 
-Current feature gate activation status.
+Current feature gate activation status:
+
 [`virtual_address_space_adjustments`](https://explorer.solana.com/address/7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz/feature-gate)
 ([SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md)):
 
@@ -105,15 +106,16 @@ Current feature gate activation status.
 
 **Breaking Changes:**
 
-All of these start with `virtual_address_space_adjustments`.
+All of these come from `virtual_address_space_adjustments` and are already live
+on devnet and testnet.
 
-| If your program                                          | When                       | What you have to do                                                                                                                             |
-| -------------------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Reads** past the end of an account's data              | Live on devnet and testnet | Check `data_len()` first. [Learn more](#breaking-change-account-data-access-is-now-checked)                                                     |
-| **Writes** to a read-only or foreign-owned account       | Live on devnet and testnet | Remove the write, even if it restores the old value. [Learn more](#breaking-change-account-data-access-is-now-checked)                          |
-| **Resizes** an account past the limits or with `realloc` | Live on devnet and testnet | Use `resize` and stay within the growth limits. [Learn more](#breaking-change-account-data-access-is-now-checked)                               |
-| **Copies** memory across region boundaries in one access | Live on devnet and testnet | Split the copy into one access per region. [Learn more](#breaking-change-accesses-cannot-span-memory-regions)                                   |
-| **Depends** on stack layout or overruns a stack frame    | Live on devnet and testnet | Remove absolute stack addresses and out-of-bounds accesses. This can fail silently. [Learn more](#breaking-change-stack-frame-gaps-are-removed) |
+| If your program                                          | What you have to do                                                                                                                             |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Reads** past the end of an account's data              | Check `data_len()` first. [Learn more](#breaking-change-every-account-data-access-is-checked)                                                   |
+| **Writes** to a read-only or foreign-owned account       | Remove the write, even if it restores the old value. [Learn more](#breaking-change-every-account-data-access-is-checked)                        |
+| **Resizes** an account past the limits or with `realloc` | Use `resize` and stay within the growth limits. [Learn more](#breaking-change-every-account-data-access-is-checked)                             |
+| **Accesses** memory across a region boundary in one go   | Split it into one access per region. [Learn more](#breaking-change-accesses-cannot-span-memory-regions)                                         |
+| **Depends** on stack layout or overruns a stack frame    | Remove absolute stack addresses and out-of-bounds accesses. This can fail silently. [Learn more](#breaking-change-stack-frame-gaps-are-removed) |
 
 ## Test It Before Mainnet
 
@@ -151,6 +153,65 @@ solana-test-validator --reset --deactivate-feature 7VgiehxNxu53KdxgLspGQY8myE6f7
 
 If you see `--deactivate-feature argument ignored, ledger already exists`, the
 gates are still on. Rerun with `--reset`.
+
+Other test frameworks have different defaults:
+
+<AudienceGroup>
+<Audience title="LiteSVM" summary="Gates off by default (mainnet feature set). Turn them on in code.">
+
+LiteSVM builds its runtime environment when builtins are added, so set the
+feature set first. See the
+[`LiteSVM` API docs](https://docs.rs/litesvm/latest/litesvm/struct.LiteSVM.html).
+
+```rust
+use agave_feature_set::{account_data_direct_mapping, virtual_address_space_adjustments};
+use litesvm::LiteSVM;
+
+let mut features = LiteSVM::mainnet_feature_set();
+features.activate(&virtual_address_space_adjustments::id(), 0);
+features.activate(&account_data_direct_mapping::id(), 0);
+
+let svm = LiteSVM::default()
+    .with_feature_set(features)
+    .with_builtins()
+    .with_sysvars()
+    .with_feature_accounts()
+    .with_default_programs()
+    .with_lamports(1_000_000_000_000_000)
+    .with_sigverify(true)
+    .with_blockhash_check(true);
+```
+
+</Audience>
+
+<Audience title="Mollusk" summary="Gates on by default (every gate). Turn them off to compare with mainnet.">
+
+Mollusk builds its program cache when the instance is created, so rebuild it
+after changing the gates, then add your program. See the
+[`Mollusk` API docs](https://docs.rs/mollusk-svm/latest/mollusk_svm/struct.Mollusk.html).
+
+```rust
+use mollusk_svm::{program::ProgramCache, Mollusk};
+
+let mut mollusk = Mollusk::default();
+mollusk.feature_set.virtual_address_space_adjustments = false;
+mollusk.feature_set.account_data_direct_mapping = false;
+mollusk.program_cache = ProgramCache::new(&mollusk.feature_set, &mollusk.compute_budget, false);
+mollusk.add_program(&program_id, "my_program");
+```
+
+</Audience>
+
+<Audience title="Surfpool" summary="Gates off by default (mainnet feature set). Turn them on with --feature.">
+
+Pass both gate addresses. See the [Surfpool docs](https://docs.surfpool.run).
+
+```bash
+surfpool start --feature 7VgiehxNxu53KdxgLspGQY8myE6f7UokaWa4jsGcaSz --feature CR3dVN2Yoo95Y96kLSTaziWDAQT2MNEpiWh5cqVq2pNE
+```
+
+</Audience>
+</AudienceGroup>
 
 To test a real mainnet transaction, open it in
 [SVM Scope](https://svmscope.vercel.app/), a community tool that replays
@@ -197,17 +258,21 @@ Most programs pass without changes. To confirm yours does:
   programs cannot be fixed, so they need a new program and a user migration.
 
 **If you read, write, or resize account data by hand**
-([details](#breaking-change-account-data-access-is-now-checked)):
+([details](#breaking-change-every-account-data-access-is-checked)):
 
 - Check `data_len()` before casting account bytes to a struct.
 - Remove writes to read-only accounts and to accounts you no longer own, even if
   the write restores the old value.
-- Replace `realloc` with `resize`.
+- Replace `realloc` with `resize`, which always zero-fills. With Anchor's
+  `realloc` constraint, upgrade to v0.32 or later, or set
+  `realloc::zero = true`. With Pinocchio, upgrade to v0.9 or later, where
+  `realloc` calls `resize`.
 
-**If you copy memory in `unsafe` code or raw syscalls**
+**If you access memory in `unsafe` code or raw syscalls**
 ([details](#breaking-change-accesses-cannot-span-memory-regions)):
 
-- Split any copy that crosses a region boundary into one access per region.
+- Split any load, store, or syscall that crosses a region boundary into one
+  access per region.
 
 **If you rely on stack layout**
 ([details](#breaking-change-stack-frame-gaps-are-removed)):
@@ -265,7 +330,7 @@ to write their own bounds checks.
 ## Breaking Changes in Detail
 
 <AudienceGroup>
-<Audience title="For Program Developers" summary="Check lengths before reading, stop writing to accounts you do not own, split cross-region copies, and drop stack layout assumptions.">
+<Audience title="For Program Developers" summary="Check lengths before reading, stop writing to accounts you do not own, split cross-region accesses, and drop stack layout assumptions.">
 
 Account data violations fail loudly: the instruction returns an error, the
 transaction fails, and account state does not change. A calling program cannot
@@ -275,7 +340,7 @@ Only the instructions that hit a violation fail, so test every workflow.
 **The stack layout change is the exception.** It can alter behavior without an
 error, so a transaction that succeeds does not show the program is unaffected.
 
-### Breaking Change: Account Data Access Is Now Checked
+### Breaking Change: Every Account Data Access Is Checked
 
 Every read is checked against the account's current length. Every write is
 checked against the account's owner and writable flag, and, if it reaches past
@@ -298,10 +363,10 @@ Simulation and `getTransaction` results carry the bare variant name, for example
 and `solana confirm -v`, print the sentence, for example
 `Program <id> failed: account data too small for instruction`.
 
-Writes to a writable account your program owns are treated as a resize. A write
-past the end succeeds, and the runtime zero-extends the account, as long as it
-stays within the growth limits: 10 KiB per instruction, 10 MiB per account, and
-the transaction's total growth cap. Beyond that padding, or outside any account,
+Writes inside a writable account your program owns work as before. A write past
+the end is treated as a resize: it succeeds, and the runtime zero-extends the
+account, as long as it stays within the growth limits: 10 KiB per instruction,
+10 MiB per account, and the transaction's total growth cap. Beyond that padding, or outside any account,
 you get a generic access violation (`Program <id> failed: Access violation ...`,
 reported as `ProgramFailedToComplete`).
 
@@ -323,7 +388,8 @@ with `InvalidRealloc`. Use `AccountInfo::resize`, which always zero-fills.
 The virtual machine gives a program separate address ranges, called regions: its
 read-only data, the stack, the heap, and, in the input area, each account's
 metadata, each account's data, and the instruction data. A load, store, or
-syscall that crosses from one region into the next is now an access violation.
+syscall that crosses from one region into the next is an access violation once
+the gate is active.
 Split it into one access per region.
 
 For example, the serialized input places each account's 8-byte length field
@@ -332,7 +398,7 @@ layout:
 
 ```rust
 // Before: one copy that starts in the account's metadata and ends in its data.
-// Now an access violation.
+// An access violation once the gate is active.
 let data = account.try_borrow_data()?;
 let mut header = [0u8; 40];
 unsafe {
@@ -358,18 +424,18 @@ and hand-written syscalls.
 
 [SIMD-0460](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0460-virtual-address-space-adjustments.md)
 removes the unmapped gaps between stack frames for every program, including
-sBPFv0 programs, which still had them. The stack becomes one contiguous range at
-lower addresses. For sBPFv0 programs, each `call` or `callx` (indirect call) now
-moves the stack pointer 4 KiB instead of 8 KiB, as sBPFv3 already does. The
-total stack size does not change.
+sBPFv0 programs, which still have them. With the gate active, the stack is one
+contiguous range at lower addresses. For sBPFv0 programs, each `call` or `callx`
+(indirect call) moves the stack pointer 4 KiB instead of 8 KiB, as sBPFv3
+already does. The total stack size does not change.
 
 This can break programs that use absolute stack addresses, do address math
 across frames, or rely on an out-of-bounds access stopping at a frame boundary.
 
 - An access outside the new, smaller range, such as an absolute address into the
   old upper half, fails with an access violation.
-- An access inside it does not fail. An overrun that used to hit a gap now reads
-  or writes the neighboring frame, and an absolute address that worked before
+- An access inside it does not fail. An overrun that would have hit a gap reads
+  or writes the neighboring frame instead, and an absolute address that worked before
   may point at a different frame's bytes. The program keeps running with
   different data and no error.
 
@@ -431,8 +497,9 @@ of this.
 
 ## About This Upgrade
 
-Direct mapping removes the account data copies and replaces silent memory
-mistakes with errors you can search for. It also unblocks deeper CPI nesting.
+Direct mapping will remove the account data copies and replace silent memory
+mistakes with errors you can search for. It will also unblock deeper CPI
+nesting.
 Test your programs on devnet today.
 
 **Learn more:** [Solana Upgrades](/upgrades)
