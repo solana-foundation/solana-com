@@ -183,14 +183,18 @@ changes no account state. You pay the usual fee.
 
 **Every program:**
 
-- Run your tests against `solana-test-validator`, then deploy to devnet and run
-  them again. Test every instruction and workflow, including the close, resize,
-  and CPI paths. A failure usually affects only some instructions, and a passing
-  suite only proves the paths it runs.
-- Replay recent mainnet transactions in [SVM Scope](https://svmscope.vercel.app/) with the gate on.
-- Search your code for `unsafe`, raw pointer casts, and `realloc`.
-- Redeploy fixes before the mainnet gate. Immutable programs cannot be fixed, so
-  deploy a new program and migrate users.
+Most programs pass without changes. To confirm yours does:
+
+- Run your tests against `solana-test-validator`, then on devnet. Cover every
+  instruction, including the close, resize, and CPI paths. A failure usually
+  hits only some instructions, so one passing workflow is not enough.
+- Search your code for `unsafe`, raw pointer casts, and `realloc`. If none
+  appear and you are not affected by the Anchor issue below, the risk is low.
+- Optional: replay recent mainnet transactions in
+  [SVM Scope](https://svmscope.vercel.app/) with the gate on, to check real
+  traffic your tests may not cover.
+- If something fails, redeploy the fix before mainnet activation. Immutable
+  programs cannot be fixed, so they need a new program and a user migration.
 
 **If you read, write, or resize account data by hand**
 ([details](#breaking-change-account-data-access-is-now-checked)):
@@ -214,19 +218,17 @@ changes no account state. You pay the usual fee.
 
 **If you use Anchor:**
 
-- Anchor re-serializes every mutable typed account after your handler returns,
-  even if a CPI in the instruction reassigned the account to another program.
-  Under the new rules that write fails with `ExternalAccountDataModified`.
-  Accounts closed with the `close` constraint are not affected.
-- Anchor PR [#5011](https://github.com/otter-sec/anchor/pull/5011) fixes this.
-  It ships in Anchor v1.2.2
-  ([milestone](https://github.com/otter-sec/anchor/milestone/9)). Upgrade to
-  v1.2.2 or later and rebuild.
-- On an earlier version, declare an account you reassign through a CPI as
-  `UncheckedAccount` or `AccountInfo`, not a mutable `Account`. These types skip
-  the owner and discriminator checks that `Account` performs, so verify the
-  account's owner and type yourself before you read its data or pass it to the
-  CPI.
+- Anchor writes every mutable typed account back after your handler returns,
+  even if a CPI reassigned the account to another program. Under the new rules
+  that write fails with `ExternalAccountDataModified`. Affected types:
+  `Account`, `InterfaceAccount`, `AccountLoader`, `LazyAccount`, and
+  `Migration`, including inside `Box` or `Option`.
+- The fix ([#5011](https://github.com/otter-sec/anchor/pull/5011)) ships in
+  Anchor v1.2.2 ([milestone](https://github.com/otter-sec/anchor/milestone/9)).
+  Upgrade to v1.2.2 and rebuild.
+- Until you can upgrade, declare an account you reassign through a CPI as
+  `UncheckedAccount` or `AccountInfo`. These skip Anchor's owner and
+  discriminator checks, so check the account's owner and type yourself.
 
 Programs that access account data only through the SDK's account types need
 nothing. Native and Pinocchio programs that parse account bytes themselves have
@@ -281,6 +283,8 @@ the end, against the resize limits. Before, a bad access went unnoticed if it
 stayed inside the reserved address space or if a write was undone before the
 program returned.
 
+<DmAccountAccess />
+
 | The access                                                | The error                                       | In the logs                                               |
 | --------------------------------------------------------- | ----------------------------------------------- | --------------------------------------------------------- |
 | Read past the end of a read-only or foreign-owned account | `InstructionError::AccountDataTooSmall`         | `account data too small for instruction`                  |
@@ -321,6 +325,31 @@ read-only data, the stack, the heap, and, in the input area, each account's
 metadata, each account's data, and the instruction data. A load, store, or
 syscall that crosses from one region into the next is now an access violation.
 Split it into one access per region.
+
+For example, the serialized input places each account's 8-byte length field
+directly before its data. A program that copies both in one go relied on that
+layout:
+
+```rust
+// Before: one copy that starts in the account's metadata and ends in its data.
+// Now an access violation.
+let data = account.try_borrow_data()?;
+let mut header = [0u8; 40];
+unsafe {
+    core::ptr::copy_nonoverlapping(data.as_ptr().sub(8), header.as_mut_ptr(), 40);
+}
+```
+
+Read each part from its own region instead:
+
+```rust
+// After: one access per region.
+let data = account.try_borrow_data()?;
+let body = data.get(..32).ok_or(ProgramError::AccountDataTooSmall)?;
+let mut header = [0u8; 40];
+header[..8].copy_from_slice(&(data.len() as u64).to_le_bytes());
+header[8..].copy_from_slice(body);
+```
 
 Slices from the SDK stay inside one region, so this mostly affects `unsafe` code
 and hand-written syscalls.

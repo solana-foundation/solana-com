@@ -2537,3 +2537,153 @@ export function DmCopyPaths() {
     </Figure>
   );
 }
+
+export function DmAccountAccess() {
+  const dataEnd = 470;
+  const accesses = [
+    { x: 240, label: "write to a read-only account, then restore it" },
+    { x: 680, label: "read past the end of the data" },
+  ] as const;
+  const rows = [
+    {
+      label: "before: checked only when the program returns",
+      y: 24,
+      tone: "muted",
+      results: ["allowed, nothing noticed", "allowed, reads the padding"],
+    },
+    {
+      label: "after: every access is checked",
+      y: 152,
+      tone: "green",
+      results: [
+        "fails: ReadonlyDataModified",
+        "fails: AccountDataTooSmall or InvalidRealloc",
+      ],
+    },
+  ] as const;
+
+  return (
+    <Figure
+      caption={
+        <>
+          The same account bytes, before and after. Today the runtime only
+          compares the data when the program returns, so a write that is undone
+          in time, or a read into the reserved padding after the data, goes
+          unnoticed. Under the new rules each access is checked as it happens.
+        </>
+      }
+      minWidth={720}
+    >
+      <svg
+        viewBox="0 0 900 280"
+        role="img"
+        aria-label="The same account shown twice: account data up to its current length, followed by 10 KiB of reserved padding. Before, writing to a read-only account and restoring it is allowed and nothing is noticed, and reading past the end of the data is allowed and reads the padding. After, the write fails with ReadonlyDataModified, and the read fails with AccountDataTooSmall or InvalidRealloc."
+      >
+        {rows.map((row) => {
+          const green = row.tone === "green";
+          const barY = row.y + 14;
+          return (
+            <g key={row.label} fontFamily="ui-monospace, monospace">
+              <text
+                x="8"
+                y={row.y}
+                fontSize="10.5"
+                fontWeight="600"
+                fill={green ? "#14F195" : "#79828F"}
+              >
+                {row.label}
+              </text>
+
+              <rect
+                x="8"
+                y={barY}
+                width={dataEnd - 8}
+                height="36"
+                rx="4"
+                fill={green ? "#0F2E24" : "#161A20"}
+                stroke={green ? "#14F195" : "#272D36"}
+                strokeWidth={green ? 1.4 : 1}
+              />
+              <text
+                x={(8 + dataEnd) / 2}
+                y={barY + 22}
+                fontSize="10"
+                textAnchor="middle"
+                fill={green ? "#14F195" : "currentColor"}
+              >
+                account data (current length)
+              </text>
+              <rect
+                x={dataEnd}
+                y={barY}
+                width={892 - dataEnd}
+                height="36"
+                rx="4"
+                fill="#1D222A"
+                stroke="#79828F"
+                strokeWidth="1"
+                strokeDasharray="3 4"
+              />
+              <text
+                x={(dataEnd + 892) / 2}
+                y={barY + 22}
+                fontSize="10"
+                textAnchor="middle"
+                fill="#79828F"
+              >
+                10 KiB reserved padding
+              </text>
+
+              {accesses.map((a, i) => {
+                const fails = green;
+                return (
+                  <g key={a.label} textAnchor="middle">
+                    <circle
+                      cx={a.x}
+                      cy={barY + 36}
+                      r="3.5"
+                      fill={fails ? "#FF8080" : "#79828F"}
+                    />
+                    <path
+                      d={`M ${a.x} ${barY + 40} L ${a.x} ${barY + 54}`}
+                      stroke={fails ? "#FF8080" : "#79828F"}
+                      strokeWidth="1.2"
+                    />
+                    <text
+                      x={a.x}
+                      y={barY + 68}
+                      fontSize="9.5"
+                      fill="currentColor"
+                    >
+                      {a.label}
+                    </text>
+                    <text
+                      x={a.x}
+                      y={barY + 85}
+                      fontSize="10"
+                      fontWeight="600"
+                      fill={fails ? "#FF8080" : "#79828F"}
+                    >
+                      {row.results[i]}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+
+        <text
+          x="8"
+          y="270"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          a write past the end of a writable account your program owns still
+          works: it grows the account, within the resize limits
+        </text>
+      </svg>
+    </Figure>
+  );
+}

@@ -668,6 +668,11 @@ const dnSignerFlow = diagramBlock(
   "How signing and replay protection move from the runtime into a program",
 );
 
+const dmAccountAccess = diagramBlock(
+  "Diagram: account data access before vs after direct mapping",
+  "Which account data accesses used to go unnoticed and now fail",
+);
+
 const dmCopyPaths = diagramBlock(
   "Diagram: account data copies vs direct mapping",
   "How account data reaches a program before and after direct mapping",
@@ -745,6 +750,7 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   AgBankIdAcrossConnections: agBankIdAcrossConnections,
   AgCommitmentLevels: agCommitmentLevels,
   AgVotorCertificates: agVotorCertificates,
+  DmAccountAccess: dmAccountAccess,
   DmCopyPaths: dmCopyPaths,
   DnCallStacks: dnCallStacks,
   DnSignerFlow: dnSignerFlow,
