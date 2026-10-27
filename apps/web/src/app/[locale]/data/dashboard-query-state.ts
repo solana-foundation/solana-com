@@ -13,9 +13,9 @@ import {
   applyQueryUpdates,
   getDashboardUrl,
   getLinkedChart,
-  parseRangeDays,
   parseTab,
 } from "./dashboard-query";
+import { getUtcToday, parseDashboardRange } from "./date-range";
 import type { QueryUpdates } from "./dashboard-types";
 
 export function useDashboardQueryParams() {
@@ -26,6 +26,10 @@ export function useDashboardQueryParams() {
     [queryString],
   );
   const rpcInfra = parseRpcInfra(searchParams.get("infra"));
+  const range = useMemo(
+    () => parseDashboardRange(searchParams, getUtcToday()),
+    [searchParams],
+  );
 
   useEffect(() => {
     const syncQueryString = () => {
@@ -49,7 +53,7 @@ export function useDashboardQueryParams() {
     linkedChartId,
     providerParam: searchParams.get("providers"),
     queryString,
-    rangeDays: parseRangeDays(searchParams.get("days")),
+    range,
     rpcInfra,
     rpcMethod: parseRpcMethod(searchParams.get("method")),
     rpcRegion: parseRpcRegion(searchParams.get("region"), rpcInfra),

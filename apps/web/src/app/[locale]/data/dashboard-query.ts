@@ -1,6 +1,5 @@
 import {
   chartDefinitions,
-  rangeOptions,
   type ChartDefinition,
   type DashboardTab,
   type ProviderName,
@@ -9,7 +8,7 @@ import {
   type RpcLatencyRegion,
   type RpcTimeframe,
 } from "./data-config";
-import { defaultRangeDays } from "./dashboard-constants";
+import { type DashboardRange } from "./date-range";
 import { getProviderScope, updateProvidersParam } from "./dashboard-providers";
 import type { QueryUpdates } from "./dashboard-types";
 
@@ -30,6 +29,14 @@ export function applyQueryUpdates(
 
   if (updates.days) {
     params.set("days", String(updates.days));
+    params.delete("from");
+    params.delete("to");
+  }
+
+  if (updates.range) {
+    params.set("from", updates.range.from);
+    params.set("to", updates.range.to);
+    params.delete("days");
   }
 
   if (updates.infra) {
@@ -82,7 +89,7 @@ export function getLinkedChart(hash: string): ChartDefinition | undefined {
 
 // Dashboard settings a shared chart link carries over from the sender's URL.
 // Anything else in the URL (e.g. utm_* campaign tags) is left out.
-const sharedLinkParams = ["days", "providers"] as const;
+const sharedLinkParams = ["days", "from", "to", "providers"] as const;
 
 /**
  * The shareable link for one chart: its tab, the sender's current range and
@@ -110,21 +117,27 @@ export function getChartLinkUrl(
 
 export function getDashboardDataUrl({
   activeTab,
+  range,
   rpcInfra,
-  rangeDays,
   rpcMethod,
   rpcRegion,
   rpcTimeframe,
 }: {
   activeTab: DashboardTab;
+  range: DashboardRange;
   rpcInfra: RpcLatencyInfra;
-  rangeDays: number;
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
   rpcTimeframe: RpcTimeframe;
 }) {
   if (activeTab !== "rpc" && activeTab !== "senders") {
-    return `/api/databricks/data?days=${rangeDays}`;
+    const params = new URLSearchParams(
+      range.kind === "custom"
+        ? { from: range.from, to: range.to }
+        : { days: String(range.days) },
+    );
+
+    return `/api/databricks/data?${params.toString()}`;
   }
 
   if (activeTab === "senders") {
@@ -155,11 +168,4 @@ export function parseTab(value: string | null): DashboardTab {
     value === "senders"
     ? value
     : "overview";
-}
-
-export function parseRangeDays(value: string | null) {
-  const parsed = value ? Number(value) : defaultRangeDays;
-  return rangeOptions.some((option) => option.value === parsed)
-    ? parsed
-    : defaultRangeDays;
 }

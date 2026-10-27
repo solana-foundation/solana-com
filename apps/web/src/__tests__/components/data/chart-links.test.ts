@@ -106,6 +106,19 @@ describe("getChartLinkUrl", () => {
     );
   });
 
+  it("carries over a custom date range", () => {
+    expect(
+      getChartLinkUrl(
+        chart("dex-volume"),
+        "https://solana.com",
+        "/data",
+        "?tab=defi&from=2026-04-01&to=2026-06-30",
+      ),
+    ).toBe(
+      "https://solana.com/data?tab=defi&from=2026-04-01&to=2026-06-30#dex-volume",
+    );
+  });
+
   it("leaves out parameters that aren't range or providers", () => {
     expect(
       getChartLinkUrl(
