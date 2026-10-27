@@ -139,6 +139,9 @@ export type RpcCopy = {
   diffOnly: string;
   noDifferences: string;
   listingLink: string;
+  policyLabel: string;
+  popularNeeds: string;
+  eyebrow: string;
 };
 
 const endpoints = [
@@ -704,7 +707,11 @@ function TryIt({ copy }: { copy: RpcCopy }) {
             onClick={copyCode}
             className={`rounded-full border border-nd-border-prominent px-3 py-1.5 text-xs hover:border-white ${focus}`}
           >
-            {status === "copied" ? copy.copied : copy.copyCode}
+            {status === "copied"
+              ? copy.copied
+              : status === "failed"
+                ? copy.copyCodeFailed
+                : copy.copyCode}
           </button>
         </div>
       </div>
