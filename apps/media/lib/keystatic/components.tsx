@@ -668,6 +668,11 @@ const dnSignerFlow = diagramBlock(
   "How signing and replay protection move from the runtime into a program",
 );
 
+const dmCopyPaths = diagramBlock(
+  "Diagram: account data copies vs direct mapping",
+  "How account data reaches a program before and after direct mapping",
+);
+
 const dnCallStacks = diagramBlock(
   "Diagram: programmatic signer vs Vector call stacks",
   "Where the authorized instructions run in each implementation",
@@ -740,6 +745,7 @@ export const upgradeComponentBlocks: Record<string, ContentComponent> = {
   AgBankIdAcrossConnections: agBankIdAcrossConnections,
   AgCommitmentLevels: agCommitmentLevels,
   AgVotorCertificates: agVotorCertificates,
+  DmCopyPaths: dmCopyPaths,
   DnCallStacks: dnCallStacks,
   DnSignerFlow: dnSignerFlow,
   FeatureActivationStatus: featureActivationStatus,

@@ -2410,3 +2410,130 @@ export function DnCallStacks() {
     </Figure>
   );
 }
+
+export function DmCopyPaths() {
+  const rows = [
+    {
+      label: "today: copy in, copy out",
+      y: 46,
+      tone: "muted",
+      stages: [
+        { label: "account data", sub: "in validator memory" },
+        { label: "copy into the VM", sub: "before the program runs" },
+        { label: "program runs", sub: "on the copy, CPIs copy again" },
+        { label: "copy back", sub: "and compare for changes" },
+      ],
+    },
+    {
+      label: "direct mapping: no copies",
+      y: 166,
+      tone: "green",
+      stages: [
+        { label: "account data", sub: "in validator memory" },
+        { label: "VM maps it", sub: "same bytes, no copy" },
+        { label: "program runs", sub: "reads and writes in place" },
+        { label: "nothing to copy back", sub: "each access was checked" },
+      ],
+    },
+  ] as const;
+
+  return (
+    <Figure
+      caption={
+        <>
+          Today the validator copies account data into the virtual machine and
+          back, and every CPI repeats that. With direct mapping the virtual
+          machine points at the account data itself, so the runtime has to check
+          each read and write as it happens.
+        </>
+      }
+      minWidth={720}
+    >
+      <svg
+        viewBox="0 0 900 262"
+        role="img"
+        aria-label="Two flows compared. Today, account data in validator memory is copied into the virtual machine, the program runs on the copy while CPIs copy it again, and the data is copied back and compared for changes. With direct mapping, the virtual machine maps the same bytes without copying, the program reads and writes them in place, and there is nothing to copy back because each access was checked."
+      >
+        <defs>
+          <marker
+            id="dmFlow"
+            markerWidth="7"
+            markerHeight="7"
+            refX="6"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0,0 7,3.5 0,7" fill="currentColor" />
+          </marker>
+        </defs>
+
+        {rows.map((row) => {
+          const green = row.tone === "green";
+          return (
+            <g key={row.label} fontFamily="ui-monospace, monospace">
+              <text
+                x="8"
+                y={row.y - 14}
+                fontSize="10.5"
+                fontWeight="600"
+                fill={green ? "#14F195" : "#79828F"}
+              >
+                {row.label}
+              </text>
+              {row.stages.map((st, i) => {
+                const x = 8 + i * 224;
+                const cx = x + 99;
+                return (
+                  <g key={st.label + i} textAnchor="middle">
+                    <rect
+                      x={x}
+                      y={row.y}
+                      width="198"
+                      height="54"
+                      rx="4"
+                      fill={green ? "#0F2E24" : "#161A20"}
+                      stroke={green ? "#14F195" : "#272D36"}
+                      strokeWidth={green ? 1.4 : 1}
+                    />
+                    <text
+                      x={cx}
+                      y={row.y + 22}
+                      fontSize="10.5"
+                      fontWeight="600"
+                      fill={green ? "#14F195" : "currentColor"}
+                    >
+                      {st.label}
+                    </text>
+                    <text x={cx} y={row.y + 40} fontSize="9.5" fill="#79828F">
+                      {st.sub}
+                    </text>
+                    {i < row.stages.length - 1 ? (
+                      <path
+                        d={`M ${x + 198} ${row.y + 27} L ${x + 220} ${row.y + 27}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        markerEnd="url(#dmFlow)"
+                      />
+                    ) : null}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+
+        <text
+          x="8"
+          y="250"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          up to four copies per instruction become zero, and every memory access
+          is checked instead
+        </text>
+      </svg>
+    </Figure>
+  );
+}
