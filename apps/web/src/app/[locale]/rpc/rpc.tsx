@@ -431,7 +431,10 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
             <div className="flex flex-wrap items-center justify-between gap-3 border-y border-nd-border-light py-5">
               {path === "local" ? (
                 <>
-                  <code className="font-brand-mono text-sm md:text-base">
+                  <code
+                    dir="ltr"
+                    className="font-brand-mono text-sm md:text-base"
+                  >
                     $ surfpool start
                   </code>
                   <button
@@ -453,7 +456,10 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
               ) : path === "public" ? (
                 <>
                   <span className="font-medium">{copy.devnet}</span>
-                  <code className="break-all font-brand-mono text-sm md:text-base">
+                  <code
+                    dir="ltr"
+                    className="break-all font-brand-mono text-sm md:text-base"
+                  >
                     https://api.devnet.solana.com
                   </code>
                   <button
@@ -516,7 +522,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                     {copy.limits[id]}
                   </dt>
                   <dd className="text-2xl font-medium tracking-tight md:text-[28px]">
-                    {value}
+                    <span dir="ltr">{value}</span>
                   </dd>
                 </div>
               ))}
@@ -539,7 +545,10 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                     {copy.purposes[id]}
                   </span>
                 </div>
-                <code className="order-3 col-span-2 break-all font-brand-mono text-sm text-white md:order-none md:col-span-1 md:text-base">
+                <code
+                  dir="ltr"
+                  className="order-3 col-span-2 break-all font-brand-mono text-sm text-white md:order-none md:col-span-1 md:text-base"
+                >
                   {url}
                 </code>
                 <button
@@ -667,27 +676,36 @@ function TryIt({ copy }: { copy: RpcCopy }) {
           <h3 className="text-base font-medium">{copy.tryTitle}</h3>
           <p className="mt-1 text-sm text-nd-mid-em-text">{copy.tryBody}</p>
         </div>
-        <div
-          role="tablist"
-          aria-label={copy.tryTitle}
-          className="flex rounded-full border border-nd-border-prominent p-1"
-        >
-          {snippets.map((item, index) => (
-            <button
-              key={item.id}
-              id={`rpc-try-${item.id}`}
-              type="button"
-              role="tab"
-              aria-selected={active === index}
-              aria-controls="rpc-try-panel"
-              tabIndex={active === index ? 0 : -1}
-              onClick={() => select(index)}
-              onKeyDown={onKeyDown}
-              className={`rounded-full px-3 py-1 font-brand-mono text-xs ${active === index ? "!bg-white text-black" : "text-nd-mid-em-text hover:text-white"} ${focus}`}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div
+            role="tablist"
+            aria-label={copy.tryTitle}
+            className="flex rounded-full border border-nd-border-prominent p-1"
+          >
+            {snippets.map((item, index) => (
+              <button
+                key={item.id}
+                id={`rpc-try-${item.id}`}
+                type="button"
+                role="tab"
+                aria-selected={active === index}
+                aria-controls="rpc-try-panel"
+                tabIndex={active === index ? 0 : -1}
+                onClick={() => select(index)}
+                onKeyDown={onKeyDown}
+                className={`rounded-full px-3 py-1 font-brand-mono text-xs ${active === index ? "!bg-white text-black" : "text-nd-mid-em-text hover:text-white"} ${focus}`}
+              >
+                <bdi dir="ltr">{item.label}</bdi>
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={copyCode}
+            className={`rounded-full border border-nd-border-prominent px-3 py-1.5 text-xs hover:border-white ${focus}`}
+          >
+            {status === "copied" ? copy.copied : copy.copyCode}
+          </button>
         </div>
       </div>
       <div
@@ -695,23 +713,20 @@ function TryIt({ copy }: { copy: RpcCopy }) {
         role="tabpanel"
         aria-labelledby={`rpc-try-${snippet.id}`}
       >
-        <div className="relative">
-          <pre className="overflow-x-auto p-5 pr-28 font-brand-mono text-[13px] leading-relaxed text-white">
-            <code>{snippet.code}</code>
-          </pre>
-          <button
-            type="button"
-            onClick={copyCode}
-            className={`absolute right-4 top-4 rounded-full border border-nd-border-prominent bg-nd-bg px-3 py-1.5 text-xs hover:border-white ${focus}`}
-          >
-            {status === "copied" ? copy.copied : copy.copyCode}
-          </button>
-        </div>
+        <pre
+          dir="ltr"
+          className="overflow-x-auto p-5 text-left font-brand-mono text-[13px] leading-relaxed text-white"
+        >
+          <code>{snippet.code}</code>
+        </pre>
         <div className="border-t border-nd-border-light px-5 py-4">
           <p className="font-brand-mono text-[11px] uppercase tracking-wide text-nd-mid-em-text">
             {copy.tryResponse}
           </p>
-          <pre className="mt-2 overflow-x-auto font-brand-mono text-[13px] text-nd-highlight-green">
+          <pre
+            dir="ltr"
+            className="text-left mt-2 overflow-x-auto font-brand-mono text-[13px] text-nd-highlight-green"
+          >
             <code>{snippet.response}</code>
           </pre>
         </div>
