@@ -62,6 +62,7 @@ import {
   useDashboardQueryUpdater,
 } from "./dashboard-query-state";
 import { DataResourceCarousel } from "./dashboard-resources";
+import { ProviderLinkTable } from "./provider-link-table";
 import { SenderProviderExperience } from "./sender-provider-experience";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
@@ -315,6 +316,10 @@ export function SolanaDataDashboard() {
               {activeTabContent.clarification}
             </p>
           ) : null}
+          <ProviderLinkTable
+            tab={activeTab}
+            tabLabel={activeTabContent.label}
+          />
         </section>
 
         {error ? <DataError error={error} /> : null}
