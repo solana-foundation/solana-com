@@ -509,6 +509,16 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
                       .map((feature) => copy.featureLabels[feature])
                       .join(", ")}
                   </p>
+                  <button
+                    type="button"
+                    aria-pressed={pins.includes(provider.id)}
+                    onClick={() => togglePin(provider)}
+                    className={`mt-5 rounded-full border px-4 py-2 text-xs ${pins.includes(provider.id) ? "border-white !bg-white text-black" : "border-nd-border-prominent text-white hover:border-white"} ${focus}`}
+                  >
+                    {pins.includes(provider.id)
+                      ? copy.shortlisted
+                      : copy.shortlist}
+                  </button>
                 </li>
               ))}
             </ul>
