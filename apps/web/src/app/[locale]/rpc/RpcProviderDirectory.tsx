@@ -303,7 +303,9 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
               onClick={() => {
                 setFiltersOpen(false);
                 window.requestAnimationFrame(() => {
-                  document.getElementById("rpc-results")?.scrollIntoView({
+                  const resultsBar = document.getElementById("rpc-results");
+                  resultsBar?.focus({ preventScroll: true });
+                  resultsBar?.scrollIntoView({
                     behavior: window.matchMedia(
                       "(prefers-reduced-motion: reduce)",
                     ).matches
@@ -341,7 +343,8 @@ export function RpcProviderDirectory({ copy }: { copy: RpcCopy }) {
 
         <div
           id="rpc-results"
-          className="mt-8 flex scroll-mt-24 flex-wrap items-center justify-between gap-4"
+          tabIndex={-1}
+          className="mt-8 flex scroll-mt-24 flex-wrap items-center justify-between gap-4 focus:outline focus:outline-2 focus:outline-offset-4 focus:outline-white"
         >
           <p className="font-brand-mono text-xs text-nd-mid-em-text">
             <span className="text-white">{results.length}</span>{" "}
