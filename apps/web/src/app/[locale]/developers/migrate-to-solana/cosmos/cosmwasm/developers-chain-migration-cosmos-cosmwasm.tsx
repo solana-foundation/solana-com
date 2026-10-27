@@ -13,11 +13,12 @@ import {
   QUICK_REFERENCE_ROWS,
   RESOURCE_CARD_DECK,
 } from "@/data/developers/evm-to-svm/cosmos-cosmwasm";
-import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
-import { ChevronRight } from "@boxicons/react/ChevronRight";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
-import styles from "./developers-chain-migration-cosmos-cosmwasm.module.css";
+import { MigrationDocsLayout } from "../../components/migration-docs-layout";
+
+// Each block is its own prose container; drop the outer margins so the
+// section's flex gap controls spacing.
+const HTML_BLOCK_CLASS = "[&>:first-child]:mt-0 [&>:last-child]:mb-0";
 
 const SUPPORTED_CODE_LANGUAGES = new Set<DocsCodeSnippetProps["language"]>([
   "bash",
@@ -235,7 +236,7 @@ function renderGuideToken(token: GuideToken, key: string) {
     return (
       <div
         key={key}
-        className={styles.articleHtml}
+        className={HTML_BLOCK_CLASS}
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: token.html }}
       />
@@ -247,7 +248,7 @@ function renderGuideToken(token: GuideToken, key: string) {
   return (
     <div
       key={key}
-      className={styles.articleHtml}
+      className={HTML_BLOCK_CLASS}
       suppressHydrationWarning
       dangerouslySetInnerHTML={{ __html: token.html }}
     />
@@ -479,9 +480,9 @@ function ComparisonCodeTabs({ tabs }: { tabs: ComparisonTab[] }) {
   const [activeTab, setActiveTab] = useState(tabs[0]?.label ?? "");
 
   return (
-    <div className={styles.comparisonTabs}>
+    <div className="my-5 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02]">
       <div
-        className={styles.comparisonTabList}
+        className="flex flex-wrap gap-2 border-b border-white/[0.08] bg-white/[0.025] px-3.5 pt-3.5"
         role="tablist"
         aria-label="Code comparison"
       >
@@ -494,8 +495,9 @@ function ComparisonCodeTabs({ tabs }: { tabs: ComparisonTab[] }) {
               role="tab"
               aria-selected={isSelected}
               className={cn(
-                styles.comparisonTabButton,
-                isSelected && styles.comparisonTabButtonActive,
+                "cursor-pointer rounded-t-xl border border-b-0 border-white/[0.08] bg-transparent px-4 py-3 text-[0.8125rem] font-semibold leading-none text-white/55 transition-colors hover:bg-white/[0.04] hover:text-white/85",
+                isSelected &&
+                  "border-[#14f195]/30 bg-[#14f195]/[0.12] text-white hover:bg-[#14f195]/[0.12] hover:text-white",
               )}
               onClick={() => setActiveTab(tab.label)}
             >
@@ -505,7 +507,10 @@ function ComparisonCodeTabs({ tabs }: { tabs: ComparisonTab[] }) {
         })}
       </div>
 
-      <div className={styles.comparisonTabPanel} role="tabpanel">
+      <div
+        className="px-3.5 pb-3.5 pt-1 [&>.my-4:first-child]:mt-0 [&>.my-4:last-child]:mb-0"
+        role="tabpanel"
+      >
         {tabs
           .find((tab) => tab.label === activeTab)
           ?.tokens.map((token, index) => (
@@ -561,8 +566,8 @@ function renderSectionTokens(sectionId: string, html: string) {
 function QuickReferenceTable() {
   return (
     <>
-      <div className={styles.quickRefTableWrapper}>
-        <table className={styles.quickRefTable}>
+      <div className="hidden overflow-hidden rounded-xl md:block">
+        <table className="!my-0">
           <thead>
             <tr>
               <th>CosmWasm</th>
@@ -572,7 +577,7 @@ function QuickReferenceTable() {
           <tbody>
             {QUICK_REFERENCE_ROWS.map(([source, destination]) => (
               <tr key={source}>
-                <td className={styles.quickRefSourceCell}>{source}</td>
+                <td className="font-mono text-sm !text-white/85">{source}</td>
                 <td>{destination}</td>
               </tr>
             ))}
@@ -580,13 +585,24 @@ function QuickReferenceTable() {
         </table>
       </div>
 
-      <div className={styles.quickRefMobileCards}>
+      <div className="grid gap-3 md:hidden">
         {QUICK_REFERENCE_ROWS.map(([source, destination]) => (
-          <div key={source} className={styles.quickRefMobileCard}>
-            <p className={styles.quickRefMobileLabel}>CosmWasm</p>
-            <p className={styles.quickRefMobileSource}>{source}</p>
-            <p className={styles.quickRefMobileLabel}>Anchor / Solana</p>
-            <p className={styles.quickRefMobileDestination}>{destination}</p>
+          <div
+            key={source}
+            className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-4"
+          >
+            <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-white/35">
+              CosmWasm
+            </div>
+            <div className="mb-3 break-all font-mono text-sm text-white/85">
+              {source}
+            </div>
+            <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-white/35">
+              Anchor / Solana
+            </div>
+            <div className="text-sm leading-[1.6] text-white/60">
+              {destination}
+            </div>
           </div>
         ))}
       </div>
@@ -594,226 +610,46 @@ function QuickReferenceTable() {
   );
 }
 
-function LeftSidebar() {
-  return (
-    <nav className={styles.leftSidebar} aria-label="Guide navigation">
-      <div className={styles.sidebarCategory}>
-        <span className={styles.sidebarCategoryLabel}>Migration Guides</span>
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          <li>
-            <Link
-              href="/developers/migrate-to-solana"
-              className={styles.sidebarLink}
-            >
-              ← Migrate to Solana
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/developers/migrate-to-solana/cosmos"
-              className={styles.sidebarLink}
-            >
-              Cosmos
-            </Link>
-          </li>
-          <li>
-            <span
-              className={cn(
-                styles.sidebarLink,
-                styles.sidebarLinkIndented,
-                styles.sidebarLinkActive,
-              )}
-            >
-              CosmWasm
-            </span>
-          </li>
-          <li>
-            <Link
-              href="/developers/migrate-to-solana/cosmos/app-chain"
-              className={cn(styles.sidebarLink, styles.sidebarLinkIndented)}
-            >
-              App Chain
-            </Link>
-          </li>
-        </ul>
-      </div>
-    </nav>
-  );
-}
-
-function RightTOC({ headline }: { headline: string }) {
-  return (
-    <nav className={styles.rightToc} aria-label="Table of contents">
-      <span className={styles.tocLabel}>{headline}</span>
-      <ul className={styles.tocList}>
-        {GUIDE_SECTIONS.map((section) => (
-          <li key={section.id}>
-            <a href={`#${section.id}`} className={styles.tocLink}>
-              {section.navLabel}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-  );
-}
-
 export function DevelopersChainMigrationCosmosCosmwasmPage() {
   const t = useTranslations("developers-chain-migration-cosmos-cosmwasm");
 
-  const navButtons = NAV_BUTTONS.map((button, index) => ({
-    ...button,
-    label: t(`navHeading.buttons.${index}.label`),
-  }));
-
   return (
-    <div className={styles.page}>
-      <div className={styles.layout}>
-        {/* Left sidebar */}
-        <LeftSidebar />
-
-        {/* Main article */}
-        <main className={styles.main}>
-          {/* Breadcrumbs */}
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <Link href="/developers" className={styles.breadcrumbLink}>
-              Developers
-            </Link>
-            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
-            <Link
-              href="/developers/migrate-to-solana"
-              className={styles.breadcrumbLink}
-            >
-              Migrate to Solana
-            </Link>
-            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
-            <Link
-              href="/developers/migrate-to-solana/cosmos"
-              className={styles.breadcrumbLink}
-            >
-              Cosmos
-            </Link>
-            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
-            <span style={{ color: "rgb(255 255 255 / 0.8)" }}>CosmWasm</span>
-          </nav>
-
-          {/* Hero */}
-          <header className={styles.hero}>
-            <p className={styles.heroEyebrow}>{t("hero.eyebrow")}</p>
-            <h1 className={styles.heroHeadline}>{t("hero.headline")}</h1>
-            <div
-              className={styles.heroBody}
-              dangerouslySetInnerHTML={{ __html: t.raw("hero.body") as string }}
-            />
-            <div className={styles.heroButtons}>
-              {navButtons.map((button) => (
-                <a
-                  key={button.url}
-                  href={button.url}
-                  className={styles.heroButton}
-                >
-                  {button.label}
-                  <ChevronRight
-                    style={{ width: "0.875rem", height: "0.875rem" }}
-                    aria-hidden
-                  />
-                </a>
-              ))}
-            </div>
-          </header>
-
-          {/* Mobile TOC */}
-          <div className={styles.mobileToc}>
-            <p className={styles.mobileTocLabel}>
-              {t("contentEditor.tocHeadline")}
-            </p>
-            <ul className={styles.mobileTocList}>
-              {GUIDE_SECTIONS.map((section) => (
-                <li key={section.id}>
-                  <a href={`#${section.id}`} className={styles.mobileTocLink}>
-                    {section.navLabel}
-                  </a>
-                </li>
-              ))}
-            </ul>
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/cosmos/cosmwasm"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body") as string}
+      buttons={NAV_BUTTONS.map((button, index) => ({
+        url: button.url,
+        label: t(`navHeading.buttons.${index}.label`),
+      }))}
+      tocHeadline={t("contentEditor.tocHeadline")}
+      toc={GUIDE_SECTIONS.map((section) => ({
+        id: section.id,
+        title: section.navLabel,
+      }))}
+      resourceEyebrow={t("resourceHeading.eyebrow")}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceBody={t("resourceHeading.body")}
+      resourceCards={RESOURCE_CARD_DECK.cards.map((card) => ({
+        heading: card.heading,
+        body: card.body,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      {GUIDE_SECTIONS.map((section) => (
+        <section
+          key={section.id}
+          id={section.id}
+          className="mb-10 scroll-mt-20 border-b border-white/[0.07] pb-10 last:mb-0 last:border-b-0"
+        >
+          <div className="flex flex-col gap-5">
+            {renderSectionTokens(section.id, section.html)}
+            {section.id === "quick-reference" ? <QuickReferenceTable /> : null}
           </div>
-
-          {/* Article sections */}
-          <article>
-            {GUIDE_SECTIONS.map((section) => {
-              return (
-                <section
-                  key={section.id}
-                  id={section.id}
-                  className={cn(styles.articleSection, "scroll-mt-20")}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "1.25rem",
-                    }}
-                  >
-                    {renderSectionTokens(section.id, section.html)}
-                    {section.id === "quick-reference" ? (
-                      <QuickReferenceTable />
-                    ) : null}
-                  </div>
-                </section>
-              );
-            })}
-          </article>
-
-          {/* Resources */}
-          <div className={styles.resources}>
-            <p className={styles.resourcesEyebrow}>
-              {t("resourceHeading.eyebrow")}
-            </p>
-            <h2 className={styles.resourcesHeadline}>
-              {t("resourceHeading.headline")}
-            </h2>
-            <p className={styles.resourcesBody}>{t("resourceHeading.body")}</p>
-            <div className={styles.resourceGrid}>
-              {RESOURCE_CARD_DECK.cards.map((card) => {
-                const isExternal = card.callToAction.url.startsWith("http");
-                return (
-                  <a
-                    key={card.heading}
-                    href={card.callToAction.url}
-                    target={isExternal ? "_blank" : undefined}
-                    rel={isExternal ? "noreferrer noopener" : undefined}
-                    className={styles.resourceCard}
-                  >
-                    <div>
-                      <h3 className={styles.resourceCardTitle}>
-                        {card.heading}
-                      </h3>
-                      <p className={styles.resourceCardBody}>{card.body}</p>
-                    </div>
-                    <span className={styles.resourceCardCta}>
-                      {card.callToAction.label}
-                      {isExternal ? (
-                        <ExternalLink
-                          style={{ width: "0.875rem", height: "0.875rem" }}
-                          aria-hidden
-                        />
-                      ) : (
-                        <ChevronRight
-                          style={{ width: "0.875rem", height: "0.875rem" }}
-                          aria-hidden
-                        />
-                      )}
-                    </span>
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        </main>
-
-        {/* Right TOC */}
-        <RightTOC headline={t("contentEditor.tocHeadline")} />
-      </div>
-    </div>
+        </section>
+      ))}
+    </MigrationDocsLayout>
   );
 }

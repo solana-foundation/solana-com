@@ -4,18 +4,14 @@ import {
   DocsCodeSnippet,
   type DocsCodeSnippetProps,
 } from "@/app/components/docs-code-snippet";
-import { cn } from "@/app/components/utils";
 import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
   RUNBOOK_HIGHLIGHTS,
   RUNBOOK_SECTIONS,
 } from "@/data/developers/evm-to-svm/cosmos-app-chain";
-import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
-import { ChevronRight } from "@boxicons/react/ChevronRight";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
-import styles from "./developers-chain-migration-cosmos-app-chain.module.css";
+import { MigrationDocsLayout } from "../../components/migration-docs-layout";
 
 const SUPPORTED_CODE_LANGUAGES = new Set<DocsCodeSnippetProps["language"]>([
   "bash",
@@ -86,7 +82,7 @@ function renderRunbookSegment(segment: RunbookSegment, key: number) {
     return (
       <div
         key={key}
-        className={styles.articleHtml}
+        className="[&>:first-child]:mt-0 [&>:last-child]:mb-0"
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: segment.html }}
       />
@@ -107,248 +103,80 @@ function renderRunbookSegment(segment: RunbookSegment, key: number) {
   );
 }
 
-function LeftSidebar() {
+function Highlights() {
   return (
-    <nav className={styles.leftSidebar} aria-label="Guide navigation">
-      <div className={styles.sidebarCategory}>
-        <span className={styles.sidebarCategoryLabel}>Migration Guides</span>
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          <li>
-            <Link
-              href="/developers/migrate-to-solana"
-              className={styles.sidebarLink}
-            >
-              ← Migrate to Solana
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/developers/migrate-to-solana/cosmos"
-              className={styles.sidebarLink}
-            >
-              Cosmos
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/developers/migrate-to-solana/cosmos/cosmwasm"
-              className={cn(styles.sidebarLink, styles.sidebarLinkIndented)}
-            >
-              CosmWasm
-            </Link>
-          </li>
-          <li>
-            <span
-              className={cn(
-                styles.sidebarLink,
-                styles.sidebarLinkIndented,
-                styles.sidebarLinkActive,
-              )}
-            >
-              App Chain
-            </span>
-          </li>
-        </ul>
+    <div className="mb-12 grid gap-4 md:grid-cols-3">
+      <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-5 md:col-span-3">
+        <div className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[#14f195]">
+          {RUNBOOK_HIGHLIGHTS.banner.eyebrow}
+        </div>
+        <div className="mb-2 text-lg font-semibold leading-[1.4] text-white">
+          {RUNBOOK_HIGHLIGHTS.banner.title}
+        </div>
+        <div className="text-[0.9375rem] leading-[1.7] text-white/60">
+          {RUNBOOK_HIGHLIGHTS.banner.body}
+        </div>
       </div>
-    </nav>
-  );
-}
-
-function RightTOC({ headline }: { headline: string }) {
-  return (
-    <nav className={styles.rightToc} aria-label="Table of contents">
-      <span className={styles.tocLabel}>{headline}</span>
-      <ul className={styles.tocList}>
-        {RUNBOOK_SECTIONS.map((section) => (
-          <li key={section.id}>
-            <a href={`#${section.id}`} className={styles.tocLink}>
-              {section.navLabel}
-            </a>
-          </li>
-        ))}
-      </ul>
-    </nav>
+      {RUNBOOK_HIGHLIGHTS.cards.map((card) => (
+        <div
+          key={card.number}
+          className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5"
+        >
+          <div className="mb-3 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-white/30">
+            {card.number}
+          </div>
+          <div className="mb-2 text-[0.9375rem] font-semibold leading-[1.45] text-white">
+            {card.title}
+          </div>
+          <div className="text-sm leading-[1.7] text-white/55">{card.body}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 
 export function DevelopersChainMigrationCosmosAppChainPage() {
   const t = useTranslations("developers-chain-migration-cosmos-app-chain");
 
-  const navButtons = NAV_BUTTONS.map((button, index) => ({
-    ...button,
-    label: t(`navHeading.buttons.${index}.label`),
-  }));
-
   return (
-    <div className={styles.page}>
-      <div className={styles.layout}>
-        {/* Left sidebar */}
-        <LeftSidebar />
-
-        {/* Main article */}
-        <main className={styles.main}>
-          {/* Breadcrumbs */}
-          <nav className={styles.breadcrumbs} aria-label="Breadcrumb">
-            <Link href="/developers" className={styles.breadcrumbLink}>
-              Developers
-            </Link>
-            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
-            <Link
-              href="/developers/migrate-to-solana"
-              className={styles.breadcrumbLink}
-            >
-              Migrate to Solana
-            </Link>
-            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
-            <Link
-              href="/developers/migrate-to-solana/cosmos"
-              className={styles.breadcrumbLink}
-            >
-              Cosmos
-            </Link>
-            <ChevronRight className={styles.breadcrumbSep} aria-hidden />
-            <span style={{ color: "rgb(255 255 255 / 0.8)" }}>App Chain</span>
-          </nav>
-
-          {/* Hero */}
-          <header className={styles.hero}>
-            <p className={styles.heroEyebrow}>{t("hero.eyebrow")}</p>
-            <h1 className={styles.heroHeadline}>{t("hero.headline")}</h1>
-            <div
-              className={styles.heroBody}
-              dangerouslySetInnerHTML={{ __html: t.raw("hero.body") as string }}
-            />
-            <div className={styles.heroButtons}>
-              {navButtons.map((button) => (
-                <a
-                  key={button.url}
-                  href={button.url}
-                  className={styles.heroButton}
-                >
-                  {button.label}
-                  <ChevronRight
-                    style={{ width: "0.875rem", height: "0.875rem" }}
-                    aria-hidden
-                  />
-                </a>
-              ))}
-            </div>
-          </header>
-
-          {/* Highlights */}
-          <div className={styles.highlights}>
-            <div className={styles.highlightBanner}>
-              <p className={styles.highlightBannerEyebrow}>
-                {RUNBOOK_HIGHLIGHTS.banner.eyebrow}
-              </p>
-              <h2 className={styles.highlightBannerTitle}>
-                {RUNBOOK_HIGHLIGHTS.banner.title}
-              </h2>
-              <p className={styles.highlightBannerBody}>
-                {RUNBOOK_HIGHLIGHTS.banner.body}
-              </p>
-            </div>
-            {RUNBOOK_HIGHLIGHTS.cards.map((card) => (
-              <div key={card.number} className={styles.highlightCard}>
-                <p className={styles.highlightCardNumber}>{card.number}</p>
-                <h3 className={styles.highlightCardTitle}>{card.title}</h3>
-                <p className={styles.highlightCardBody}>{card.body}</p>
-              </div>
-            ))}
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/cosmos/app-chain"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body") as string}
+      buttons={NAV_BUTTONS.map((button, index) => ({
+        url: button.url,
+        label: t(`navHeading.buttons.${index}.label`),
+      }))}
+      tocHeadline={t("contentEditor.tocHeadline")}
+      toc={RUNBOOK_SECTIONS.map((section) => ({
+        id: section.id,
+        title: section.navLabel,
+      }))}
+      resourceEyebrow={t("resourceHeading.eyebrow")}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceBody={t("resourceHeading.body")}
+      resourceCards={RESOURCE_CARD_DECK.cards.map((card) => ({
+        heading: card.heading,
+        body: card.body,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      <Highlights />
+      {RUNBOOK_SECTIONS.map((section) => (
+        <section
+          key={section.id}
+          id={section.id}
+          className="mb-10 scroll-mt-20 border-b border-white/[0.07] pb-10 last:mb-0 last:border-b-0"
+        >
+          <div className="flex flex-col gap-5">
+            {parseRunbookSegments(section.html).map((segment, i) =>
+              renderRunbookSegment(segment, i),
+            )}
           </div>
-
-          {/* Mobile TOC */}
-          <div className={styles.mobileToc}>
-            <p className={styles.mobileTocLabel}>
-              {t("contentEditor.tocHeadline")}
-            </p>
-            <ul className={styles.mobileTocList}>
-              {RUNBOOK_SECTIONS.map((section) => (
-                <li key={section.id}>
-                  <a href={`#${section.id}`} className={styles.mobileTocLink}>
-                    {section.navLabel}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Article sections */}
-          <article>
-            {RUNBOOK_SECTIONS.map((section) => {
-              const segments = parseRunbookSegments(section.html);
-              return (
-                <section
-                  key={section.id}
-                  id={section.id}
-                  className={cn(styles.articleSection, "scroll-mt-20")}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "1.25rem",
-                    }}
-                  >
-                    {segments.map((segment, i) =>
-                      renderRunbookSegment(segment, i),
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </article>
-
-          {/* Resources */}
-          <div className={styles.resources}>
-            <p className={styles.resourcesEyebrow}>
-              {t("resourceHeading.eyebrow")}
-            </p>
-            <h2 className={styles.resourcesHeadline}>
-              {t("resourceHeading.headline")}
-            </h2>
-            <p className={styles.resourcesBody}>{t("resourceHeading.body")}</p>
-            <div className={styles.resourceGrid}>
-              {RESOURCE_CARD_DECK.cards.map((card) => {
-                const isExternal = card.callToAction.url.startsWith("http");
-                return (
-                  <a
-                    key={card.heading}
-                    href={card.callToAction.url}
-                    target={isExternal ? "_blank" : undefined}
-                    rel={isExternal ? "noreferrer noopener" : undefined}
-                    className={styles.resourceCard}
-                  >
-                    <div>
-                      <h3 className={styles.resourceCardTitle}>
-                        {card.heading}
-                      </h3>
-                      <p className={styles.resourceCardBody}>{card.body}</p>
-                    </div>
-                    <span className={styles.resourceCardCta}>
-                      {card.callToAction.label}
-                      {isExternal ? (
-                        <ExternalLink
-                          style={{ width: "0.875rem", height: "0.875rem" }}
-                          aria-hidden
-                        />
-                      ) : (
-                        <ChevronRight
-                          style={{ width: "0.875rem", height: "0.875rem" }}
-                          aria-hidden
-                        />
-                      )}
-                    </span>
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-        </main>
-
-        {/* Right TOC */}
-        <RightTOC headline={t("contentEditor.tocHeadline")} />
-      </div>
-    </div>
+        </section>
+      ))}
+    </MigrationDocsLayout>
   );
 }

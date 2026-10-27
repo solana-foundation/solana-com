@@ -11,32 +11,51 @@ import {
 } from "@/app/components/docs-code-snippet";
 import { cn } from "@/app/components/utils";
 
-export const ETHEREUM_GUIDE_NAV = [
+const MIGRATE = "/developers/migrate-to-solana";
+
+export const MIGRATION_NAV = [
   {
-    url: "/developers/migrate-to-solana/complete-guide",
-    label: "Complete Guide",
+    label: "Ethereum",
+    url: `${MIGRATE}/ethereum`,
+    eyebrow: "EVM -> Solana",
+    guides: [
+      { url: `${MIGRATE}/ethereum`, label: "Overview" },
+      { url: `${MIGRATE}/complete-guide`, label: "Complete Guide" },
+      { url: `${MIGRATE}/erc20`, label: "ERC20" },
+      { url: `${MIGRATE}/erc721`, label: "ERC721" },
+      { url: `${MIGRATE}/erc4337`, label: "ERC4337" },
+      { url: `${MIGRATE}/erc3643`, label: "ERC3643" },
+      { url: `${MIGRATE}/erc4626`, label: "ERC4626" },
+      { url: `${MIGRATE}/eip2612`, label: "EIP-2612" },
+      { url: `${MIGRATE}/consensus`, label: "Consensus" },
+      { url: `${MIGRATE}/accounts`, label: "Accounts" },
+      { url: `${MIGRATE}/smart-contracts`, label: "Smart Contracts" },
+      { url: `${MIGRATE}/client-differences`, label: "Client Differences" },
+    ],
   },
-  { url: "/developers/migrate-to-solana/erc20", label: "ERC20" },
-  { url: "/developers/migrate-to-solana/erc721", label: "ERC721" },
-  { url: "/developers/migrate-to-solana/erc4337", label: "ERC4337" },
-  { url: "/developers/migrate-to-solana/erc3643", label: "ERC3643" },
-  { url: "/developers/migrate-to-solana/erc4626", label: "ERC4626" },
-  { url: "/developers/migrate-to-solana/eip2612", label: "EIP-2612" },
-  { url: "/developers/migrate-to-solana/consensus", label: "Consensus" },
-  { url: "/developers/migrate-to-solana/accounts", label: "Accounts" },
   {
-    url: "/developers/migrate-to-solana/smart-contracts",
-    label: "Smart Contracts",
-  },
-  {
-    url: "/developers/migrate-to-solana/client-differences",
-    label: "Client Differences",
+    label: "Cosmos",
+    url: `${MIGRATE}/cosmos`,
+    eyebrow: "Cosmos -> Solana",
+    guides: [
+      { url: `${MIGRATE}/cosmos/cosmwasm`, label: "CosmWasm" },
+      { url: `${MIGRATE}/cosmos/app-chain`, label: "App Chain" },
+    ],
   },
 ] as const;
 
-export type EthereumGuideUrl = (typeof ETHEREUM_GUIDE_NAV)[number]["url"];
+export type MigrationGuideUrl =
+  (typeof MIGRATION_NAV)[number]["guides"][number]["url"];
 
-const DOCS_PROSE = cn(
+function findGuide(activeUrl: MigrationGuideUrl) {
+  for (const group of MIGRATION_NAV) {
+    const guide = group.guides.find((candidate) => candidate.url === activeUrl);
+    if (guide) return { group, guide };
+  }
+  throw new Error(`Unknown migration guide: ${activeUrl}`);
+}
+
+export const DOCS_PROSE = cn(
   "text-base leading-[1.85] text-white/[0.72]",
   "[&_h2]:mb-4 [&_h2]:mt-14 [&_h2]:scroll-mt-32 [&_h2]:text-[1.6rem] [&_h2]:font-bold [&_h2]:leading-[1.2] [&_h2]:tracking-[-0.02em] [&_h2]:text-white",
   "[&_h3]:mb-3 [&_h3]:mt-8 [&_h3]:scroll-mt-32 [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:leading-[1.45] [&_h3]:text-white",
@@ -122,12 +141,15 @@ function slugify(value: string) {
   );
 }
 
-function useArticleHeadings(articleRef: React.RefObject<HTMLElement | null>) {
+function useArticleHeadings(
+  articleRef: React.RefObject<HTMLElement | null>,
+  enabled: boolean,
+) {
   const [headings, setHeadings] = useState<TocHeading[]>([]);
 
   useEffect(() => {
     const article = articleRef.current;
-    if (!article) return;
+    if (!enabled || !article) return;
 
     setHeadings(
       [...article.querySelectorAll<HTMLHeadingElement>("h2, h3")].map(
@@ -147,62 +169,56 @@ function useArticleHeadings(articleRef: React.RefObject<HTMLElement | null>) {
         },
       ),
     );
-  }, [articleRef]);
+  }, [articleRef, enabled]);
 
   return headings;
 }
 
-function LeftSidebar({ activeUrl }: { activeUrl: EthereumGuideUrl }) {
+function LeftSidebar({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
   const linkClass =
     "flex items-center gap-1.5 rounded-md px-2 py-[0.3rem] text-sm text-white/50 no-underline transition-colors hover:bg-white/5 hover:text-white/90";
   const activeClass =
-    "rounded-none border-l-2 border-[#14f195] pl-[calc(1rem-2px)] font-medium text-white hover:bg-transparent hover:text-white";
+    "rounded-none border-l-2 border-[#14f195] pl-[calc(0.5rem-2px)] font-medium text-white hover:bg-transparent hover:text-white";
+  const labelClass =
+    "mb-2 block px-2 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-white/35";
 
   return (
     <nav
       className="sticky top-16 hidden h-[calc(100vh-4rem)] overflow-y-auto border-r border-white/[0.07] py-8 pl-6 pr-4 xl:block"
       aria-label="Guide navigation"
     >
-      <span className="mb-2 block text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-white/35">
-        Migration Guides
-      </span>
-      <ul className="m-0 list-none p-0">
-        <li>
-          <Link href="/developers/migrate-to-solana" className={linkClass}>
-            ← Migrate to Solana
-          </Link>
-        </li>
-        <li>
-          <Link
-            href="/developers/migrate-to-solana/ethereum"
-            className={linkClass}
-          >
-            Ethereum
-          </Link>
-        </li>
-        {ETHEREUM_GUIDE_NAV.map((guide) => (
-          <li key={guide.url}>
-            {guide.url === activeUrl ? (
-              <span
-                className={cn(linkClass, "pl-4", activeClass)}
-                aria-current="page"
-              >
-                {guide.label}
-              </span>
-            ) : (
-              <Link href={guide.url} className={cn(linkClass, "pl-4")}>
-                {guide.label}
-              </Link>
-            )}
-          </li>
-        ))}
-      </ul>
+      <Link href={MIGRATE} className={cn(linkClass, "mb-6")}>
+        ← Migrate to Solana
+      </Link>
+      {MIGRATION_NAV.map((group) => (
+        <div key={group.label} className="mb-6">
+          <span className={labelClass}>{group.label}</span>
+          <ul className="m-0 list-none p-0">
+            {group.guides.map((guide) => (
+              <li key={guide.url}>
+                {guide.url === activeUrl ? (
+                  <span
+                    className={cn(linkClass, activeClass)}
+                    aria-current="page"
+                  >
+                    {guide.label}
+                  </span>
+                ) : (
+                  <Link href={guide.url} className={linkClass}>
+                    {guide.label}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </nav>
   );
 }
 
-function Breadcrumbs({ activeUrl }: { activeUrl: EthereumGuideUrl }) {
-  const current = ETHEREUM_GUIDE_NAV.find((guide) => guide.url === activeUrl);
+function Breadcrumbs({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
+  const { group, guide } = findGuide(activeUrl);
   const linkClass =
     "text-white/40 no-underline transition-colors hover:text-[#14f195]";
   const separator = (
@@ -221,15 +237,15 @@ function Breadcrumbs({ activeUrl }: { activeUrl: EthereumGuideUrl }) {
         Developers
       </Link>
       {separator}
-      <Link href="/developers/migrate-to-solana" className={linkClass}>
+      <Link href={MIGRATE} className={linkClass}>
         Migrate to Solana
       </Link>
       {separator}
-      <Link href="/developers/migrate-to-solana/ethereum" className={linkClass}>
-        Ethereum
+      <Link href={group.url} className={linkClass}>
+        {group.label}
       </Link>
       {separator}
-      <span className="text-white/80">{current?.label}</span>
+      <span className="text-white/80">{guide.label}</span>
     </nav>
   );
 }
@@ -250,15 +266,21 @@ type CallToAction = {
   button?: NavButton;
 };
 
+type TocItem = { id: string; title: string; level?: number };
+
 export type MigrationDocsLayoutProps = {
-  activeUrl: EthereumGuideUrl;
+  activeUrl: MigrationGuideUrl;
   eyebrow?: string;
   headline: string;
   bodyHtml?: string;
   buttons?: NavButton[];
   tocHeadline: string;
+  /** Explicit TOC entries; when omitted, the article's h2/h3s are used. */
+  toc?: TocItem[];
   callToAction?: CallToAction;
+  resourceEyebrow?: string;
   resourceHeadline?: string;
+  resourceBody?: string;
   resourceCards?: ResourceCard[];
   children: ReactNode;
 };
@@ -270,13 +292,18 @@ export function MigrationDocsLayout({
   bodyHtml,
   buttons = [],
   tocHeadline,
+  toc,
   callToAction,
+  resourceEyebrow,
   resourceHeadline,
+  resourceBody,
   resourceCards = [],
   children,
 }: MigrationDocsLayoutProps) {
   const articleRef = useRef<HTMLElement>(null);
-  const headings = useArticleHeadings(articleRef);
+  const articleHeadings = useArticleHeadings(articleRef, !toc);
+  const headings = toc ?? articleHeadings;
+  const { group } = findGuide(activeUrl);
 
   return (
     <div className="min-h-screen bg-[#121212]">
@@ -288,7 +315,7 @@ export function MigrationDocsLayout({
 
           <header className="mb-12 border-b border-white/[0.08] pb-12">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-[#14f195]">
-              {eyebrow || "EVM -> Solana"}
+              {eyebrow || group.eyebrow}
             </p>
             <h1 className="mb-5 text-[clamp(2rem,4vw,3rem)] font-bold leading-[1.1] tracking-[-0.02em] text-white">
               {headline}
@@ -327,7 +354,7 @@ export function MigrationDocsLayout({
                       href={`#${heading.id}`}
                       className={cn(
                         "block py-1 text-sm text-white/50 no-underline transition-colors hover:text-[#14f195]",
-                        heading.level === 3 &&
+                        (heading.level ?? 2) === 3 &&
                           "pl-4 text-[0.8125rem] text-white/40",
                       )}
                     >
@@ -379,19 +406,26 @@ export function MigrationDocsLayout({
           {resourceCards.length > 0 ? (
             <div className="mt-4 border-t border-white/[0.08] pt-10">
               <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[#14f195]">
-                Resources
+                {resourceEyebrow || "Resources"}
               </p>
               {resourceHeadline ? (
-                <h2 className="mb-6 text-[1.75rem] font-bold leading-[1.2] text-white">
+                <h2 className="mb-2.5 text-[1.75rem] font-bold leading-[1.2] text-white">
                   {resourceHeadline}
                 </h2>
               ) : null}
+              {resourceBody ? (
+                <p className="mb-6 max-w-[44rem] text-[0.9375rem] leading-[1.7] text-white/55">
+                  {resourceBody}
+                </p>
+              ) : (
+                <div className="mb-6" />
+              )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {resourceCards.map((card) => {
                   const isExternal = card.url.startsWith("http");
                   return (
                     <a
-                      key={card.url}
+                      key={`${card.heading}-${card.url}`}
                       href={card.url}
                       target={isExternal ? "_blank" : undefined}
                       rel={isExternal ? "noreferrer noopener" : undefined}
@@ -437,7 +471,7 @@ export function MigrationDocsLayout({
                   href={`#${heading.id}`}
                   className={cn(
                     "block rounded px-2 py-[0.275rem] text-[0.8125rem] leading-normal text-white/45 no-underline transition-colors hover:bg-white/[0.04] hover:text-[#14f195]",
-                    heading.level === 3 && "pl-5 text-xs text-white/35",
+                    (heading.level ?? 2) === 3 && "pl-5 text-xs text-white/35",
                   )}
                 >
                   {heading.title}
