@@ -403,7 +403,7 @@ function ChartWatermarkFrame({
     <div className="relative">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 flex items-center justify-center overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 flex items-center justify-center overflow-hidden"
         style={{ height }}
       >
         <img
