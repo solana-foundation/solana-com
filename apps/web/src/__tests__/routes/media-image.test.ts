@@ -91,4 +91,31 @@ describe("Media image proxy", () => {
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
+  it("preserves image queries across a public retry", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("Login", { headers: { "Content-Type": "text/html" } }),
+      )
+      .mockResolvedValueOnce(image());
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await GET(
+      request("/media-assets/uploads/story.webp?width=640&fit=cover"),
+    );
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      new URL(
+        "https://media-preview.vercel.app/uploads/story.webp?width=640&fit=cover",
+      ),
+      { next: { revalidate: 300 } },
+    );
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      new URL(
+        "https://solana-com-media.vercel.app/uploads/story.webp?width=640&fit=cover",
+      ),
+      { next: { revalidate: 300 } },
+    );
+  });
 });

@@ -28,9 +28,10 @@ export async function GET(request: NextRequest) {
 
   const normalizedPath = normalizePath(path);
 
+  const assetPath = new URL(normalizedPath, "https://media-assets.invalid");
   const upstreamUrl = new URL(MEDIA_APP_URL);
-  upstreamUrl.pathname = normalizedPath;
-  upstreamUrl.search = "";
+  upstreamUrl.pathname = assetPath.pathname;
+  upstreamUrl.search = assetPath.search;
   upstreamUrl.hash = "";
 
   if (
@@ -56,6 +57,7 @@ export async function GET(request: NextRequest) {
   ) {
     const publicUrl = new URL(PUBLIC_MEDIA_URL);
     publicUrl.pathname = upstreamUrl.pathname;
+    publicUrl.search = upstreamUrl.search;
     upstreamResponse = await fetch(publicUrl, {
       next: { revalidate: CACHE_SECONDS },
     });
