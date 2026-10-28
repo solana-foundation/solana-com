@@ -41,7 +41,7 @@ These eleven briefs follow the video playlist order, with one request per video.
 
 **Category:** Markets
 
-**Speaker:** Matty Taylor, Founder, Colosseum
+**Speaker:** [Matty Taylor](https://x.com/mattytay), Founder, Colosseum
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=ZxIzUBOnrtQ)
 
@@ -68,7 +68,7 @@ Build a perpetual market tied to a metropolitan housing index. A homeowner could
 
 **Category:** AI
 
-**Speaker:** Jacob Creech, VP Technology, Solana Foundation
+**Speaker:** [Jacob Creech](https://x.com/jacobvcreech), VP Technology, Solana Foundation
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=tGH2lOT_mno)
 
@@ -95,7 +95,7 @@ Build a shared gateway to AI models where providers can join without a central l
 
 **Category:** Consumer
 
-**Speaker:** Pedro Miranda, Head of Consumer, Solana Foundation
+**Speaker:** [Pedro Miranda](https://x.com/pedromiranda), Head of Consumer, Solana Foundation
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=8CUSptfIW_U)
 
@@ -121,7 +121,7 @@ Create a consumer product that connects spending patterns, daily habits, and por
 
 **Category:** Security
 
-**Speaker:** Robert Chen, Founder, OtterSec
+**Speaker:** [Robert Chen](https://x.com/NotDeGhost), Founder, OtterSec
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=15ecsUCXN1E)
 
@@ -148,7 +148,7 @@ Build tools for security teams facing threats across their systems, beyond smart
 
 **Category:** Tokenization
 
-**Speaker:** Vibhu Norby, CPO, Solana Foundation
+**Speaker:** [Vibhu Norby](https://x.com/vibhu), CPO, Solana Foundation
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=OdhqVLfXPxQ)
 
@@ -175,7 +175,7 @@ Start with authenticated physical custody, high-quality asset records, a token r
 
 **Category:** Distribution
 
-**Speaker:** Farhaj Mayan, Founder, Forma
+**Speaker:** [Farhaj Mayan](https://x.com/farhaj), Founder, Forma
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=U4DIr3l9A_0)
 
@@ -202,7 +202,7 @@ Farhaj Mayan proposes a token tied to attention rather than company ownership. T
 
 **Category:** Markets
 
-**Speaker:** Toly
+**Speaker:** [Toly](https://x.com/toly)
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=r9ZQuh3ShV8)
 
@@ -230,7 +230,7 @@ Toly’s request is deliberately broad: grow Solana’s share of perpetual tradi
 
 **Category:** AI
 
-**Speaker:** Rishin Sharma, Head of AI, Solana Foundation
+**Speaker:** [Rishin Sharma](https://x.com/_rishinsharma), Head of AI, Solana Foundation
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=YEO8Gh0PxV4)
 
@@ -257,7 +257,7 @@ Build an advisor that understands a user’s holdings, goals, and previous decis
 
 **Category:** Payments
 
-**Speaker:** Nemil Dalal, Visiting Partner, Y Combinator
+**Speaker:** [Nemil Dalal](https://x.com/nemild), Visiting Partner, Y Combinator
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=5jJX-IjTVMw)
 
@@ -284,7 +284,7 @@ Nemil Dalal identifies several opportunities: new stablecoin designs, tools for 
 
 **Category:** Markets
 
-**Speaker:** Adam Bergeman, Founder, Star.fun
+**Speaker:** [Adam Bergeman](https://x.com/adamcreates_), Founder, Star.fun
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=D1C95ROUuSo)
 
@@ -310,7 +310,7 @@ Build discovery and trading tools that surface more than a social feed. Adam Ber
 
 **Category:** Consumer
 
-**Speaker:** Kyle Samani, Chairman, Forward Industries
+**Speaker:** [Kyle Samani](https://x.com/KyleSamani), Chairman, Forward Industries
 
 **Video:** [Watch the request](https://www.youtube.com/watch?v=ZVyQVSQ9s6U)
 

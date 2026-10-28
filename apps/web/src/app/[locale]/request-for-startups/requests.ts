@@ -4,6 +4,7 @@ export type Request = {
   videoId: string;
   speaker: string;
   speakerRole: string;
+  speakerXHandle: string;
   aliases: string[];
 };
 
@@ -14,6 +15,7 @@ export const REQUESTS: Request[] = [
     accent: "green",
     videoId: "ZxIzUBOnrtQ",
     speaker: "Matty Taylor",
+    speakerXHandle: "mattytay",
     speakerRole: "Founder, Colosseum",
     aliases: ["perps-for-real-estate"],
   },
@@ -22,6 +24,7 @@ export const REQUESTS: Request[] = [
     accent: "violet",
     videoId: "tGH2lOT_mno",
     speaker: "Jacob Creech",
+    speakerXHandle: "jacobvcreech",
     speakerRole: "VP Technology, Solana Foundation",
     aliases: ["inference-provider-marketplace"],
   },
@@ -30,6 +33,7 @@ export const REQUESTS: Request[] = [
     accent: "orange",
     videoId: "8CUSptfIW_U",
     speaker: "Pedro Miranda",
+    speakerXHandle: "pedromiranda",
     speakerRole: "Head of Consumer, Solana Foundation",
     aliases: ["gamified-trading"],
   },
@@ -38,6 +42,7 @@ export const REQUESTS: Request[] = [
     accent: "blue",
     videoId: "15ecsUCXN1E",
     speaker: "Robert Chen",
+    speakerXHandle: "NotDeGhost",
     speakerRole: "Founder, OtterSec",
     aliases: [],
   },
@@ -46,6 +51,7 @@ export const REQUESTS: Request[] = [
     accent: "pink",
     videoId: "OdhqVLfXPxQ",
     speaker: "Vibhu Norby",
+    speakerXHandle: "vibhu",
     speakerRole: "CPO, Solana Foundation",
     aliases: ["exotic-rwas"],
   },
@@ -54,6 +60,7 @@ export const REQUESTS: Request[] = [
     accent: "green",
     videoId: "U4DIr3l9A_0",
     speaker: "Farhaj Mayan",
+    speakerXHandle: "farhaj",
     speakerRole: "Founder, Forma",
     aliases: ["distribution-platform"],
   },
@@ -62,6 +69,7 @@ export const REQUESTS: Request[] = [
     accent: "blue",
     videoId: "r9ZQuh3ShV8",
     speaker: "Toly",
+    speakerXHandle: "toly",
     speakerRole: "",
     aliases: ["perps"],
   },
@@ -70,6 +78,7 @@ export const REQUESTS: Request[] = [
     accent: "violet",
     videoId: "YEO8Gh0PxV4",
     speaker: "Rishin Sharma",
+    speakerXHandle: "_rishinsharma",
     speakerRole: "Head of AI, Solana Foundation",
     aliases: ["ai", "better-wallet"],
   },
@@ -78,6 +87,7 @@ export const REQUESTS: Request[] = [
     accent: "orange",
     videoId: "5jJX-IjTVMw",
     speaker: "Nemil Dalal",
+    speakerXHandle: "nemild",
     speakerRole: "Visiting Partner, Y Combinator",
     aliases: ["stable"],
   },
@@ -86,6 +96,7 @@ export const REQUESTS: Request[] = [
     accent: "pink",
     videoId: "D1C95ROUuSo",
     speaker: "Adam Bergeman",
+    speakerXHandle: "adamcreates_",
     speakerRole: "Founder, Star.fun",
     aliases: ["stocks"],
   },
@@ -94,6 +105,7 @@ export const REQUESTS: Request[] = [
     accent: "green",
     videoId: "ZVyQVSQ9s6U",
     speaker: "Kyle Samani",
+    speakerXHandle: "KyleSamani",
     speakerRole: "Chairman, Forward Industries",
     aliases: [],
   },

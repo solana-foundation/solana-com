@@ -337,10 +337,26 @@ export function RequestForStartupsPage() {
                         referrerPolicy="strict-origin-when-cross-origin"
                       />
                       <figcaption className={styles.requestSpeaker}>
-                        <span>{request.speaker}</span>
+                        <span className={styles.speakerName}>
+                          {request.speaker}
+                        </span>
                         {request.speakerRole && (
-                          <span>{request.speakerRole}</span>
+                          <span className={styles.speakerRole}>
+                            {request.speakerRole}
+                          </span>
                         )}
+                        <a
+                          className={styles.speakerProfile}
+                          href={`https://x.com/${request.speakerXHandle}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={t("requests.speakerProfile", {
+                            name: request.speaker,
+                          })}
+                        >
+                          @{request.speakerXHandle}
+                          <ArrowUpRight pack="filled" aria-hidden="true" />
+                        </a>
                       </figcaption>
                     </figure>
                   </div>
