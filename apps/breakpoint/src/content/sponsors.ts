@@ -41,6 +41,11 @@ export type SponsorMarqueeRow = {
 // Keep every tier in sponsorship-action order. Add newly actioned sponsors to
 // the end of their tier so the same order carries through to the page and
 // marquee rows below.
+const diamondSponsors = [
+  { companyId: "zelle", width: 1801, height: 834 },
+  { companyId: "kraken", width: 3246, height: 772 },
+] satisfies SponsorLogo[];
+
 const platinumSponsors = [
   {
     companyId: "jito",
@@ -105,6 +110,9 @@ const platinumSponsors = [
     width: 1050,
     height: 170,
   },
+  { companyId: "tether", width: 121, height: 28 },
+  { companyId: "payoneer", width: 1316, height: 256 },
+  { companyId: "ramp", width: 599, height: 171 },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -356,9 +364,28 @@ const goldSponsors = [
   {
     companyId: "cow",
     displayName: "CoW",
-    logoVariant: { id: "logo-light" },
+    logoVariant: { id: "breakpoint-2026-white" },
     width: 1325,
     height: 400,
+  },
+  { companyId: "agant", width: 2439.5, height: 676.4 },
+  { companyId: "kamino", width: 216.6, height: 50 },
+  { companyId: "raydium", width: 847, height: 231 },
+  { companyId: "zan", displayName: "ZAN", width: 1593, height: 324 },
+  { companyId: "western-union", width: 300, height: 70 },
+  { companyId: "jupiter", width: 780, height: 210 },
+  {
+    companyId: "checkout",
+    displayName: "Checkout.com",
+    width: 263,
+    height: 176,
+  },
+  { companyId: "fenwick", width: 360, height: 55 },
+  {
+    companyId: "jurassicfi",
+    displayName: "JurassicFi",
+    width: 1532,
+    height: 1201,
   },
 ] satisfies SponsorLogo[];
 
@@ -371,6 +398,19 @@ const activationSponsors = [
 ] satisfies SponsorLogo[];
 
 export const sponsorTiers = [
+  {
+    id: "diamond",
+    title: "Diamond",
+    mobileColumns: "grid-cols-1",
+    mobileLogoMaxWidth: 0.76,
+    mobileLogoMaxHeight: 0.62,
+    logoMaxWidth: 0.72,
+    logoMaxHeight: 0.62,
+    cellAspectRatio: 2,
+    columns: "md:grid-cols-4",
+    cellAspect: "aspect-[442/221]",
+    sponsors: diamondSponsors,
+  },
   {
     id: "platinum",
     title: "Platinum",
@@ -400,6 +440,13 @@ export const sponsorTiers = [
 ] satisfies SponsorTier[];
 
 export const sponsorMarqueeRows = [
+  {
+    title: "Diamond",
+    direction: "right",
+    density: "featured",
+    duration: "72s",
+    sponsors: diamondSponsors,
+  },
   {
     title: "Platinum",
     direction: "left",

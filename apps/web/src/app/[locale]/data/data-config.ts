@@ -333,6 +333,7 @@ export type DashboardTab =
   | "network"
   | "defi"
   | "lending"
+  | "perps"
   | "rpc"
   | "senders";
 export type Aggregation = "avg" | "sum";
@@ -530,7 +531,7 @@ export const providerColors: Record<string, string> = {
   FluxRPC: "#F2C14E",
   Helius: "#E84125",
   Jito: "#A78BFA",
-  QuickNode: "#6CFF75",
+  Quicknode: "#6CFF75",
   RWA: "#A1B9E3",
   Stakewiz: "#f6b486",
   Stellium: "#FB7185",
@@ -554,8 +555,9 @@ const providerAliases: Record<string, ProviderName> = {
   fluxrpc: "FluxRPC",
   helius: "Helius",
   jito: "Jito",
-  Quicknode: "QuickNode",
-  quicknode: "QuickNode",
+  Quicknode: "Quicknode",
+  QuickNode: "Quicknode",
+  quicknode: "Quicknode",
   stellium: "Stellium",
   temporal: "Temporal",
   triton: "Triton",
@@ -879,6 +881,16 @@ export const chartDefinitions = [
     seriesField: "provider",
   },
   {
+    id: "average-tps",
+    tab: "network",
+    title: "Average TPS",
+    valueLabel: "TPS",
+    metrics: ["Average TPS"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: averagePeriodViews,
+  },
+  {
     id: "dex-volume",
     tab: "defi",
     title: "DEX Volume",
@@ -1002,6 +1014,55 @@ export const chartDefinitions = [
     seriesField: "provider",
   },
   {
+    id: "perps-trading-volume",
+    tab: "perps",
+    title: "Trading Volume",
+    valueLabel: "USD",
+    metrics: ["Trading Volume"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: flowPeriodViews,
+  },
+  {
+    id: "perps-open-interest",
+    tab: "perps",
+    title: "Total Open Interest",
+    valueLabel: "USD",
+    metrics: ["Total Open Interest"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: levelPeriodViews,
+  },
+  {
+    id: "perps-transactions",
+    tab: "perps",
+    title: "Transactions",
+    valueLabel: "Count",
+    metrics: ["Transactions"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: flowPeriodViews,
+  },
+  {
+    id: "perps-traders",
+    tab: "perps",
+    title: "Traders",
+    valueLabel: "Count",
+    metrics: ["Traders"],
+    aggregation: "avg",
+    seriesField: "provider",
+    periodViews: averagePeriodViews,
+  },
+  {
+    id: "perps-venue-count",
+    tab: "perps",
+    title: "Venue Count",
+    valueLabel: "Count",
+    metrics: ["Venue Count"],
+    aggregation: "avg",
+    seriesField: "provider",
+  },
+  {
     id: "rpc-error-rate",
     tab: "rpc",
     title: "Error Rate",
@@ -1023,7 +1084,7 @@ export const chartDefinitions = [
           "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Errored rpc_requests_total divided by successful and errored requests for the selected filters. Skipped outcomes are neutral. Hover the chart for error types.",
       },
@@ -1057,7 +1118,7 @@ export const chartDefinitions = [
           "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus rate over 5 minutes for the selected RPC method, region, and infrastructure filter.",
       },
@@ -1090,7 +1151,7 @@ export const chartDefinitions = [
           "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus histogram p50 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
@@ -1123,7 +1184,7 @@ export const chartDefinitions = [
           "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus histogram p95 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
@@ -1156,7 +1217,7 @@ export const chartDefinitions = [
           "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },
       {
-        provider: "QuickNode",
+        provider: "Quicknode",
         description:
           "Prometheus histogram p99 over 1 hour for the selected RPC method, region, and infrastructure filter.",
       },

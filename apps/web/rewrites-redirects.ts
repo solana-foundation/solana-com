@@ -4,6 +4,7 @@ import {
   templatesAppUrl,
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
+  BREAKPOINT_BADGE_URL,
 } from "./apps-urls";
 import { locales } from "@workspace/i18n/config";
 
@@ -340,6 +341,25 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
   },
 ]);
 
+/**
+ * The badge site is English only: locale-prefixed URLs go to the one page
+ * (not through withLocaleRedirects: its bare-path twins would redirect to themselves).
+ */
+const breakpointBadgeLocaleRedirects: LocaleRedirect[] = [
+  {
+    source: `/:locale(${LOCALE_REGEX})/breakpoint/badge`,
+    destination: "/breakpoint/badge",
+    locale: false,
+    permanent: false,
+  },
+  {
+    source: `/:locale(${LOCALE_REGEX})/breakpoint/badge/:path*`,
+    destination: "/breakpoint/badge/:path*",
+    locale: false,
+    permanent: false,
+  },
+];
+
 const breakpointSubrouteRedirects: RedirectInput[] = [
   { source: "/agenda", destination: "/breakpoint/schedule" },
   { source: "/faq", destination: "/breakpoint/faq" },
@@ -385,6 +405,17 @@ const chainMigrationRedirects: RedirectInput[] = [
 export default {
   rewrites: {
     beforeFiles: [
+      // Breakpoint badge site, before the Breakpoint app's catch-all below
+      {
+        source: "/breakpoint/badge",
+        destination: `${BREAKPOINT_BADGE_URL}/breakpoint/badge`,
+        locale: false,
+      },
+      {
+        source: "/breakpoint/badge/:path*",
+        destination: `${BREAKPOINT_BADGE_URL}/breakpoint/badge/:path*`,
+        locale: false,
+      },
       {
         source: "/breakpoint",
         destination: `${BREAKPOINT_APP_URL}/breakpoint`,
@@ -943,9 +974,9 @@ export default {
     { source: "/disclaimer", destination: "/tos" },
     { source: "/ecosystem/:path+", destination: "/ecosystem" },
     { source: "/lolla", destination: "/" },
-    { source: "/solana-pay", destination: "https://solanapay.com/" },
-    { source: "/solanapay", destination: "https://solanapay.com/" },
-    { source: "/pay", destination: "https://solanapay.com/" },
+    { source: "/solana-pay", destination: "/docs/tools/solana-pay" },
+    { source: "/solanapay", destination: "/docs/tools/solana-pay" },
+    { source: "/pay", destination: "/docs/tools/solana-pay" },
     { source: "/mobile", destination: "https://solanamobile.com/" },
     {
       source: "/podcast",
@@ -1977,5 +2008,5 @@ export default {
         "/developers/cookbook/development/using-mainnet-accounts-programs",
       destination: "/docs/intro/installation/surfpool-cli-basics",
     },
-  ]),
+  ]).concat(breakpointBadgeLocaleRedirects),
 };

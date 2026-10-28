@@ -67,6 +67,33 @@ string. Production Vercel builds run `pnpm prisma:deploy` before `next build`
 and fail before deployment if the connection string is absent. Preview builds do
 not migrate a database automatically.
 
+## Voting release
+
+Voting shares the nominations ballot cookie and `awards_users` table. The
+`20261013000000_add_awards_votes` migration creates `awards_votes` with one
+immutable vote per user and category. Preview builds do not migrate databases,
+so deploy this migration to the preview database before exercising vote writes.
+
+The reviewed ballot is defined in `src/content/awards-finalists.ts`. Each of the
+12 category IDs has four distinct finalists with display names, X handles, and
+local profile images in `public/assets/awards/finalists`. The route rejects
+votes if the roster is incomplete. Update the ballot map and its images together
+when the awards owner changes a finalist. Do not derive ballot options from live
+nomination counts. Profile images were retrieved from the finalists' public X
+profiles on October 20, 2026.
+
+Set the UTC voting opening and closing times in `defaultVotingWindow` in
+`src/lib/awards-campaign.ts`. Set the nominations opening time in
+`defaultNominationsWindow`; its closing time follows the voting opening time.
+Voting cannot open before nominations close, and closing must follow opening.
+Submitted votes are final.
+
+Before enabling the window in Production, verify the migration against the
+target database and smoke test `/breakpoint/awards`,
+`/[locale]/breakpoint/awards`, and `/breakpoint/api/votes` through the preview
+rewrite. Check the pre-open boundary, one successful vote and refresh, duplicate
+vote rejection, and the closed boundary. Confirm both desktop and mobile views.
+
 ## Production safeguards
 
 The nominations route requires these sensitive Vercel environment variables in
@@ -78,15 +105,26 @@ Production and Preview:
   pseudonymous network identifier for fraud review. New records do not store raw
   IP addresses.
 
-Configure `AWARDS_NOMINATIONS_OPENS_AT` and `AWARDS_NOMINATIONS_CLOSES_AT` as
-ISO-8601 UTC timestamps before opening the campaign. The API enforces those
-boundaries even when clients have an existing ballot.
+Review the nomination and voting dates in `src/lib/awards-campaign.ts` before
+opening the campaign. The API enforces those boundaries even when clients have
+an existing ballot.
 
 The `solana-com-breakpoint-2` Vercel project also needs WAF rate-limit rules
 named `Limit Community Awards submission bursts`,
 `Limit Community Awards hourly submissions`, and
 `Limit Community Awards ballot reads`. The submission-rule IDs are enforced by
 the API, so production fails closed if either is missing.
+
+Add voting WAF rate-limit rules with IDs `breakpoint-awards-vote-burst` and
+`breakpoint-awards-vote-hourly` before opening voting. Both are checked by the
+vote API in Production; a missing rule fails closed. The existing ballot read
+rule should also cover `/breakpoint/api/votes` GET requests. The burst check
+uses the validated ballot ID as its rate-limit key so voters sharing a network
+do not consume each other's burst allowance. The hourly check stays keyed by
+network address, providing a cross-ballot abuse ceiling. The Production WAF
+rules allow 120 burst checks per minute and 600 hourly checks per hour. Keep the
+hourly ceiling high enough for voters on shared networks when adjusting these
+rules.
 
 ## Production database operations
 

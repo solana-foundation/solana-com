@@ -38,3 +38,23 @@ the `surfpool` CLI on `$PATH`:
 ```sh
 cargo install --git https://github.com/solana-foundation/surfpool --locked surfpool-cli
 ```
+
+The Python and Go examples are driven by `scripts/run-python-examples.sh` and
+`scripts/run-go-examples.sh`. Both start the same embedded surfpool as the
+TypeScript suite (`scripts/surfnet.mjs`, so run `pnpm install` first; no
+surfpool CLI needed), or reuse a validator already listening on
+`localhost:8899`. A reused validator must also be a mainnet-backed surfpool
+(`surfpool start --network mainnet`): several examples read real mainnet
+accounts such as the USDC and PYUSD mints, which a plain `solana-test-validator`
+does not have.
+
+```sh
+pip install -r requirements.txt
+bash scripts/run-python-examples.sh
+bash scripts/run-go-examples.sh
+```
+
+Python examples live at `cookbook/<section>/<page>/python.py` (or
+`<variant>-python.py`) and use `# #region <name>` markers; Go examples live at
+`cookbook/<section>/<page>/go/main.go` (or `go-<variant>/main.go`) inside this
+directory's Go module.

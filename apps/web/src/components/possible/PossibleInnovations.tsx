@@ -161,8 +161,7 @@ const PossibleInnovation = () => {
                 ),
                 solanapayLink: (chunks) => (
                   <Link
-                    target={"_blank"}
-                    href="https://solanapay.com/"
+                    href="/docs/tools/solana-pay"
                     className="underline copy__link"
                   >
                     {chunks}

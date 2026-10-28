@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../types";
 import { accretion } from "./records/accretion";
+import { agant } from "./records/agant";
 import { agridex } from "./records/agridex";
 import { aisa } from "./records/aisa";
 import { alchemy } from "./records/alchemy";
@@ -27,6 +28,7 @@ import { brave } from "./records/brave";
 import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
 import { byreal } from "./records/byreal";
+import { checkout } from "./records/checkout";
 import { cherryServers } from "./records/cherry-servers";
 import { circle } from "./records/circle";
 import { citi } from "./records/citi";
@@ -46,6 +48,7 @@ import { dmcc } from "./records/dmcc";
 import { doublezero } from "./records/doublezero";
 import { drpc } from "./records/drpc";
 import { dynamic } from "./records/dynamic";
+import { fenwick } from "./records/fenwick";
 import { fidelity } from "./records/fidelity";
 import { fireblocks } from "./records/fireblocks";
 import { flashTrade } from "./records/flash-trade";
@@ -62,10 +65,12 @@ import { ika } from "./records/ika";
 import { jito } from "./records/jito";
 import { jpmorgan } from "./records/jpmorgan";
 import { jupiter } from "./records/jupiter";
+import { jurassicfi } from "./records/jurassicfi";
 import { kamino } from "./records/kamino";
 import { kast } from "./records/kast";
 import { kilpatrickTownsend } from "./records/kilpatrick-townsend";
 import { kazakhstan } from "./records/kazakhstan";
+import { kraken } from "./records/kraken";
 import { libeara } from "./records/libeara";
 import { listingHelp } from "./records/listing-help";
 import { loopscale } from "./records/loopscale";
@@ -85,6 +90,7 @@ import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
 import { pancakeswap } from "./records/pancakeswap";
 import { paxos } from "./records/paxos";
+import { payoneer } from "./records/payoneer";
 import { phantom } from "./records/phantom";
 import { phoenix } from "./records/phoenix";
 import { pipeNetwork } from "./records/pipe-network";
@@ -116,6 +122,7 @@ import { solflare } from "./records/solflare";
 import { solpay } from "./records/solpay";
 import { spi } from "./records/spi";
 import { squads } from "./records/squads";
+import { stablecard } from "./records/stablecard";
 import { stateStreet } from "./records/state-street";
 import { stripe } from "./records/stripe";
 import { streamflow } from "./records/streamflow";
@@ -124,6 +131,7 @@ import { superteamUsa } from "./records/superteam-usa";
 import { switchboard } from "./records/switchboard";
 import { syndica } from "./records/syndica";
 import { tala } from "./records/tala";
+import { tether } from "./records/tether";
 import { theGraph } from "./records/the-graph";
 import { titan } from "./records/titan";
 import { trojan } from "./records/trojan";
@@ -134,14 +142,18 @@ import { visa } from "./records/visa";
 import { vybeNetwork } from "./records/vybe-network";
 import { walletconnect } from "./records/walletconnect";
 import { walrus } from "./records/walrus";
+import { westernUnion } from "./records/western-union";
 import { wyoming } from "./records/wyoming";
 import { xash } from "./records/xash";
 import { xbit } from "./records/xbit";
 import { yala } from "./records/yala";
+import { zan } from "./records/zan";
+import { zelle } from "./records/zelle";
 import { zerion } from "./records/zerion";
 
 export const companies = [
   accretion,
+  agant,
   agridex,
   aisa,
   alchemy,
@@ -169,6 +181,7 @@ export const companies = [
   bridge,
   bydfi,
   byreal,
+  checkout,
   cherryServers,
   circle,
   citi,
@@ -188,6 +201,7 @@ export const companies = [
   doublezero,
   drpc,
   dynamic,
+  fenwick,
   fidelity,
   fireblocks,
   flashTrade,
@@ -204,10 +218,12 @@ export const companies = [
   jito,
   jpmorgan,
   jupiter,
+  jurassicfi,
   kamino,
   kast,
   kilpatrickTownsend,
   kazakhstan,
+  kraken,
   libeara,
   listingHelp,
   loopscale,
@@ -227,6 +243,7 @@ export const companies = [
   osl,
   pancakeswap,
   paxos,
+  payoneer,
   phantom,
   phoenix,
   pipeNetwork,
@@ -258,6 +275,7 @@ export const companies = [
   solpay,
   spi,
   squads,
+  stablecard,
   stateStreet,
   stripe,
   streamflow,
@@ -266,6 +284,7 @@ export const companies = [
   switchboard,
   syndica,
   tala,
+  tether,
   theGraph,
   titan,
   trojan,
@@ -276,10 +295,13 @@ export const companies = [
   vybeNetwork,
   walletconnect,
   walrus,
+  westernUnion,
   wyoming,
   xash,
   xbit,
   yala,
+  zan,
+  zelle,
   zerion,
 ] as const satisfies readonly CompanyRecord[];
 

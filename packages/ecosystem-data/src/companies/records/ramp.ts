@@ -1,4 +1,8 @@
 import type { CompanyRecord } from "../../types";
+import rampLogoDark from "../../../assets/companies/ramp/logo-dark.svg";
+import rampLogoLight from "../../../assets/companies/ramp/logo-light.svg";
+import rampLogoSquareDark from "../../../assets/companies/ramp/logo-square-dark.png";
+import rampBreakpoint2026White from "../../../assets/companies/ramp/breakpoint-2026-white.png";
 import rampLogoMonotone from "../../../assets/companies/ramp/logo-monotone.svg";
 
 export const ramp = {
@@ -24,6 +28,39 @@ export const ramp = {
   },
   defaultLogoId: "logo-monotone",
   logos: [
+    {
+      id: "logo-dark",
+      fileName: "logo-dark.svg",
+      format: "svg",
+      source: rampLogoDark,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "logo-light",
+      fileName: "logo-light.svg",
+      format: "svg",
+      source: rampLogoLight,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-square-dark",
+      fileName: "logo-square-dark.png",
+      format: "png",
+      source: rampLogoSquareDark,
+      theme: "light",
+      kind: "logo",
+      background: "light",
+    },
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: rampBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-monotone",
       fileName: "logo-monotone.svg",

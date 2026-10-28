@@ -72,7 +72,7 @@ export function SolutionsPaymentsToolingPage() {
             label: t("buttons.getStarted"),
             hierarchy: "primary",
             size: "lg",
-            url: "https://docs.solanapay.com/core/overview",
+            url: "/docs/tools/solana-pay",
           },
         ]}
         image={{
@@ -110,7 +110,7 @@ export function SolutionsPaymentsToolingPage() {
             body: t("featureCards.direct.body"),
             callToAction: {
               label: t("buttons.learnMore"),
-              url: "https://solanapay.com/",
+              url: "/docs/tools/solana-pay",
             },
           },
           {
@@ -119,7 +119,7 @@ export function SolutionsPaymentsToolingPage() {
             body: t("featureCards.easy.body"),
             callToAction: {
               label: t("buttons.learnMore"),
-              url: "https://commercedocs.solanapay.com/",
+              url: "https://apps.shopify.com/solana-pay-helio",
             },
           },
           {
@@ -271,7 +271,7 @@ export function SolutionsPaymentsToolingPage() {
             hierarchy: "outline",
             size: "md",
             iconSize: "md",
-            url: "https://docs.solanapay.com/core/overview",
+            url: "/docs/tools/solana-pay",
           },
         ]}
       />

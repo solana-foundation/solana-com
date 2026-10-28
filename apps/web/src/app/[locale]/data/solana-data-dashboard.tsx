@@ -2,7 +2,15 @@
 
 import { Github } from "@boxicons/react/Github";
 import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Fragment,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import useSWR from "swr";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import {
@@ -24,7 +32,11 @@ import {
   rpcLatencyRepositoryUrl,
   backfillRequestsUrl,
 } from "./dashboard-constants";
-import { formatTimestamp, getTabContent } from "./dashboard-copy";
+import {
+  formatTimestamp,
+  getRangeLabel,
+  getTabContent,
+} from "./dashboard-copy";
 import { DashboardControls } from "./dashboard-controls";
 import { ChartGrid, DataError, KpiGrid } from "./dashboard-charts";
 import { fetchData, fetchRpcFilters } from "./dashboard-fetch";
@@ -71,9 +83,10 @@ export function SolanaDataDashboard() {
   const showProviderControls = useMinWidth("(min-width: 768px)");
   const {
     activeTab,
+    linkedChartId,
     providerParam,
     queryString,
-    rangeDays,
+    range,
     rpcInfra,
     rpcMethod,
     rpcRegion,
@@ -96,8 +109,8 @@ export function SolanaDataDashboard() {
   const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const dataUrl = getDashboardDataUrl({
     activeTab,
+    range,
     rpcInfra,
-    rangeDays,
     rpcMethod,
     rpcRegion,
     rpcTimeframe,
@@ -193,6 +206,9 @@ export function SolanaDataDashboard() {
   const hasKpiGrid = !isLiveInfrastructureTab;
   const isInitialLoading = (isLoading || isValidating) && rows.length === 0;
   const isRefreshing = isValidating && rows.length > 0;
+  const controlsRef = useRef<HTMLElement>(null);
+
+  useScrollToLinkedChart(linkedChartId, !isInitialLoading, controlsRef);
   const footerMetaItems = [
     <span key="cadence">
       {isRpcTab
@@ -262,13 +278,14 @@ export function SolanaDataDashboard() {
 
         <nav
           aria-label={t("controls.ariaLabel")}
+          ref={controlsRef}
           className="sticky top-14 z-40 mt-8 -mx-4 md:-mx-8 xl:-mx-10 bg-nd-inverse/90 backdrop-blur-md border-y border-nd-border-light"
         >
           <DashboardControls
             activeTab={activeTab}
             availableProviders={availableProviders}
             isRefreshing={isRefreshing}
-            rangeDays={rangeDays}
+            range={range}
             rpcInfra={rpcInfra}
             rpcMethod={rpcMethod}
             rpcRegion={rpcRegion}
@@ -337,7 +354,7 @@ export function SolanaDataDashboard() {
                 isConnectedToPrevious={hasKpiGrid}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
-                rangeDays={rangeDays}
+                range={range}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -364,7 +381,7 @@ export function SolanaDataDashboard() {
               />
               {isLiveInfrastructureTab
                 ? t("footer.lastTimeframe", { timeframe: rpcTimeframe })
-                : t("footer.lastDays", { days: rangeDays })}
+                : getRangeLabel(t, range, locale)}
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
               {isRpcTab ? (
@@ -434,6 +451,54 @@ export function SolanaDataDashboard() {
       </div>
     </main>
   );
+}
+
+/**
+ * Scrolls a `#chart-id` link to its chart once the charts have rendered. The
+ * browser's own hash jump fires before the data loads, so it can't do this.
+ */
+function useScrollToLinkedChart(
+  linkedChartId: string | undefined,
+  isReady: boolean,
+  stickyControlsRef: RefObject<HTMLElement | null>,
+) {
+  const scrolledChartIdRef = useRef<string>(undefined);
+
+  useEffect(() => {
+    if (
+      !linkedChartId ||
+      !isReady ||
+      scrolledChartIdRef.current === linkedChartId
+    ) {
+      return;
+    }
+
+    // Charts without data aren't rendered, so there may be nothing to find.
+    const target = document.getElementById(linkedChartId);
+
+    if (!target) {
+      return;
+    }
+
+    scrolledChartIdRef.current = linkedChartId;
+
+    // Land below the sticky site header and the sticky controls bar, whose
+    // height changes when the controls wrap on small screens.
+    const controls = stickyControlsRef.current;
+    const stickyOffset = controls
+      ? Number.parseFloat(getComputedStyle(controls).top) +
+        controls.offsetHeight
+      : 0;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    window.scrollTo({
+      behavior: reduceMotion ? "auto" : "smooth",
+      top:
+        target.getBoundingClientRect().top + window.scrollY - stickyOffset - 16,
+    });
+  });
 }
 
 function useMinWidth(query: string) {

@@ -122,6 +122,7 @@ CURATED_SECTIONS = {
         ("Solana Pay", "docs/tools/solana-pay", "Standard protocol for decentralized payments on Solana"),
         ("Attestations", "docs/tools/attestations", "Verifiable claims and credentials on Solana"),
         ("Private Channels", "docs/tools/private-channels", "Enterprise layer for internet capital markets"),
+        ("Rewards Program", "docs/tools/rewards", "Token distributions with vesting, merkle claims, and revocation"),
         ("LiteSVM", "docs/tools/litesvm", "Test Solana programs with an in-process virtual machine"),
         ("Surfpool", "docs/tools/surfpool", "Simulate Solana programs locally with mainnet accounts"),
         ("Surfpool Kit Plugin", "docs/tools/surfpool/sdk/kit-plugin", "Run a local Surfnet behind a Solana Kit client"),
