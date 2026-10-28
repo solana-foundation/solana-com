@@ -43,6 +43,7 @@ export const rpcLatencyProviders = [
   "fluxrpc",
   "helius",
   "quicknode",
+  "solanavibestation",
   "triton",
 ] as const;
 
