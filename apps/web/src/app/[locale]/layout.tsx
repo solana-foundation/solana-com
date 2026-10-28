@@ -16,7 +16,7 @@ import { notFound } from "next/navigation";
 import {
   ThemeProvider,
   SitewideTopAlert,
-  AskSolanaButton,
+  SiteChatButton,
   PersistentPodcastPlayer,
   GoogleTagManagerNoScript,
 } from "@solana-com/ui-chrome";
@@ -57,7 +57,7 @@ export default async function RootLayout({ children, params }: Props) {
                 <Footer />
               </ChromeWrapper>
               <PersistentPodcastPlayer />
-              <AskSolanaButton />
+              <SiteChatButton />
               <Script
                 id="signals-script"
                 strategy="afterInteractive"

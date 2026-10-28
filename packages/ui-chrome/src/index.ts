@@ -19,6 +19,7 @@ export { Header } from "./header";
 export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
+export { SiteChatButton } from "./site-chat-button";
 export {
   AskSolanaButton,
   RobotIcon as VectorRobotIcon,

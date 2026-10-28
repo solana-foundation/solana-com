@@ -35,3 +35,8 @@ export function isThemeRoute(pathname: string | null | undefined) {
     matchesRouteSegment(pathname, "/developers/bootcamp")
   );
 }
+
+/** Ask Solana (the docs agent) is scoped to /docs; the rest of the site keeps Inkeep. */
+export function isAskSolanaRoute(pathname: string | null | undefined) {
+  return matchesRouteSegment(pathname, "/docs");
+}

@@ -1,7 +1,7 @@
 import { cookbookSource } from "@@/src/app/sources/cookbook";
 import type { ReactNode } from "react";
 import { DocsLayout } from "@@/src/app/components/docs-layout";
-import { AskSolanaButton } from "@solana-com/ui-chrome";
+import { InkeepChatButton } from "@solana-com/ui-chrome";
 export default async function Layout({
   children,
   params,
@@ -13,7 +13,7 @@ export default async function Layout({
   return (
     <DocsLayout tree={cookbookSource.pageTree[locale]} locale={locale}>
       {children}
-      <AskSolanaButton />
+      <InkeepChatButton />
     </DocsLayout>
   );
 }
