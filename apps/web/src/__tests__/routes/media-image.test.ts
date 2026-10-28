@@ -78,10 +78,17 @@ describe("Media image proxy", () => {
     expect(response.headers.get("Cache-Control")).toBeNull();
   });
 
-  it("rejects non-upload paths before requesting Media", async () => {
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-    expect((await GET(request("/api/private"))).status).toBe(400);
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
+  it.each([
+    "/api/private",
+    "/uploads/../api/private",
+    "/uploads/%2e%2e/api/private",
+  ])(
+    "rejects non-upload and traversal paths before requesting Media (%s)",
+    async (path) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      expect((await GET(request(path))).status).toBe(400);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
 });

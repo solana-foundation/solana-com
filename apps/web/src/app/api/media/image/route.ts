@@ -28,14 +28,21 @@ export async function GET(request: NextRequest) {
 
   const normalizedPath = normalizePath(path);
 
-  if (!normalizedPath.startsWith("/uploads/")) {
+  const upstreamUrl = new URL(MEDIA_APP_URL);
+  upstreamUrl.pathname = normalizedPath;
+  upstreamUrl.search = "";
+  upstreamUrl.hash = "";
+
+  if (
+    !normalizedPath.startsWith("/uploads/") ||
+    !upstreamUrl.pathname.startsWith("/uploads/")
+  ) {
     return NextResponse.json(
       { error: "Only media upload assets are supported" },
       { status: 400 },
     );
   }
 
-  const upstreamUrl = new URL(normalizedPath, MEDIA_APP_URL);
   let upstreamResponse = await fetch(upstreamUrl, {
     next: { revalidate: CACHE_SECONDS },
   });
@@ -47,7 +54,9 @@ export async function GET(request: NextRequest) {
     MEDIA_APP_URL !== PUBLIC_MEDIA_URL &&
     !isImageResponse(upstreamResponse)
   ) {
-    upstreamResponse = await fetch(new URL(normalizedPath, PUBLIC_MEDIA_URL), {
+    const publicUrl = new URL(PUBLIC_MEDIA_URL);
+    publicUrl.pathname = upstreamUrl.pathname;
+    upstreamResponse = await fetch(publicUrl, {
       next: { revalidate: CACHE_SECONDS },
     });
   }
