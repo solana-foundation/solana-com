@@ -52,7 +52,6 @@ const REQUESTS: Request[] = [
     accent: "orange",
     videos: [
       { id: "8CUSptfIW_U", title: "Entertainment Finance for Everyone" },
-      { id: "ZVyQVSQ9s6U", title: "Game-Day Mode for Prediction Markets" },
     ],
   },
   { slug: "ai", accent: "violet" },
@@ -73,7 +72,10 @@ const REQUESTS: Request[] = [
   {
     slug: "perps",
     accent: "blue",
-    videos: [{ id: "r9ZQuh3ShV8", title: "Perps and Onchain Trading" }],
+    videos: [
+      { id: "r9ZQuh3ShV8", title: "Perps and Onchain Trading" },
+      { id: "ZVyQVSQ9s6U", title: "Game-Day Mode for Prediction Markets" },
+    ],
   },
   {
     slug: "stable",
