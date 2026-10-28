@@ -119,7 +119,9 @@ export default function AwardsVoting({
       (item) => item.twitterHandle === vote?.twitterHandle,
     );
     const text = t("voting.shareText", {
-      name: finalist?.name ?? vote?.twitterHandle ?? "",
+      name: finalist
+        ? `${finalist.name} (${finalist.twitterHandle})`
+        : (vote?.twitterHandle ?? ""),
       category: copy.name,
     });
     window.open(
