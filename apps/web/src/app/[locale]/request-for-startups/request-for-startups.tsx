@@ -21,20 +21,76 @@ import styles from "./request-for-startups.module.scss";
 type Request = {
   slug: string;
   accent: "violet" | "green" | "pink" | "blue" | "orange";
+  videos?: { id: string; title: string }[];
 };
 
 const REQUESTS: Request[] = [
-  { slug: "exotic-rwas", accent: "violet" },
-  { slug: "inference-provider-marketplace", accent: "green" },
-  { slug: "perps-for-real-estate", accent: "pink" },
-  { slug: "agentic-security", accent: "blue" },
-  { slug: "gamified-trading", accent: "orange" },
+  {
+    slug: "exotic-rwas",
+    accent: "violet",
+    videos: [{ id: "OdhqVLfXPxQ", title: "Bring Exotic Collectible Onchain" }],
+  },
+  {
+    slug: "inference-provider-marketplace",
+    accent: "green",
+    videos: [
+      { id: "tGH2lOT_mno", title: "An Open Marketplace for AI Inference" },
+    ],
+  },
+  {
+    slug: "perps-for-real-estate",
+    accent: "pink",
+    videos: [{ id: "ZxIzUBOnrtQ", title: "Onchain Housing Futures" }],
+  },
+  {
+    slug: "agentic-security",
+    accent: "blue",
+    videos: [{ id: "15ecsUCXN1E", title: "Security for the Agentic Age" }],
+  },
+  {
+    slug: "gamified-trading",
+    accent: "orange",
+    videos: [
+      { id: "8CUSptfIW_U", title: "Entertainment Finance for Everyone" },
+      { id: "ZVyQVSQ9s6U", title: "Game-Day Mode for Prediction Markets" },
+    ],
+  },
   { slug: "ai", accent: "violet" },
-  { slug: "distribution-platform", accent: "green" },
-  { slug: "better-wallet", accent: "pink" },
-  { slug: "perps", accent: "blue" },
-  { slug: "stable", accent: "orange" },
-  { slug: "stocks", accent: "violet" },
+  {
+    slug: "distribution-platform",
+    accent: "green",
+    videos: [
+      { id: "U4DIr3l9A_0", title: "Attention Tokens for Startup Distribution" },
+    ],
+  },
+  {
+    slug: "better-wallet",
+    accent: "pink",
+    videos: [
+      { id: "YEO8Gh0PxV4", title: "An AI Financial Advisor in Your Wallet" },
+    ],
+  },
+  {
+    slug: "perps",
+    accent: "blue",
+    videos: [{ id: "r9ZQuh3ShV8", title: "Perps and Onchain Trading" }],
+  },
+  {
+    slug: "stable",
+    accent: "orange",
+    videos: [{ id: "5jJX-IjTVMw", title: "Build the Future of Stablecoins" }],
+  },
+  {
+    slug: "stocks",
+    accent: "violet",
+    videos: [
+      {
+        id: "D1C95ROUuSo",
+        title:
+          "Discovery and Trading Infrastructure for Onchain Startup Fundraising",
+      },
+    ],
+  },
 ];
 
 const ACCENTS: Record<Request["accent"], string> = {
@@ -402,11 +458,28 @@ export function RequestForStartupsPage() {
                         </Button>
                       </div>
                     </div>
-                    <SignalArtwork
-                      request={request}
-                      category={t(`requests.items.${request.slug}.category`)}
-                      t={t}
-                    />
+                    {request.videos ? (
+                      <div className={styles.requestVideos}>
+                        {request.videos.map((video) => (
+                          <iframe
+                            key={video.id}
+                            className={styles.requestVideo}
+                            src={`https://www.youtube-nocookie.com/embed/${video.id}?rel=0`}
+                            title={video.title}
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                            allowFullScreen
+                            referrerPolicy="strict-origin-when-cross-origin"
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <SignalArtwork
+                        request={request}
+                        category={t(`requests.items.${request.slug}.category`)}
+                        t={t}
+                      />
+                    )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
