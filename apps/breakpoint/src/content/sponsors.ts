@@ -98,13 +98,6 @@ const platinumSponsors = [
     height: 449,
   },
   {
-    companyId: "bloomberg-media",
-    displayName: "Bloomberg",
-    logoVariant: { id: "logo-horizontal-light" },
-    width: 666.06,
-    height: 173.85,
-  },
-  {
     companyId: "grayscale",
     logoVariant: { id: "logo-light" },
     width: 1050,
@@ -113,6 +106,11 @@ const platinumSponsors = [
   { companyId: "tether", width: 121, height: 28 },
   { companyId: "payoneer", width: 1316, height: 256 },
   { companyId: "ramp", width: 599, height: 171 },
+  {
+    companyId: "kast",
+    width: 384,
+    height: 80,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -176,11 +174,6 @@ const goldSponsors = [
     companyId: "rain",
     width: 300,
     height: 91.13,
-  },
-  {
-    companyId: "kast",
-    width: 384,
-    height: 80,
   },
   {
     companyId: "raiku",
@@ -384,8 +377,61 @@ const goldSponsors = [
   {
     companyId: "jurassicfi",
     displayName: "JurassicFi",
-    width: 1532,
-    height: 1201,
+    width: 2009,
+    height: 1470,
+  },
+  {
+    companyId: "bloomberg-media",
+    displayName: "Bloomberg",
+    logoVariant: { id: "logo-horizontal-light" },
+    width: 666.06,
+    height: 173.85,
+  },
+  {
+    companyId: "arcium",
+    width: 1643.5,
+    height: 274.7,
+  },
+  {
+    companyId: "sanctum",
+    width: 1246,
+    height: 235,
+  },
+  {
+    companyId: "solana-incubator",
+    width: 200,
+    height: 16,
+  },
+  {
+    companyId: "ledger",
+    width: 568,
+    height: 190,
+  },
+  {
+    companyId: "reap",
+    width: 612,
+    height: 219,
+  },
+  {
+    companyId: "solblaze",
+    width: 794,
+    height: 200,
+  },
+  {
+    companyId: "nagy-wolfe-appleton",
+    width: 5132,
+    height: 2561,
+  },
+  {
+    companyId: "open-standard",
+    displayName: "Open Standard (OUSD)",
+    width: 1115,
+    height: 150,
+  },
+  {
+    companyId: "creditcoop",
+    width: 680,
+    height: 254,
   },
 ] satisfies SponsorLogo[];
 

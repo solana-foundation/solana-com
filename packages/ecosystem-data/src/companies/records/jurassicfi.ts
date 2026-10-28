@@ -1,6 +1,6 @@
 import type { CompanyRecord } from "../../types";
-import jurassicfiMarkColor from "../../../assets/companies/jurassicfi/mark-color.png";
-import jurassicfiBreakpoint2026White from "../../../assets/companies/jurassicfi/breakpoint-2026-white.png";
+import jurassicfiLogoWhiteOnBlack from "../../../assets/companies/jurassicfi/logo-white-on-black.svg";
+import jurassicfiBreakpoint2026White from "../../../assets/companies/jurassicfi/breakpoint-2026-white.svg";
 
 export const jurassicfi = {
   id: "jurassicfi",
@@ -19,22 +19,29 @@ export const jurassicfi = {
       x: "https://x.com/JurassicFi",
     },
   },
-  defaultLogoId: "mark-color",
+  defaultLogoId: "logo-white-on-black",
   logos: [
     {
-      id: "mark-color",
-      fileName: "mark-color.png",
-      format: "png",
-      source: jurassicfiMarkColor,
+      id: "logo-white-on-black",
+      fileName: "logo-white-on-black.svg",
+      format: "svg",
+      source: jurassicfiLogoWhiteOnBlack,
       kind: "mark",
+      background: "dark",
+      width: 2491,
+      height: 2491,
     },
     {
       id: "breakpoint-2026-white",
-      fileName: "breakpoint-2026-white.png",
-      format: "png",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
       source: jurassicfiBreakpoint2026White,
       theme: "dark",
-      kind: "logo",
+      treatment: "monotone",
+      kind: "mark",
+      background: "transparent",
+      width: 2009,
+      height: 1470,
     },
   ],
 } satisfies CompanyRecord;

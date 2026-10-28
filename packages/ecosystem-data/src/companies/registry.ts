@@ -36,6 +36,7 @@ import { coinbase } from "./records/coinbase";
 import { colosseum } from "./records/colosseum";
 import { cooley } from "./records/cooley";
 import { cow } from "./records/cow";
+import { creditcoop } from "./records/creditcoop";
 import { comicbook } from "./records/comicbook";
 import { collectorCrypt } from "./records/collector-crypt";
 import { d3 } from "./records/d3";
@@ -71,6 +72,7 @@ import { kast } from "./records/kast";
 import { kilpatrickTownsend } from "./records/kilpatrick-townsend";
 import { kazakhstan } from "./records/kazakhstan";
 import { kraken } from "./records/kraken";
+import { ledger } from "./records/ledger";
 import { libeara } from "./records/libeara";
 import { listingHelp } from "./records/listing-help";
 import { loopscale } from "./records/loopscale";
@@ -84,7 +86,9 @@ import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
 import { moneygram } from "./records/moneygram";
 import { nodit } from "./records/nodit";
+import { nagyWolfeAppleton } from "./records/nagy-wolfe-appleton";
 import { openmined } from "./records/openmined";
+import { openStandard } from "./records/open-standard";
 import { opensea } from "./records/opensea";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
@@ -118,6 +122,7 @@ import { sofi } from "./records/sofi";
 import { solanaIncubator } from "./records/solana-incubator";
 import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
+import { solblaze } from "./records/solblaze";
 import { solflare } from "./records/solflare";
 import { solpay } from "./records/solpay";
 import { spi } from "./records/spi";
@@ -189,6 +194,7 @@ export const companies = [
   colosseum,
   cooley,
   cow,
+  creditcoop,
   comicbook,
   collectorCrypt,
   d3,
@@ -224,6 +230,7 @@ export const companies = [
   kilpatrickTownsend,
   kazakhstan,
   kraken,
+  ledger,
   libeara,
   listingHelp,
   loopscale,
@@ -237,7 +244,9 @@ export const companies = [
   morganStanley,
   moneygram,
   nodit,
+  nagyWolfeAppleton,
   openmined,
+  openStandard,
   opensea,
   orbitflare,
   osl,
@@ -271,6 +280,7 @@ export const companies = [
   solanaIncubator,
   solanaSpaces,
   solayer,
+  solblaze,
   solflare,
   solpay,
   spi,
