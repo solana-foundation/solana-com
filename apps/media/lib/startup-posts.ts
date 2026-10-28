@@ -8,7 +8,12 @@ const LIMIT = 4;
 export async function fetchStartupPosts() {
   const responses = await Promise.all(
     ["product", "hackathon"].map((tag) =>
-      fetchLatestPosts({ tag, excludeCategory: "changelog", limit: LIMIT }),
+      fetchLatestPosts({
+        tag,
+        excludeCategory: "changelog",
+        limit: LIMIT,
+        throwOnError: true,
+      }),
     ),
   );
   const seen = new Set<string>();

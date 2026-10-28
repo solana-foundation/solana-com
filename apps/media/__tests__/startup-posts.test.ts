@@ -86,9 +86,23 @@ describe("startup posts endpoint", () => {
   });
 
   it("does not expose internal errors or cache a failed response", async () => {
-    unstableCacheMock.mockImplementationOnce(() => async () => {
-      throw new Error("internal detail");
+    readerMock.collections.posts.list.mockRejectedValueOnce(
+      new Error("internal detail"),
+    );
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = await GET();
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: "Failed to fetch startup posts",
     });
+    expect(response.headers.get("cache-control")).toBeNull();
+    log.mockRestore();
+  });
+  it("rejects a partial feed when an individual post cannot be read", async () => {
+    readerMock.collections.posts.list.mockResolvedValue(["unreadable"]);
+    readerMock.collections.posts.read.mockRejectedValue(
+      new Error("read failed"),
+    );
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const response = await GET();
     expect(response.status).toBe(500);
