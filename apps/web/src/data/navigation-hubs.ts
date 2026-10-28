@@ -372,9 +372,6 @@ const navigationHubStaticConfigs = {
       {
         links: [
           {
-            href: "/docs/tools/commerce-kit",
-          },
-          {
             href: "/docs/tools/kora",
           },
           {

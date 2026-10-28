@@ -1,86 +1,132 @@
 ---
 title: "Quickstart: accept a payment"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  Show a Solana Pay QR code in a React app, confirm the payment onchain, and
+  take your first stablecoin payment on devnet.
 ---
 
-You'll end up with a payment button in a React app that connects a wallet, lets
-the payer pick a token, and confirms a real payment to your address. You need
-Node.js 20+, a React or Next.js app (a fresh `create-next-app` is fine), and a
-wallet to pay from.
+You'll end up with a React component that shows a Solana Pay QR code for a USDC
+payment, waits for the payment to land, and checks that it matches what you
+asked for. You need Node.js 20+, a React or Next.js app (a fresh
+`create-next-app` is fine), and a mobile wallet set to devnet with some devnet
+USDC from [faucet.circle.com](https://faucet.circle.com).
 
 <Callout type="caution">
-  The Commerce Kit is currently in beta. APIs may change before the stable
-  release.
+  `@solana/pay` is currently in beta. APIs may change before the stable release.
 </Callout>
 
-## 1. Install the Commerce Kit
+## 1. Install Solana Pay
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. Add the button
+## 2. Add the payment QR code
 
-Drop the `PaymentButton` component anywhere in your app and set the merchant
-wallet to an address you control:
+The component creates a unique reference for the order, encodes it into a
+[transfer request](/docs/tools/solana-pay/quickstart/transfer-requests) URL, and
+renders the URL as a QR code. It then watches for a transaction that includes
+the reference and validates the recipient, amount, and token before marking the
+order paid. Set `MERCHANT_WALLET` to an address you control:
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-The component handles wallet connection, token selection, transaction
-processing, and UI state internally. `mode: "tip"` lets the payer choose the
-amount; see [payment modes](/docs/tools/commerce-kit/quickstart/payment-button)
-for fixed-price and cart checkouts.
-
-## Try it in the browser
-
-Configure the payment button and launch the tip flow without leaving this page.
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="Commerce Kit Playground"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[Open the Commerce Kit Playground full screen](https://launch.solana.com/products/commercekit/playground)
+`amount` is in token units, so `1` requests 1 USDC. Leave out `splToken` to
+request SOL instead.
 
 ## 3. Take a payment
 
-Run your app, click the button, connect a wallet, and pay. The
-`onPaymentSuccess` callback receives the transaction signature, which is your
-receipt: look it up with [getTransaction](/docs/rpc/http/gettransaction) or in
-any explorer.
+Run your app, scan the QR code with your wallet, and approve the payment. Once
+the transaction confirms and passes validation, the component shows the
+transaction signature. That signature is your receipt: look it up with
+[getTransaction](/docs/rpc/http/gettransaction) or in any explorer.
+
+<Callout type="warn">
+  Validation in the browser is fine for a demo. Before you fulfill real orders,
+  validate payments on your server. See [verify
+  payments](/docs/payments/accept-payments/verification-tools).
+</Callout>
 
 ## Where to go next
 
+- [Solana Pay](/docs/tools/solana-pay) - transfer requests, transaction
+  requests, and QR code options
 - [How payments work on Solana](/docs/payments/how-payments-work) - wallets,
   stablecoins, token accounts, and fees
 - [Verify payments](/docs/payments/accept-payments/verification-tools) - confirm
