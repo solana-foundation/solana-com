@@ -149,9 +149,5 @@ describe("Cross-app rewrites", () => {
       "/api/posts/:path*",
       `${MEDIA_APP_URL}/api/posts/:path*`,
     );
-    expectBeforeFileRewrite(
-      "/api/upgrades/alpenglow/:path*",
-      `${MEDIA_APP_URL}/api/upgrades/alpenglow/:path*`,
-    );
   });
 });

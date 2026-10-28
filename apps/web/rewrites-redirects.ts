@@ -584,11 +584,6 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
-      {
-        source: "/api/upgrades/alpenglow/:path*",
-        destination: `${MEDIA_APP_URL}/api/upgrades/alpenglow/:path*`,
-        locale: false,
-      },
       // Proxy /_next/image requests for /uploads/* to the media app's image
       // optimizer. The web app's /_next/image reads from its own filesystem,
       // but /uploads/ files live in the media app's deployment.
@@ -873,6 +868,11 @@ export default {
     {
       source: "/upgrades/larger-transaction-size",
       destination: "/upgrades/larger-transaction-sizes",
+    },
+    {
+      source: "/upgrades/alpenglow/dashboard",
+      destination: "/upgrades/alpenglow",
+      permanent: true,
     },
 
     // /scholars applications moved from the built-in form to Typeform
