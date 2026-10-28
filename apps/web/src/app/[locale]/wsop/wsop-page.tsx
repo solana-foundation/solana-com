@@ -82,9 +82,8 @@ const HOW_TO_STEPS: Array<{ step: number; icon: Icon | typeof SolanaMark }> = [
 
 const ParadiseScene = dynamic(() => import("./paradise-scene"), { ssr: false });
 
-// Swap src and poster when the final walkthrough is delivered.
 const BUY_IN_VIDEO = {
-  src: "/src/img/wsop/paradise/buy-in-walkthrough-placeholder.mp4",
+  src: "https://xbjpr0reg4kgflon.public.blob.vercel-storage.com/wsop/wsop-buyin-video.mp4",
   poster: "/src/img/wsop/paradise/buy-in-walkthrough-poster.webp",
 };
 
@@ -677,24 +676,21 @@ export function WsopPage({ news }: { news: NewsItem[] }) {
             </div>
           </Reveal>
           <div className="mt-10 grid items-start gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:gap-16">
-            <div className="lg:sticky lg:top-24">
+            <div className="mx-auto w-full max-w-[min(22rem,calc(75svh*9/16))] lg:sticky lg:top-24">
               <Video
                 platform="local"
                 id={BUY_IN_VIDEO.src}
                 thumbnail={BUY_IN_VIDEO.poster}
-                aspectRatio="1:1"
+                aspectRatio="9:16"
                 autoplay={false}
                 loop={false}
                 title={t("howTo.videoTitle")}
                 alt=""
-                sizes="(min-width: 1024px) 40vw, 100vw"
+                sizes="(min-height: 835px) 352px, 42.1875svh"
                 className="rounded-2xl border border-[var(--wsop-border-prominent)] bg-[var(--wsop-card)]"
                 bgColorClass="border border-white/30 bg-white/15 backdrop-blur-md"
                 playButtonClassName="h-20 w-20"
               />
-              <p className="mt-5 font-[family-name:var(--wsop-font-label)] text-xs leading-relaxed text-white/55 uppercase tracking-[var(--wsop-label-tracking)]">
-                {t("howTo.videoNote")}
-              </p>
             </div>
             <div>
               <Stagger className="block">

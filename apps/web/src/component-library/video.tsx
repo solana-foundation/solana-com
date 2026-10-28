@@ -53,6 +53,7 @@ import Image from "next/image";
 
 const ASPECT_RATIOS = {
   "16:9": "aspect-[16/9]",
+  "9:16": "aspect-[9/16]",
   "4:3": "aspect-[4/3]",
   "1:1": "aspect-square",
 } as const;
