@@ -1,4 +1,5 @@
 export type SpeakerSession = {
+  id: string;
   day?: string;
   format?: string;
   title?: string;
@@ -11,7 +12,7 @@ export type BreakpointSpeaker = {
   id: string;
   name: string;
   role?: string;
-  session?: SpeakerSession;
+  sessions?: SpeakerSession[];
   slug: string;
   sortOrder: number;
   xUrl?: string;
