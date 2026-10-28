@@ -223,6 +223,7 @@ export default function ParadiseScene({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       placeStack();
+      if (reduced) render(3);
     };
     const render = (time: number) => {
       sky.material.uniforms.uTime.value = time;
