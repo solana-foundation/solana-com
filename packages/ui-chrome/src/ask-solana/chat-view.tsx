@@ -56,7 +56,12 @@ type AssistantMessage = {
   state: "streaming" | "done" | "error";
   statusStage: string | null;
   visualStatus: string | null;
-  errorKind: "rate_limited" | "generic" | null;
+  errorKind:
+    | "rate_limited"
+    | "conversation_not_found"
+    | "conversation_full"
+    | "generic"
+    | null;
 };
 type ChatMessage = UserMessage | AssistantMessage;
 
@@ -837,10 +842,23 @@ export function AskSolanaChatView({
               statusStage: null,
               visualStatus: null,
               errorKind:
-                errorMessage === "rate_limited" ? "rate_limited" : "generic",
+                errorMessage === "rate_limited" ||
+                errorMessage === "conversation_not_found" ||
+                errorMessage === "conversation_full"
+                  ? errorMessage
+                  : "generic",
             }));
+            if (
+              errorMessage === "conversation_not_found" ||
+              errorMessage === "conversation_full"
+            ) {
+              conversationIdRef.current = null;
+            }
             setChatStatus("error");
             setIsBusy(false);
+          },
+          onConversationReset: () => {
+            conversationIdRef.current = null;
           },
           onTiming: trackTiming,
         },
@@ -1052,7 +1070,11 @@ export function AskSolanaChatView({
                     >
                       {message.errorKind === "rate_limited"
                         ? t("askSolana.errorRateLimited")
-                        : t("askSolana.errorGeneric")}
+                        : message.errorKind === "conversation_not_found"
+                          ? t("askSolana.conversationReset")
+                          : message.errorKind === "conversation_full"
+                            ? t("askSolana.conversationFull")
+                            : t("askSolana.errorGeneric")}
                     </p>
                   ) : null}
                   {message.state === "done" ? (

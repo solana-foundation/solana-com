@@ -89,7 +89,11 @@ export type AskChatHandlers = {
   onDone: (payload: AskChatDonePayload) => void;
   onError: (message: string) => void;
   onTiming?: (timing: AskChatTiming) => void;
+  /** The stored conversation id was dropped (rejected session or stale id). */
+  onConversationReset?: () => void;
 };
+
+import { storeConversationId } from "./conversation-store";
 
 const SESSION_STORAGE_KEY = "ask-solana:session";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -204,6 +208,8 @@ function storeSession(token: string) {
 }
 
 export function clearAskSession() {
+  // Conversation ids belong to the session token that created them.
+  storeConversationId(null);
   try {
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
   } catch {
@@ -439,6 +445,22 @@ export function isAskGenerativeUi(value: unknown): value is AskGenerativeUi {
   );
 }
 
+/** The backend issues integer ids; older payloads may carry strings. */
+function toConversationId(value: unknown): string | null {
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    return String(value);
+  }
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+/** `/chat` expects an integer `conversation_id`; opaque ids pass through. */
+function toRequestConversationId(
+  id: string | null,
+): number | string | undefined {
+  if (id === null) return undefined;
+  return /^\d+$/.test(id) ? Number(id) : id;
+}
+
 function toDonePayload(done: DonePayload): AskChatDonePayload {
   const response =
     typeof done.response === "string"
@@ -461,11 +483,8 @@ function toDonePayload(done: DonePayload): AskChatDonePayload {
           ? done.runId
           : null,
     conversationId:
-      typeof done.conversation_id === "string"
-        ? done.conversation_id
-        : typeof done.conversationId === "string"
-          ? done.conversationId
-          : null,
+      toConversationId(done.conversation_id) ??
+      toConversationId(done.conversationId),
     citations: normalizeCitations(done.citations),
     generativeUi: isAskGenerativeUi(generativeUiPayload)
       ? generativeUiPayload
@@ -680,7 +699,7 @@ export async function streamChat(options: {
     return;
   }
 
-  const send = async (sessionToken: string) =>
+  const send = async (sessionToken: string, id: string | null) =>
     fetch(`${askApiBase()}/chat`, {
       method: "POST",
       headers: {
@@ -690,7 +709,7 @@ export async function streamChat(options: {
       },
       body: JSON.stringify({
         session_token: sessionToken,
-        conversation_id: conversationId ?? undefined,
+        conversation_id: toRequestConversationId(id),
         message,
       }),
       signal,
@@ -704,7 +723,7 @@ export async function streamChat(options: {
     handlers.onStatus?.("session_ready");
     report("chat_request_start");
     handlers.onStatus?.("chat_connecting");
-    let res = await send(sessionToken);
+    let res = await send(sessionToken, conversationId);
     report("chat_response_start", res.status);
 
     // Expired/invalid session: mint a fresh one and retry once.
@@ -716,8 +735,27 @@ export async function streamChat(options: {
       report("session_ready");
       handlers.onStatus?.("session_ready");
       report("chat_request_start");
-      res = await send(retrySessionToken);
+      // The old conversation belonged to the rejected session; start fresh.
+      if (conversationId !== null) handlers.onConversationReset?.();
+      res = await send(retrySessionToken, null);
       report("chat_response_start", res.status);
+    }
+
+    // Stale id for this session: the server does not fall back to a new
+    // conversation, so surface it and let the next message start one.
+    if (res.status === 404 && conversationId !== null) {
+      handlers.onConversationReset?.();
+      wrappedHandlers.onError("conversation_not_found");
+      return;
+    }
+    if (res.status === 409) {
+      const body = (await res.json().catch(() => null)) as {
+        code?: unknown;
+      } | null;
+      if (body?.code === "conversation_full") {
+        wrappedHandlers.onError("conversation_full");
+        return;
+      }
     }
 
     if (res.status === 429) {

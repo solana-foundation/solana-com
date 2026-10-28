@@ -4,7 +4,14 @@ import * as React from "react";
 import classNames from "classnames";
 import { twMerge } from "tailwind-merge";
 import { useTranslations } from "next-intl";
-import { ExternalLink, Maximize2, Minimize2, Send, X } from "react-feather";
+import {
+  ExternalLink,
+  Maximize2,
+  Minimize2,
+  RotateCcw,
+  Send,
+  X,
+} from "react-feather";
 import {
   prewarmAskSession,
   splitCodeFollowupPrompt,
@@ -16,6 +23,10 @@ import {
   type CodeFollowups,
 } from "./api";
 import { trackAskSolana } from "./analytics";
+import {
+  getStoredConversationId,
+  storeConversationId,
+} from "./conversation-store";
 import { GenerativeUiAnswer } from "./generative-ui";
 import { AnswerMarkdown } from "./markdown";
 import type { AskSolanaWidgetSeed } from "./widget-store";
@@ -87,7 +98,12 @@ type AssistantMessage = {
   state: "streaming" | "done" | "error";
   statusStage: string | null;
   visualStatus: string | null;
-  errorKind: "rate_limited" | "generic" | null;
+  errorKind:
+    | "rate_limited"
+    | "conversation_not_found"
+    | "conversation_full"
+    | "generic"
+    | null;
 };
 type ChatMessage = UserMessage | AssistantMessage;
 
@@ -134,7 +150,7 @@ export function AskSolanaWidget({
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [input, setInput] = React.useState("");
   const [isBusy, setIsBusy] = React.useState(false);
-  const conversationIdRef = React.useRef<string | null>(null);
+  const [notice, setNotice] = React.useState<string | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
   const requestIdRef = React.useRef(0);
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -282,6 +298,7 @@ export function AskSolanaWidget({
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setInput("");
+      setNotice(null);
       setIsBusy(true);
       setMessages((current) => [
         ...current,
@@ -299,7 +316,7 @@ export function AskSolanaWidget({
         },
       ]);
       trackAskSolana("docs_ai_message_sent", {
-        conversation_id: conversationIdRef.current,
+        conversation_id: getStoredConversationId(),
         message_length: message.length,
         surface: "widget",
       });
@@ -312,7 +329,7 @@ export function AskSolanaWidget({
           phase: timing.phase,
           elapsed_ms: timing.elapsedMs,
           detail: timing.detail ?? undefined,
-          conversation_id: conversationIdRef.current,
+          conversation_id: getStoredConversationId(),
         });
       };
       const deferGenerativeUi = (generativeUi: AskGenerativeUi | null) => {
@@ -327,7 +344,7 @@ export function AskSolanaWidget({
 
       void streamChat({
         message,
-        conversationId: conversationIdRef.current,
+        conversationId: getStoredConversationId(),
         signal: controller.signal,
         handlers: {
           onStatus: (stage) =>
@@ -357,7 +374,7 @@ export function AskSolanaWidget({
             generativeUi,
             codeFollowups,
           }) => {
-            if (conversationId) conversationIdRef.current = conversationId;
+            if (conversationId) storeConversationId(conversationId);
             updateLastAssistant((m) => ({
               ...m,
               content: response ?? m.content,
@@ -377,15 +394,24 @@ export function AskSolanaWidget({
               statusStage: null,
               visualStatus: null,
               errorKind:
-                errorMessage === "rate_limited" ? "rate_limited" : "generic",
+                errorMessage === "rate_limited" ||
+                errorMessage === "conversation_not_found" ||
+                errorMessage === "conversation_full"
+                  ? errorMessage
+                  : "generic",
             }));
+            if (errorMessage === "conversation_full") storeConversationId(null);
             setIsBusy(false);
+          },
+          onConversationReset: () => {
+            storeConversationId(null);
+            setNotice(t("askSolana.conversationReset"));
           },
           onTiming: trackTiming,
         },
       });
     },
-    [isBusy, updateLastAssistant],
+    [isBusy, t, updateLastAssistant],
   );
 
   const lastSeedIdRef = React.useRef<number | null>(null);
@@ -396,6 +422,17 @@ export function AskSolanaWidget({
     send(seed.query);
   }, [seed, send]);
 
+  // Starts a fresh conversation; the anonymous session token is kept.
+  const resetChat = () => {
+    abortRef.current?.abort();
+    requestIdRef.current += 1;
+    storeConversationId(null);
+    setMessages([]);
+    setNotice(null);
+    setIsBusy(false);
+    inputRef.current?.focus();
+  };
+
   // Full-screen view in a new tab, re-asking the latest question there.
   const openFullScreen = () => {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -403,7 +440,7 @@ export function AskSolanaWidget({
       ? `/docs/ask?q=${encodeURIComponent(lastUser.content)}`
       : "/docs/ask";
     trackAskSolana("docs_ai_widget_fullscreen", {
-      conversation_id: conversationIdRef.current,
+      conversation_id: getStoredConversationId(),
     });
     window.open(url, "_blank", "noopener,noreferrer");
   };
@@ -487,6 +524,15 @@ export function AskSolanaWidget({
         <div className="flex items-center gap-1.5">
           <button
             type="button"
+            aria-label={t("askSolana.newChat")}
+            title={t("askSolana.newChat")}
+            onClick={resetChat}
+            className="rounded-lg border border-white/10 p-1.5 text-gray-400 transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[#9945FF]"
+          >
+            <RotateCcw size={14} />
+          </button>
+          <button
+            type="button"
             aria-label="Open full screen in a new tab"
             title="Open full screen in a new tab"
             onClick={openFullScreen}
@@ -550,11 +596,26 @@ export function AskSolanaWidget({
                   </div>
                 ) : null}
                 {message.state === "error" ? (
-                  <p className="text-sm text-red-400">
-                    {message.errorKind === "rate_limited"
-                      ? t("askSolana.errorRateLimited")
-                      : t("askSolana.errorGeneric")}
-                  </p>
+                  <div className="text-sm text-red-400">
+                    <p>
+                      {message.errorKind === "rate_limited"
+                        ? t("askSolana.errorRateLimited")
+                        : message.errorKind === "conversation_not_found"
+                          ? t("askSolana.conversationReset")
+                          : message.errorKind === "conversation_full"
+                            ? t("askSolana.conversationFull")
+                            : t("askSolana.errorGeneric")}
+                    </p>
+                    {message.errorKind === "conversation_full" ? (
+                      <button
+                        type="button"
+                        onClick={resetChat}
+                        className="mt-2 rounded-lg border border-white/20 px-3 py-1.5 text-white transition-colors hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-[#9945FF]"
+                      >
+                        {t("askSolana.newChat")}
+                      </button>
+                    ) : null}
+                  </div>
                 ) : null}
                 {message.state === "done" ? (
                   <>
@@ -590,6 +651,11 @@ export function AskSolanaWidget({
       </div>
 
       <div className="border-t border-white/10 p-3">
+        {notice ? (
+          <p role="status" className="mb-2 text-xs text-gray-400">
+            {notice}
+          </p>
+        ) : null}
         <form
           onSubmit={(e) => {
             e.preventDefault();
