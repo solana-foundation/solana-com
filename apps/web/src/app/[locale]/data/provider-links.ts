@@ -13,11 +13,11 @@ export const providerLinkNames = [
 export type ProviderLinkName = (typeof providerLinkNames)[number];
 type WarehouseTab = Exclude<DashboardTab, "rpc" | "senders">;
 
-// Solana docs, used when a provider has no public page for a tab's topic.
+// Base URLs shared by several links below.
 const alliumSolanaDocs =
   "https://docs.allium.so/historical-data/supported-blockchains/solana/solana";
-const duneSolanaDocs = "https://docs.dune.com/data-catalog/solana/overview";
-const topLedgerDocs = "https://docs.topledger.xyz/data-tables/solana-data";
+const duneDocs = "https://docs.dune.com/data-catalog";
+const topLedgerResearch = "https://research.topledger.xyz";
 const blockworksSolana = "https://app.blockworks.com/projects/solana/analytics";
 
 /**
@@ -33,44 +33,37 @@ export const providerLinks: Record<
     Allium: `${alliumSolanaDocs}/metrics/overview`,
     Blockworks: `${blockworksSolana}/solana-overview`,
     DeFiLlama: "https://defillama.com/chain/solana",
-    Dune: "https://dune.com/blockchains/solana",
-    "Top Ledger": topLedgerDocs,
+    Dune: `${duneDocs}/solana/overview`,
+    "Top Ledger": `${topLedgerResearch}/rev/cost_and_capacity`,
   },
   network: {
     Allium: `${alliumSolanaDocs}/staking`,
     Blockworks: `${blockworksSolana}/solana-supply-staking-and-validators`,
-    Dune: "https://dune.com/blockchains/solana",
-    "Top Ledger": topLedgerDocs,
   },
   stablecoins: {
     Allium: `${alliumSolanaDocs}/stablecoins`,
     Blockworks: `${blockworksSolana}/solana-stablecoins-new`,
     DeFiLlama: "https://defillama.com/stablecoins/solana",
-    Dune: duneSolanaDocs,
+    Dune: `${duneDocs}/curated/stablecoins/activity-enriched/stablecoins-solana-activity-enriched`,
     RWA: "https://app.rwa.xyz/networks/solana",
-    "Top Ledger": topLedgerDocs,
+    "Top Ledger": `${topLedgerResearch}/rwas/stablecoins`,
   },
   defi: {
     Allium: `${alliumSolanaDocs}/dex`,
     Blockworks: `${blockworksSolana}/solana-spot-dexs`,
     DeFiLlama: "https://defillama.com/chain/solana?dexsVolume=true&tvl=false",
-    Dune: duneSolanaDocs,
-    "Top Ledger":
-      "https://analytics.topledger.xyz/solana/public/dashboards/eAA9GoOGq8R4M3g4WTaD6OQMOdLWRPDYebWY0tpY",
+    Dune: `${duneDocs}/curated/dex-trades/solana/overview`,
+    "Top Ledger": `${topLedgerResearch}/dex/volume`,
   },
   lending: {
     Allium: `${alliumSolanaDocs}/lending`,
     Blockworks: `${blockworksSolana}/solana-lending`,
     DeFiLlama: "https://defillama.com/protocols/lending/solana",
-    Dune: duneSolanaDocs,
-    "Top Ledger": "https://api.topledger.xyz/defi-monitor/",
   },
   perps: {
     Allium: `${alliumSolanaDocs}/perpetuals`,
     Blockworks: `${blockworksSolana}/perp-dexs-solana`,
     DeFiLlama: "https://defillama.com/perps/chain/solana",
-    Dune: duneSolanaDocs,
-    "Top Ledger": topLedgerDocs,
   },
 };
 
