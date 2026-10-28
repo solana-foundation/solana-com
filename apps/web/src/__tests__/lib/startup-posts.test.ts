@@ -49,7 +49,7 @@ describe("startup posts client", () => {
     const fourth = post("fourth", 23);
     const older = post("older", 10);
     const fetchMock = vi.fn(async (url: string) => {
-      if (url.startsWith("https://media-preview.vercel.app")) {
+      if (new URL(url).origin === "https://media-preview.vercel.app") {
         return new Response("Authentication Required", { status: 401 });
       }
       if (url.includes("/posts/startups"))
