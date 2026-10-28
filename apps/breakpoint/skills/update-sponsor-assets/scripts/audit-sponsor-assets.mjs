@@ -181,6 +181,14 @@ for (const slug of slugs) {
     if (!ids.has(value(record, "defaultLogoId")))
       fail(`${slug}: defaultLogoId does not resolve`);
     if (!breakpoint) fail(`${slug}: missing breakpoint-2026-white selector`);
+    // Include unreferenced artwork: a duplicate export still takes up space even
+    // when no logos entry imports it. The package audit reports orphan files.
+    const companyFolder = path.join(assetsRoot, slug);
+    if (fs.existsSync(companyFolder)) {
+      for (const file of filesUnder(companyFolder)) {
+        if (/\.(svg|png|webp|jpe?g)$/i.test(file)) uniqueFiles.add(file);
+      }
+    }
     const rendered = [];
     for (const file of uniqueFiles) {
       const { data, info } = await sharp(file)

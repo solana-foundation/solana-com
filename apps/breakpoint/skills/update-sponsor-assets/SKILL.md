@@ -107,6 +107,10 @@ variants and meaningful supplied updates; do not import every duplicate format
 or obsolete watermarked draft. Find official brand-kit/site assets if a
 company's supplied artwork is missing or unusable.
 
+Strip unused editor metadata (such as Adobe `aipgf` payloads and its export
+wrappers) before publishing supplied SVGs. Verify rendered pixels and viewBox
+are unchanged; keep paths, fills, masks, and cutouts intact.
+
 Use explicit lowercase kebab-case filenames, static imports, descriptive IDs,
 and accurate format/kind/theme/background metadata. `theme` describes the
 surface on which the artwork is legible. Choose a versatile general
@@ -153,6 +157,37 @@ any file. Keep used selector IDs as aliases to the canonical import, including
 `breakpoint-2026-white`. Remove redundant unused variant entries when
 appropriate. Check other consumers before renaming an existing selector or file.
 
+### Required duplicate-free completion check
+
+Deduplication is part of the update, not an optional follow-up:
+
+1. Collapse repeated spreadsheet rows and repeated input folders into one
+   company mapping. Search existing registry records and aliases before creating
+   an ID.
+2. Audit **every image file in the touched company folders**, including files
+   not referenced by a record, and compare exact hashes against the entire
+   company asset tree. Compare rendered artwork with transparent padding removed
+   to find differently named, differently encoded, resized, or PNG/SVG copies.
+3. Review every rendered-similarity candidate. Consolidate equivalent artwork;
+   retain genuinely different colors, backgrounds, lockups, and cutouts.
+   Multiple selector IDs sharing one physical canonical file are intentional
+   aliases, not duplicate files. Do not remove a distinct variant to silence a
+   warning.
+4. Check the sponsor arrays for duplicate entries for the same company and logo
+   variant, including accidental placement in two tiers. Preserve intentional
+   distinct brands with different logo selectors and the marquee's deliberate
+   animation repetitions. New input must not duplicate an existing sponsor.
+5. After consolidation and SVG cleanup, rerun the asset helper and data audit.
+   Confirm all imports still exist and each affected default/Breakpoint selector
+   resolves. **Do not finish while a true duplicate involving this batch
+   remains** or a deletion has left a dangling import. Resolve or explicitly
+   report any candidate that cannot be confidently classified.
+
+Report how many duplicate physical files were removed, that the final exact-hash
+scan found zero duplicate groups involving the batch, and why any remaining
+similarity candidates represent distinct variants. Existing unrelated duplicate
+groups remain outside this batch unless the user requests wider cleanup.
+
 For existing Breakpoint sponsors, update only logo dimensions/selection where
 needed. For new sponsors in a sponsor-update request, append once to the
 supplied tier, following the existing sponsorship-action ordering rule. Preserve
@@ -171,6 +206,7 @@ pnpm --filter @workspace/ecosystem-data audit:data
 pnpm --filter @workspace/ecosystem-data exec tsc --noEmit
 pnpm --filter solana-com-breakpoint check-types
 pnpm --filter solana-com-breakpoint exec vitest run src/tests/sponsors.test.ts
+pnpm --filter solana-com-breakpoint test:sponsor-assets
 ```
 
 The helper is read-only except for the explicitly requested preview PNG. It

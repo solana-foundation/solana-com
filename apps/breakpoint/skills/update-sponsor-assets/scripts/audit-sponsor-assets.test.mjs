@@ -122,6 +122,23 @@ test("rejects duplicate physical files even if only one is referenced", () => {
   });
 });
 
+test("flags equivalent unreferenced artwork with different SVG serialization", () => {
+  fixture(({ assets, audit }) => {
+    const svg = fs.readFileSync(path.join(assets, "logo-white.svg"), "utf8");
+    fs.writeFileSync(
+      path.join(assets, "unreferenced.svg"),
+      svg.replace("<path", "<!-- alternate export --> <path"),
+    );
+    const result = audit();
+    assert.equal(result.code, 0);
+    assert.ok(
+      result.reviewCandidates.some((candidate) =>
+        candidate.includes("unreferenced.svg"),
+      ),
+    );
+  });
+});
+
 test("rejects opaque black background behind white artwork", () => {
   fixture(({ assets, audit }) => {
     fs.writeFileSync(
