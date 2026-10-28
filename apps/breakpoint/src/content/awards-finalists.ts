@@ -42,7 +42,7 @@ export const approvedFinalistsByCategory = {
     finalist("MINHxDYNASTY", "@minhxdynasty"),
   ],
   "solana-streamer": [
-    finalist("ThreadGuy", "@threadguy"),
+    finalist("ThreadGuy", "@notthreadguy"),
     finalist("Crime", "@crimexbt"),
     finalist("Ansem", "@blknoiz06"),
     finalist("Easy", "@notsoeasymoney"),
