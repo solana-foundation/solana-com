@@ -80,6 +80,7 @@ describe("Media image proxy", () => {
 
   it.each([
     "/api/private",
+    "//host:invalid/image.webp",
     "/uploads/../api/private",
     "/uploads/%2e%2e/api/private",
   ])(

@@ -16,6 +16,12 @@ const normalizePath = (input: string) => {
   return input;
 };
 
+const invalidUploadPath = () =>
+  NextResponse.json(
+    { error: "Only media upload assets are supported" },
+    { status: 400 },
+  );
+
 export async function GET(request: NextRequest) {
   const path = request.nextUrl.searchParams.get("path");
 
@@ -27,6 +33,9 @@ export async function GET(request: NextRequest) {
   }
 
   const normalizedPath = normalizePath(path);
+  if (!normalizedPath.startsWith("/uploads/")) {
+    return invalidUploadPath();
+  }
 
   const assetPath = new URL(normalizedPath, "https://media-assets.invalid");
   const upstreamUrl = new URL(MEDIA_APP_URL);
@@ -34,14 +43,8 @@ export async function GET(request: NextRequest) {
   upstreamUrl.search = assetPath.search;
   upstreamUrl.hash = "";
 
-  if (
-    !normalizedPath.startsWith("/uploads/") ||
-    !upstreamUrl.pathname.startsWith("/uploads/")
-  ) {
-    return NextResponse.json(
-      { error: "Only media upload assets are supported" },
-      { status: 400 },
-    );
+  if (!upstreamUrl.pathname.startsWith("/uploads/")) {
+    return invalidUploadPath();
   }
 
   let upstreamResponse = await fetch(upstreamUrl, {
