@@ -12,7 +12,7 @@ export const ALPENGLOW_NO_STORE_HEADERS = {
  * @param staleSeconds - Time a shared cache may serve stale while refreshing.
  * @return Headers for the browser, generic CDN, and Vercel CDN.
  */
-export function alpenglowPublicCacheHeaders(
+function alpenglowPublicCacheHeaders(
   sharedSeconds: number,
   staleSeconds: number,
 ): Record<string, string> {

@@ -874,6 +874,11 @@ export default {
       source: "/upgrades/larger-transaction-size",
       destination: "/upgrades/larger-transaction-sizes",
     },
+    {
+      source: "/upgrades/alpenglow/dashboard",
+      destination: "/upgrades/alpenglow",
+      permanent: true,
+    },
 
     // /scholars applications moved from the built-in form to Typeform
     {
