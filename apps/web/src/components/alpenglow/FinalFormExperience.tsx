@@ -17,7 +17,6 @@ import type {
   FinalFormCanvasHandle,
 } from "./FinalFormCanvas";
 import type { AlpenglowEvent, StreamStatus } from "./types";
-import { AlpenglowDashboardStats } from "./AlpenglowDashboardStats";
 
 const FinalFormCanvas = dynamic(
   () => import("./FinalFormCanvas").then((module) => module.FinalFormCanvas),
@@ -278,7 +277,6 @@ export default function FinalFormExperience({
             </div>
           </div>
         </div>
-        <AlpenglowDashboardStats />
       </section>
       <p className="ff-note">{t("visualizerNote")}</p>
       <section className="ff-shift" aria-labelledby="ff-shift-title">
