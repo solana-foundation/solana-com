@@ -26,7 +26,7 @@ export function attachSpeakerSessions(
       .map((item) => ({
         id: item.id,
         day: item.day,
-        format: item.tag,
+        format: item.format,
         title: item.title,
       })),
   }));

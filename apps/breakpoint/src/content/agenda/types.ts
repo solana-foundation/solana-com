@@ -15,6 +15,7 @@ export type AgendaItem = {
   day: string;
   description?: string;
   duration?: string;
+  format?: string;
   id: string;
   location?: string;
   sortOrder: number;

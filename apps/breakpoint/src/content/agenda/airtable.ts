@@ -400,6 +400,17 @@ function normalizeAgendaRecord(
       asDisplayString,
     ),
     duration,
+    format: getField(
+      fields,
+      [
+        "Format_Cleaned",
+        "Format Cleaned",
+        "Format",
+        "Session Format",
+        "Session Type",
+      ],
+      asDisplayString,
+    ),
     id: record.id,
     location: getField(
       fields,

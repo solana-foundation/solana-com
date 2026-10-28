@@ -58,6 +58,7 @@ describe("speaker event filter", () => {
                     Title: "Opening",
                     Day: "Day 1",
                     Format_Cleaned: "Keynote",
+                    Tag: "Money",
                     Format: ["rec00000000000099"],
                     "Onboarded Speakers": ["rec00000000000001"],
                     "Confirmed Speakers Full Name": [
