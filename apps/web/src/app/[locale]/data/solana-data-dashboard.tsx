@@ -322,10 +322,7 @@ export function SolanaDataDashboard() {
               ) : null}
             </>
           ) : null}
-          <ProviderLinkTable
-            tab={activeTab}
-            tabLabel={activeTabContent.label}
-          />
+          <ProviderLinkTable tab={activeTab} />
         </section>
 
         {error ? <DataError error={error} /> : null}
