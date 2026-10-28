@@ -27,7 +27,7 @@ describe("speaker event filter", () => {
           records: url.includes("/SPEAKERS?")
             ? [
                 {
-                  id: "ada",
+                  id: "rec00000000000001",
                   fields: {
                     "Publish To Web": true,
                     "First Name": "Ada",
@@ -36,11 +36,11 @@ describe("speaker event filter", () => {
                   },
                 },
                 {
-                  id: "grace",
+                  id: "rec00000000000002",
                   fields: {
                     "Publish To Web": true,
-                    "First Name": "Grace",
-                    "Last Name": "Hopper",
+                    "First Name": "Émile",
+                    "Last Name": "Laurent",
                   },
                 },
                 {
@@ -57,9 +57,11 @@ describe("speaker event filter", () => {
                   fields: {
                     Title: "Opening",
                     Day: "Day 1",
-                    Format: "Keynote",
+                    Format_Cleaned: "Keynote",
+                    Format: ["rec00000000000099"],
+                    "Onboarded Speakers": ["rec00000000000001"],
                     "Confirmed Speakers Full Name": [
-                      "  ADA   LOVELACE - Example",
+                      "Ada’s alternate display name",
                     ],
                   },
                 },
@@ -68,11 +70,19 @@ describe("speaker event filter", () => {
                   fields: {
                     Title: "Conversation",
                     Day: "Day 2",
-                    Format: "Fireside Chat",
+                    Format_Cleaned: "Fireside",
                     "Confirmed Speakers Full Name": [
                       "Ada Lovelace",
-                      "Grace Hopper",
+                      "🎤 Émile Laurent",
                     ],
+                  },
+                },
+                {
+                  id: "moderated",
+                  fields: {
+                    Title: "Moderated session",
+                    Format_Cleaned: "Royal Exchange",
+                    Moderator: ["rec00000000000002"],
                   },
                 },
                 {
@@ -113,7 +123,7 @@ describe("speaker event filter", () => {
         .queryAllByRole("heading", { level: 2 })
         .map((heading) => heading.textContent);
     const filter = screen.getByLabelText("Filter");
-    expect(names()).toEqual(["Ada Lovelace", "Grace Hopper", "Unassigned"]);
+    expect(names()).toEqual(["Ada Lovelace", "Émile Laurent", "Unassigned"]);
     expect(
       screen.queryByRole("option", { name: "Debate" }),
     ).not.toBeInTheDocument();
@@ -129,18 +139,22 @@ describe("speaker event filter", () => {
     expect(screen.getByText("Opening")).toBeInTheDocument();
     expect(screen.getByText("Conversation")).toBeInTheDocument();
 
-    fireEvent.change(filter, { target: { value: "Fireside Chat" } });
-    expect(names()).toEqual(["Ada Lovelace", "Grace Hopper"]);
+    fireEvent.change(filter, { target: { value: "Fireside" } });
+    expect(names()).toEqual(["Ada Lovelace", "Émile Laurent"]);
     fireEvent.change(screen.getByLabelText("Sort"), {
       target: { value: "za" },
     });
-    expect(names()).toEqual(["Grace Hopper", "Ada Lovelace"]);
+    expect(names()).toEqual(["Émile Laurent", "Ada Lovelace"]);
+    fireEvent.change(filter, { target: { value: "Royal Exchange" } });
+    expect(names()).toEqual(["Émile Laurent"]);
     fireEvent.change(filter, { target: { value: "All Events" } });
-    expect(names()).toEqual(["Unassigned", "Grace Hopper", "Ada Lovelace"]);
+    expect(names()).toEqual(["Unassigned", "Émile Laurent", "Ada Lovelace"]);
   });
 
   it("keeps speakers visible when schedule data is unavailable", () => {
-    const speakers = [{ id: "ada", slug: "ada", name: "Ada", sortOrder: 0 }];
+    const speakers = [
+      { id: "rec00000000000001", slug: "ada", name: "Ada", sortOrder: 0 },
+    ];
     render(<SpeakersList speakers={attachSpeakerSessions(speakers, [])} />);
     expect(screen.getByRole("heading", { name: "Ada" })).toBeInTheDocument();
     expect(

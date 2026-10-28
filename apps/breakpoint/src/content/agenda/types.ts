@@ -18,6 +18,7 @@ export type AgendaItem = {
   id: string;
   location?: string;
   sortOrder: number;
+  speakerIds?: string[];
   speakers: AgendaSpeaker[];
   tag?: string;
   time: string;
