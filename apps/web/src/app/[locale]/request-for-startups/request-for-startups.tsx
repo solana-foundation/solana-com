@@ -17,83 +17,7 @@ import {
 } from "@workspace/ui";
 import { scrollRequestIntoView, updateRequestHash } from "./request-scroll";
 import styles from "./request-for-startups.module.scss";
-
-type Request = {
-  slug: string;
-  accent: "violet" | "green" | "pink" | "blue" | "orange";
-  videos?: { id: string; title: string }[];
-};
-
-const REQUESTS: Request[] = [
-  {
-    slug: "exotic-rwas",
-    accent: "violet",
-    videos: [{ id: "OdhqVLfXPxQ", title: "Bring Exotic Collectible Onchain" }],
-  },
-  {
-    slug: "inference-provider-marketplace",
-    accent: "green",
-    videos: [
-      { id: "tGH2lOT_mno", title: "An Open Marketplace for AI Inference" },
-    ],
-  },
-  {
-    slug: "perps-for-real-estate",
-    accent: "pink",
-    videos: [{ id: "ZxIzUBOnrtQ", title: "Onchain Housing Futures" }],
-  },
-  {
-    slug: "agentic-security",
-    accent: "blue",
-    videos: [{ id: "15ecsUCXN1E", title: "Security for the Agentic Age" }],
-  },
-  {
-    slug: "gamified-trading",
-    accent: "orange",
-    videos: [
-      { id: "8CUSptfIW_U", title: "Entertainment Finance for Everyone" },
-    ],
-  },
-  { slug: "ai", accent: "violet" },
-  {
-    slug: "distribution-platform",
-    accent: "green",
-    videos: [
-      { id: "U4DIr3l9A_0", title: "Attention Tokens for Startup Distribution" },
-    ],
-  },
-  {
-    slug: "better-wallet",
-    accent: "pink",
-    videos: [
-      { id: "YEO8Gh0PxV4", title: "An AI Financial Advisor in Your Wallet" },
-    ],
-  },
-  {
-    slug: "perps",
-    accent: "blue",
-    videos: [
-      { id: "r9ZQuh3ShV8", title: "Perps and Onchain Trading" },
-      { id: "ZVyQVSQ9s6U", title: "Game-Day Mode for Prediction Markets" },
-    ],
-  },
-  {
-    slug: "stable",
-    accent: "orange",
-    videos: [{ id: "5jJX-IjTVMw", title: "Build the Future of Stablecoins" }],
-  },
-  {
-    slug: "stocks",
-    accent: "violet",
-    videos: [
-      {
-        id: "D1C95ROUuSo",
-        title:
-          "Discovery and Trading Infrastructure for Onchain Startup Fundraising",
-      },
-    ],
-  },
-];
+import { REQUESTS, resolveRequestSlug, type Request } from "./requests";
 
 const ACCENTS: Record<Request["accent"], string> = {
   violet: "#9945ff",
@@ -193,64 +117,6 @@ function PointField({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function SignalArtwork({
-  request,
-  category,
-  t,
-}: {
-  request: Request;
-  category: string;
-  t: ReturnType<typeof useTranslations>;
-}) {
-  return (
-    <div className={styles.signalArtwork}>
-      <div className={styles.signalArtworkTopline}>
-        <span>{t("requests.founderSignal")}</span>
-        <span>{t("requests.interview")}</span>
-      </div>
-      <svg viewBox="0 0 360 640" aria-hidden="true">
-        <defs>
-          <pattern
-            id={`signal-${request.slug}`}
-            width="7.5"
-            height="7.5"
-            patternUnits="userSpaceOnUse"
-          >
-            <rect
-              x="1"
-              y="1"
-              width="1.35"
-              height="1.35"
-              fill="var(--request-accent)"
-            />
-          </pattern>
-        </defs>
-        <g className={styles.signalArtworkDots}>
-          <path
-            d="M-20 486c46-117 103-167 174-150 58 14 91 103 151 95 34-4 60-35 75-76v309H-20Z"
-            fill={`url(#signal-${request.slug})`}
-          />
-        </g>
-        <g className={styles.signalMark}>
-          <path d="m94 250 174-41" />
-          <path d="m81 287 174-41" />
-          <path d="m68 324 174-41" />
-        </g>
-        <path
-          className={styles.signalOrbit}
-          d="M-16 489c79-89 143-106 193-51s113 58 199-10"
-        />
-      </svg>
-      <div className={styles.signalArtworkCaption}>
-        <span>
-          {t("requests.requestPrefix")} / {category}
-        </span>
-        <span>{t("requests.signal")}</span>
-      </div>
-    </div>
-  );
-}
-
 export function RequestForStartupsPage() {
   const t = useTranslations("request-for-startups");
   const reduceMotion = useReducedMotion();
@@ -263,9 +129,9 @@ export function RequestForStartupsPage() {
 
   useEffect(() => {
     const syncRequestFromHash = () => {
-      const requestSlug = window.location.hash.slice(1);
+      const requestSlug = resolveRequestSlug(window.location.hash.slice(1));
 
-      if (!REQUESTS.some((request) => request.slug === requestSlug)) return;
+      if (!requestSlug) return;
 
       setOpenRequest(requestSlug);
       scrollRequestIntoView(requestSlug);
@@ -460,28 +326,23 @@ export function RequestForStartupsPage() {
                         </Button>
                       </div>
                     </div>
-                    {request.videos ? (
-                      <div className={styles.requestVideos}>
-                        {request.videos.map((video) => (
-                          <iframe
-                            key={video.id}
-                            className={styles.requestVideo}
-                            src={`https://www.youtube-nocookie.com/embed/${video.id}?rel=0`}
-                            title={video.title}
-                            loading="lazy"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowFullScreen
-                            referrerPolicy="strict-origin-when-cross-origin"
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <SignalArtwork
-                        request={request}
-                        category={t(`requests.items.${request.slug}.category`)}
-                        t={t}
+                    <figure className={styles.requestVideoPanel}>
+                      <iframe
+                        className={styles.requestVideo}
+                        src={`https://www.youtube-nocookie.com/embed/${request.videoId}?rel=0`}
+                        title={t(`requests.items.${request.slug}.title`)}
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        referrerPolicy="strict-origin-when-cross-origin"
                       />
-                    )}
+                      <figcaption className={styles.requestSpeaker}>
+                        <span>{request.speaker}</span>
+                        {request.speakerRole && (
+                          <span>{request.speakerRole}</span>
+                        )}
+                      </figcaption>
+                    </figure>
                   </div>
                 </AccordionContent>
               </AccordionItem>
