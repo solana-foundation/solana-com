@@ -88,7 +88,7 @@ export function HomepageHero() {
   return (
     <section
       ref={sectionRef}
-      className="relative z-[1] h-[600px] w-full bg-black md:h-[800px] lg:h-[1000px]"
+      className="relative z-[1] h-[450px] w-full bg-black md:h-[650px] lg:h-[850px]"
     >
       {/* Globe video background */}
       <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
@@ -169,71 +169,6 @@ export function HomepageHero() {
         <div className="pt-[113px] md:pt-[150px] lg:ml-[200px] lg:pt-[196px] 2xl:ml-[335px]">
           <div className="h-[124px] md:h-[200px] lg:h-[276px]" />
         </div>
-
-        {/* Next Event card - positioned right */}
-        <motion.div
-          initial={{ opacity: 0, x: 30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="absolute left-[37px] top-[501px] z-10 w-[316px] md:left-auto md:right-[60px] md:top-[400px] md:w-[420px] lg:right-[220px] lg:top-[520px] lg:w-[500px]"
-        >
-          {/* Event label */}
-          <p className="mb-5 text-right text-[16px] font-normal uppercase tracking-[0.8px] text-white">
-            {t("hero.nextEvent")}
-          </p>
-
-          {/* Card container */}
-          <div
-            className="rounded-lg border border-accelerate-gray-dark p-6"
-            style={{ background: "rgba(0, 0, 0, 0.6)" }}
-          >
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              {/* City + Date */}
-              <div className="flex flex-col gap-[2.5px]">
-                <p className="text-[25px] font-light uppercase leading-none tracking-[1.25px] text-accelerate-gray-light md:text-2xl lg:text-[28px]">
-                  {t("hero.city")}
-                </p>
-                <p className="font-diatype text-[22px] leading-[1.2] text-accelerate-green md:text-xl lg:text-[24px]">
-                  {t("hero.date")}
-                </p>
-              </div>
-
-              <Link
-                href="/accelerate/china"
-                className="btn-outline-gradient h-[48px] w-full justify-between px-5 md:w-[200px] md:px-7 lg:w-[240px]"
-              >
-                <span className="text-[13.43px] font-semibold uppercase tracking-[0.67px] leading-none md:text-[18px]">
-                  {t("hero.getTickets")}
-                </span>
-                <svg width="9" height="9" viewBox="0 0 11 11" fill="none">
-                  <path
-                    d="M2 9L9 2M9 2H4M9 2V7"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </Link>
-            </div>
-          </div>
-
-          {/* Learn More link */}
-          <div className="mt-5 flex items-center justify-end gap-3">
-            <Link
-              href="/accelerate/china"
-              className="inline-flex items-center gap-3 text-[16px] font-normal uppercase tracking-[0.8px] leading-none text-white transition-colors hover:text-white/80"
-            >
-              {t("hero.exploreChina")}
-              <Image
-                src={getImagePath("/images/homepage/circle-plus.svg")}
-                alt=""
-                width={24}
-                height={24}
-              />
-            </Link>
-          </div>
-        </motion.div>
       </div>
     </section>
   );

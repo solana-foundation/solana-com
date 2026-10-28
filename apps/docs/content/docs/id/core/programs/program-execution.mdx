@@ -1,8 +1,7 @@
 ---
-title: Eksekusi program
+title: Eksekusi Program
 description:
-  Bagaimana Solana mengompilasi dan mengeksekusi program, termasuk sBPF VM,
-  model unit komputasi, cache program, dan syscall.
+  Cara Solana mengompilasi dan mengeksekusi program, termasuk VM sBPF, model compute unit, cache program, dan syscall.
 url: /docs/core/programs/program-execution
 type: conceptual
 prerequisites:
@@ -18,63 +17,70 @@ related:
 {/* TOC: Compilation, Write programs, Program execution model, Program cache, Syscalls */}
 
 <Callout type="info" title="Ringkasan">
-  Program dikompilasi ke sBPF melalui LLVM dan berjalan dalam VM sandbox dengan
-  anggaran 1,4 juta CU per transaksi. Runtime menyimpan cache hingga 512 program
-  yang dikompilasi, menyediakan syscall untuk logging, CPI, kripto, dan memori,
-  serta menunda deployment baru sebanyak 1 slot.
+  Program dikompilasi ke sBPF melalui LLVM dan dijalankan dalam VM yang terisolasi dengan anggaran 1,4 juta CU
+  per transaksi. Runtime menyimpan cache hingga 512 program yang telah dikompilasi,
+  menyediakan syscall untuk logging, CPI, kripto, dan memori, serta menunda
+  deployment baru sebesar 1 slot.
 </Callout>
 
 ## Kompilasi
 
 Solana menggunakan [LLVM](https://llvm.org/) untuk mengompilasi program menjadi
-biner [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) yang
-mengandung Solana Bytecode Format (sBPF). Biner ELF disimpan onchain dalam akun
-yang dapat dieksekusi.
+biner [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+yang berisi Solana Bytecode Format (sBPF). Biner ELF disimpan secara onchain dalam
+sebuah executable account.
 
 <Callout>
-  sBPF adalah varian khusus Solana dari bytecode
-  [eBPF](https://en.wikipedia.org/wiki/EBPF), yang disesuaikan untuk runtime
-  Solana. Ini bukan eBPF standar dan memiliki modifikasi khusus Solana.
+  sBPF adalah varian kustom Solana dari bytecode [eBPF](https://en.wikipedia.org/wiki/EBPF),
+  yang disesuaikan untuk runtime Solana. Ini bukan eBPF standar dan memiliki
+  modifikasi khusus Solana.
 </Callout>
 
-## Menulis program
+## Tulis program
 
 Program Solana terutama ditulis dalam
-[Rust](https://rust-book.cs.brown.edu/title-page.html) menggunakan salah satu
-dari dua pendekatan:
+[Rust](https://rust-book.cs.brown.edu/title-page.html) menggunakan salah satu dari tiga
+pendekatan:
 
 <Cards>
   <Card title="Anchor" href="https://www.anchor-lang.com/docs">
-    Framework yang menggunakan makro Rust untuk mengurangi boilerplate.
-    Direkomendasikan untuk sebagian besar developer.
+    Sebuah framework yang menggunakan macro Rust untuk mengurangi boilerplate. Direkomendasikan untuk
+    sebagian besar developer.
+  </Card>
+  <Card title="Pinocchio" href="/docs/clients/official/rust#program-crates">
+    Library Rust ringan dan zero-copy yang dioptimalkan untuk konsumsi compute dan
+    ukuran biner. Menyertakan crate khusus program untuk CPI yang umum digunakan.
   </Card>
   <Card title="Native Rust" href="/docs/programs/rust">
-    Rust langsung tanpa framework. Menawarkan kontrol penuh tetapi memerlukan
-    lebih banyak implementasi manual.
+    Rust langsung tanpa framework. Menawarkan kontrol penuh tetapi memerlukan lebih banyak
+    implementasi manual.
   </Card>
 </Cards>
 
+Lihat [Cross-Program Invocations](/docs/core/cpi) untuk konsep dan contoh CPI
+yang berlaku di semua pendekatan ini.
+
 ## Model eksekusi program
 
-Ketika transaksi diproses, runtime mengeksekusi setiap instruksi secara
-berurutan melalui
+Saat sebuah transaksi diproses, runtime mengeksekusi setiap instruksi
+secara berurutan melalui
 [`process_message()`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L15).
 Untuk setiap instruksi, runtime:
 
 1. **Menyiapkan konteks instruksi.** Memanggil
    [`prepare_next_top_level_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L436)
-   untuk memetakan indeks akun instruksi, mengatur flag signer dan writable, dan
+   untuk memetakan indeks akun instruksi, mengatur flag signer dan writable, serta
    mengonfigurasi
    [`TransactionContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L467).
 
-2. **Memeriksa precompile.** Jika program adalah
+2. **Memeriksa precompile.** Jika program adalah sebuah
    [precompile](/docs/core/programs/precompiles), runtime memanggil
    [`process_precompile()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L491),
-   yang masih melakukan push dan pop stack frame (melalui _rs`push()`_ dan
-   _rs`pop()`_) tetapi melewati sBPF VM dan pencarian cache program,
-   mengeksekusi kode native secara langsung.
+   yang tetap melakukan push dan pop stack frame (melalui _rs`push()`_ dan _rs`pop()`_)
+   tetapi melewati VM sBPF dan pencarian cache program, mengeksekusi kode native
+   secara langsung.
 
-3. **Mendorong stack frame.** (Langkah 3-6 terjadi di dalam
+3. **Melakukan push stack frame.** (Langkah 3-6 terjadi di dalam
    [`InvokeContext::process_instruction()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L481)
    dan
    [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507),
@@ -82,102 +88,97 @@ Untuk setiap instruksi, runtime:
    [`push()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L233)
    pada
    [`InvokeContext`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L184),
-   yang menambah tinggi stack instruksi dan menerapkan aturan reentrancy: sebuah
-   program hanya dapat masuk kembali ke dirinya sendiri jika pemanggil
-   **langsung** (program di posisi teratas stack instruksi saat ini) adalah
-   program yang sama. Rekursi diri yang dalam (A -> A -> A) diperbolehkan,
-   tergantung pada batas kedalaman stack. Pola reentrancy lainnya (misalnya, A
-   memanggil B memanggil A) mengembalikan
+   yang menaikkan tinggi stack instruksi dan memberlakukan
+   aturan reentrancy: sebuah program hanya dapat masuk kembali ke dirinya sendiri jika pemanggil **langsung** (program
+   di puncak stack instruksi saat ini) adalah program yang sama.
+   Rekursi-diri mendalam (A -> A -> A) diizinkan, tunduk pada batas kedalaman stack.
+   Pola reentrancy lainnya (misalnya, A memanggil B memanggil A) mengembalikan
    _rs`InstructionError::ReentrancyNotAllowed`_.
 
 4. **Menyelesaikan program.** Runtime memanggil
    [`process_executable_chain()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L507)
    yang menentukan loader. Jika pemilik program account adalah
    [native loader](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L517),
-   program tersebut adalah builtin dan fungsi entrypoint-nya dicari langsung
+   program adalah builtin dan fungsi entrypointnya dicari langsung
    dari
    [`ProgramCacheForTxBatch`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L706).
    Jika pemiliknya adalah salah satu BPF loader (`bpf_loader_deprecated`,
    `bpf_loader`, `bpf_loader_upgradeable`, atau `loader_v4`), entrypoint builtin
-   loader itu sendiri yang dipanggil.
+   milik loader itu sendiri yang akan dipanggil.
 
 5. **Mengeksekusi program BPF.** Untuk program BPF,
-   [entrypoint loader](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
-   mencari executable yang telah dikompilasi dari cache program.
+   [loader entrypoint](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L385)
+   mencari executable yang telah dikompilasi dari cache program. Fungsi
    [`execute()`](https://github.com/anza-xyz/agave/blob/v3.1.8/programs/bpf_loader/src/lib.rs#L1449)
    kemudian:
-   - Menserialisasi data account ke dalam buffer parameter datar
+   - Menserialkan data akun ke dalam buffer parameter flat
    - Membuat VM sBPF dengan stack, heap, dan region memori
-   - Menjalankan kode yang telah dikompilasi, mengonsumsi unit komputasi selama
-     eksekusi. Mengembalikan _rs`ComputationalBudgetExceeded`_ jika anggaran
-     terlampaui.
-   - Mendeserialisasi data account dari buffer kembali ke state account
+   - Menjalankan kode yang telah dikompilasi, mengonsumsi compute unit selama eksekusi. Mengembalikan
+     _rs`ComputationalBudgetExceeded`_ jika anggaran terlampaui.
+   - Mendeserialkan data akun dari buffer kembali ke dalam state akun
 
-6. **Mengeluarkan stack frame.** Memanggil
+6. **Melakukan pop stack frame.** Memanggil
    [`pop()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/invoke_context.rs#L268)
    yang memverifikasi bahwa instruksi tidak melanggar aturan akuntansi runtime
-   (saldo lamport seimbang, account readonly tidak dimodifikasi, ukuran data
-   account berada dalam batas).
+   (saldo lamport seimbang, akun readonly tidak dimodifikasi,
+   ukuran data akun berada dalam batas).
 
-7. **Mengakumulasi unit komputasi.** Unit komputasi yang dikonsumsi oleh
-   instruksi ditambahkan ke total transaksi melalui
+7. **Mengakumulasi compute unit.** Compute unit yang dikonsumsi oleh instruksi
+   ditambahkan ke total transaksi melalui
    [`saturating_add`](https://github.com/anza-xyz/agave/blob/v3.1.8/svm/src/message_processor.rs#L53).
 
 ## Cache program
 
-Runtime memelihara
-[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677)
-global yang menyimpan program yang telah diverifikasi dan dikompilasi. Cache ini
-menyadari fork-graph dan menangani aturan visibilitas deployment, eviction, dan
-kompilasi ulang pada batas epoch.
+Runtime mempertahankan
+[`ProgramCache`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L677) global
+yang menyimpan program yang telah diverifikasi dan dikompilasi. Cache ini mengetahui fork-graph dan menangani
+aturan visibilitas deployment, eviction, dan rekompilasi batas epoch.
 
-### Jenis entri cache
+### Tipe entri cache
 
 Setiap program yang di-cache memiliki
 [`ProgramCacheEntryType`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L132)
-yang menentukan perilaku runtime-nya:
+yang menentukan perilaku runtimenya:
 
-| Tipe                                                                                                              | Deskripsi                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Program yang telah diverifikasi dan dikompilasi, siap untuk dieksekusi.                                                                                                                                                                                                                                      |
-| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Program native yang dikompilasi ke dalam biner validator (System, Stake, Vote, dll.). Tidak disimpan onchain.                                                                                                                                                                                                |
-| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Program yang sebelumnya telah diverifikasi yang executable terkompilasinya telah dihapus dari memori untuk mengosongkan ruang. Masih melacak statistik penggunaan. Dapat dimuat ulang tanpa verifikasi ulang.                                                                                                |
-| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Tombstone untuk program yang tidak lolos verifier sBPF di bawah kumpulan fitur saat ini. Dapat menjadi `Loaded` jika aktivasi fitur mengubah aturan verifikasi.                                                                                                                                              |
-| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Tombstone untuk program yang secara eksplisit ditutup atau tidak pernah di-deploy. Juga digunakan untuk akun (seperti akun buffer) yang termasuk dalam loader tetapi tidak mengandung kode yang dapat dieksekusi.                                                                                            |
-| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | Tombstone sintetis yang dikembalikan oleh [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) ketika entri `Loaded` ada tetapi belum efektif (`effective_slot`-nya di masa depan). Tidak pernah disimpan secara langsung di cache. |
+| Tipe                                                                                                              | Deskripsi                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`Loaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L147)             | Program yang telah diverifikasi dan dikompilasi, siap untuk dieksekusi.                                                                                                                                                                                                                                              |
+| [`Builtin`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L149)            | Program native yang dikompilasi ke dalam biner validator (System, Stake, Vote, dll.). Tidak disimpan onchain.                                                                                                                                                                                               |
+| [`Unloaded`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L145)           | Program yang sebelumnya telah diverifikasi namun executable yang telah dikompilasi di-evict dari memori untuk membebaskan ruang. Masih melacak statistik penggunaan. Dapat dimuat ulang tanpa verifikasi ulang.                                                                                                                             |
+| [`FailedVerification`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L134) | Tombstone untuk program yang tidak lolos verifier sBPF di bawah feature set saat ini. Dapat menjadi `Loaded` jika aktivasi fitur mengubah aturan verifikasi.                                                                                                                              |
+| [`Closed`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L139)             | Tombstone untuk program yang secara eksplisit ditutup atau tidak pernah di-deploy. Juga digunakan untuk akun (seperti buffer account) yang dimiliki oleh loader tetapi tidak berisi kode yang dapat dieksekusi.                                                                                                               |
+| [`DelayVisibility`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L141)    | Tombstone sintetis yang dikembalikan oleh [`ProgramCacheForTxBatch::find()`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L755) ketika entri `Loaded` ada tetapi belum efektif (`effective_slot`-nya ada di masa depan). Tidak pernah disimpan langsung di cache. |
 
 ### Penundaan visibilitas
 
-Program yang baru di-deploy atau di-upgrade tidak langsung efektif. Konstanta
+Program yang baru di-deploy atau diperbarui tidak langsung efektif. Konstanta
 [`DELAY_VISIBILITY_SLOT_OFFSET`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L32)
-adalah `1`, yang berarti program yang di-deploy di slot N menjadi efektif di
-slot N+1. Selama slot deployment, setiap upaya untuk memanggil versi baru
-mengembalikan _rs`DelayVisibility`_, menyebabkan runtime melaporkan "Program is
-not deployed."
+bernilai `1`, artinya program yang di-deploy pada slot N menjadi efektif pada slot
+N+1. Selama slot deployment, setiap upaya untuk memanggil versi baru mengembalikan
+_rs`DelayVisibility`_, yang menyebabkan runtime melaporkan "Program is not deployed."
 
-### Kebijakan eviksi
+### Kebijakan eviction
 
-Cache menyimpan hingga
+Cache menampung hingga
 [`MAX_LOADED_ENTRY_COUNT`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L31)
-(512) entri program yang dikompilasi. Ketika batas tercapai, program yang paling
-jarang digunakan akan dieviksi ke status _rs`Unloaded`_. Penggunaan dilacak oleh
+(512) entri program yang telah dikompilasi. Ketika batas tercapai, program yang paling jarang digunakan
+di-evict ke state _rs`Unloaded`_. Penggunaan dilacak oleh
 [`tx_usage_counter`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L197)
-(ditambahkan setiap kali transaksi mereferensikan program) dan
+(dinaikkan setiap kali transaksi mereferensikan program) dan
 [`latest_access_slot`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L199).
 
 ### Rekompilasi batas epoch
 
 Jika aktivasi fitur mengubah
 [`ProgramRuntimeEnvironments`](https://github.com/anza-xyz/agave/blob/v3.1.8/program-runtime/src/loaded_programs.rs#L529)
-pada batas epoch, semua program yang di-cache akan
+pada batas epoch, semua program yang di-cache
 [dikompilasi ulang](https://github.com/anza-xyz/agave/blob/v3.1.8/runtime/src/bank.rs#L1494)
-terhadap lingkungan yang baru.
+terhadap environment baru.
 
-## Data pengembalian
+## Data kembalian
 
-Program dapat mengatur data pengembalian melalui syscall `sol_set_return_data`.
-Data disimpan dalam
-[`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499)
-struct tingkat transaksi yang menyimpan byte data dan `program_id` dari program
-yang instruksinya memanggil syscall. Ukuran maksimum adalah 1.024 byte
+Program dapat mengatur data kembalian melalui syscall `sol_set_return_data`. Data disimpan dalam
+struktur [`TransactionReturnData`](https://github.com/anza-xyz/agave/blob/v3.1.8/transaction-context/src/lib.rs#L499) di tingkat transaksi
+yang menyimpan byte data dan `program_id` dari program yang
+instruksinya memanggil syscall. Ukuran maksimum adalah 1.024 byte
 (_rs`MAX_RETURN_DATA`_).

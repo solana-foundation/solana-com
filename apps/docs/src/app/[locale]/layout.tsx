@@ -1,4 +1,5 @@
 import "@/scss/index.scss";
+import "@workspace/ui/scrollbar.css";
 import "@/app/globals.css";
 
 import CookieConsent from "@/components/CookieConsent/CookieConsent";

@@ -2,6 +2,12 @@ packages:
   - apps/*
   - packages/*
 
+patchedDependencies:
+  # Keystatic 0.6.9 still wraps inline MDX components in paragraphs inside
+  # table cells, which rejects existing media upgrade content on load.
+  "@keystatic/core@0.6.9": patches/@keystatic__core@0.6.9.patch
+  braces@3.0.3: patches/braces@3.0.3.patch
+
 # Avoid implicit installs (and repeated workspace lifecycle scripts) before
 # every `pnpm run` and `pnpm exec`; CI and setup invoke install explicitly.
 verifyDepsBeforeRun: false
@@ -12,7 +18,7 @@ catalog:
   date-fns: ^4.1.0
   lodash: ^4.17.23
   motion: ^12.23.28
-  next: 15.5.24
+  next: 15.5.28
   next-intl: 4.13.4
   react: 19.2.6
   react-dom: 19.2.6
@@ -28,6 +34,9 @@ catalogs:
     tailwind-merge: ^3.3.1
 
 overrides:
+  # Browserslist's newest mapping release is still inside CI's package-age
+  # quarantine. Reuse the compatible mapping release already in the lockfile.
+  "baseline-browser-mapping": 2.11.20
   # @vercel/blob permits ^3.6.1; retain the aged OIDC release until the
   # newer release clears the package-age policy.
   "@vercel/oidc": 3.6.1
@@ -41,16 +50,22 @@ overrides:
   # Keep transitive nanoid consumers (postcss, @ai-sdk/provider-utils) on the
   # release patched for GHSA-2v37-7h3g-55p8.
   "nanoid@<3.3.18": 3.3.18
+  # PostCSS consumers resolve source-map-js 1.2.1; keep them on the release
+  # patched for GHSA-68fv-2mgg-jv7q.
+  "source-map-js@>=1.0.0 <1.2.2": 1.2.2
   # Sentry's glob 9 dependency resolves minimatch 8, whose brace-expansion 2
   # fix is still inside the package-age quarantine window. Use the compatible
   # minimatch 9 release already present in the workspace instead.
   "glob@9.3.5>minimatch": 9.0.7
   # Next.js 15 still requests Sharp 0.34, so force its optional dependency onto
-  # the current patched release containing the updated libvips binaries.
-  "sharp@<0.35.0": 0.35.4
-  # @databricks/sql 2 requires Thrift's UUID dependency to remain CJS-compatible.
-  # Package-level overrides are not inherited by pnpm consumers.
-  "thrift@0.23.0>uuid": 11.1.1
+  # the current patched release containing the updated libvips binaries
+  # (GHSA-wq5f-xc86-pv6w).
+  "sharp@<0.35.5": 0.35.5
+  # get-uri (via @databricks/sql > proxy-agent) still requests basic-ftp 5,
+  # but GHSA-c475-qrg2-pj4r is fixed only in 6.2.1. The 6.x major only changes
+  # the default to reject separate transfer hosts; the Client API get-uri uses
+  # is unchanged.
+  "basic-ftp@<6.2.1": 6.2.1
   # ai v4 pins jsondiffpatch 0.6, which is fixed only in a later compatible
   # release; keep the direct ai update above while bridging that exact pin.
   "ai>jsondiffpatch": 0.7.6
@@ -59,19 +74,48 @@ overrides:
   # a second kit instance rebrands the @solana/rpc-types nominal types, making
   # otherwise-identical RPC types unassignable across the boundary. Resolve the
   # package onto the single kit the workspace installs.
-  "@metaplex-foundation/mpl-token-metadata-kit>@solana/kit": ^8.3.0
-  "@metaplex-foundation/mpl-token-metadata-kit>@solana/program-client-core": ^8.3.0
+  "@metaplex-foundation/mpl-token-metadata-kit>@solana/kit": ^8.4.0
+  "@metaplex-foundation/mpl-token-metadata-kit>@solana/program-client-core": ^8.4.0
+  # Patched releases for advisories in transitive dependencies, each kept on
+  # its consumers' major: DOMPurify (mermaid; GHSA-cg2g-xh64-v4q7,
+  # GHSA-mrv2-3pqr-j5jr), undici (cheerio, @vercel/blob; GHSA-xjj6-f33q-929c),
+  # Vite (fumadocs-mdx; GHSA-587h-7wmj-h5pm), and Zod 4 (GHSA-mrhx-c7xc-m3w5).
+  "dompurify@<3.4.17": 3.4.17
+  "undici@>=7.0.0 <7.30.1": 7.30.1
+  "undici@>=6.0.0 <6.29.1": 6.29.1
+  "vite@>=7.0.0 <7.3.7": 7.3.7
+  "zod@>=4.0.0 <4.6.6": 4.6.6
 
 auditConfig:
   ignoreGhsas:
+    # braces has no published fixed version yet. The local patch caps parser
+    # nesting before recursive compile/expand can exhaust the process stack.
+    # Remove this ignore and patch when a fixed release is available.
+    - GHSA-vfj7-8cjw-p6xm
     # image-size has not published the >=2.0.3 patched release yet. Fumadocs
     # only uses it for trusted, repository-owned assets; remove these ignores
     # as soon as the patched release is available.
     - GHSA-5p2g-fcmc-qvqq
     - GHSA-w3rx-r6r6-pgpr
+    # Prisma 6 pins these packages in its CLI-only configuration loader. The
+    # loader reads the repository-owned Prisma schema/config, not request data.
+    # Remove these exceptions when Prisma ships compatible patched releases.
+    - GHSA-38f7-945m-qr2g
+    - GHSA-ggr8-5vv4-36mx
+    # GHSA-mchm-gjx6-7h55 affects only apps that set @sentry/nextjs's
+    # tunnelRoute option, and no app here does. Remove this when Sentry is
+    # upgraded to 10.75.2 or later.
+    - GHSA-mchm-gjx6-7h55
+    # GHSA-mrhx-c7xc-m3w5 is fixed only in Zod 4.6.6, but openai 4 (via the
+    # Inkeep widget) resolves an optional Zod 3 peer. Inkeep imports only the
+    # openai client entry, which never loads Zod; Zod 4 is overridden above.
+    # Remove this when Inkeep drops openai 4.
+    - GHSA-mrhx-c7xc-m3w5
 
 allowBuilds:
   "@parcel/watcher": true
+  "@prisma/client": true
+  "@prisma/engines": true
   "@sentry/cli": true
   "@swc/core": true
   bigint-buffer: true
@@ -79,6 +123,7 @@ allowBuilds:
   core-js: false
   esbuild: true
   lz4: true
+  prisma: true
   sharp: true
   utf-8-validate: true
 
@@ -87,4 +132,7 @@ allowBuilds:
 minimumReleaseAgeExclude:
   - jsondiffpatch@0.7.6
   - browserslist@4.28.7
-  - fast-uri@3.1.6
+  - fast-uri@3.1.7
+  - "@solana/keychain-core@2.0.0"
+  - "@solana/keychain-memory@2.0.0"
+  - "@solana/web3.js@3.0.2"

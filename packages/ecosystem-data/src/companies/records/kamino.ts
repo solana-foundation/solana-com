@@ -1,4 +1,9 @@
 import type { CompanyRecord } from "../../types";
+import kaminoWordmarkLight from "../../../assets/companies/kamino/wordmark-light.svg";
+import kaminoWordmarkDark from "../../../assets/companies/kamino/wordmark-dark.svg";
+import kaminoMarkLight from "../../../assets/companies/kamino/mark-light.svg";
+import kaminoMarkDark from "../../../assets/companies/kamino/mark-dark.svg";
+import kaminoBreakpoint2026White from "../../../assets/companies/kamino/breakpoint-2026-white.svg";
 import kaminoLogoDark from "../../../assets/companies/kamino/logo-dark.svg";
 
 export const kamino = {
@@ -24,6 +29,46 @@ export const kamino = {
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "wordmark-light",
+      fileName: "wordmark-light.svg",
+      format: "svg",
+      source: kaminoWordmarkLight,
+      theme: "dark",
+      kind: "wordmark",
+    },
+    {
+      id: "wordmark-dark",
+      fileName: "wordmark-dark.svg",
+      format: "svg",
+      source: kaminoWordmarkDark,
+      theme: "light",
+      kind: "wordmark",
+    },
+    {
+      id: "mark-light",
+      fileName: "mark-light.svg",
+      format: "svg",
+      source: kaminoMarkLight,
+      theme: "dark",
+      kind: "mark",
+    },
+    {
+      id: "mark-dark",
+      fileName: "mark-dark.svg",
+      format: "svg",
+      source: kaminoMarkDark,
+      theme: "light",
+      kind: "mark",
+    },
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: kaminoBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-dark",
       fileName: "logo-dark.svg",

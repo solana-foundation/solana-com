@@ -5,11 +5,38 @@ import {
   AgBlockLifecycle,
   AgCommitmentLevels,
   AgVotorCertificates,
+  DnCallStacks,
+  DnSignerFlow,
   TxAccountBytes,
   TxSimulationTrace,
   TxWireLayout,
 } from "./diagrams";
 import { FeatureActivationStatus } from "./feature-activation-status";
+import type { UpgradeDiagramId } from "@/lib/upgrade-diagrams";
+
+const diagramComponents = {
+  "ag-bank-id-across-connections": AgBankIdAcrossConnections,
+  "ag-banks-per-slot": AgBanksPerSlot,
+  "ag-block-lifecycle": AgBlockLifecycle,
+  "ag-commitment-levels": AgCommitmentLevels,
+  "ag-votor-certificates": AgVotorCertificates,
+  "dn-call-stacks": DnCallStacks,
+  "dn-signer-flow": DnSignerFlow,
+  "tx-account-bytes": TxAccountBytes,
+  "tx-simulation-trace": TxSimulationTrace,
+  "tx-wire-layout": TxWireLayout,
+} satisfies Record<UpgradeDiagramId, React.ComponentType>;
+
+export function UpgradeDiagram({ diagram }: { diagram: UpgradeDiagramId }) {
+  if (!diagram) {
+    throw new Error("An upgrade diagram must be selected");
+  }
+  if (!Object.hasOwn(diagramComponents, diagram)) {
+    throw new Error(`Unknown upgrade diagram: ${diagram}`);
+  }
+  const Diagram = diagramComponents[diagram];
+  return <Diagram />;
+}
 
 export function StatusBadge({
   children,
@@ -67,10 +94,17 @@ export function AudienceGroup({ children }: { children: React.ReactNode }) {
 }
 
 export function Audience({
+  id,
   title,
   summary,
   children,
 }: {
+  /**
+   * Anchor for in-page links. Goes on the hidden content, not the summary:
+   * browsers auto-open a <details> when the fragment target is inside it,
+   * but not when the target is the always-visible summary itself.
+   */
+  id?: string;
   title: string;
   summary?: string;
   children: React.ReactNode;
@@ -98,7 +132,9 @@ export function Audience({
           +
         </span>
       </summary>
-      <div className="px-6 pb-2 [&>*:last-child]:mb-6">{children}</div>
+      <div id={id} className="scroll-mt-24 px-6 pb-2 [&>*:last-child]:mb-6">
+        {children}
+      </div>
     </details>
   );
 }
@@ -106,15 +142,8 @@ export function Audience({
 export const upgradeMdxComponents = {
   Audience,
   AudienceGroup,
-  AgBanksPerSlot,
-  AgBankIdAcrossConnections,
-  AgBlockLifecycle,
-  AgCommitmentLevels,
-  AgVotorCertificates,
   FeatureActivationStatus,
-  TxAccountBytes,
-  TxSimulationTrace,
-  TxWireLayout,
+  UpgradeDiagram,
   StatusBadge,
   StatusBadgeGroup,
   MetricCard,

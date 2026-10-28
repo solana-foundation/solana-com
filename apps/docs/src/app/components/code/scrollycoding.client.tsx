@@ -23,9 +23,8 @@ export function SelectionSticker({ steps }: { steps: StickerStep[] }) {
 
   return (
     <Selection
-      from={stickerSteps.map((step) => (
-        // eslint-disable-next-line react/jsx-key
-        <Sticker step={step} />
+      from={stickerSteps.map((step, index) => (
+        <Sticker key={index} step={step} />
       ))}
     />
   );

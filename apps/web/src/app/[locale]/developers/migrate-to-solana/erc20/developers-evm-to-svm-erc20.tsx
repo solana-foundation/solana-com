@@ -9,7 +9,7 @@ import {
   Hero,
   HtmlParser,
   Section,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
   BLOCK_STYLES,
@@ -153,7 +153,7 @@ export function DevelopersEvmToSvmErc20Page() {
             key="table-10"
             responsiveStyles={BLOCK_STYLES.tableWrapper}
           >
-            <div className="tw-html_parser">
+            <div className="min-w-0 max-w-full overflow-x-auto">
               <HtmlParser rawHtml={t.raw("contentEditor.comparisonTable")} />
             </div>
           </ResponsiveBox>

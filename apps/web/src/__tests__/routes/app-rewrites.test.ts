@@ -132,10 +132,22 @@ describe("Cross-app rewrites", () => {
     );
   });
 
-  it("proxies media post APIs used by tweet embeds", () => {
+  it("proxies APIs owned by the media app", () => {
+    expectBeforeFileRewrite(
+      "/api/developer-updates/latest",
+      `${MEDIA_APP_URL}/api/developer-updates/latest`,
+    );
+    expectBeforeFileRewrite(
+      "/api/changelog/:path*",
+      `${MEDIA_APP_URL}/api/changelog/:path*`,
+    );
     expectBeforeFileRewrite(
       "/api/posts/:path*",
       `${MEDIA_APP_URL}/api/posts/:path*`,
+    );
+    expectBeforeFileRewrite(
+      "/api/upgrades/alpenglow/:path*",
+      `${MEDIA_APP_URL}/api/upgrades/alpenglow/:path*`,
     );
   });
 });

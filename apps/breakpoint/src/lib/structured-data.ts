@@ -1,7 +1,10 @@
 import { getTranslations } from "@workspace/i18n/server";
 import { config, publicLocalizedRouteUrl } from "@/config";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
-import { GENERAL_ADMISSION_PRICE_CHANGE } from "@/content/ticket-pricing";
+import {
+  GENERAL_ADMISSION_PRICE_CHANGE,
+  LATE_BIRD_START_AT,
+} from "@/content/ticket-pricing";
 
 type JsonLd = Record<string, unknown>;
 
@@ -29,8 +32,14 @@ const TICKET_OFFERS: OfferSeed[] = [
   },
   {
     price: GENERAL_ADMISSION_PRICE_CHANGE.increased.amount,
+    priceValidUntil: new Date(LATE_BIRD_START_AT - 1000).toISOString(),
     url: GENERAL_ADMISSION_HREF,
     validFrom: GENERAL_ADMISSION_PRICE_CHANGE.increasesAt,
+  },
+  {
+    price: 800,
+    url: GENERAL_ADMISSION_HREF,
+    validFrom: new Date(LATE_BIRD_START_AT).toISOString(),
   },
 ];
 
@@ -56,13 +65,7 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
     },
     {
       question: t("faq.items.q4.question"),
-      answer: "",
-      answerLinkLabel: t("faq.items.q4.answerLinkLabel"),
-    },
-    {
-      question: t("faq.items.q5.question"),
-      answer: t("faq.items.q5.answerPrefix"),
-      answerLinkLabel: t("faq.items.q5.answerLinkLabel"),
+      answer: t("faq.items.q4.answer"),
     },
   ];
 
@@ -128,11 +131,7 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
       name: asPlainTextMessage(item.question),
       acceptedAnswer: {
         "@type": "Answer",
-        text: asPlainTextMessage(
-          [item.answer, item.answerLinkLabel && `${item.answerLinkLabel}.`]
-            .filter((part) => part?.trim().length)
-            .join(" "),
-        ),
+        text: asPlainTextMessage(item.answer),
       },
     })),
   };

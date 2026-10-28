@@ -7,8 +7,6 @@ import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
 
-const frameAncestors = ["'self'", ...getDatabricksFrameAncestors()];
-
 const securityHeaders: Array<{ key: string; value: string }> = [
   {
     key: "X-Frame-Options",
@@ -24,48 +22,9 @@ const securityHeaders: Array<{ key: string; value: string }> = [
   },
   {
     key: "Content-Security-Policy",
-    value: `frame-ancestors ${frameAncestors.join(" ")}`,
+    value: "frame-ancestors 'self'",
   },
 ];
-
-function getDatabricksFrameAncestors() {
-  const hostname = normalizeDatabricksHostname(
-    process.env.DATABRICKS_SERVER_HOSTNAME,
-  );
-
-  return hostname ? [`https://${hostname}`] : [];
-}
-
-function normalizeDatabricksHostname(value?: string) {
-  const rawValue = value?.trim();
-
-  if (!rawValue || isPlaceholderValue(rawValue)) {
-    return undefined;
-  }
-
-  try {
-    const url =
-      rawValue.startsWith("http://") || rawValue.startsWith("https://")
-        ? new URL(rawValue)
-        : new URL(`https://${rawValue}`);
-    const hostname = url.hostname;
-
-    return hostname.endsWith(".cloud.databricks.com") ? hostname : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function isPlaceholderValue(value: string) {
-  const lowerValue = value.toLowerCase();
-
-  return (
-    value.startsWith("<") ||
-    lowerValue.startsWith("your_") ||
-    lowerValue === "changeme" ||
-    lowerValue === "todo"
-  );
-}
 
 if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
   securityHeaders.push({
@@ -79,7 +38,6 @@ const nextConfig: NextConfig = {
   productionBrowserSourceMaps: false,
   trailingSlash: false,
   transpilePackages: ["gsap"],
-  serverExternalPackages: ["@databricks/sql", "lz4"],
   // The epoch1000 OG card reads font files from disk at request time
   outputFileTracingIncludes: {
     "/api/epoch1000/og": ["./assets/fonts/epoch1000/*.woff"],
@@ -117,12 +75,10 @@ const nextConfig: NextConfig = {
         destination: `/news`,
         permanent: true,
       },
-      ...rewritesAndRedirectsJson.redirects.map(
-        (redirect): Redirect => ({
-          ...redirect,
-          permanent: redirect.permanent ?? true,
-        }),
-      ),
+      ...rewritesAndRedirectsJson.redirects.map((redirect): Redirect => ({
+        ...redirect,
+        permanent: redirect.permanent ?? true,
+      })),
     ];
 
     return existingRedirects;

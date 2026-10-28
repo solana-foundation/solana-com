@@ -99,9 +99,13 @@ describe("shared header route matching", () => {
     expect(productsSection).toBeDefined();
 
     const productToolRoutes = [
+      "/docs/tools",
       "/docs/tools/commerce-kit",
       "/docs/tools/kora",
       "/docs/tools/solana-pay",
+      "/docs/payments/developer-tools",
+      "/fr/docs/payments/developer-tools",
+      "/fr/docs/tools/kora",
       "/rpc",
       "/solutions/payments-tooling",
       "/solutions/token-extensions",
@@ -131,6 +135,13 @@ describe("shared header route matching", () => {
     );
     expect(
       isNavSectionActive("/changelog", buildSection?.matchRules ?? []),
+    ).toBe(true);
+  });
+
+  it("keeps the hackathons archive active under Build", () => {
+    expect(buildSection).toBeDefined();
+    expect(
+      isNavSectionActive("/hackathons", buildSection?.matchRules ?? []),
     ).toBe(true);
   });
 });

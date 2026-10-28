@@ -160,6 +160,43 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  async redirects() {
+    // The web app forwards raw-markdown requests with `.md` intact (see
+    // `withMdVariants` in apps/web/rewrites-redirects.ts), so every moved route
+    // needs a `.md` twin here or those URLs 404 instead of redirecting.
+    const movedRoutes = [
+      {
+        source: "/docs/payments/accept-payments/payment-button",
+        destination: "/docs/tools/commerce-kit/quickstart/payment-button",
+      },
+      {
+        source: "/docs/payments/accept-payments/pay-sh",
+        destination: "/docs/payments/pay-sh",
+      },
+      {
+        source: "/docs/payments/subscriptions/pay-sh",
+        destination: "/docs/payments/pay-sh",
+      },
+      {
+        source: "/docs/payments/production-readiness",
+        destination: "/docs/tools/production-readiness",
+      },
+    ];
+
+    return movedRoutes.flatMap(({ source, destination }) =>
+      [
+        [source, destination],
+        [`${source}.md`, `${destination}.md`],
+        [`/:locale${source}`, `/:locale${destination}`],
+        [`/:locale${source}.md`, `/:locale${destination}.md`],
+      ].map(([source, destination]) => ({
+        source,
+        destination,
+        permanent: true,
+      })),
+    );
+  },
+
   async rewrites() {
     return {
       beforeFiles: [
@@ -199,6 +236,7 @@ const nextConfig: NextConfig = {
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
       "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.go",
       "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
@@ -206,6 +244,7 @@ const nextConfig: NextConfig = {
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
       "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.go",
       "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],

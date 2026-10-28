@@ -53,10 +53,9 @@ julkisilta tarkkailijoilta, ei anonymiteettiä.
   siirron. Sekä `@solana-program/token-2022` (JS) että `spl-token-client` (Rust)
   tarjoavat korkean tason apufunktioita, jotka rakentavat todisteet ja
   järjestävät transaktiot puolestasi.
-- Luottamukselliset siirrot kattavat tällä hetkellä useita riippuvaisia
-  transaktioita, koska todisteet ylittävät nykyisen transaktiokokorajan. Tuleva
-  muutos (transaktioformaatti v1, tulossa Agave v4.2:n myötä) nostaa tätä rajaa
-  ja sen odotetaan mahdollistavan luottamuksellisen siirron suorittamisen
+- Luottamukselliset siirrot ovat aiemmin kattaneet useita riippuvaisia
+  transaktioita, koska todisteet ylittivät transaktiokokorajan. Transaktioformaatti
+  v1 nostaa tätä rajaa, minkä ansiosta luottamuksellinen siirto voidaan suorittaa
   yhdessä ketjun transaktiossa.
 - Lompakko, joka ei lisää tukea, toimii silti: se näyttää julkisen saldon ja
   tavalliset siirrot toimivat normaalisti. Luottamukselliset varat pysyvät
@@ -65,12 +64,12 @@ julkisilta tarkkailijoilta, ei anonymiteettiä.
 
 ## Termit
 
-- **ElGamal keypair**: tilikohtainen julkisen avaimen keypair, jota käytetään
+- **ElGamal keypair**: omistajan julkisen avaimen keypair, jota käytetään
   saldojen salaamiseen ja ZK-todisteiden rakentamiseen. Julkinen avain
-  tallennetaan tilille.
-- **AES-avain**: tilikohtainen symmetrinen avain, jota käytetään "salattavissa
+  tallennetaan jokaiselle määritetylle tilille.
+- **AES-avain**: omistajan symmetrinen avain, jota käytetään "purettavissa
   olevan käytettävissä olevan saldon" salaamiseen, jotta omistaja voi lukea
-  käytettävissä olevan saltonsa vakioajassa ilman diskreettilogaritmin
+  käytettävissä olevan saldonsa vakioajassa ilman diskreettilogaritmin
   ratkaisemista.
 - **Odottava saldo**: salattu saldo varoista, jotka on vastaanotettu talletusten
   tai saapuvien siirtojen kautta ja joita ei ole vielä käsitelty. Ei voida
@@ -114,14 +113,14 @@ Jokainen luottamuksellinen tili käyttää kahta avainta: **ElGamal keypair**
 purkamiseen. Avainten tuottaminen ja säilyttäminen on integrointivalinta.
 Muutamia yleisiä vaihtoehtoja:
 
-- **Johda lompakkosignatuureista (suositeltu oletusasetus).** Omistaja
-  allekirjoittaa kanonisen, verkkotunnuksesta erotetun viestin, ja avaimet
-  johdetaan kyseisestä signatuurista, joten ne ovat uudelleen tuotettavissa
-  pelkän lompakon avulla eikä niitä tarvitse tallentaa. seed on deterministinen
-  tilikohtaisesti: alla olevat JS-apuohjelmat sitovat sen
-  `(owner, mint)`-pariin, kun taas Rust-esimerkki käyttää seedinä token account
-  -osoitetta (associated token account -tilille nämä ovat vastaavat, koska
-  kyseinen osoite itsessään johdetaan omistajasta ja mintistä).
+- **Johda lompakon allekirjoituksesta (suositeltu oletus).** Omistaja
+  allekirjoittaa kanonisen, toimialueittain erotellun viestin, ja avaimet johdetaan
+  tästä allekirjoituksesta, joten ne ovat toistettavissa pelkän lompakon avulla
+  eikä niitä tarvitse tallentaa. Standardi johtaminen sitoo avaimet vain
+  pääasialliseen lompakkoon eikä käytä lainkaan seed-arvoa, joten asiakasohjelmat
+  eivät voi vahingossa johtaa eri avaimia: yksi lompakko vastaa yhtä ElGamal
+  keypairia ja yhtä AES-avainta kaikissa mint-tileissä ja token account
+  -tileissä.
 - **Johda itsenäisestä avainmateriaalista.** Passkeyjä, suojattuja enklaaveja
   tai MPC-asetuksia varten johda avaimet WebAuthn PRF -tuloksesta tai muusta
   syöttöavainmateriaalista, jotta luottamukselliset avaimet eivät ole sidottuja
@@ -138,43 +137,36 @@ polulle:
 <CodeTabs>
 
 ```ts !! title="JS-derive-keys.ts"
-import {
-  deriveElGamalKeypairForOwnerMint,
-  deriveAeKeyForOwnerMint
-} from "@solana-program/token-2022";
+import { deriveConfidentialKeys } from "@solana-program/token-2022/confidential";
 
-// `owner` signs a domain-separated message; the keys are bound to (owner, mint).
-const { elgamalPubkey, secretKey } = await deriveElGamalKeypairForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
-});
-const aesKey = await deriveAeKeyForOwnerMint({
-  signer: owner,
-  owner: owner.address,
-  mint
+// `owner` signs the constant message "solana-conf-bal/v1" once; both keys are
+// derived from that single signature and bound to the wallet alone.
+const { aeKey, elgamalKeypair } = await deriveConfidentialKeys({
+  signer: owner
 });
 ```
 
 ```rust !! title="rust-derive-keys.rs"
 use solana_zk_sdk::encryption::derivation::derive_confidential_keys;
 
-// `signer` is the account owner; the token account address is the public seed.
-// This is the canonical, domain-separated derivation that the JS helpers also
-// use, so the keys match across clients.
-let (elgamal_keypair, aes_key) =
-    derive_confidential_keys(&signer, &token_account_pubkey.to_bytes())
-        .expect("Failed to derive confidential keys");
+// `signer` is the account owner. The standard derivation takes no seed: it
+// signs the constant message "solana-conf-bal/v1", so the keys match across
+// every standard client for the same wallet.
+let (elgamal_keypair, aes_key) = derive_confidential_keys(&signer)
+    .expect("Failed to derive confidential keys");
 ```
 
 </CodeTabs>
 
 <Callout type="warn">
   Luottamukselliset avaimet ovat salauksen purkuavaimia. Suhtaudu pyyntöön
-  allekirjoittaa johdannainen viesti kuin käyttäjän saldojen yksityisen näkymän
+  allekirjoittaa johtamisviesti kuin käyttäjän saldojen yksityisen näkymän
   avaamiseen. Suosi avainten johtamista tarvittaessa tallentamisen sijaan; jos
   tallennat ne (esimerkiksi säilytyspalvelussa), suojaa ne yhtä huolellisesti
-  kuin allekirjoitusavaimet.
+  kuin allekirjoitusavaimet. Lompakoiden tulisi tarjota tämä allekirjoitus
+  erillisen johtamisprosessin kautta ja kieltäytyä yleisistä signMessage-pyynnöistä
+  viesteille, jotka alkavat merkkijonolla `solana-conf-bal/v1`, koska kyseinen
+  allekirjoitus on käyttäjän salauksenpurkuavainten lähtöaineistoa.
 </Callout>
 
 Johdannaisapufunktiot palauttavat sarjallistettua avainmateriaalia. Korkean
@@ -188,10 +180,10 @@ import {
   AeKey
 } from "@solana/zk-sdk/bundler";
 
-const elgamalKeypair = ElGamalKeypair.fromSecretKey(
-  ElGamalSecretKey.fromBytes(secretKey)
+const elgamalKeypairObject = ElGamalKeypair.fromSecretKey(
+  ElGamalSecretKey.fromBytes(elgamalKeypair.secretKey)
 );
-const aesKeyObject = AeKey.fromBytes(aesKey);
+const aesKeyObject = AeKey.fromBytes(aeKey);
 ```
 
 ## Tilien luominen ja konfigurointi
@@ -345,14 +337,13 @@ Luottamuksellinen siirto vaatii kolme asiakkaalla luotavaa nollatietotodistetta:
   kelvollisia ei-negatiivisia kokonaislukuja, mikä estää arvon luomisen
   tyhjästä.
 
-Nämä todisteet ovat suurempia kuin nykyinen transaktiokokoraja sallii
-sisällyttää suoraan, joten tavallinen käytäntö on luoda **todistekontekstin
+Nämä todisteet ovat suurempia kuin mitä legacy- ja v0-transaktioiden kokoraja
+sallii sisällyttää suoraan, joten tavallinen käytäntö on luoda **todistekontekstin
 tilit**, vahvistaa jokainen todiste niihin, viitata niihin siirtoinstruktiosta
 ja sulkea ne sitten rent-maksujen takaisinperimiseksi. Tämä kattaa muutaman
-riippuvaisen transaktion. Transaktioformaatti v1 (tulossa Agave v4.2:n myötä)
-nostaa kokorajaa ja sen odotetaan mahdollistavan luottamuksellisen siirron
-suorittamisen yhdessä ketjun sisäisessä transaktiossa, mikä yksinkertaistaa tätä
-prosessia.
+riippuvaisen transaktion. Transaktioformaatti v1 nostaa tätä rajaa, minkä
+ansiosta luottamuksellinen siirto voidaan suorittaa yhdessä ketjun
+transaktiossa, mikä yksinkertaistaa tätä prosessia.
 
 Sinun ei tarvitse koota todisteita käsin. Molemmat asiakasohjelmat tarjoavat
 korkean tason apufunktion, joka rakentaa todisteet ja tuottaa lähetettävät
@@ -533,9 +524,12 @@ apuohjelmat lukevat sen puolestasi).
 
 Jos tuotteesi on tilintarkastaja (esimerkiksi säännelty liikkeeseenlaskija tai
 vaatimustenmukaisuuspalveluntarjoaja), salaat siirtosummat tilintarkastajan
-salaisella avaimella samalla tavalla kuin omistaja purkaa oman saldонsa
-salauksen. Omistajat voivat myös valikoivasti jakaa tilikohtaiset avaimensa
-tietylle osapuolelle paljastamatta niitä julkisesti.
+salaisella avaimella samalla tavalla kuin omistaja purkaa oman saldonsa
+salauksen. Omistajat voivat myös valikoivasti jakaa avaimensa tietylle
+osapuolelle paljastamatta niitä julkisesti – vaikka standardin
+lompakkoon sidotun johtamisen mukaan samat avaimet kattavat kaikki omistajan
+luottamukselliset saldot, joten niiden jakaminen paljastaa jokaisen
+luottamuksellisen tilin, ei vain yhtä.
 
 ### Tapahtumien seuranta (KYT)
 
@@ -634,4 +628,4 @@ muuttavat sen, mitä on havaittavissa, eivät koko mallia:
 | Osoite- ja verkostoseulonta   | Seulo lähettäjät, vastaanottajat, lyöntitoimijat ja omistajat sekä suorita vastapuolen verkostoanalyysi; nämä pysyvät julkisina.            | **P0**   |
 | Seuraa julkisia talletuksia/nostoja | Seuraa selkotekstisiä talletus- ja nostomääriä luottamuksellisen poolin havaittavina sisääntulo- ja poistumispisteinä. | **P0**   |
 | Tilintarkastajan avaimen summanäkyvyys | Tilintarkastajan avulla käyttöönotettujen lyöntitoimintojen osalta pura siirtomäärät tilintarkastajan avaimella määräpohjaisen havaitsemisen tueksi.     | **P1**   |
-| Valikoiva tiedonluovutus   | Tue käyttäjien tai liikkeeseenlaskijoiden tilikohtaisilla avaimilla jakamia summatietoja.                                      | **P2**   |
+| Valikoiva tiedonluovutus   | Tue käyttäjien tai liikkeeseenlaskijoiden omistajan avaimilla jakamia summatietoja.                                      | **P2**   |

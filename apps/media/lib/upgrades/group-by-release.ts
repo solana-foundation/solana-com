@@ -120,7 +120,7 @@ export function groupUpgradesByRelease(
 
   const plannedGroups = nonEmptyGroups
     .filter((group) => group.status === "planned")
-    .sort((a, b) => dateValue(a.expectedDate) - dateValue(b.expectedDate));
+    .sort((a, b) => dateValue(b.expectedDate) - dateValue(a.expectedDate));
 
   const shippedGroups = nonEmptyGroups
     .filter((group) => group.status === "shipped")
@@ -131,4 +131,19 @@ export function groupUpgradesByRelease(
   );
 
   return [...plannedGroups, ...shippedGroups, ...unscheduledGroup];
+}
+
+/**
+ * A shipped release whose every upgrade is live on mainnet has nothing left
+ * to track. The listing collapses these so the page does not grow without
+ * bound as releases accumulate.
+ */
+export function isReleaseFullyLive(group: ReleaseGroup): boolean {
+  if (group.status !== "shipped") {
+    return false;
+  }
+  const items = group.overview
+    ? [group.overview, ...group.upgrades]
+    : group.upgrades;
+  return items.length > 0 && items.every((item) => item.stage === "live");
 }

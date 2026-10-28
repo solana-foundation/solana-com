@@ -19,6 +19,9 @@ export type Project = {
   src: string;
   href?: string;
   statIcon?: string;
+  statValue?: string;
+  statSource?: string;
+  statSourceNote?: string;
 };
 
 type EcoProjectsProps = {
@@ -118,11 +121,14 @@ export const Projects = ({
                     key={project.key}
                     className={cn(
                       "relative group shrink-0",
-                      "p-[24px_20px_32px] xl:p-[24px_32px_32px] w-[340px] md:w-[420px] min-h-[520px] xl:min-h-[680px]",
+                      "p-[24px_20px_32px] xl:p-[24px_32px_32px] w-[340px] md:w-[420px]",
+                      hideStats
+                        ? "min-h-[320px] md:min-h-[380px]"
+                        : "min-h-[520px] xl:min-h-[680px]",
                       "flex flex-col justify-between",
                       "backdrop-blur-xl",
                     )}
-                    aria-label={project.key}
+                    aria-label={t(`${base}.name`)}
                   >
                     {index !== 0 && (
                       <div className="absolute top-[25%] bottom-0 left-0 w-0 h-auto [border-image:linear-gradient(to_bottom,rgba(255,255,255,0),rgba(255,255,255,0.15),rgba(255,255,255,0.1))_30] border-l border-transparent"></div>
@@ -133,7 +139,7 @@ export const Projects = ({
                       <div className="relative h-8">
                         <Image
                           src={project.src}
-                          alt={project.key}
+                          alt={t(`${base}.name`)}
                           fill
                           sizes="(max-width: 768px) 340px, 420px"
                           className="object-contain w-auto"
@@ -188,11 +194,27 @@ export const Projects = ({
                               {t(`${base}.statLabel`)}
                             </dt>
                             <dd className="text-[52px] leading-none mb-1">
-                              {t(`${base}.stat`)}
+                              {project.statValue ?? t(`${base}.stat`)}
                             </dd>
                             <div className="text-base md:text-lg xl:text-xl  tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.375] md:leading-[1.33] xl:leading-[1.4]">
                               {t(`${base}.statLabel`)}
                             </div>
+                            {project.statSource && (
+                              <div className="mt-3 text-xs text-white/50">
+                                <a
+                                  href={project.statSource}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline underline-offset-4 decoration-white/30 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                                  aria-label={`${t(`${translationBase}.sourceLabel`)}: ${t(`${base}.name`)}`}
+                                >
+                                  {t(`${translationBase}.sourceLabel`)} ↗
+                                </a>
+                                {project.statSourceNote && (
+                                  <span> · {project.statSourceNote}</span>
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
                       </dl>

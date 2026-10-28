@@ -1,4 +1,4 @@
-/* eslint-disable turbo/no-undeclared-env-vars */
+/* oxlint-disable turbo/no-undeclared-env-vars */
 import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
@@ -26,6 +26,7 @@ const repoRoot = process.env.INIT_CWD
   : process.cwd();
 
 const toPosix = (value) => value.split(path.sep).join("/");
+const escapeMarkdownUrl = (value) => value.replace(/[\\()]/g, "\\$&");
 
 function resolveInputPath(inputPath) {
   const candidates = [
@@ -108,13 +109,17 @@ async function updateReferences(oldAbsolutePath, newAbsolutePath) {
   );
 
   if (!oldPublicRelativePath.startsWith("..")) {
-    replacements.push(
-      [`/${oldPublicRelativePath}`, `/${newPublicRelativePath}`],
-      [
-        encodeURI(`/${oldPublicRelativePath}`),
-        encodeURI(`/${newPublicRelativePath}`),
-      ],
-    );
+    const oldUrl = `/${oldPublicRelativePath}`;
+    const newUrl = `/${newPublicRelativePath}`;
+    for (const [from, to] of [
+      [oldUrl, newUrl],
+      [encodeURI(oldUrl), encodeURI(newUrl)],
+    ]) {
+      replacements.push(
+        [from, to],
+        [escapeMarkdownUrl(from), escapeMarkdownUrl(to)],
+      );
+    }
   }
 
   let updatedFiles = 0;

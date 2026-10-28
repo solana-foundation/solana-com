@@ -15,7 +15,7 @@ export default function GTMTrackingSnippet() {
 
   return (
     <>
-      {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
+      {/* oxlint-disable-next-line next/no-before-interactive-script-outside-document -- consent script must execute before hydration to gate analytics */}
       <Script strategy="beforeInteractive" id="consent-default">
         {getCookieConsentDefaultScript()}
       </Script>

@@ -48,7 +48,7 @@ const ModalLauncher = () => {
     }
     const search = new URLSearchParams(currentQuery).toString();
     router.push(`${currentPath}${search ? "?" + search : ""}`);
-  }, [modalLaunchId, router, pathname, searchParams]);
+  }, [router, pathname, searchParams]);
 
   useEffect(() => {
     if (

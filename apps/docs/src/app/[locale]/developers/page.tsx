@@ -1,83 +1,109 @@
-import { DevelopersPage } from "./developers";
-import { YT_PLAYLIST_CHANGELOG } from "@/constants/developerContentConfig";
-import { getYTVideos } from "@/utils/followerFunctions";
-import { getIndexMetadata } from "@@/src/app/metadata";
+import type { Metadata } from "next";
+import { getAlternates } from "@workspace/i18n/routing";
+import { getTranslations } from "@workspace/i18n/server";
+import { DeveloperHub } from "@/components/developers/DeveloperHub/DeveloperHub";
+import { getLatestDeveloperUpdates } from "@/lib/developer-media";
+import {
+  buildDeveloperHubJsonLd,
+  DEVELOPERS_PATH,
+  DEVELOPERS_SOCIAL_IMAGE,
+  serializeJsonLd,
+} from "./structured-data";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
-const featuredResources = [
-  {
-    category: "Payments",
-    title: "Accept payments on Solana",
-    description:
-      "Take stablecoin payments with instant settlement and sub-cent fees.",
-    href: "/docs/payments",
-  },
-  {
-    category: "Assets",
-    title: "Launch a Token-2022 asset",
-    description:
-      "Create a mint with metadata, pausability, and built-in controls.",
-    href: "/docs/tokenization/quickstart",
-  },
-  {
-    category: "Assets",
-    title: "Explore tokenized assets",
-    description: "Issue, control, settle, and operate assets onchain.",
-    href: "/docs/tokenization",
-  },
-  {
-    category: "Games",
-    title: "Get started with game development",
-    description: "Build onchain games with the Solana games cookbook.",
-    href: "/developers/cookbook/games/getting-started-with-game-development",
-  },
-  {
-    category: "Infrastructure",
-    title: "Explore developer tools",
-    description: "Find SDKs, local testing, infrastructure, and references.",
-    href: "/docs/tools",
-  },
-];
+export default async function Page({ params }: Props) {
+  const { locale } = await params;
+  const [updates, t] = await Promise.all([
+    getLatestDeveloperUpdates(),
+    getTranslations({ locale, namespace: "developers.hub" }),
+  ]);
+  const title = t("metadata.title");
+  const description = t("metadata.description");
+  const alternates = getAlternates(DEVELOPERS_PATH, locale);
+  const structuredData = buildDeveloperHubJsonLd({
+    title,
+    description,
+    locale,
+    path: alternates.canonical,
+    aboutName: t("schema.about"),
+    resourcesName: t("schema.resources"),
+    homeName: t("schema.home"),
+    resources: [
+      {
+        name: t("pathways.items.learnStack.title"),
+        description: t("pathways.items.learnStack.description"),
+        path: "/docs",
+      },
+      {
+        name: t("pathways.items.buildByExample.title"),
+        description: t("pathways.items.buildByExample.description"),
+        path: "/developers/templates",
+      },
+      {
+        name: t("pathways.items.moveToSolana.title"),
+        description: t("pathways.items.moveToSolana.description"),
+        path: "/developers/migrate-to-solana",
+      },
+      {
+        name: t("buildAreas.items.payments.title"),
+        description: t("buildAreas.items.payments.description"),
+        path: "/docs/payments",
+      },
+      {
+        name: t("buildAreas.items.tools.title"),
+        description: t("buildAreas.items.tools.description"),
+        path: "/docs/tools",
+      },
+    ],
+  });
 
-export default async function Page() {
-  const latestChangelogVideo = await getLatestChangelogVideo();
   return (
-    <DevelopersPage
-      latestChangelogVideo={latestChangelogVideo ?? undefined}
-      guides={featuredResources}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(structuredData) }}
+      />
+      <DeveloperHub updates={updates} />
+    </>
   );
 }
 
-async function getLatestChangelogVideo() {
-  try {
-    let latestChangelogVideo = null;
-    const videos = await getYTVideos(undefined, YT_PLAYLIST_CHANGELOG);
-    if (videos.length) {
-      latestChangelogVideo = videos.sort((a, b) => {
-        if (!b.snippet.publishedAt || !a.snippet.publishedAt) return 0;
-        return (
-          new Date(b.snippet.publishedAt).getTime() -
-          new Date(a.snippet.publishedAt).getTime()
-        );
-      })[0];
-    }
-    return latestChangelogVideo;
-  } catch (error) {
-    console.error("Error fetching YouTube videos:", error);
-    return null;
-  }
-}
-
-export async function generateMetadata({ params }: Props) {
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
-  return await getIndexMetadata({
-    titleKey: "developers.title",
-    descriptionKey: "developers.description",
-    path: "/developers",
-    locale,
-  });
+  const t = await getTranslations({ locale, namespace: "developers.hub" });
+  const title = t("metadata.title");
+  const description = t("metadata.description");
+  const alternates = getAlternates(DEVELOPERS_PATH, locale);
+
+  return {
+    title,
+    description,
+    alternates,
+    openGraph: {
+      type: "website",
+      url: alternates.canonical,
+      siteName: "Solana",
+      locale,
+      title,
+      description,
+      images: [
+        {
+          url: DEVELOPERS_SOCIAL_IMAGE,
+          width: 1200,
+          height: 630,
+          alt: description,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      creator: "@solana",
+      title,
+      description,
+      images: [DEVELOPERS_SOCIAL_IMAGE],
+    },
+  };
 }

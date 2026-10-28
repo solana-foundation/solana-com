@@ -1,68 +1,96 @@
 ---
 title: Best practices voor productie
 description:
-  Beheer Keychain-ondertekeningsbackends veilig in productie — scheiding van
-  verantwoordelijkheden, sleutelrotatie, minimale toegangsrechten,
-  beschikbaarheid, transportbeveiliging, monitoring en audit.
+  Beheer Keychain-ondertekeningsbackends veilig in productie, met aandacht voor scheiding van taken, sleutelrotatie, minimale toegangsrechten, beschikbaarheid, transportbeveiliging, monitoring en audit.
 related:
   - /docs/tools/keychain/choosing-a-backend
-  - /docs/payments/production-readiness
+  - /docs/tools/production-readiness
 ---
 
-Keychain abstraheert de ondertekeningsbackend, maar het beheren van een
-ondertekenaar in productie blijft uw verantwoordelijkheid. Deze praktijken zijn
-van toepassing op alle backends; zie
-[Een backend kiezen](/docs/tools/keychain/choosing-a-backend) voor het
-selecteren van een backend.
+Keychain abstraheert de ondertekeningsbackend, maar het beheren van een ondertekenaar in productie blijft
+jouw verantwoordelijkheid. Deze praktijken zijn van toepassing op alle backends; zie
+[Een backend kiezen](/docs/tools/keychain/choosing-a-backend) voor de selectie ervan.
 
-## Scheid hete en koude ondertekenaars
+## Scheid hot- en cold-ondertekenaars
 
-Gebruik een operationele ondertekenaar met laag saldo ("hot") voor frequente,
-geautomatiseerde transacties, en een afzonderlijke ondertekenaar met hoge waarde
-("cold") voor schatkistbewegingen. Ondersteun de koude ondertekenaar met
-MPC-bewaring of een cloud-HSM en vereist goedkeuringsbeleid voordat deze
-ondertekent. Omdat de interface identiek is, kan elke rol een andere backend
-gebruiken zonder de aanroeplocaties te wijzigen.
+Gebruik een operationele ondertekenaar met laag saldo ("hot") voor frequente, geautomatiseerde
+transacties, en een aparte ondertekenaar met hoge waarde ("cold") voor treasury-bewegingen.
+Onderbouw de cold-ondertekenaar met MPC-bewaring of een cloud-HSM en vereis goedkeuringsbeleid
+voordat deze ondertekent. Omdat de interface identiek is, kan elke rol een andere backend gebruiken
+zonder de aanroeplocaties te wijzigen.
 
-## Roteer sleutels doelbewust
+## Roteer sleutels weloverwogen
 
-Op Solana is de ondertekeningssleutel _het_ accountadres, dus het roteren van
-een sleutel levert een nieuw adres op. Plan rotatie als een migratie: voorzie
-een nieuwe sleutel, wijs de relevante bevoegdheden (of verplaats fondsen) toe
-aan het nieuwe adres en zet de oude vervolgens buiten gebruik. Gebruik
-afzonderlijke sleutels per omgeving zodat devnet-sleutels nooit opnieuw worden
-gebruikt op mainnet.
+Op Solana _is_ de ondertekeningssleutel het accountadres, dus het roteren van een sleutel levert een
+nieuw adres op. Plan rotatie als een migratie: voorzie een nieuwe sleutel, wijs de relevante
+bevoegdheden opnieuw toe (of verplaats fondsen) naar het nieuwe adres, en pensioneer daarna de oude.
+Gebruik afzonderlijke sleutels per omgeving zodat devnet-sleutels nooit opnieuw worden gebruikt op
+mainnet.
 
 ## Verleen minimale toegangsrechten
 
-Beperk de inloggegevens van elke backend tot het minimum dat nodig is om te
-ondertekenen. Voor AWS KMS zijn dat `kms:Sign` en `kms:DescribeKey` op de
-specifieke sleutel; geef de voorkeur aan IAM-rollen boven statische
-inloggegevens. Pas hetzelfde principe toe op Vault-beleid en beheerde
-wallet-API-sleutels.
+Beperk de inloggegevens van elke backend tot het minimum dat nodig is om te ondertekenen. Voor AWS KMS
+zijn dat `kms:Sign`, `kms:DescribeKey` en `kms:GetPublicKey` op de specifieke sleutel
+(de beschikbaarheidscontrole gebruikt de laatste twee); geef de voorkeur aan IAM-rollen boven statische
+inloggegevens. Pas hetzelfde principe toe op Vault-beleid en beheerde wallet-API-
+sleutels.
 
 ## Plan voor beschikbaarheid
 
-Externe backends zijn afhankelijk van een netwerkdienst. Roep `isAvailable()`
-aan voordat u vertrouwt op een ondertekenaar, pas nieuwe pogingen toe met
-terugval bij tijdelijke fouten en definieer een alternatief pad voor storingen.
-Keychain dwingt HTTPS af voor externe backends en past een standaard time-out
-voor verzoeken toe.
+Externe backends zijn afhankelijk van een netwerkservice. Controleer de beschikbaarheid voordat u op
+een ondertekenaar vertrouwt (`isAvailable()` in TypeScript, `is_available()` in Rust en Python,
+`IsAvailable(ctx)` in Go), probeer mislukte aanroepen die alleen ondertekenen opnieuw met backoff, en definieer een
+terugvalpad voor storingen. Probeer een backend die ook uitzendt (Crossmint, Fordefi native auto-modus) niet blindelings opnieuw: zie
+[Onbevestigde broadcasts afhandelen](#handle-unconfirmed-broadcasts). Keychain
+dwingt HTTPS af voor geconfigureerde basis-URL's, weigert redirects en past een standaard
+time-out voor verzoeken toe.
+
+## Onbevestigde broadcasts afhandelen
+
+Crossmint en Fordefi native auto-modus ondertekenen en verzenden transacties aan de serverzijde, dus een
+mislukte aanroep betekent niet dat er niets is aangekomen. Als de provider de transactie
+mogelijk heeft geaccepteerd, meldt Keychain `BROADCAST_UNCONFIRMED`
+(`SignerError::BroadcastUnconfirmed` in Rust). De fout bevat de transactie-id van de provider
+wanneer het aanmaken is geaccepteerd, en bevat altijd de idempotentiesleutel
+waaronder het aanmaakverzoek is verstuurd, afgeleid van het bericht.
+
+- Stem af met de provider aan de hand van de transactie-id voordat u iets anders doet.
+- Het opnieuw verzenden van de byte-identieke transactie is veilig: de idempotentiesleutel
+  ontdubbelt deze.
+- Het opnieuw opbouwen van de transactie (bijvoorbeeld met een nieuwe blockhash) levert een nieuwe sleutel
+  en dus een nieuwe overdracht op.
 
 ## Bescherm geheimen en transport
 
-- Alle externe backends communiceren via HTTPS; niet-HTTPS-eindpunten worden
-  geweigerd.
-- Geef API-sleutels, tokens en inloggegevens op vanuit een secret manager of
-  omgevingsvariabelen — codeer ze nooit hard of sla ze op in versiebeheer.
-- Keychain zuivert foutmeldingen om te voorkomen dat geheimen in logs
-  terechtkomen; houd uw eigen logging vrij van onbewerkte inloggegevens en
-  sleutelmateriaal.
+- Externe backends dwingen HTTPS af voor geconfigureerde basis-URL's en weigeren redirects.
+  De enige uitzondering is Vault, dat gewoon HTTP accepteert op loopback, zodat een lokale
+  `vault server -dev` werkt.
+- Verstrek API-sleutels, tokens en inloggegevens vanuit een geheimenbeheerder of omgevingsvariabelen —
+  codeer ze nooit hard of leg ze vast in versiebeheer.
+- Keychain zuivert foutreacties om te voorkomen dat geheimen in logs terechtkomen; houd
+  uw eigen logging vrij van onbewerkte inloggegevens en sleutelmateriaal.
 
-## Ondertekening monitoren en controleren
+## Monitor en controleer ondertekening
 
-Volg het succespercentage, de latentie en het aantal mislukkingen bij het
-ondertekenen, en stel meldingen in voor pieken — zie de statistieken in
-[Productiegereedheid](/docs/payments/production-readiness#monitoring). Schakel
-provider-side auditlogboeken in (KMS, Vault of bewaarder) en vergelijk deze met
+Volg het slagingspercentage, de latentie en het aantal mislukkingen van ondertekening, en stel waarschuwingen in voor pieken —
+zie de statistieken in
+[Productiegereedheid](/docs/tools/production-readiness#monitoring). Schakel auditlogs aan de providerzijde in (KMS, Vault of bewaarder) en vergelijk deze met
 de transacties die uw applicatie indient.
+
+## Weet wat Keychain controleert
+
+- Keychain valideert de ondertekeningsstap, niet uw transactie: er is geen
+  simulatie, geen controle van de transactie-inhoud en geen beleidsengine. Dwing dit af
+  in uw applicatie of in de beleidsinstellingen van de provider.
+- Fordefi native handmatige modus herschrijft de transactie (blockhash, Compute Budget-
+  feeinstructies) voordat deze wordt ondertekend. Ga verder met de transactie die wordt teruggegeven,
+  nooit met de transactie die u hebt ingediend, en voer deze uit vóór elke andere ondertekenaar.
+- Rust zet tussenliggende sleutelbuffers op nul (zeroize); Python en Go kunnen dat niet. Behandel bij de Memory-
+  backend in die talen het volledige procesgeheugen als gevoelig.
+- Bij Ledger is het scherm van het apparaat de enige betrouwbare beschrijving van wat er
+  wordt ondertekend. Schakel de functie `unsafe-debug` of `TRACE`-logging voor
+  `solana_remote_wallet` in productie niet in, aangezien beide details van het apparaat en de transactie loggen.
+
+Zie het
+[beveiligingsmodel](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+voor het volledige plaatje.

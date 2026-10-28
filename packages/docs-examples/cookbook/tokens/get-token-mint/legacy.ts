@@ -1,5 +1,5 @@
 // #region fetch
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js-legacy";
 import { getMint, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
@@ -8,7 +8,7 @@ const mintAddress = new PublicKey(
   "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo",
 );
 
-let mintAccount = await getMint(
+const mintAccount = await getMint(
   connection,
   mintAddress,
   undefined,

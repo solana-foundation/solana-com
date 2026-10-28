@@ -161,7 +161,6 @@ export const WhatsUp: React.FC<WhatsUpProps> = ({
   // useEffect(() => {
   //   if (!isIntersecting) return;
   //   setFirstRenderItems(items || []);
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, [isIntersecting]);
 
   // useEffect(() => {

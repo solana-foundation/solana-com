@@ -1,6 +1,17 @@
 const DEFAULT_SLOT_MS = 400;
 const RPC_TIMEOUT_MS = 10_000;
 
+export class RpcError extends Error {
+  constructor(
+    method: string,
+    message: string,
+    readonly code: number | undefined,
+  ) {
+    super(`RPC ${method}: ${message}`);
+    this.name = "RpcError";
+  }
+}
+
 function rpcUrl(): string {
   // Local/dev fallback — public RPC is rate-limited, fine for these light calls
   return process.env.SOLANA_RPC_URL ?? "https://api.mainnet-beta.solana.com";
@@ -26,8 +37,12 @@ export async function rpc<T>(
     signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
   });
   if (!res.ok) throw new Error(`RPC ${method} failed: ${res.status}`);
-  const json = await res.json();
-  if (json.error) throw new Error(`RPC ${method}: ${json.error.message}`);
+  const json = (await res.json()) as {
+    result?: T;
+    error?: { code?: number; message: string };
+  };
+  if (json.error)
+    throw new RpcError(method, json.error.message, json.error.code);
   return json.result as T;
 }
 
@@ -141,7 +156,7 @@ export async function getBlockFull(slot: number): Promise<SampledBlock | null> {
       transactionDetails: "full",
       rewards: false,
       commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
+      maxSupportedTransactionVersion: 1,
     },
   ]);
 }

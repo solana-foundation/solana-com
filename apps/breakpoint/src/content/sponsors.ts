@@ -38,6 +38,14 @@ export type SponsorMarqueeRow = {
   sponsors: SponsorLogo[];
 };
 
+// Keep every tier in sponsorship-action order. Add newly actioned sponsors to
+// the end of their tier so the same order carries through to the page and
+// marquee rows below.
+const diamondSponsors = [
+  { companyId: "zelle", width: 1801, height: 834 },
+  { companyId: "kraken", width: 3246, height: 772 },
+] satisfies SponsorLogo[];
+
 const platinumSponsors = [
   {
     companyId: "jito",
@@ -79,6 +87,32 @@ const platinumSponsors = [
     width: 1933,
     height: 233,
   },
+  {
+    companyId: "seeker",
+    width: 1800,
+    height: 600,
+  },
+  {
+    companyId: "sunrise",
+    width: 1809,
+    height: 449,
+  },
+  {
+    companyId: "bloomberg-media",
+    displayName: "Bloomberg",
+    logoVariant: { id: "logo-horizontal-light" },
+    width: 666.06,
+    height: 173.85,
+  },
+  {
+    companyId: "grayscale",
+    logoVariant: { id: "logo-light" },
+    width: 1050,
+    height: 170,
+  },
+  { companyId: "tether", width: 121, height: 28 },
+  { companyId: "payoneer", width: 1316, height: 256 },
+  { companyId: "ramp", width: 599, height: 171 },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -216,6 +250,143 @@ const goldSponsors = [
     width: 2004,
     height: 543,
   },
+  {
+    companyId: "huma-finance",
+    width: 109,
+    height: 32,
+  },
+  {
+    companyId: "soilonic",
+    width: 1693,
+    height: 929,
+  },
+  {
+    companyId: "triton",
+    width: 1028,
+    height: 323,
+  },
+  {
+    companyId: "opensea",
+    width: 1160,
+    height: 302,
+  },
+  {
+    companyId: "reflect-money",
+    width: 759,
+    height: 186,
+  },
+  {
+    companyId: "beezie",
+    width: 1514,
+    height: 646,
+  },
+  {
+    companyId: "bitwise",
+    logoVariant: { id: "logo-dark" },
+    width: 108.3,
+    height: 23.9,
+  },
+  {
+    companyId: "xash",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1119.3,
+    height: 374.5,
+  },
+  {
+    companyId: "agridex",
+    displayName: "Loam, by Agridex",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 687.54,
+    height: 259.76,
+  },
+  {
+    companyId: "bitget-wallet",
+    displayName: "Bitget Wallet",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1623,
+    height: 256,
+  },
+  {
+    companyId: "accretion",
+    logoVariant: { id: "logo-light" },
+    width: 100,
+    height: 57.3,
+  },
+  {
+    companyId: "hackhack",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1630,
+    height: 533,
+  },
+  {
+    companyId: "birdeye",
+    logoVariant: { id: "logo-light" },
+    width: 300,
+    height: 45,
+  },
+  {
+    companyId: "fidelity",
+    displayName: "Fidelity",
+    logoVariant: { id: "fcat-logo-dark" },
+    width: 636,
+    height: 222,
+  },
+  {
+    companyId: "circle",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1110,
+    height: 284.4,
+  },
+  {
+    companyId: "kilpatrick-townsend",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1350,
+    height: 400,
+  },
+  {
+    companyId: "cooley",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1244,
+    height: 406,
+  },
+  {
+    companyId: "neodyme",
+    logoVariant: { id: "logo-horizontal-dark" },
+    width: 1652.4,
+    height: 528.214,
+  },
+  {
+    companyId: "ika",
+    logoVariant: { id: "wordmark-light" },
+    width: 96,
+    height: 48,
+  },
+  {
+    companyId: "cow",
+    displayName: "CoW",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1325,
+    height: 400,
+  },
+  { companyId: "agant", width: 2439.5, height: 676.4 },
+  { companyId: "kamino", width: 216.6, height: 50 },
+  { companyId: "raydium", width: 847, height: 231 },
+  { companyId: "zan", displayName: "ZAN", width: 1593, height: 324 },
+  { companyId: "western-union", width: 300, height: 70 },
+  { companyId: "jupiter", width: 780, height: 210 },
+  {
+    companyId: "checkout",
+    displayName: "Checkout.com",
+    width: 263,
+    height: 176,
+  },
+  { companyId: "fenwick", width: 360, height: 55 },
+  {
+    companyId: "jurassicfi",
+    displayName: "JurassicFi",
+    width: 1532,
+    height: 1201,
+  },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
@@ -227,6 +398,19 @@ const activationSponsors = [
 ] satisfies SponsorLogo[];
 
 export const sponsorTiers = [
+  {
+    id: "diamond",
+    title: "Diamond",
+    mobileColumns: "grid-cols-1",
+    mobileLogoMaxWidth: 0.76,
+    mobileLogoMaxHeight: 0.62,
+    logoMaxWidth: 0.72,
+    logoMaxHeight: 0.62,
+    cellAspectRatio: 2,
+    columns: "md:grid-cols-4",
+    cellAspect: "aspect-[442/221]",
+    sponsors: diamondSponsors,
+  },
   {
     id: "platinum",
     title: "Platinum",
@@ -256,6 +440,13 @@ export const sponsorTiers = [
 ] satisfies SponsorTier[];
 
 export const sponsorMarqueeRows = [
+  {
+    title: "Diamond",
+    direction: "right",
+    density: "featured",
+    duration: "72s",
+    sponsors: diamondSponsors,
+  },
   {
     title: "Platinum",
     direction: "left",
