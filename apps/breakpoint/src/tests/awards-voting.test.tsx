@@ -120,4 +120,39 @@ describe("awards voting", () => {
     expect(screen.queryByRole("button", { name: "Submit vote" })).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+
+  it("shares the updated finalist name and Twitter handle", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        votes: [
+          {
+            category: "solana-streamer",
+            twitterHandle: "@notthreadguy",
+            submittedAt: "2026-10-20T00:00:00Z",
+          },
+        ],
+        votingStatus: "open",
+      }),
+    } as Response);
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+
+    renderBallot();
+    await screen.findByText("1 of 12 categories voted");
+    for (let index = 0; index < 3; index++) {
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    }
+
+    expect(screen.getByText("notthreadguy")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Share vote" }));
+
+    const shareUrl = new URL(open.mock.calls[0]![0] as string);
+    expect(shareUrl.origin + shareUrl.pathname).toBe(
+      "https://x.com/intent/tweet",
+    );
+    expect(shareUrl.searchParams.get("text")).toContain(
+      "I voted for notthreadguy (@notthreadguy)",
+    );
+    expect(shareUrl.searchParams.get("url")).toBe(window.location.href);
+  });
 });
