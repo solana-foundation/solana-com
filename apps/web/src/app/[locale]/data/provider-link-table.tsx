@@ -23,7 +23,7 @@ export function ProviderLinkTable({
   return (
     // Scrolls sideways on narrow screens instead of widening the page.
     // `relative` keeps the absolutely positioned sr-only text inside it.
-    <div className="relative mt-6 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="relative overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <table className="border-collapse font-brand-mono text-[11px] leading-[1.42] font-bold uppercase">
         <caption className="sr-only">
           {t("providerLinks.caption", { tab: tabLabel })}

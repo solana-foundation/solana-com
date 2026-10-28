@@ -308,13 +308,19 @@ export function SolanaDataDashboard() {
           className="mt-8 max-w-[720px]"
         >
           <h2 className="sr-only">{activeTabContent.label}</h2>
-          <p className="nd-body-m text-nd-mid-em-text">
-            {activeTabContent.description}
-          </p>
-          {activeTabContent.clarification ? (
-            <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
-              {activeTabContent.clarification}
-            </p>
+          {/* Only RPC and Tx Senders show the tab description; the data tabs
+              lead with the provider links instead. */}
+          {isLiveInfrastructureTab ? (
+            <>
+              <p className="nd-body-m text-nd-mid-em-text">
+                {activeTabContent.description}
+              </p>
+              {activeTabContent.clarification ? (
+                <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
+                  {activeTabContent.clarification}
+                </p>
+              ) : null}
+            </>
           ) : null}
           <ProviderLinkTable
             tab={activeTab}
