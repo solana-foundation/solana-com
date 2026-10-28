@@ -18,6 +18,7 @@ export type NewsItem = {
 export type LatestNewsProps = {
   title: React.ReactNode;
   items: NewsItem[];
+  layout?: "featured" | "compact";
 };
 
 /**
@@ -41,9 +42,62 @@ export type LatestNewsProps = {
  *   }]}
  * />
  */
-export const LatestNews = ({ title, items }: LatestNewsProps) => {
+export const LatestNews = ({
+  title,
+  items,
+  layout = "featured",
+}: LatestNewsProps) => {
   if (items.length === 0) {
     return null;
+  }
+
+  if (layout === "compact") {
+    return (
+      <section className="relative z-[1] bg-black text-white text-left font-brand">
+        <div className="max-w-[1440px] mx-auto px-[20px] md:px-[32px] xl:px-[40px] py-[64px] md:py-[112px]">
+          {title && (
+            <h2 className="font-brand font-medium leading-none text-[32px] md:text-[40px] mb-8 tracking-[-1.28px] md:tracking-[-1.6px]">
+              {title}
+            </h2>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+            {items.map((item) => (
+              <Link
+                key={item.id}
+                href={item.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block h-full text-inherit group"
+              >
+                <div className="relative w-full aspect-video rounded-xl overflow-hidden">
+                  <Image
+                    src={item.image}
+                    alt=""
+                    fill
+                    sizes="(min-width: 1280px) 320px, (min-width: 640px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                </div>
+                <div className="mt-4">
+                  <div className="min-h-5 text-[#ABABBC] text-sm mb-2 uppercase tracking-wide">
+                    {item.date && (
+                      <FormattedDate
+                        value={new Date(item.date)}
+                        month="short"
+                        day="numeric"
+                      />
+                    )}
+                  </div>
+                  <h3 className="text-lg font-medium mt-0 mb-0 group-hover:underline tracking-[-0.54px] leading-[1.5] line-clamp-3 min-h-[4.5em]">
+                    {item.title}
+                  </h3>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
   }
 
   const isOneItem = items.length === 1;

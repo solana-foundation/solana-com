@@ -4,6 +4,7 @@ import { docsSource } from "@@/src/app/sources/docs";
 import { cookbookSource } from "@@/src/app/sources/cookbook";
 import { learnSource } from "@@/src/app/sources/learn";
 import { developersLearnSource } from "@@/src/app/sources/developers-learn";
+import { getStartupRequestsIndex } from "@@/src/lib/startup-requests-index";
 
 export const revalidate = 3600;
 
@@ -24,6 +25,8 @@ export async function GET() {
     "> file. Canonical per-page URLs are noted above each section.",
     "",
   ];
+
+  chunks.push(await getStartupRequestsIndex(), "");
 
   for (const source of sources) {
     const pages = source

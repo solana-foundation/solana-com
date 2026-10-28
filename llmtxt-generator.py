@@ -4,20 +4,26 @@ Script to generate LLMs.txt source files.
 Generates:
 - llms.txt (English, curated index)
 - llms-en.txt (source file for Lingo translations)
+Also aligns startup guide discovery in existing locale and full-text indexes.
 """
 
 import os
 import re
+import json
+from pathlib import Path
 
 # Configuration
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(REPO_ROOT, 'apps', 'web', 'public')
+STARTUP_GUIDE_URL = "https://solana.com/request-for-startups.md"
+STARTUP_GUIDE_DESCRIPTION = "Explore video-based startup requests with speaker briefs and Solana tooling paths"
 
 # AI agent resources section (English only, static URLs)
 AI_AGENT_RESOURCES = [
     ("SKILL.md", "SKILL.md", "Comprehensive guide for AI agents to understand and build on Solana"),
     ("Full Documentation", "llms-full.txt", "Complete inline documentation with code examples and API reference"),
     ("Coding with Agents", "docs/intro/coding-with-agents", "Use Solana MCP and Agent Skills in AI-assisted development workflows"),
+    ("Request for Startups", "request-for-startups.md", STARTUP_GUIDE_DESCRIPTION),
 ]
 
 # Curated sections for the English source file
@@ -235,6 +241,60 @@ def normalize_llms_urls(content: str) -> str:
     return content
 
 
+def generate_startup_requests() -> str:
+    """Read the same request titles, anchors, and theses used by the page."""
+    catalog_path = Path(REPO_ROOT) / "packages/i18n/messages/web/en/common.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    requests = catalog["request-for-startups"]["requests"]["items"]
+    lines = [
+        "## Request for Startups",
+        "",
+        f"Use the [startup guide]({STARTUP_GUIDE_URL}) to choose a request and plan a first build. Each brief follows one video from the playlist and includes the speaker, opportunity, starting points, and tooling path.",
+        "",
+    ]
+    for slug, request in requests.items():
+        lines.append(
+            f"- [{request['title']}]({STARTUP_GUIDE_URL}#{slug}): {request['thesis']}"
+        )
+    return "\n".join(lines)
+
+
+def align_existing_agent_indexes(startup_requests: str):
+    """Add canonical guide discovery without rewriting translated or full docs."""
+    for path in sorted(Path(OUTPUT_DIR).glob("llms-*.txt")):
+        if path.name == "llms-en.txt":
+            continue
+        content = path.read_text(encoding="utf-8")
+        if path.name == "llms-full.txt":
+            heading = "## Request for Startups\n"
+            if heading in content:
+                start = content.index(heading)
+                end = content.find("\n## ", start + len(heading))
+                end = end if end >= 0 else len(content)
+                content = content[:start] + startup_requests + "\n\n---\n" + content[end:]
+            else:
+                marker = "## Core Concepts\n"
+                content = content.replace(marker, startup_requests + "\n\n---\n\n" + marker, 1)
+        else:
+            # The brief is English; preserve the locale's translated documentation.
+            link = f"- [Request for Startups (English)]({STARTUP_GUIDE_URL}): {STARTUP_GUIDE_DESCRIPTION}"
+            if STARTUP_GUIDE_URL in content:
+                content = re.sub(
+                    r"^- \[[^\n]+\]\(https://solana\.com/request-for-startups\.md\):[^\n]*$",
+                    lambda _: link,
+                    content,
+                    flags=re.MULTILINE,
+                )
+            else:
+                first_section = content.find("\n## ")
+                next_section = content.find("\n## ", first_section + 1)
+                if first_section < 0 or next_section < 0:
+                    raise ValueError(f"Cannot locate agent resource section in {path}")
+                content = content[:next_section].rstrip() + "\n" + link + "\n\n" + content[next_section + 1:]
+        path.write_text(content, encoding="utf-8")
+        print(f"Aligned: {path}")
+
+
 def generate_llms_txt() -> str:
     """Generate llms.txt content for the English source file."""
     base_url = "https://solana.com"
@@ -253,6 +313,7 @@ def generate_llms_txt() -> str:
         url = f"{base_url}/{path}"
         lines.append(f"- [{title}]({url}): {description}")
     lines.append("")
+    lines.extend([generate_startup_requests(), ""])
     
     # Add curated sections
     for section_name, links in CURATED_SECTIONS.items():
@@ -296,6 +357,8 @@ def main():
     for filename in ("llms-en.txt", "llms.txt"):
         output_path = write_output(filename, content)
         print(f"Generated: {output_path}")
+
+    align_existing_agent_indexes(generate_startup_requests())
 
     print("\nTranslations are handled by Lingo via .github/workflows/i18n.yml")
 
