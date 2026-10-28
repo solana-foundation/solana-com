@@ -19,6 +19,11 @@ import { scrollRequestIntoView, updateRequestHash } from "./request-scroll";
 import styles from "./request-for-startups.module.scss";
 import { REQUESTS, resolveRequestSlug, type Request } from "./requests";
 
+import {
+  LatestNews,
+  type NewsItem,
+} from "@/components/solutions/latest-news.v2";
+
 const ACCENTS: Record<Request["accent"], string> = {
   violet: "#9945ff",
   green: "#14f195",
@@ -117,7 +122,7 @@ function PointField({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function RequestForStartupsPage() {
+export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
   const t = useTranslations("request-for-startups");
   const reduceMotion = useReducedMotion();
   const [openRequest, setOpenRequest] = useState(REQUESTS[0].slug);
@@ -396,6 +401,7 @@ export function RequestForStartupsPage() {
           </div>
         </motion.div>
       </motion.section>
+      <LatestNews title={t("news.title")} items={news} layout="compact" />
     </main>
   );
 }

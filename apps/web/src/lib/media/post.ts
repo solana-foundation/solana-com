@@ -33,8 +33,9 @@ function getBaseUrl(): string {
 /**
  * Fetch latest posts from the media app API
  */
-export const fetchLatestPosts = async (
+const fetchPosts = async (
   params: FetchLatestPostsParams = {},
+  endpoint: "latest" | "startups" = "latest",
 ): Promise<FetchLatestPostsResponse> => {
   try {
     const baseUrl = getBaseUrl();
@@ -57,7 +58,7 @@ export const fetchLatestPosts = async (
     }
 
     const query = searchParams.toString();
-    const url = `${baseUrl}/api/posts/latest${query ? `?${query}` : ""}`;
+    const url = `${baseUrl}/api/posts/${endpoint}${query ? `?${query}` : ""}`;
 
     let response = await fetch(url, {
       next: { revalidate: 300 }, // Cache for 5 minutes
@@ -73,7 +74,7 @@ export const fetchLatestPosts = async (
         !response.headers.get("content-type")?.includes("application/json"))
     ) {
       response = await fetch(
-        `https://solana-com-media.vercel.app/api/posts/latest${query ? `?${query}` : ""}`,
+        `https://solana-com-media.vercel.app/api/posts/${endpoint}${query ? `?${query}` : ""}`,
         { next: { revalidate: 300 } },
       );
     }
@@ -96,3 +97,8 @@ export const fetchLatestPosts = async (
     return { posts: [] };
   }
 };
+
+export const fetchLatestPosts = (params: FetchLatestPostsParams = {}) =>
+  fetchPosts(params);
+
+export const fetchStartupPosts = () => fetchPosts({}, "startups");
