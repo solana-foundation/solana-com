@@ -5,6 +5,7 @@ export interface FetchLatestPostsParams {
   limit?: number;
   cursor?: string;
   category?: string;
+  excludeCategory?: string;
   tag?: string;
 }
 
@@ -51,6 +52,10 @@ const fetchPosts = async (
 
     if (params.category) {
       searchParams.set("category", params.category);
+    }
+
+    if (params.excludeCategory) {
+      searchParams.set("excludeCategory", params.excludeCategory);
     }
 
     if (params.tag) {
@@ -101,4 +106,35 @@ const fetchPosts = async (
 export const fetchLatestPosts = (params: FetchLatestPostsParams = {}) =>
   fetchPosts(params);
 
-export const fetchStartupPosts = () => fetchPosts({}, "startups");
+export const fetchStartupPosts =
+  async (): Promise<FetchLatestPostsResponse> => {
+    const feed = await fetchPosts({}, "startups");
+    if (feed.posts.length > 0 || process.env.VERCEL_ENV !== "preview") {
+      return feed;
+    }
+
+    // Protected Media previews can fall back to production before the new
+    // endpoint has shipped there. Its existing tag API still serves these posts.
+    const responses = await Promise.all(
+      ["product", "hackathon"].map((tag) =>
+        fetchLatestPosts({ tag, excludeCategory: "changelog", limit: 4 }),
+      ),
+    );
+    const seen = new Set<string>();
+    const publishedAt = (post: PostItem) => {
+      const timestamp = Date.parse(post.publishedAt || post.published);
+      return Number.isNaN(timestamp) ? 0 : timestamp;
+    };
+
+    return {
+      posts: responses
+        .flatMap(({ posts }) => posts)
+        .sort((left, right) => publishedAt(right) - publishedAt(left))
+        .filter((post) => {
+          if (seen.has(post.url)) return false;
+          seen.add(post.url);
+          return true;
+        })
+        .slice(0, 4),
+    };
+  };

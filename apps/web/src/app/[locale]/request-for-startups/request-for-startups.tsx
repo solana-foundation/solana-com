@@ -16,7 +16,7 @@ import {
   Button,
 } from "@workspace/ui";
 import { scrollRequestIntoView, updateRequestHash } from "./request-scroll";
-import styles from "./request-for-startups.module.scss";
+import { styles } from "./request-for-startups-styles";
 import { REQUESTS, resolveRequestSlug, type Request } from "./requests";
 
 import {
