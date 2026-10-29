@@ -1,5 +1,6 @@
 import type { CompanyRecord } from "../types";
 import { accretion } from "./records/accretion";
+import { agant } from "./records/agant";
 import { agridex } from "./records/agridex";
 import { aisa } from "./records/aisa";
 import { alchemy } from "./records/alchemy";
@@ -27,6 +28,7 @@ import { brave } from "./records/brave";
 import { bridge } from "./records/bridge";
 import { bydfi } from "./records/bydfi";
 import { byreal } from "./records/byreal";
+import { checkout } from "./records/checkout";
 import { cherryServers } from "./records/cherry-servers";
 import { circle } from "./records/circle";
 import { citi } from "./records/citi";
@@ -34,6 +36,7 @@ import { coinbase } from "./records/coinbase";
 import { colosseum } from "./records/colosseum";
 import { cooley } from "./records/cooley";
 import { cow } from "./records/cow";
+import { creditcoop } from "./records/creditcoop";
 import { comicbook } from "./records/comicbook";
 import { collectorCrypt } from "./records/collector-crypt";
 import { d3 } from "./records/d3";
@@ -46,6 +49,7 @@ import { dmcc } from "./records/dmcc";
 import { doublezero } from "./records/doublezero";
 import { drpc } from "./records/drpc";
 import { dynamic } from "./records/dynamic";
+import { fenwick } from "./records/fenwick";
 import { fidelity } from "./records/fidelity";
 import { fireblocks } from "./records/fireblocks";
 import { flashTrade } from "./records/flash-trade";
@@ -62,10 +66,13 @@ import { ika } from "./records/ika";
 import { jito } from "./records/jito";
 import { jpmorgan } from "./records/jpmorgan";
 import { jupiter } from "./records/jupiter";
+import { jurassicfi } from "./records/jurassicfi";
 import { kamino } from "./records/kamino";
 import { kast } from "./records/kast";
 import { kilpatrickTownsend } from "./records/kilpatrick-townsend";
 import { kazakhstan } from "./records/kazakhstan";
+import { kraken } from "./records/kraken";
+import { ledger } from "./records/ledger";
 import { libeara } from "./records/libeara";
 import { listingHelp } from "./records/listing-help";
 import { loopscale } from "./records/loopscale";
@@ -79,12 +86,15 @@ import { monkeDao } from "./records/monke-dao";
 import { morganStanley } from "./records/morgan-stanley";
 import { moneygram } from "./records/moneygram";
 import { nodit } from "./records/nodit";
+import { nagyWolfeAppleton } from "./records/nagy-wolfe-appleton";
 import { openmined } from "./records/openmined";
+import { openStandard } from "./records/open-standard";
 import { opensea } from "./records/opensea";
 import { orbitflare } from "./records/orbitflare";
 import { osl } from "./records/osl";
 import { pancakeswap } from "./records/pancakeswap";
 import { paxos } from "./records/paxos";
+import { payoneer } from "./records/payoneer";
 import { phantom } from "./records/phantom";
 import { phoenix } from "./records/phoenix";
 import { pipeNetwork } from "./records/pipe-network";
@@ -112,10 +122,12 @@ import { sofi } from "./records/sofi";
 import { solanaIncubator } from "./records/solana-incubator";
 import { solanaSpaces } from "./records/solana-spaces";
 import { solayer } from "./records/solayer";
+import { solblaze } from "./records/solblaze";
 import { solflare } from "./records/solflare";
 import { solpay } from "./records/solpay";
 import { spi } from "./records/spi";
 import { squads } from "./records/squads";
+import { stablecard } from "./records/stablecard";
 import { stateStreet } from "./records/state-street";
 import { stripe } from "./records/stripe";
 import { streamflow } from "./records/streamflow";
@@ -124,6 +136,7 @@ import { superteamUsa } from "./records/superteam-usa";
 import { switchboard } from "./records/switchboard";
 import { syndica } from "./records/syndica";
 import { tala } from "./records/tala";
+import { tether } from "./records/tether";
 import { theGraph } from "./records/the-graph";
 import { titan } from "./records/titan";
 import { trojan } from "./records/trojan";
@@ -134,14 +147,18 @@ import { visa } from "./records/visa";
 import { vybeNetwork } from "./records/vybe-network";
 import { walletconnect } from "./records/walletconnect";
 import { walrus } from "./records/walrus";
+import { westernUnion } from "./records/western-union";
 import { wyoming } from "./records/wyoming";
 import { xash } from "./records/xash";
 import { xbit } from "./records/xbit";
 import { yala } from "./records/yala";
+import { zan } from "./records/zan";
+import { zelle } from "./records/zelle";
 import { zerion } from "./records/zerion";
 
 export const companies = [
   accretion,
+  agant,
   agridex,
   aisa,
   alchemy,
@@ -169,6 +186,7 @@ export const companies = [
   bridge,
   bydfi,
   byreal,
+  checkout,
   cherryServers,
   circle,
   citi,
@@ -176,6 +194,7 @@ export const companies = [
   colosseum,
   cooley,
   cow,
+  creditcoop,
   comicbook,
   collectorCrypt,
   d3,
@@ -188,6 +207,7 @@ export const companies = [
   doublezero,
   drpc,
   dynamic,
+  fenwick,
   fidelity,
   fireblocks,
   flashTrade,
@@ -204,10 +224,13 @@ export const companies = [
   jito,
   jpmorgan,
   jupiter,
+  jurassicfi,
   kamino,
   kast,
   kilpatrickTownsend,
   kazakhstan,
+  kraken,
+  ledger,
   libeara,
   listingHelp,
   loopscale,
@@ -221,12 +244,15 @@ export const companies = [
   morganStanley,
   moneygram,
   nodit,
+  nagyWolfeAppleton,
   openmined,
+  openStandard,
   opensea,
   orbitflare,
   osl,
   pancakeswap,
   paxos,
+  payoneer,
   phantom,
   phoenix,
   pipeNetwork,
@@ -254,10 +280,12 @@ export const companies = [
   solanaIncubator,
   solanaSpaces,
   solayer,
+  solblaze,
   solflare,
   solpay,
   spi,
   squads,
+  stablecard,
   stateStreet,
   stripe,
   streamflow,
@@ -266,6 +294,7 @@ export const companies = [
   switchboard,
   syndica,
   tala,
+  tether,
   theGraph,
   titan,
   trojan,
@@ -276,10 +305,13 @@ export const companies = [
   vybeNetwork,
   walletconnect,
   walrus,
+  westernUnion,
   wyoming,
   xash,
   xbit,
   yala,
+  zan,
+  zelle,
   zerion,
 ] as const satisfies readonly CompanyRecord[];
 

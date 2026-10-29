@@ -41,6 +41,11 @@ export type SponsorMarqueeRow = {
 // Keep every tier in sponsorship-action order. Add newly actioned sponsors to
 // the end of their tier so the same order carries through to the page and
 // marquee rows below.
+const diamondSponsors = [
+  { companyId: "zelle", width: 1801, height: 834 },
+  { companyId: "kraken", width: 3246, height: 772 },
+] satisfies SponsorLogo[];
+
 const platinumSponsors = [
   {
     companyId: "jito",
@@ -93,17 +98,18 @@ const platinumSponsors = [
     height: 449,
   },
   {
-    companyId: "bloomberg-media",
-    displayName: "Bloomberg",
-    logoVariant: { id: "logo-horizontal-light" },
-    width: 666.06,
-    height: 173.85,
-  },
-  {
     companyId: "grayscale",
     logoVariant: { id: "logo-light" },
     width: 1050,
     height: 170,
+  },
+  { companyId: "tether", width: 121, height: 28 },
+  { companyId: "payoneer", width: 1316, height: 256 },
+  { companyId: "ramp", width: 599, height: 171 },
+  {
+    companyId: "kast",
+    width: 384,
+    height: 80,
   },
 ] satisfies SponsorLogo[];
 
@@ -168,11 +174,6 @@ const goldSponsors = [
     companyId: "rain",
     width: 300,
     height: 91.13,
-  },
-  {
-    companyId: "kast",
-    width: 384,
-    height: 80,
   },
   {
     companyId: "raiku",
@@ -356,9 +357,81 @@ const goldSponsors = [
   {
     companyId: "cow",
     displayName: "CoW",
-    logoVariant: { id: "logo-light" },
+    logoVariant: { id: "breakpoint-2026-white" },
     width: 1325,
     height: 400,
+  },
+  { companyId: "agant", width: 2439.5, height: 676.4 },
+  { companyId: "kamino", width: 216.6, height: 50 },
+  { companyId: "raydium", width: 847, height: 231 },
+  { companyId: "zan", displayName: "ZAN", width: 1593, height: 324 },
+  { companyId: "western-union", width: 300, height: 70 },
+  { companyId: "jupiter", width: 780, height: 210 },
+  {
+    companyId: "checkout",
+    displayName: "Checkout.com",
+    width: 263,
+    height: 176,
+  },
+  { companyId: "fenwick", width: 360, height: 55 },
+  {
+    companyId: "jurassicfi",
+    displayName: "JurassicFi",
+    width: 2009,
+    height: 1470,
+  },
+  {
+    companyId: "bloomberg-media",
+    displayName: "Bloomberg",
+    logoVariant: { id: "logo-horizontal-light" },
+    width: 666.06,
+    height: 173.85,
+  },
+  {
+    companyId: "arcium",
+    width: 1643.5,
+    height: 274.7,
+  },
+  {
+    companyId: "sanctum",
+    width: 1246,
+    height: 235,
+  },
+  {
+    companyId: "solana-incubator",
+    width: 200,
+    height: 16,
+  },
+  {
+    companyId: "ledger",
+    width: 568,
+    height: 190,
+  },
+  {
+    companyId: "reap",
+    width: 612,
+    height: 219,
+  },
+  {
+    companyId: "solblaze",
+    width: 794,
+    height: 200,
+  },
+  {
+    companyId: "nagy-wolfe-appleton",
+    width: 5132,
+    height: 2561,
+  },
+  {
+    companyId: "open-standard",
+    displayName: "Open Standard (OUSD)",
+    width: 1115,
+    height: 150,
+  },
+  {
+    companyId: "creditcoop",
+    width: 680,
+    height: 254,
   },
 ] satisfies SponsorLogo[];
 
@@ -371,6 +444,19 @@ const activationSponsors = [
 ] satisfies SponsorLogo[];
 
 export const sponsorTiers = [
+  {
+    id: "diamond",
+    title: "Diamond",
+    mobileColumns: "grid-cols-1",
+    mobileLogoMaxWidth: 0.76,
+    mobileLogoMaxHeight: 0.62,
+    logoMaxWidth: 0.72,
+    logoMaxHeight: 0.62,
+    cellAspectRatio: 2,
+    columns: "md:grid-cols-4",
+    cellAspect: "aspect-[442/221]",
+    sponsors: diamondSponsors,
+  },
   {
     id: "platinum",
     title: "Platinum",
@@ -400,6 +486,13 @@ export const sponsorTiers = [
 ] satisfies SponsorTier[];
 
 export const sponsorMarqueeRows = [
+  {
+    title: "Diamond",
+    direction: "right",
+    density: "featured",
+    duration: "72s",
+    sponsors: diamondSponsors,
+  },
   {
     title: "Platinum",
     direction: "left",

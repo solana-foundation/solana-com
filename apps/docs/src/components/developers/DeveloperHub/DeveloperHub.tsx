@@ -375,7 +375,7 @@ const partners: HubLink[] = [
     id: "sevenLabs",
     titleKey: "partners.items.sevenLabs.title",
     descriptionKey: "partners.items.sevenLabs.description",
-    href: "https://www.sevenlabs.com/",
+    href: "https://www.sevenlabs.org/",
   },
   {
     id: "limeChain",

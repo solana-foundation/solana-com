@@ -30,6 +30,8 @@ describe("cross-app URL configuration", () => {
 
     expect(shouldUseNextLink("/data")).toBe(true);
     expect(shouldUseNextLink("/data/cluster")).toBe(true);
+    expect(shouldUseNextLink("/learn")).toBe(true);
+    expect(shouldUseNextLink("/learn/what-is-solana")).toBe(true);
   });
 
   it("does not treat /data as an internal docs route", async () => {
@@ -37,6 +39,7 @@ describe("cross-app URL configuration", () => {
 
     expect(shouldUseNextLink("/docs")).toBe(true);
     expect(shouldUseNextLink("/developers/cookbook")).toBe(true);
+    expect(shouldUseNextLink("/learn")).toBe(false);
     expect(shouldUseNextLink("/data")).toBe(false);
   });
 

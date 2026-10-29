@@ -102,7 +102,10 @@ function runLingoWithOutput(args) {
 
 function isPatternInScope(pattern, scope) {
   if (scope === "docs") {
-    return pattern.startsWith("apps/docs/");
+    return (
+      pattern.startsWith("apps/docs/") ||
+      pattern.startsWith("apps/web/content/learn/")
+    );
   }
 
   if (scope === "ui") {

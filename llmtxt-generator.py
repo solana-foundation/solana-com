@@ -122,6 +122,7 @@ CURATED_SECTIONS = {
         ("Solana Pay", "docs/tools/solana-pay", "Standard protocol for decentralized payments on Solana"),
         ("Attestations", "docs/tools/attestations", "Verifiable claims and credentials on Solana"),
         ("Private Channels", "docs/tools/private-channels", "Enterprise layer for internet capital markets"),
+        ("Rewards Program", "docs/tools/rewards", "Token distributions with vesting, merkle claims, and revocation"),
         ("LiteSVM", "docs/tools/litesvm", "Test Solana programs with an in-process virtual machine"),
         ("Surfpool", "docs/tools/surfpool", "Simulate Solana programs locally with mainnet accounts"),
         ("Surfpool Kit Plugin", "docs/tools/surfpool/sdk/kit-plugin", "Run a local Surfnet behind a Solana Kit client"),
@@ -142,6 +143,7 @@ ENGLISH_EXTRAS = {
     ],
     "Learn": [
         ("What is Solana", "learn/what-is-solana", "Introduction to Solana for beginners"),
+        ("A Poker Player's Guide to Crypto Trading on Solana", "poker-players-guide-to-crypto", "An introduction to crypto trading for poker players, built around skills you already have."),
         ("What is a Wallet", "learn/what-is-a-wallet", "Understanding crypto wallets"),
         ("Getting Started", "learn/getting-started", "First steps with Solana"),
         ("Introduction to DeFi", "learn/introduction-to-defi-on-solana", "Decentralized finance on Solana"),

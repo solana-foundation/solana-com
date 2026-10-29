@@ -1,6 +1,7 @@
 import { Pulse as Activity } from "@boxicons/react/Pulse";
 import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
 import { Bank } from "@boxicons/react/Bank";
+import { Candlestick } from "@boxicons/react/Candlestick";
 import { DollarCircle as CircleDollarSign } from "@boxicons/react/DollarCircle";
 import { NetworkChart as Network } from "@boxicons/react/NetworkChart";
 import { Broadcast as RadioTower } from "@boxicons/react/Broadcast";
@@ -13,6 +14,7 @@ export const tabOptions = [
   { labelKey: "tabs.stablecoins.label", value: "stablecoins" },
   { labelKey: "tabs.defi.label", value: "defi" },
   { labelKey: "tabs.lending.label", value: "lending" },
+  { labelKey: "tabs.perps.label", value: "perps" },
   { labelKey: "tabs.rpc.label", value: "rpc" },
   { labelKey: "tabs.senders.label", value: "senders" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
@@ -23,6 +25,7 @@ export const tabIcons: Record<DashboardTab, typeof Activity> = {
   stablecoins: CircleDollarSign,
   defi: ArrowLeftRight,
   lending: Bank,
+  perps: Candlestick,
   rpc: RadioTower,
   senders: Send,
 };
@@ -34,7 +37,6 @@ export const tabIndicatorSpring = {
 } as const;
 
 export const emptyProvidersParam = "none";
-export const defaultRangeDays = 90;
 export const kpiCount = 4;
 export const chartHeight = 320;
 export const fallbackProviderColors = [

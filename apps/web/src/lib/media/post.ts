@@ -59,11 +59,29 @@ export const fetchLatestPosts = async (
     const query = searchParams.toString();
     const url = `${baseUrl}/api/posts/latest${query ? `?${query}` : ""}`;
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       next: { revalidate: 300 }, // Cache for 5 minutes
     });
 
-    if (!response.ok) {
+    // Related Media previews can be deployment-protected and return a login
+    // page. The public Media app still serves the published news feed.
+    if (
+      typeof window === "undefined" &&
+      process.env.NODE_ENV === "production" &&
+      baseUrl !== "https://solana-com-media.vercel.app" &&
+      (!response.ok ||
+        !response.headers.get("content-type")?.includes("application/json"))
+    ) {
+      response = await fetch(
+        `https://solana-com-media.vercel.app/api/posts/latest${query ? `?${query}` : ""}`,
+        { next: { revalidate: 300 } },
+      );
+    }
+
+    if (
+      !response.ok ||
+      !response.headers.get("content-type")?.includes("application/json")
+    ) {
       throw new Error(response.statusText);
     }
 

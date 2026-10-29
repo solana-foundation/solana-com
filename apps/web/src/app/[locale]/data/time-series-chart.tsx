@@ -112,6 +112,32 @@ export function TimeSeriesChart({
 
   return (
     <div className="flex min-w-0 flex-col gap-4 [--chart-axis:#ABABBA] [--chart-grid:#ECE4FD1F] [--chart-muted:#ABABBA]">
+      <div className="relative" style={{ height }}>
+        {visibleSeries.length > 0 ? (
+          <ParentSize>
+            {({ width, height: measuredHeight }) => (
+              <ChartSvg
+                height={measuredHeight}
+                highlightedSeriesId={highlightedSeriesId}
+                ariaLabel={ariaLabel}
+                locale={locale}
+                scaleType={scaleType}
+                series={visibleSeries}
+                seriesDashPatterns={seriesDashPatterns}
+                showEndLabels={showEndLabels}
+                timeGranularity={timeGranularity}
+                valueLabel={valueLabel}
+                width={width}
+              />
+            )}
+          </ParentSize>
+        ) : (
+          <div className="flex h-full items-center justify-center border border-dashed border-nd-border-light font-brand-mono text-[12px] uppercase tracking-normal text-nd-mid-em-text">
+            {t("empty.selectAtLeastOneSeries")}
+          </div>
+        )}
+      </div>
+
       <div className="flex min-h-6 w-full flex-wrap items-center gap-1.5">
         {series.map((item) => {
           const disabled = disabledSeries.has(item.id);
@@ -197,32 +223,6 @@ export function TimeSeriesChart({
               : t("legend.selectAll")}
           </button>
         ) : null}
-      </div>
-
-      <div className="relative" style={{ height }}>
-        {visibleSeries.length > 0 ? (
-          <ParentSize>
-            {({ width, height: measuredHeight }) => (
-              <ChartSvg
-                height={measuredHeight}
-                highlightedSeriesId={highlightedSeriesId}
-                ariaLabel={ariaLabel}
-                locale={locale}
-                scaleType={scaleType}
-                series={visibleSeries}
-                seriesDashPatterns={seriesDashPatterns}
-                showEndLabels={showEndLabels}
-                timeGranularity={timeGranularity}
-                valueLabel={valueLabel}
-                width={width}
-              />
-            )}
-          </ParentSize>
-        ) : (
-          <div className="flex h-full items-center justify-center border border-dashed border-nd-border-light font-brand-mono text-[12px] uppercase tracking-normal text-nd-mid-em-text">
-            {t("empty.selectAtLeastOneSeries")}
-          </div>
-        )}
       </div>
     </div>
   );

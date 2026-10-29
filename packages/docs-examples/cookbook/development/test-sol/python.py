@@ -1,20 +1,12 @@
 # #region airdrop
-import asyncio
-from solana.rpc.async_api import AsyncClient
+from solana.rpc.api import Client
 from solders.keypair import Keypair
 
-async def main():
-    keypair = Keypair()
+LAMPORTS_PER_SOL = 1_000_000_000
 
-    async with AsyncClient("http://localhost:8899") as client:
-        # Request airdrop (1 SOL = 1_000_000_000 lamports)
-        res = await client.request_airdrop(keypair.pubkey(), 1_000_000_000)
-        print(f"Airdrop signature: {res.value}")
+client = Client("http://localhost:8899")
 
-        # Check balance
-        balance = await client.get_balance(keypair.pubkey())
-        print(f"Balance: {balance.value} lamports")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+wallet = Keypair()
+signature = client.request_airdrop(wallet.pubkey(), LAMPORTS_PER_SOL).value  # 1 SOL
+print("Airdrop Signature:", signature)
 # #endregion airdrop
