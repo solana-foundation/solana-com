@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { HereForGraphPayload } from "@/lib/here-for/types";
+import type { HereForGraphPayload, HereForHandle } from "@/lib/here-for/types";
 import {
   buildGraphIndex,
   isMutual,
@@ -107,11 +107,11 @@ describe("withMe overlay", () => {
       adds: ["@x", "@y", "@z"],
     });
     const index = buildGraphIndex(merged);
-    const at = (handle: string) => {
+    const at = (handle: HereForHandle) => {
       const n = index.byHandle.get(handle)!;
       return merged.positions.slice(n * 3, n * 3 + 3);
     };
-    const points = ["@x", "@y", "@z"].map(at);
+    const points = (["@x", "@y", "@z"] as const).map(at);
     for (let i = 0; i < points.length; i++)
       for (let j = i + 1; j < points.length; j++)
         expect(
