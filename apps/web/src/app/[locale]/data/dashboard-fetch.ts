@@ -3,6 +3,16 @@ import {
   type DataApiResponse,
 } from "./data-config";
 import type { DataFetchErrorMessages } from "./dashboard-types";
+import { isGrpcFiltersResponse } from "./grpc-config";
+
+export async function fetchGrpcFilters(url: string) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new Error("gRPC benchmark filters are unavailable");
+  const payload: unknown = await response.json();
+  if (!isGrpcFiltersResponse(payload))
+    throw new Error("Invalid gRPC benchmark filters");
+  return payload;
+}
 
 type DataErrorPayload = {
   detail?: string;

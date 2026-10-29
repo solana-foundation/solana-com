@@ -39,7 +39,11 @@ import {
 } from "./dashboard-copy";
 import { DashboardControls } from "./dashboard-controls";
 import { ChartGrid, DataError, KpiGrid } from "./dashboard-charts";
-import { fetchData, fetchRpcFilters } from "./dashboard-fetch";
+import {
+  fetchData,
+  fetchRpcFilters,
+  fetchGrpcFilters,
+} from "./dashboard-fetch";
 import {
   filterRowsForCharts,
   getChartsForTab,
@@ -63,6 +67,15 @@ import {
 } from "./dashboard-query-state";
 import { DataResourceCarousel } from "./dashboard-resources";
 import { SenderProviderExperience } from "./sender-provider-experience";
+import {
+  type GrpcFiltersResponse,
+  grpcCommitmentOptions,
+  grpcStreamOptions,
+  getGrpcCloudProviders,
+  grpcMetricNames,
+} from "./grpc-config";
+import type { QueryUpdates } from "./dashboard-types";
+import { GrpcProviderExperience } from "./grpc-provider-experience";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
 export { applyQueryUpdates } from "./dashboard-query";
@@ -91,11 +104,22 @@ export function SolanaDataDashboard() {
     rpcMethod,
     rpcRegion,
     rpcTimeframe,
+    grpcRegion,
+    grpcCloudProvider,
+    grpcStream,
+    grpcCommitment,
     setQueryString,
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
+  const isGrpcTab = activeTab === "grpc";
   const isSendersTab = activeTab === "senders";
-  const isLiveInfrastructureTab = isRpcTab || isSendersTab;
+  const isLiveInfrastructureTab = isRpcTab || isSendersTab || isGrpcTab;
+  const { data: grpcFilters, error: grpcFiltersError } =
+    useSWR<GrpcFiltersResponse>(
+      isGrpcTab ? "/api/grpc/filters" : null,
+      fetchGrpcFilters,
+      rpcFiltersSWRConfig,
+    );
   const { data: rpcFilters } = useSWR<RpcLatencyFiltersResponse>(
     isRpcTab ? "/api/rpc/filters" : null,
     fetchRpcFilters,
@@ -114,6 +138,10 @@ export function SolanaDataDashboard() {
     rpcMethod,
     rpcRegion,
     rpcTimeframe,
+    grpcRegion,
+    grpcCloudProvider,
+    grpcStream,
+    grpcCommitment,
   });
   const errorMessages = useMemo(
     () => ({
@@ -136,11 +164,21 @@ export function SolanaDataDashboard() {
       filterRowsForCharts(
         data?.rows ?? emptyRows,
         activeCharts,
-        isSendersTab ? senderEconomicsMetricNames : [],
+        isSendersTab
+          ? senderEconomicsMetricNames
+          : isGrpcTab
+            ? grpcMetricNames
+            : [],
       ),
-    [activeCharts, data?.rows, isSendersTab],
+    [activeCharts, data?.rows, isSendersTab, isGrpcTab],
   );
-  const availableProviders = useMemo(() => getAvailableProviders(rows), [rows]);
+  const availableProviders = useMemo(
+    () =>
+      isGrpcTab && grpcFilters
+        ? grpcFilters.providers
+        : getAvailableProviders(rows),
+    [rows, isGrpcTab, grpcFilters],
+  );
   const selectedProviders = useMemo(
     () => parseProviders(providerParam, availableProviders),
     [availableProviders, providerParam],
@@ -158,6 +196,47 @@ export function SolanaDataDashboard() {
     () => getRpcRegionOptions(rpcInfra, rpcRegionsByInfra),
     [rpcInfra, rpcRegionsByInfra],
   );
+
+  useEffect(() => {
+    if (!isGrpcTab || !grpcFilters) return;
+    const updates: QueryUpdates = {};
+    if (
+      grpcRegion !== "all" &&
+      !grpcFilters.regions.includes(grpcRegion) &&
+      grpcFilters.regions.length
+    ) {
+      updates.grpcRegion = "all";
+    }
+    if (
+      grpcCloudProvider !== "all" &&
+      !getGrpcCloudProviders(
+        grpcFilters,
+        updates.grpcRegion ?? grpcRegion,
+      ).includes(grpcCloudProvider)
+    ) {
+      updates.grpcCloudProvider = "all";
+    }
+    if (grpcStream !== "all" && !grpcFilters.streams.includes(grpcStream)) {
+      updates.grpcStream =
+        grpcStreamOptions.find((option) =>
+          grpcFilters.streams.includes(option.value),
+        )?.value ?? "all";
+    }
+    if (!grpcFilters.commitments.includes(grpcCommitment)) {
+      updates.grpcCommitment = grpcCommitmentOptions.find((option) =>
+        grpcFilters.commitments.includes(option.value),
+      )?.value;
+    }
+    if (Object.values(updates).some(Boolean)) updateQuery(updates);
+  }, [
+    isGrpcTab,
+    grpcFilters,
+    grpcRegion,
+    grpcCloudProvider,
+    grpcStream,
+    grpcCommitment,
+    updateQuery,
+  ]);
 
   useEffect(() => {
     if (
@@ -211,11 +290,13 @@ export function SolanaDataDashboard() {
   useScrollToLinkedChart(linkedChartId, !isInitialLoading, controlsRef);
   const footerMetaItems = [
     <span key="cadence">
-      {isRpcTab
-        ? t("footer.rpcRefreshCadence")
-        : isSendersTab
-          ? t("footer.senderRefreshCadence")
-          : t("footer.refreshCadence")}
+      {isGrpcTab
+        ? t("footer.grpcRefreshCadence")
+        : isRpcTab
+          ? t("footer.rpcRefreshCadence")
+          : isSendersTab
+            ? t("footer.senderRefreshCadence")
+            : t("footer.refreshCadence")}
     </span>,
     data?.generatedAt ? (
       <span key="refreshed">
@@ -233,7 +314,7 @@ export function SolanaDataDashboard() {
           region: getRpcRegionLabel(rpcRegion),
         })}
       </span>
-    ) : isSendersTab ? null : (
+    ) : isSendersTab || isGrpcTab ? null : (
       <span key="lag">{t("footer.lagNotice")}</span>
     ),
     isLiveInfrastructureTab ? null : (
@@ -292,7 +373,9 @@ export function SolanaDataDashboard() {
             rpcRegionsByInfra={rpcRegionsByInfra}
             rpcTimeframe={rpcTimeframe}
             selectedProviders={selectedProviders}
-            showProviderControls={showProviderControls && !isSendersTab}
+            showProviderControls={
+              showProviderControls && !isSendersTab && !isGrpcTab
+            }
             showRangeControl={!isLiveInfrastructureTab}
             showRpcFilterControls={isRpcTab}
             showTimeframeControl={isLiveInfrastructureTab}
@@ -318,6 +401,9 @@ export function SolanaDataDashboard() {
         </section>
 
         {error ? <DataError error={error} /> : null}
+        {isGrpcTab && grpcFiltersError ? (
+          <DataError error={grpcFiltersError} />
+        ) : null}
 
         {!error ? (
           isSendersTab ? (
@@ -337,6 +423,29 @@ export function SolanaDataDashboard() {
                   providers: providers ?? new Set(availableProviders),
                 })
               }
+            />
+          ) : isGrpcTab ? (
+            <GrpcProviderExperience
+              rows={rows}
+              filters={grpcFilters}
+              region={grpcRegion}
+              cloudProvider={grpcCloudProvider}
+              stream={grpcStream}
+              commitment={grpcCommitment}
+              timeframe={rpcTimeframe}
+              generatedAt={data?.generatedAt}
+              selectedProviders={selectedProviders}
+              isLoading={isInitialLoading}
+              isRefreshing={isRefreshing}
+              onRegionChange={(region) => updateQuery({ grpcRegion: region })}
+              onCloudProviderChange={(cloudProvider) =>
+                updateQuery({ grpcCloudProvider: cloudProvider })
+              }
+              onStreamChange={(stream) => updateQuery({ grpcStream: stream })}
+              onCommitmentChange={(commitment) =>
+                updateQuery({ grpcCommitment: commitment })
+              }
+              onProvidersChange={(providers) => updateQuery({ providers })}
             />
           ) : (
             <>
@@ -406,7 +515,7 @@ export function SolanaDataDashboard() {
                     <ExternalLink aria-hidden="true" className="h-3 w-3" />
                   </a>
                 </>
-              ) : isSendersTab ? null : (
+              ) : isSendersTab || isGrpcTab ? null : (
                 <>
                   <a
                     className="inline-flex items-center gap-1.5 text-nd-high-em-text transition-colors hover:text-nd-primary"
