@@ -5,7 +5,11 @@ import { sentryOptions } from "@workspace/sentry";
 Sentry.init(sentryOptions);
 
 initBotId({
-  protect: [{ path: "/breakpoint/api/nominations", method: "POST" }],
+  protect: [
+    { path: "/breakpoint/api/nominations", method: "POST" },
+    { path: "/breakpoint/api/votes", method: "POST" },
+    { path: "/breakpoint/api/here-for/adds", method: "POST" },
+  ],
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

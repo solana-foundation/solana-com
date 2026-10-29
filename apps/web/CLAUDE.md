@@ -45,6 +45,7 @@ apps/web/
 │   └── utils/                 # Helper utilities
 ├── assets/                    # Static assets by section
 ├── content/guides/            # MDX guide content
+├── content/learn/             # Localized general-learning content
 ├── public/                    # Public static files
 └── e2e/                       # Playwright tests
 ```

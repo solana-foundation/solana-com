@@ -1,6 +1,8 @@
 import type { CompanyRecord } from "../../types";
 import solanaIncubatorLogoDark from "../../../assets/companies/solana-incubator/logo-dark.webp";
 import solanaIncubatorLogoLight from "../../../assets/companies/solana-incubator/logo-light.webp";
+import solanaIncubatorLogoHorizontal from "../../../assets/companies/solana-incubator/logo-horizontal.svg";
+import solanaIncubatorBreakpoint2026White from "../../../assets/companies/solana-incubator/breakpoint-2026-white.svg";
 
 export const solanaIncubator = {
   id: "solana-incubator",
@@ -38,6 +40,28 @@ export const solanaIncubator = {
       source: solanaIncubatorLogoLight,
       theme: "dark",
       kind: "logo",
+    },
+    {
+      id: "logo-horizontal",
+      fileName: "logo-horizontal.svg",
+      format: "svg",
+      source: solanaIncubatorLogoHorizontal,
+      theme: "dark",
+      kind: "logo",
+      width: 200,
+      height: 16,
+    },
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: solanaIncubatorBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+      treatment: "monotone",
+      background: "transparent",
+      width: 200,
+      height: 16,
     },
   ],
 } satisfies CompanyRecord;

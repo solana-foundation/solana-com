@@ -1,9 +1,12 @@
 "use client";
 
 import { motion } from "motion/react";
+import { Check } from "@boxicons/react/Check";
 import { InfoCircle as Info } from "@boxicons/react/InfoCircle";
+import { Link as LinkIcon } from "@boxicons/react/Link";
 import { LoaderLines as Loader2 } from "@boxicons/react/LoaderLines";
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { trackAnalyticsEvent } from "@solana-com/ui-chrome/analytics";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import {
   Tooltip,
@@ -14,8 +17,14 @@ import {
 } from "@/app/components/ui/tooltip";
 import { cn } from "@/app/components/utils";
 import {
+  applyPeriodView,
+  getPeriodTimeGranularity,
+  getPeriodViewOptions,
+} from "./chart-period";
+import {
   getRpcTimeframeOption,
   type ChartDefinition,
+  type ChartPeriodView,
   type DashboardTab,
   type MetricRow,
   type ProviderName,
@@ -26,10 +35,14 @@ import {
   kpiCount,
   tabIndicatorSpring,
 } from "./dashboard-constants";
+import { FilterSelect } from "./dashboard-controls";
+import { canLinkToChart, getChartLinkUrl } from "./dashboard-query";
 import {
   formatPercent,
   getChartCaption,
+  getChartNote,
   getChartTitle,
+  getPeriodViewCaption,
   getTabContent,
   getValueLabel,
 } from "./dashboard-copy";
@@ -39,6 +52,7 @@ import {
   getKpiSummary,
 } from "./dashboard-metrics";
 import type { KpiAggregation, KpiItem } from "./dashboard-types";
+import { getRangeDayCount, type DashboardRange } from "./date-range";
 import {
   formatValue,
   TimeSeriesChart,
@@ -95,6 +109,7 @@ export function ChartGrid({
   isLoading,
   isRefreshing,
   isConnectedToPrevious,
+  range,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -105,6 +120,7 @@ export function ChartGrid({
   isConnectedToPrevious: boolean;
   isLoading: boolean;
   isRefreshing: boolean;
+  range: DashboardRange;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
@@ -148,6 +164,7 @@ export function ChartGrid({
                 index={index}
                 isRefreshing={isRefreshing}
                 key={chart.id}
+                range={range}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -163,6 +180,7 @@ function ChartCard({
   className,
   index,
   isRefreshing,
+  range,
   rows,
   rpcTimeframe,
   selectedProviders,
@@ -171,20 +189,48 @@ function ChartCard({
   className?: string;
   index: number;
   isRefreshing: boolean;
+  range: DashboardRange;
   rows: MetricRow[];
   rpcTimeframe: RpcTimeframe;
   selectedProviders: Set<ProviderName>;
 }) {
   const t = useTranslations("dataDashboard");
-  const series = useMemo(
+  const [selectedPeriodView, setSelectedPeriodView] =
+    useState<ChartPeriodView>("daily");
+  const locale = useLocale();
+  const periodViewOptions = getPeriodViewOptions(
+    chart,
+    getRangeDayCount(range),
+  );
+  // Falls back to daily while the selected view is unavailable (e.g. monthly
+  // on a 30D range) and restores it once the option returns.
+  const periodView = periodViewOptions.includes(selectedPeriodView)
+    ? selectedPeriodView
+    : "daily";
+  const dailySeries = useMemo(
     () => buildSeries(chart, rows, selectedProviders),
     [chart, rows, selectedProviders],
+  );
+  const series = useMemo(
+    () =>
+      chart.periodViews
+        ? applyPeriodView(dailySeries, periodView, chart.periodViews.rollup)
+        : dailySeries,
+    [chart.periodViews, dailySeries, periodView],
   );
   const valueLabel = getValueLabel(t, chart.valueLabel);
   const title = getChartTitle(t, chart);
   const caption = getChartCaption(t, chart, {
     timeframe: getRpcTimeframeOption(rpcTimeframe).label,
   });
+  const periodCaption = getPeriodViewCaption(
+    t,
+    chart,
+    periodView,
+    range,
+    locale,
+  );
+  const note = getChartNote(t, chart);
   const resolvedChartHeight =
     chart.visualization === "bar"
       ? Math.max(chartHeight, series.length * 56)
@@ -193,22 +239,55 @@ function ChartCard({
   return (
     <article
       className={cn(
-        "relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5",
+        "group relative p-3 md:p-6 xl:p-8 flex flex-col gap-4 md:gap-5",
         className,
       )}
+      id={chart.id}
     >
       <div className="grid gap-1.5">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
-            {title}
-          </h2>
-          <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text shrink-0">
-            {valueLabel}
-          </span>
+          <div className="flex min-w-0 items-start gap-1.5">
+            <h2 className="m-0 min-w-0 text-[20px] xl:text-[24px] leading-[1.25] font-medium tracking-normal">
+              {title}
+            </h2>
+            {canLinkToChart(chart) ? (
+              <ChartLinkButton chart={chart} title={title} />
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            {periodViewOptions.length > 1 ? (
+              <FilterSelect
+                ariaLabel={t("periodViews.ariaLabel", { metric: title })}
+                label=""
+                onChange={(nextView) => {
+                  setSelectedPeriodView(nextView);
+                  trackPeriodViewChange(chart, nextView);
+                }}
+                options={periodViewOptions.map((option) => ({
+                  label: t(`periodViews.${option}`),
+                  value: option,
+                }))}
+                value={periodView}
+              />
+            ) : null}
+            <span className="font-brand-mono text-[12px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
+              {valueLabel}
+            </span>
+          </div>
         </div>
-        {caption ? (
-          <p className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
-            {caption}
+        {[caption, periodCaption].map((text) =>
+          text ? (
+            <p
+              className="m-0 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70"
+              key={text}
+            >
+              {text}
+            </p>
+          ) : null,
+        )}
+        {note ? (
+          <p className="m-0 text-[13px] leading-[1.42] text-nd-mid-em-text">
+            {note}
           </p>
         ) : null}
       </div>
@@ -227,7 +306,7 @@ function ChartCard({
               height={resolvedChartHeight}
               scaleType={chart.scale}
               series={series}
-              timeGranularity={chart.timeGranularity}
+              timeGranularity={getPeriodTimeGranularity(chart, periodView)}
               valueLabel={chart.valueLabel}
             />
           )
@@ -244,6 +323,86 @@ function ChartCard({
   );
 }
 
+/**
+ * Copies a direct link to the chart (its tab plus `#chart-id`). Shown on hover
+ * on larger screens and always on small ones, where there's no hover.
+ */
+function ChartLinkButton({
+  chart,
+  title,
+}: {
+  chart: ChartDefinition;
+  title: string;
+}) {
+  const t = useTranslations("dataDashboard");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const timeout = setTimeout(() => setCopied(false), 2000);
+
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(
+        getChartLinkUrl(
+          chart,
+          window.location.origin,
+          window.location.pathname,
+          window.location.search,
+        ),
+      );
+      setCopied(true);
+    } catch {
+      // Clipboard access can be denied; the link is still reachable by hand.
+    }
+  };
+
+  return (
+    <button
+      aria-label={t("chartLink.copy", { metric: title })}
+      className={cn(
+        "inline-flex h-[25px] xl:h-[30px] shrink-0 items-center gap-1 px-1 text-nd-mid-em-text transition-[color,opacity] hover:text-nd-high-em-text focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-nd-primary",
+        copied
+          ? "text-nd-high-em-text"
+          : "md:opacity-0 md:group-hover:opacity-100",
+      )}
+      onClick={copyLink}
+      type="button"
+    >
+      {copied ? (
+        <Check aria-hidden className="size-4" />
+      ) : (
+        <LinkIcon aria-hidden className="size-4" />
+      )}
+      <span
+        className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase"
+        role="status"
+      >
+        {copied ? t("chartLink.copied") : null}
+      </span>
+    </button>
+  );
+}
+
+function trackPeriodViewChange(
+  chart: ChartDefinition,
+  periodView: ChartPeriodView,
+) {
+  trackAnalyticsEvent("select_content", {
+    app_name: "web",
+    content_type: "data_chart_view",
+    content_id: chart.id,
+    content_name: periodView,
+    placement: "solana_data_dashboard",
+  });
+}
+
 function ChartWatermarkFrame({
   children,
   height,
@@ -255,7 +414,7 @@ function ChartWatermarkFrame({
     <div className="relative">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-0 flex items-center justify-center overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 flex items-center justify-center overflow-hidden"
         style={{ height }}
       >
         <img

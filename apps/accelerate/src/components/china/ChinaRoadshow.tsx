@@ -5,50 +5,11 @@ import Image from "next/image";
 import { Link } from "@workspace/i18n/routing";
 import { LanguageSelector } from "@solana-com/ui-chrome";
 import { getImagePath } from "@/config";
-import { chinaStops, type ChinaStop } from "@/data/china-stops";
+import { chinaLineupStops, type ChinaStop } from "@/data/china-stops";
 import { CarouselArrow } from "../homepage/CarouselArrow";
 import { EventCard } from "../homepage/EventCard";
 import { useHorizontalCarousel } from "../homepage/useHorizontalCarousel";
 import { useTranslations } from "@workspace/i18n/client";
-
-function Arrow({ dark }: { dark?: boolean }) {
-  return (
-    <Image
-      src={getImagePath("/images/china/arrow-small.svg")}
-      alt=""
-      width={8}
-      height={8}
-      aria-hidden="true"
-      className={dark ? "brightness-0" : undefined}
-    />
-  );
-}
-
-function GradientButton({
-  href,
-  children,
-  className = "",
-  variant = "outline",
-  large = false,
-}: {
-  href: string;
-  children: React.ReactNode;
-  className?: string;
-  variant?: "outline" | "filled";
-  large?: boolean;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className={`${variant === "filled" ? "btn-cta" : "btn-outline-gradient"} inline-flex items-center justify-between gap-8 px-6 text-[13px] font-semibold uppercase tracking-[0.8px] md:px-7 md:text-[16px] ${large ? "h-[58px] md:h-[66px]" : "h-[52px] md:h-[58px]"} ${className}`}
-    >
-      {children}
-      <Arrow dark={variant === "filled"} />
-    </a>
-  );
-}
 
 export function ChinaHeader() {
   const t = useTranslations("accelerate.china");
@@ -106,9 +67,6 @@ export function ChinaHeader() {
             </Link>
           ))}
           <LanguageSelector className="!text-white/60 hover:!text-white" />
-          <GradientButton href="https://luma.com/acc-shanghai-26">
-            {t("getTickets")}
-          </GradientButton>
         </nav>
         <button
           type="button"
@@ -176,12 +134,6 @@ export function ChinaHeader() {
             <div className="mt-2">
               <LanguageSelector className="!text-white/60 hover:!text-white" />
             </div>
-            <GradientButton
-              href="https://luma.com/acc-shanghai-26"
-              className="mt-2 w-full sm:w-auto"
-            >
-              {t("getTickets")}
-            </GradientButton>
           </nav>
         </div>
       )}
@@ -301,44 +253,6 @@ function ChinaHero() {
             {t("date")}
           </p>
         </div>
-
-        <div className="mt-16 ml-auto max-w-[500px] md:mt-[14px] 2xl:mr-14">
-          <p className="mb-4 text-right text-[13px] font-medium uppercase tracking-[0.8px] text-white md:text-[16px]">
-            {t("nextEvent")}
-          </p>
-          <div className="flex flex-col gap-5 rounded-[12px] border border-accelerate-gray-dark bg-black/60 p-5 backdrop-blur-sm md:flex-row md:items-center md:justify-between md:px-5 md:py-[31px]">
-            <div>
-              <p className="text-[26px] font-light uppercase leading-none tracking-[1.4px] text-accelerate-gray-light md:text-[28px]">
-                {t("city")}
-              </p>
-              <p className="mt-1 font-diatype text-[20px] text-accelerate-green md:text-[24px]">
-                {t("dateValue")}
-              </p>
-            </div>
-            <GradientButton
-              href="https://luma.com/acc-shanghai-26"
-              className="w-full md:w-[240px]"
-              variant="filled"
-              large
-            >
-              {t("getTickets")}
-            </GradientButton>
-          </div>
-          <div className="mt-6 flex items-center justify-end gap-3">
-            <a
-              href="#lineup"
-              className="inline-flex items-center gap-3 text-[16px] font-normal uppercase tracking-[0.8px] leading-none text-white transition-colors hover:text-white/80"
-            >
-              {t("learnMore")}
-              <Image
-                src={getImagePath("/images/homepage/circle-plus.svg")}
-                alt=""
-                width={24}
-                height={24}
-              />
-            </a>
-          </div>
-        </div>
       </div>
     </section>
   );
@@ -410,7 +324,7 @@ function RoadshowCarousel() {
             id="china-lineup-carousel"
             className="flex snap-x snap-mandatory gap-5 overflow-x-auto pb-5 pt-2 scrollbar-hide md:gap-6"
           >
-            {chinaStops.map((stop) => (
+            {chinaLineupStops.map((stop) => (
               <div
                 key={stop.city}
                 className="w-[242px] max-w-[529px] flex-shrink-0 snap-center md:w-[calc(100vw-48px)]"

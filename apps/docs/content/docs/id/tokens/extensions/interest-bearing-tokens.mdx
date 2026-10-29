@@ -489,13 +489,9 @@ const offchainUiAmount = await amountToUiAmountForMintWithoutSimulation(
 | _rs`process_update_rate`_                        | Logika prosesor yang memperbarui tingkat saat ini, menghitung ulang tingkat rata-rata tertimbang waktu, dan mencatat timestamp pembaruan. | [Sumber](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/extension/interest_bearing_mint/processor.rs#L46-L77)      |
 | _rs`process_amount_to_ui_amount`_                | Logika prosesor yang mengembalikan string jumlah UI menggunakan konfigurasi interest bearing aktif dari mint.                     | [Sumber](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L1548-L1569)                                  |
 
-### Typescript
+### Kit
 
-Contoh `Kit` di bawah ini menggunakan instruksi yang dihasilkan secara langsung.
-Contoh lama menggunakan `@solana/web3.js` dan `@solana/spl-token` disertakan
-sebagai referensi.
-
-#### Kit
+Contoh-contoh ini menggunakan instruksi Token-2022 yang dihasilkan secara langsung.
 
 <CodeTabs storage="token-ts-kit" flags="r">
 
@@ -662,41 +658,44 @@ console.log("InterestBearingConfig:", interestBearingConfig);
 
 </CodeTabs>
 
-#### Web3.js
+### Web3.js v3
 
-<CodeTabs storage="token-ts-legacy" flags="r">
+Contoh-contoh ini menggunakan API `@solana/web3.js` v3 berbasis kelas dengan
+`@solana-program` instruction builder.
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
 
 ```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
+  PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
+import { createSolanaRpc, unwrapOption } from "@solana/kit";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
   amountToUiAmountForMintWithoutSimulation,
-  createAmountToUiAmountInstruction,
-  createAssociatedTokenAccountInstruction,
-  createInitializeMintInstruction,
-  createInitializeInterestBearingMintInstruction,
-  createMintToCheckedInstruction,
-  createUpdateRateInterestBearingMintInstruction,
-  ExtensionType,
-  getAssociatedTokenAddressSync,
-  getInterestBearingMintConfigState,
-  getMint,
-  getMintLen,
-  TOKEN_2022_PROGRAM_ID
-} from "@solana/spl-token";
+  findAssociatedTokenPda,
+  getAmountToUiAmountInstruction,
+  getCreateAssociatedTokenInstruction,
+  getInitializeInterestBearingMintInstruction,
+  getInitializeMint2Instruction,
+  getMintDecoder,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getUpdateRateInterestBearingMintInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
+const rpc = createSolanaRpc("http://localhost:8899");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-const feePayer = Keypair.generate();
-const recipient = Keypair.generate();
+const feePayer = await Keypair.generate();
+const recipient = await Keypair.generate();
 const tokenAmount = 1_000_000_000_000n;
 
 const airdropSignature = await connection.requestAirdrop(
@@ -709,65 +708,64 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-const extensions = [ExtensionType.InterestBearingConfig];
+const mint = await Keypair.generate();
 
-const mint = Keypair.generate();
-
-const mintLength = getMintLen(extensions);
+const mintLength = getMintSize([
+  {
+    __kind: "InterestBearingConfig",
+    rateAuthority: feePayer.publicKey.toBase58(),
+    initializationTimestamp: 0n,
+    preUpdateAverageRate: 30000,
+    lastUpdateTimestamp: 0n,
+    currentRate: 30000
+  }
+]);
 
 const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
 
-const tokenAccount = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  recipient.publicKey,
-  false,
-  TOKEN_2022_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
+const [tokenAccount] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: recipient.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
 
 const createMintAccountInstruction = SystemProgram.createAccount({
   fromPubkey: feePayer.publicKey, // Account funding the new mint account.
   newAccountPubkey: mint.publicKey, // New mint account to create.
   space: mintLength, // Account size in bytes for the mint plus InterestBearingConfig.
   lamports: mintRent, // Lamports funding the mint account rent.
-  programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
 });
 
-// !mark(1:7)
+// !mark(1:6)
 const initializeInterestBearingInstruction =
-  createInitializeInterestBearingMintInstruction(
-    mint.publicKey, // Mint account that stores the InterestBearingConfig extension.
-    feePayer.publicKey, // Authority allowed to update the interest rate later.
-    30000, // Interest rate in basis points.
-    TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
-  );
+  getInitializeInterestBearingMintInstruction({
+    mint: mint.publicKey, // Mint account that stores the InterestBearingConfig extension.
+    rateAuthority: feePayer.publicKey.toBase58(), // Authority allowed to update the interest rate later.
+    rate: 30000 // Interest rate in basis points.
+  });
 
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // Mint account to initialize.
-  0, // Number of decimals for the token.
-  feePayer.publicKey, // Authority allowed to mint new tokens.
-  feePayer.publicKey, // Authority allowed to freeze token accounts.
-  TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
-);
+const initializeMintInstruction = getInitializeMint2Instruction({
+  mint: mint.publicKey, // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
 
-const createTokenAccountInstruction = createAssociatedTokenAccountInstruction(
-  feePayer.publicKey, // Account funding the associated token account creation.
-  tokenAccount, // Associated token account address to create.
-  recipient.publicKey, // Owner of the token account.
-  mint.publicKey, // Mint for the associated token account.
-  TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
-  ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
-);
+const createTokenAccountInstruction = getCreateAssociatedTokenInstruction({
+  payer: feePayer, // Account funding the associated token account creation.
+  ata: tokenAccount, // Associated token account address to create.
+  owner: recipient.publicKey, // Owner of the token account.
+  mint: mint.publicKey // Mint for the associated token account.
+});
 
-const mintToTokenAccountInstruction = createMintToCheckedInstruction(
-  mint.publicKey, // Mint account that issues the tokens.
-  tokenAccount, // Token account receiving the newly minted tokens.
-  feePayer.publicKey, // Signer authorized to mint new tokens.
-  tokenAmount, // Token amount in base units.
-  0, // Decimals defined on the mint.
-  [], // Additional multisig signers.
-  TOKEN_2022_PROGRAM_ID // Token program that owns the mint and token account.
-);
+const mintToTokenAccountInstruction = getMintToCheckedInstruction({
+  mint: mint.publicKey, // Mint account that issues the tokens.
+  token: tokenAccount, // Token account receiving the newly minted tokens.
+  mintAuthority: feePayer, // Signer authorized to mint new tokens.
+  amount: tokenAmount, // Token amount in base units.
+  decimals: 0 // Decimals defined on the mint.
+});
 
 await sendAndConfirmTransaction(
   connection,
@@ -795,17 +793,16 @@ await sendAndConfirmTransaction(
 await new Promise((resolve) => setTimeout(resolve, 2_000));
 
 const calculatedUiAmount = await amountToUiAmountForMintWithoutSimulation(
-  connection,
-  mint.publicKey,
+  rpc,
+  mint.publicKey.toBase58(),
   tokenAmount
 );
 
-// !mark(1:6)
-const amountToUiInstruction = createAmountToUiAmountInstruction(
-  mint.publicKey, // Mint whose UI amount conversion is being simulated.
-  tokenAmount, // Token amount in base units.
-  TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
-);
+// !mark(1:4)
+const amountToUiInstruction = getAmountToUiAmountInstruction({
+  mint: mint.publicKey, // Mint whose UI amount conversion is being simulated.
+  amount: tokenAmount // Token amount in base units.
+});
 
 const amountToUiSimulation = await connection.simulateTransaction(
   new Transaction().add(amountToUiInstruction),
@@ -817,14 +814,12 @@ const simulatedUiAmount = Buffer.from(
   "base64"
 ).toString("utf8");
 
-// !mark(1:8)
-const updateRateInstruction = createUpdateRateInterestBearingMintInstruction(
-  mint.publicKey, // Mint account that stores the InterestBearingConfig extension.
-  feePayer.publicKey, // Signer authorized to update the interest rate.
-  15000, // New interest rate in basis points.
-  [], // Additional multisig signers.
-  TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
-);
+// !mark(1:5)
+const updateRateInstruction = getUpdateRateInterestBearingMintInstruction({
+  mint: mint.publicKey, // Mint account that stores the InterestBearingConfig extension.
+  rateAuthority: feePayer, // Signer authorized to update the interest rate.
+  rate: 15000 // New interest rate in basis points.
+});
 
 await sendAndConfirmTransaction(
   connection,
@@ -832,16 +827,17 @@ await sendAndConfirmTransaction(
   [feePayer]
 );
 
-const mintAccount = await getMint(
-  connection,
+const mintAccountInfo = await connection.getAccountInfo(
   mint.publicKey,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID
+  "confirmed"
 );
-const interestBearingConfig = getInterestBearingMintConfigState(mintAccount);
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+const interestBearingConfig = (unwrapOption(mintAccount.extensions) ?? []).find(
+  (extension) => extension.__kind === "InterestBearingConfig"
+);
 
 console.log("Mint Address:", mint.publicKey.toBase58());
-console.log("Token Account:", tokenAccount.toBase58());
+console.log("Token Account:", tokenAccount);
 console.log("Calculated UI Amount:", calculatedUiAmount);
 console.log("Simulated UI Amount:", simulatedUiAmount);
 console.log("InterestBearingConfig:", interestBearingConfig);
@@ -1058,6 +1054,195 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+```
+
+</CodeTabs>
+
+### Web3.js (legacy)
+
+Contoh-contoh ini menggunakan `@solana/web3.js` legacy dengan `@solana/spl-token`.
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  amountToUiAmountForMintWithoutSimulation,
+  createAmountToUiAmountInstruction,
+  createAssociatedTokenAccountInstruction,
+  createInitializeMintInstruction,
+  createInitializeInterestBearingMintInstruction,
+  createMintToCheckedInstruction,
+  createUpdateRateInterestBearingMintInstruction,
+  ExtensionType,
+  getAssociatedTokenAddressSync,
+  getInterestBearingMintConfigState,
+  getMint,
+  getMintLen,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+const recipient = Keypair.generate();
+const tokenAmount = 1_000_000_000_000n;
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const extensions = [ExtensionType.InterestBearingConfig];
+
+const mint = Keypair.generate();
+
+const mintLength = getMintLen(extensions);
+
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+
+const tokenAccount = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  recipient.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint plus InterestBearingConfig.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+});
+
+// !mark(1:7)
+const initializeInterestBearingInstruction =
+  createInitializeInterestBearingMintInstruction(
+    mint.publicKey, // Mint account that stores the InterestBearingConfig extension.
+    feePayer.publicKey, // Authority allowed to update the interest rate later.
+    30000, // Interest rate in basis points.
+    TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+  );
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // Mint account to initialize.
+  0, // Number of decimals for the token.
+  feePayer.publicKey, // Authority allowed to mint new tokens.
+  feePayer.publicKey, // Authority allowed to freeze token accounts.
+  TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+);
+
+const createTokenAccountInstruction = createAssociatedTokenAccountInstruction(
+  feePayer.publicKey, // Account funding the associated token account creation.
+  tokenAccount, // Associated token account address to create.
+  recipient.publicKey, // Owner of the token account.
+  mint.publicKey, // Mint for the associated token account.
+  TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+  ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
+);
+
+const mintToTokenAccountInstruction = createMintToCheckedInstruction(
+  mint.publicKey, // Mint account that issues the tokens.
+  tokenAccount, // Token account receiving the newly minted tokens.
+  feePayer.publicKey, // Signer authorized to mint new tokens.
+  tokenAmount, // Token amount in base units.
+  0, // Decimals defined on the mint.
+  [], // Additional multisig signers.
+  TOKEN_2022_PROGRAM_ID // Token program that owns the mint and token account.
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction({
+    feePayer: feePayer.publicKey,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }).add(
+    createMintAccountInstruction,
+    initializeInterestBearingInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint]
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createTokenAccountInstruction,
+    mintToTokenAccountInstruction
+  ),
+  [feePayer]
+);
+
+await new Promise((resolve) => setTimeout(resolve, 2_000));
+
+const calculatedUiAmount = await amountToUiAmountForMintWithoutSimulation(
+  connection,
+  mint.publicKey,
+  tokenAmount
+);
+
+// !mark(1:6)
+const amountToUiInstruction = createAmountToUiAmountInstruction(
+  mint.publicKey, // Mint whose UI amount conversion is being simulated.
+  tokenAmount, // Token amount in base units.
+  TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+);
+
+const amountToUiSimulation = await connection.simulateTransaction(
+  new Transaction().add(amountToUiInstruction),
+  [feePayer],
+  false
+);
+const simulatedUiAmount = Buffer.from(
+  amountToUiSimulation.value.returnData?.data?.[0] ?? "",
+  "base64"
+).toString("utf8");
+
+// !mark(1:8)
+const updateRateInstruction = createUpdateRateInterestBearingMintInstruction(
+  mint.publicKey, // Mint account that stores the InterestBearingConfig extension.
+  feePayer.publicKey, // Signer authorized to update the interest rate.
+  15000, // New interest rate in basis points.
+  [], // Additional multisig signers.
+  TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(updateRateInstruction),
+  [feePayer]
+);
+
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const interestBearingConfig = getInterestBearingMintConfigState(mintAccount);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Token Account:", tokenAccount.toBase58());
+console.log("Calculated UI Amount:", calculatedUiAmount);
+console.log("Simulated UI Amount:", simulatedUiAmount);
+console.log("InterestBearingConfig:", interestBearingConfig);
 ```
 
 </CodeTabs>

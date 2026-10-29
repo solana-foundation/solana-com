@@ -1,15 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Container } from "@/component-library/container";
-import { FeatureHighlight } from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
-import {
-  CHAIN_SELECTOR,
-  CHAIN_SELECTOR_CARDS,
-  SECONDARY_CARD_DECK,
-} from "@/data/developers/evm-to-svm";
+import { SECONDARY_CARD_DECK } from "@/data/developers/evm-to-svm";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { Code } from "@boxicons/react/Code";
 import { FileDetail as FileText } from "@boxicons/react/FileDetail";
 import { Youtube } from "@boxicons/react/Youtube";
@@ -18,6 +13,7 @@ import {
   AnimatedHeroSection,
   SectionDivider,
 } from "./cosmos/cosmos-page-shared";
+import { MIGRATION_NAV } from "./components/migration-docs-layout";
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -31,6 +27,53 @@ const EarthAnimation = dynamic(
     ),
   { ssr: false },
 );
+
+function ChainCard({
+  title,
+  body,
+  url,
+  ctaLabel,
+  guides,
+}: {
+  title: string;
+  body: string;
+  url: string;
+  ctaLabel: string;
+  guides: readonly { url: string; label: string }[];
+}) {
+  return (
+    <div className="flex flex-col gap-8 rounded-xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm">
+      <div>
+        <h3 className="font-brand text-[2rem] font-medium leading-[1.2] text-white mb-3">
+          {title}
+        </h3>
+        <p className="nd-body-m text-[#ABABBA] mb-0">{body}</p>
+      </div>
+      <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+        {guides.map((guide) => (
+          <li key={guide.url}>
+            <a
+              href={guide.url}
+              className="inline-block rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-white/60 no-underline transition-colors hover:border-white/30 hover:text-white"
+            >
+              {guide.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+      <a
+        href={url}
+        className="group mt-auto inline-flex items-center gap-2 self-start text-sm font-semibold text-white no-underline"
+      >
+        {ctaLabel}
+        <ChevronRight
+          className="size-4 transition-transform group-hover:translate-x-0.5"
+          aria-hidden
+        />
+      </a>
+    </div>
+  );
+}
 
 function ResourceCard({
   heading,
@@ -63,17 +106,14 @@ const RESOURCE_ICONS = [Code, FileText, Youtube, Tools];
 
 export function DevelopersChainMigrationPage() {
   const t = useTranslations("developers-evm-to-svm");
-  const blockSpacing = { large: { marginTop: "48px" } }; // used by chain selector
 
-  const chainSelectorCards = CHAIN_SELECTOR_CARDS.map((card, index) => ({
-    ...card,
-    feature: t(`chainSelector.cards.${index}.feature`),
-    body: "",
-    eyebrow: t(`chainSelector.cards.${index}.eyebrow`),
-    button: {
-      ...card.button,
-      label: t(`chainSelector.cards.${index}.button.label`),
-    },
+  const chainCards = MIGRATION_NAV.map((group, index) => ({
+    title: group.label,
+    body: t(`chainSelector.cards.${index}.body`),
+    url: group.url,
+    ctaLabel: t(`chainSelector.cards.${index}.button.label`),
+    // The Ethereum overview is the hub itself; don't list it as a guide.
+    guides: group.guides.filter((guide) => !("isOverview" in guide)),
   }));
 
   const secondaryCards = SECONDARY_CARD_DECK.cards.map((card, index) => ({
@@ -100,25 +140,30 @@ export function DevelopersChainMigrationPage() {
       />
 
       {/* Chain selector */}
-      <ResponsiveBox responsiveStyles={blockSpacing}>
-        <div
-          id="choose-your-chain"
-          className="scroll-mt-24 xl:[&_section]:!px-0 [&_section]:!py-20 [&_[data-slot=feature-card]]:!min-h-[220px] [&_[data-slot=feature-card]]:!p-8 [&_[data-slot=feature-card]_h3]:!text-[2rem] [&_[data-slot=feature-card]_h3]:!leading-[1.2] [&_[data-slot=feature-card]_a]:!rounded-full [&_[data-slot=feature-card]_a]:!border-white/30 [&_[data-slot=feature-card]_a]:!bg-transparent [&_[data-slot=feature-card]_a]:!px-6 [&_[data-slot=feature-card]_a]:!py-3 [&_[data-slot=feature-card]_a]:!text-sm [&_[data-slot=feature-card]_a]:!font-semibold [&_[data-slot=feature-card]_a]:!normal-case [&_[data-slot=feature-card]_a]:!tracking-normal [&_h2]:!text-[32px] md:[&_h2]:!text-[40px] xl:[&_h2]:!text-[64px]"
-        >
-          <FeatureHighlight
-            headingAs={CHAIN_SELECTOR.headingAs}
-            eyebrow=""
-            headline={t("chainSelector.headline")}
-            body=""
-            cards={chainSelectorCards}
-            buttons={[]}
-          />
+      <section
+        id="choose-your-chain"
+        className="scroll-mt-24 max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 py-24"
+      >
+        <div className="grid gap-10 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] xl:gap-16">
+          <div>
+            <h2 className="font-brand text-[32px] md:text-[40px] xl:text-[64px] font-medium leading-[1.05] tracking-[-0.02em] text-white mb-4">
+              {t("chainSelector.headline")}
+            </h2>
+            <p className="nd-body-m text-[#ABABBA] mb-0">
+              {t("chainSelector.body")}
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {chainCards.map((card) => (
+              <ChainCard key={card.url} {...card} />
+            ))}
+          </div>
         </div>
-      </ResponsiveBox>
+      </section>
 
       <SectionDivider />
 
-      {/* Resources — community-style section */}
+      {/* Resources: community-style section */}
       <section
         id="resources"
         className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2 scroll-mt-24"
