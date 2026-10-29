@@ -177,6 +177,20 @@ export function xSignInUrl(picks: readonly HereForHandle[] = []) {
   return `${API}/x/login?return=${encodeURIComponent(back.pathname + back.search)}`;
 }
 
+const RETURN_COOKIE = "here_for_x_return";
+
+/**
+ * True once, right after the X callback signed this browser in. Only the
+ * callback sets the cookie, so a link can't make the page save picks.
+ */
+export function consumeSignInReturn() {
+  const returned = document.cookie
+    .split("; ")
+    .some((c) => c === `${RETURN_COOKIE}=1`);
+  if (returned) document.cookie = `${RETURN_COOKIE}=; Max-Age=0; Path=/`;
+  return returned;
+}
+
 export async function signOutOfX() {
   try {
     return (await fetch(`${API}/x/logout`, { method: "POST" })).ok;

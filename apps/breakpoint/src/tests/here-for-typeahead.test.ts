@@ -52,6 +52,9 @@ describe("here-for typeahead", () => {
   it("puts an exact handle first, then prefixes, names and substrings", () => {
     expect(find("@TOLY")).toEqual(["@toly", "@tolyfan"]);
     expect(find("raj")).toEqual(["@rajgokal", "@raj"]);
+    // An explicit "@handle" means that account, ahead of longer prefixes.
+    expect(find("@raj")).toEqual(["@raj", "@rajgokal"]);
+    expect(find("@toly")[0]).toBe("@toly");
     expect(find("yak")).toEqual(["@aeyakovenko", "@yak"]);
   });
 

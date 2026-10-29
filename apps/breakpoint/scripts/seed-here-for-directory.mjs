@@ -166,13 +166,17 @@ if (out) {
     if (args.includes("--reset")) await db.hereForDirectoryEntry.deleteMany();
     for (let i = 0; i < entries.length; i += 500) {
       const chunk = entries.slice(i, i + 500);
-      const ids = chunk.flatMap((e) => (e.xUserId ? [e.xUserId] : []));
+      const owned = chunk.filter((e) => e.xUserId);
       await db.$transaction([
-        // An account that changed its handle keeps its id: drop the old row.
+        // An account that changed its handle keeps its id, and its old handle
+        // may now belong to someone else: drop every row holding one of these
+        // ids under a different handle before writing the new pairs.
         db.hereForDirectoryEntry.deleteMany({
           where: {
-            xUserId: { in: ids },
-            handle: { notIn: chunk.map((e) => e.handle) },
+            OR: owned.map((e) => ({
+              xUserId: e.xUserId,
+              handle: { not: e.handle },
+            })),
           },
         }),
         ...chunk.map(({ handle, ...entry }) =>

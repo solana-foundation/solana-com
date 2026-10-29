@@ -246,6 +246,18 @@ export function safeReturnPath(value: string | null) {
   }
 }
 
+/**
+ * Marks a sign-in that just finished, so the add page may save the picks that
+ * came back with it. Only the callback sets it; a link carrying ?picks= can't,
+ * which stops a crafted URL from overwriting a signed-in visitor's picks. The
+ * page reads and clears it, hence not httpOnly.
+ */
+export const xReturnCookie = {
+  name: "here_for_x_return",
+  value: "1",
+  options: { ...cookieOptions(60), httpOnly: false },
+};
+
 export const xSessionCookie = {
   name: SESSION_COOKIE,
   value: async (session: XSession) => {

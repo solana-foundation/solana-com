@@ -3,6 +3,7 @@ import {
   finishXSignIn,
   openXState,
   xCallbackUrl,
+  xReturnCookie,
   xSessionCookie,
 } from "@/lib/here-for/x-auth";
 export const runtime = "nodejs";
@@ -34,6 +35,11 @@ export async function GET(request: NextRequest) {
       xSessionCookie.name,
       await xSessionCookie.value(session),
       xSessionCookie.options,
+    );
+    response.cookies.set(
+      xReturnCookie.name,
+      xReturnCookie.value,
+      xReturnCookie.options,
     );
     return response;
   } catch (error) {

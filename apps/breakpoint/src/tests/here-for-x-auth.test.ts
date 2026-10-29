@@ -129,6 +129,8 @@ describe("here-for X auth", () => {
       `https://solana.com${returnTo}`,
     );
     expect(response.headers.get("set-cookie")).toContain("here_for_x=");
+    // Only a finished sign-in may let the add page save carried picks.
+    expect(response.headers.get("set-cookie")).toContain("here_for_x_return=1");
   });
 
   it("sends a cancelled sign-in back to the picks with a notice", async () => {
@@ -144,6 +146,9 @@ describe("here-for X auth", () => {
     );
     expect(response.headers.get("location")).toBe(
       `https://solana.com${returnTo}&x=denied`,
+    );
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(
+      "here_for_x_return",
     );
   });
 

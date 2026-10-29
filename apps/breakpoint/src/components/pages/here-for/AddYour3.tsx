@@ -11,6 +11,7 @@ import {
 } from "@/lib/here-for/types";
 import {
   HERE_FOR_PATH,
+  consumeSignInReturn,
   handleSlug,
   joinHandles,
   openXIntent,
@@ -78,8 +79,12 @@ export default function AddYour3({ locale }: { locale: string }) {
       .filter((h, i, all) => all.indexOf(h) === i)
       .slice(0, HERE_FOR_MAX_ADDS);
     const start = carried.length ? carried : (existing?.adds ?? []);
+    // Save only picks carried through a sign-in that just finished; a shared
+    // ?picks= link prefills the form and waits for the visitor to confirm.
     autoSave.current =
-      carried.length === HERE_FOR_MAX_ADDS && !x && Boolean(existing?.xHandle);
+      carried.length === HERE_FOR_MAX_ADDS &&
+      Boolean(existing?.xHandle) &&
+      consumeSignInReturn();
     // Keep the URL clean so a reload doesn't replay the sign-in outcome.
     if (params.has("picks") || x) {
       params.delete("picks");
@@ -148,6 +153,10 @@ export default function AddYour3({ locale }: { locale: string }) {
       ),
     [candidates, draft, adds, ownHandle],
   );
+  // The highlighted option is what Enter adds; typing resets it to the top.
+  const [active, setActive] = useState(0);
+  useEffect(() => setActive(0), [draft]);
+  const activeMatch = matches[Math.min(active, matches.length - 1)];
 
   const addHandle = (value: string) => {
     const next = handleFromInput(value);
@@ -353,6 +362,11 @@ export default function AddYour3({ locale }: { locale: string }) {
                         aria-expanded={matches.length > 0}
                         aria-controls="here-for-matches"
                         aria-autocomplete="list"
+                        aria-activedescendant={
+                          activeMatch
+                            ? `here-for-match-${handleSlug(activeMatch.handle)}`
+                            : undefined
+                        }
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
                         onFocus={() => setSearching(true)}
@@ -364,9 +378,22 @@ export default function AddYour3({ locale }: { locale: string }) {
                           addHandle(text);
                         }}
                         onKeyDown={(event) => {
-                          if (event.key === "Enter") {
+                          if (
+                            matches.length &&
+                            (event.key === "ArrowDown" ||
+                              event.key === "ArrowUp")
+                          ) {
                             event.preventDefault();
-                            addHandle(matches[0]?.handle ?? draft);
+                            const step = event.key === "ArrowDown" ? 1 : -1;
+                            setActive(
+                              (Math.min(active, matches.length - 1) +
+                                step +
+                                matches.length) %
+                                matches.length,
+                            );
+                          } else if (event.key === "Enter") {
+                            event.preventDefault();
+                            addHandle(activeMatch?.handle ?? draft);
                           }
                         }}
                         placeholder={t("add.addPlaceholder")}
@@ -396,10 +423,18 @@ export default function AddYour3({ locale }: { locale: string }) {
                             <li key={handle} role="presentation">
                               <button
                                 type="button"
+                                id={`here-for-match-${handleSlug(handle)}`}
                                 role="option"
-                                aria-selected={false}
+                                aria-selected={handle === activeMatch?.handle}
                                 onClick={() => addHandle(handle)}
-                                className="flex h-14 w-full items-center justify-between gap-xs border-b border-stroke-primary px-xs text-left font-sans normal-case tracking-normal transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple"
+                                onMouseEnter={() =>
+                                  setActive(
+                                    matches.findIndex(
+                                      (m) => m.handle === handle,
+                                    ),
+                                  )
+                                }
+                                className={`flex h-14 w-full items-center justify-between gap-xs border-b border-stroke-primary px-xs text-left font-sans normal-case tracking-normal transition-colors aria-selected:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple`}
                               >
                                 <span className="flex min-w-0 flex-col">
                                   <span

@@ -47,7 +47,8 @@ export function buildCandidates(
 /**
  * Ranks an exact handle, then handle prefixes, then name word prefixes ("ana" finds Anatoly), then
  * handle substrings. Within each tier candidates keep their popularity order.
- * A valid handle nobody knows yet is offered last, so anyone can be added.
+ * A valid handle nobody knows yet is offered last, so anyone can be added,
+ * or first when typed with "@".
  */
 export function matchCandidates(
   candidates: Candidate[],
@@ -75,6 +76,22 @@ export function matchCandidates(
   }
   const out = tiers.flat().slice(0, limit);
   const typed = handleFromInput(draft);
+  // "@raj" names an exact account, so it leads even when others share a prefix.
+  if (
+    typed &&
+    draft.trim().startsWith("@") &&
+    !taken.has(typed) &&
+    out[0]?.handle !== typed
+  )
+    return [
+      out.find((c) => c.handle === typed) ?? {
+        handle: typed,
+        name: null,
+        addedBy: null,
+        key: "",
+      },
+      ...out.filter((c) => c.handle !== typed),
+    ].slice(0, limit);
   if (typed && !taken.has(typed) && !out.some((c) => c.handle === typed))
     return [
       ...out.slice(0, limit - 1),
