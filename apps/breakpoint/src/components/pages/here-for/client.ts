@@ -133,10 +133,18 @@ export async function submitAdds(
   }
 }
 
-/** Starts X sign-in and comes back to the current page afterwards. */
-export function xSignInUrl() {
+/**
+ * Starts X sign-in and comes back to the current page afterwards. Picks ride
+ * along in the return URL, which survives X opening the callback in another
+ * browser where local storage would be empty.
+ */
+export function xSignInUrl(picks: readonly HereForHandle[] = []) {
   const back = new URL(window.location.href);
   back.searchParams.delete("x");
+  back.searchParams.delete("add");
+  back.searchParams.delete("picks");
+  if (picks.length)
+    back.searchParams.set("picks", picks.map(handleSlug).join(","));
   return `${API}/x/login?return=${encodeURIComponent(back.pathname + back.search)}`;
 }
 

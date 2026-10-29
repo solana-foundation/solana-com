@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import { handleFromInput } from "@/lib/here-for/handles";
 import {
   HERE_FOR_MAX_ADDS,
   type HereForErrorCode,
@@ -24,13 +25,8 @@ import {
 import BackToMap from "./BackToMap";
 import { hereForType } from "./typography";
 
-const HANDLE_PATTERN = /^[a-z0-9_]{1,15}$/;
 const SUGGESTION_COUNT = 6;
-
-const toHandle = (value: string) => {
-  const slug = handleSlug(value.trim());
-  return HANDLE_PATTERN.test(slug) ? (`@${slug}` as HereForHandle) : null;
-};
+const MATCH_COUNT = 5;
 
 type Result = {
   handle: HereForHandle;
@@ -49,6 +45,8 @@ export default function AddYour3({ locale }: { locale: string }) {
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
   const prefilled = useRef(false);
+  // Picks carried through X sign-in, saved once the session is back.
+  const autoSave = useRef(false);
 
   const closed = me.status === "ready" && me.data.status === "closed";
   const returning = me.status === "ready" && me.data.adds.length > 0;
@@ -71,8 +69,27 @@ export default function AddYour3({ locale }: { locale: string }) {
     const params = new URLSearchParams(window.location.search);
     const x = params.get("x");
     if (x === "denied" || x === "error") setMessage(t(`errors.x_${x}`));
-    const start = existing?.adds ?? [];
-    const requested = toHandle(params.get("add") ?? "");
+    const carried = (params.get("picks") ?? "")
+      .split(",")
+      .map(handleFromInput)
+      .filter((h): h is HereForHandle => h !== null)
+      .filter((h, i, all) => all.indexOf(h) === i)
+      .slice(0, HERE_FOR_MAX_ADDS);
+    const start = carried.length ? carried : (existing?.adds ?? []);
+    autoSave.current =
+      carried.length === HERE_FOR_MAX_ADDS && !x && Boolean(existing?.xHandle);
+    // Keep the URL clean so a reload doesn't replay the sign-in outcome.
+    if (params.has("picks") || x) {
+      params.delete("picks");
+      params.delete("x");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+      );
+    }
+    const requested = handleFromInput(params.get("add") ?? "");
     if (
       requested &&
       !start.includes(requested) &&
@@ -110,8 +127,34 @@ export default function AddYour3({ locale }: { locale: string }) {
     return out.slice(0, SUGGESTION_COUNT);
   }, [adds, ownHandle, me, graph, t]);
 
+  // Typeahead over everyone on the map, most-added first, prefixes before
+  // substrings, so most picks take a few letters and a tap.
+  const matches = useMemo(() => {
+    const query = draft.trim().replace(/^@+/, "").toLowerCase();
+    if (!query || query.includes("/")) return [];
+    const taken = new Set<string>([...adds, ownHandle ?? ""]);
+    const out: HereForHandle[] = [];
+    if (graph.status === "ready") {
+      const { payload, ranked } = graph.data;
+      for (const prefix of [true, false]) {
+        for (const node of ranked) {
+          if (out.length >= MATCH_COUNT) break;
+          const h = payload.handles[node]!;
+          const at = h.indexOf(query, 1);
+          if (at === -1 || (at === 1) !== prefix || taken.has(h)) continue;
+          out.push(h);
+        }
+      }
+    }
+    // Anyone not on the map yet can still be added by their exact handle.
+    const typed = handleFromInput(draft);
+    if (typed && !taken.has(typed) && !out.includes(typed))
+      return [...out.slice(0, MATCH_COUNT - 1), typed];
+    return out;
+  }, [draft, adds, ownHandle, graph]);
+
   const addHandle = (value: string) => {
-    const next = toHandle(value);
+    const next = handleFromInput(value);
     setMessage(null);
     if (!next) return setMessage(t("errors.invalid_handle"));
     if (next === ownHandle) return setMessage(t("errors.self_add"));
@@ -122,8 +165,7 @@ export default function AddYour3({ locale }: { locale: string }) {
     setDraft("");
   };
 
-  const ready =
-    ownHandle !== null && adds.length === HERE_FOR_MAX_ADDS && !closed;
+  const ready = adds.length === HERE_FOR_MAX_ADDS && !closed;
   // Until the map loads nobody is known to have added theirs, so keep asking.
   const hasAdded = (handle: HereForHandle) => {
     if (graph.status !== "ready") return false;
@@ -146,9 +188,13 @@ export default function AddYour3({ locale }: { locale: string }) {
   const postText = your3Post(adds);
 
   const save = async () => {
-    if (!ownHandle) return setMessage(t("errors.auth_required"));
     if (adds.length !== HERE_FOR_MAX_ADDS)
       return setMessage(t("errors.invalid_adds"));
+    // Signing in is the last step: carry the picks to X and back.
+    if (!ownHandle) {
+      window.location.href = xSignInUrl(adds);
+      return;
+    }
     setSaving(true);
     setMessage(null);
     const response = await submitAdds({ adds });
@@ -168,8 +214,19 @@ export default function AddYour3({ locale }: { locale: string }) {
     });
   };
 
-  const step = result ? 2 : ownHandle ? 1 : 0;
-  const steps = ["handle", "picks", "post"] as const;
+  // Back from X with three picks: finish the save they started.
+  useEffect(() => {
+    if (!autoSave.current || !ownHandle || adds.length !== HERE_FOR_MAX_ADDS)
+      return;
+    autoSave.current = false;
+    if (adds.includes(ownHandle)) return setMessage(t("errors.self_add"));
+    save();
+    // save reads the latest state; it runs once per carried set of picks.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownHandle, adds]);
+
+  const step = result ? 2 : adds.length === HERE_FOR_MAX_ADDS ? 1 : 0;
+  const steps = ["picks", "handle", "post"] as const;
 
   return (
     <section className="bg-black pb-3xl pt-[120px] md:pb-4xl md:pt-[136px]">
@@ -187,7 +244,8 @@ export default function AddYour3({ locale }: { locale: string }) {
               {t("add.description")}
             </p>
           </div>
-          <div>
+          {/* Phones go straight to the picker; the form numbers its own steps. */}
+          <div className="hidden md:block">
             <p className={`${hereForType.label} mb-xs text-text-secondary`}>
               {t("add.progress", { count: adds.length })}
             </p>
@@ -235,13 +293,199 @@ export default function AddYour3({ locale }: { locale: string }) {
                   {t("add.closed")}
                 </p>
               )}
-              <div className="flex flex-col gap-2xs p-s md:px-l md:pt-l">
-                <SectionLabel index={1}>{t("add.handleLabel")}</SectionLabel>
+              <div className="flex flex-col gap-xs p-s md:px-l md:pt-l">
+                <SectionLabel index={1}>{t("add.picksLabel")}</SectionLabel>
+                <ol className="unstyled-list grid gap-2xs md:grid-cols-3">
+                  {Array.from({ length: HERE_FOR_MAX_ADDS }, (_, i) => {
+                    const value = adds[i];
+                    return (
+                      <li
+                        key={i}
+                        className={`relative flex min-h-11 items-center gap-xs py-3xs pl-xs pr-xl [container-type:inline-size] md:min-h-[120px] md:flex-col md:justify-center md:p-xs md:text-center ${
+                          value
+                            ? "border border-core-purple bg-black text-white"
+                            : "border border-dashed border-stroke-secondary text-neutral-500"
+                        }`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`${hereForType.caption} md:absolute md:left-2xs md:top-2xs ${value ? "text-core-purple" : ""}`}
+                        >
+                          0{i + 1}
+                        </span>
+                        <span
+                          className={`min-w-0 break-all font-sans text-lg leading-tight md:text-[clamp(0.875rem,9cqi,1.5rem)] ${value ? "font-bold" : "font-normal"}`}
+                        >
+                          {value ?? t("add.empty")}
+                        </span>
+                        {value && !closed && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setAdds(adds.filter((h) => h !== value))
+                            }
+                            aria-label={t("add.remove", { handle: value })}
+                            className="absolute right-3xs top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-2xl leading-none text-text-secondary transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-core-purple md:top-3xs md:size-8 md:translate-y-0"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                {!closed && adds.length < HERE_FOR_MAX_ADDS && (
+                  <>
+                    <label
+                      htmlFor="here-for-add"
+                      className={`mt-2xs ${hereForType.label} text-text-secondary`}
+                    >
+                      {t("add.addLabel")}
+                    </label>
+                    <div className="flex h-12 items-center gap-3xs border border-stroke-secondary bg-black px-xs focus-within:outline focus-within:outline-1 focus-within:outline-offset-2 focus-within:outline-core-purple">
+                      <span
+                        aria-hidden="true"
+                        className="font-mono text-neutral-500"
+                      >
+                        @
+                      </span>
+                      <input
+                        id="here-for-add"
+                        type="text"
+                        role="combobox"
+                        aria-expanded={matches.length > 0}
+                        aria-controls="here-for-matches"
+                        aria-autocomplete="list"
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onPaste={(event) => {
+                          // A pasted handle or profile link is a complete pick.
+                          const text = event.clipboardData.getData("text");
+                          if (!handleFromInput(text)) return;
+                          event.preventDefault();
+                          addHandle(text);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            addHandle(matches[0] ?? draft);
+                          }
+                        }}
+                        placeholder={t("add.addPlaceholder")}
+                        enterKeyHint="done"
+                        autoComplete="off"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        className={`h-full w-0 min-w-0 flex-1 bg-transparent ${hereForType.input} text-white outline-none placeholder:text-neutral-500`}
+                      />
+                    </div>
+                    {draft.trim() ? (
+                      <ul
+                        id="here-for-matches"
+                        role="listbox"
+                        aria-label={t("add.addLabel")}
+                        className="unstyled-list flex flex-col border-x border-t border-stroke-primary"
+                      >
+                        {matches.length === 0 ? (
+                          <li
+                            className={`border-b border-stroke-primary px-xs py-xs ${hereForType.small} text-text-secondary`}
+                          >
+                            {t("add.noMatch")}
+                          </li>
+                        ) : (
+                          matches.map((handle) => {
+                            const node =
+                              graph.status === "ready"
+                                ? graph.data.byHandle.get(handle)
+                                : undefined;
+                            return (
+                              <li key={handle} role="presentation">
+                                <button
+                                  type="button"
+                                  role="option"
+                                  aria-selected={false}
+                                  onClick={() => addHandle(handle)}
+                                  className="flex h-14 w-full items-center justify-between gap-xs border-b border-stroke-primary px-xs text-left font-sans normal-case tracking-normal transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple"
+                                >
+                                  <span
+                                    className={`truncate ${hereForType.name}`}
+                                  >
+                                    {handle}
+                                  </span>
+                                  <span
+                                    className={`shrink-0 ${hereForType.small} text-text-secondary`}
+                                  >
+                                    {node === undefined ||
+                                    graph.status !== "ready"
+                                      ? t("add.notOnMap")
+                                      : t("add.onMapCount", {
+                                          count:
+                                            graph.data.payload.inDegree[node] ??
+                                            0,
+                                        })}
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })
+                        )}
+                      </ul>
+                    ) : (
+                      suggestions.length > 0 && (
+                        <>
+                          <p
+                            className={`mt-2xs ${hereForType.caption} text-text-secondary`}
+                          >
+                            {me.status === "ready" && me.data.addedBy.length
+                              ? t("add.suggestionsNear")
+                              : t("add.suggestionsTop")}
+                          </p>
+                          <ul className="unstyled-list grid gap-2xs sm:grid-cols-2">
+                            {suggestions.map((s) => (
+                              <li key={s.handle}>
+                                <button
+                                  type="button"
+                                  onClick={() => addHandle(s.handle)}
+                                  className="flex h-14 w-full items-center gap-xs border border-stroke-primary px-xs text-left font-sans normal-case tracking-normal transition-colors hover:border-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple"
+                                >
+                                  <span className="flex min-w-0 flex-col">
+                                    <span
+                                      className={`truncate ${hereForType.name}`}
+                                    >
+                                      {s.handle}
+                                    </span>
+                                    <span
+                                      className={`truncate ${hereForType.small} text-text-secondary`}
+                                    >
+                                      {s.why}
+                                    </span>
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-s border-t border-stroke-primary p-s md:px-l">
+                <div className="flex flex-col gap-3xs">
+                  <SectionLabel index={2}>{t("add.postPreview")}</SectionLabel>
+                  <p className={`${hereForType.body} text-white`}>{postText}</p>
+                </div>
                 {ownHandle ? (
                   <div className="flex h-12 items-center justify-between gap-xs border border-stroke-secondary bg-black pl-xs pr-2xs">
                     <span
                       className={`truncate ${hereForType.input} text-white`}
                     >
+                      <span className="text-text-secondary">
+                        {t("add.savingAs")}{" "}
+                      </span>
                       {ownHandle}
                     </span>
                     {!closed && (
@@ -263,154 +507,17 @@ export default function AddYour3({ locale }: { locale: string }) {
                     )}
                   </div>
                 ) : (
-                  <Button
-                    label={t("add.signIn")}
-                    onClick={() => {
-                      window.location.href = xSignInUrl();
-                    }}
-                    disabled={closed || me.status === "loading"}
-                    className="h-12 self-start"
-                    arrow
-                  />
+                  <p className={`${hereForType.small} text-text-secondary`}>
+                    {t("add.signInHint")}
+                  </p>
                 )}
-                <p className={`${hereForType.small} text-text-secondary`}>
-                  {ownHandle ? t("add.signedInHint") : t("add.signInHint")}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-xs border-t border-stroke-primary p-s md:px-l">
-                <SectionLabel index={2}>{t("add.picksLabel")}</SectionLabel>
-                <ol className="unstyled-list grid gap-2xs md:grid-cols-3">
-                  {Array.from({ length: HERE_FOR_MAX_ADDS }, (_, i) => {
-                    const value = adds[i];
-                    return (
-                      <li
-                        key={i}
-                        className={`relative flex min-h-[120px] flex-col items-center justify-center p-xs text-center [container-type:inline-size] ${
-                          value
-                            ? "border border-core-purple bg-black text-white"
-                            : "border border-dashed border-stroke-secondary text-neutral-500"
-                        }`}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`absolute left-2xs top-2xs ${hereForType.caption} ${value ? "text-core-purple" : ""}`}
-                        >
-                          0{i + 1}
-                        </span>
-                        <span
-                          className={`break-all font-sans text-[clamp(0.875rem,9cqi,1.5rem)] leading-tight ${value ? "font-bold" : "font-normal"}`}
-                        >
-                          {value ?? t("add.empty")}
-                        </span>
-                        {value && !closed && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAdds(adds.filter((h) => h !== value))
-                            }
-                            aria-label={t("add.remove", { handle: value })}
-                            className="absolute right-3xs top-3xs flex size-8 items-center justify-center text-2xl leading-none text-text-secondary transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-core-purple"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
-
-                {!closed && adds.length < HERE_FOR_MAX_ADDS && (
-                  <>
-                    <label
-                      htmlFor="here-for-add"
-                      className={`mt-2xs ${hereForType.label} text-text-secondary`}
-                    >
-                      {t("add.addLabel")}
-                    </label>
-                    <div className="flex gap-2xs">
-                      <div className="flex h-12 flex-1 items-center gap-3xs border border-stroke-secondary bg-black px-xs focus-within:outline focus-within:outline-1 focus-within:outline-offset-2 focus-within:outline-core-purple">
-                        <span
-                          aria-hidden="true"
-                          className="font-mono text-neutral-500"
-                        >
-                          @
-                        </span>
-                        <input
-                          id="here-for-add"
-                          value={draft}
-                          onChange={(event) => setDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              addHandle(draft);
-                            }
-                          }}
-                          placeholder={t("add.addPlaceholder")}
-                          autoComplete="off"
-                          autoCapitalize="none"
-                          spellCheck={false}
-                          maxLength={16}
-                          className={`h-full w-0 min-w-0 flex-1 bg-transparent ${hereForType.input} text-white outline-none placeholder:text-neutral-500`}
-                        />
-                      </div>
-                      <Button
-                        label={t("add.addButton")}
-                        onClick={() => addHandle(draft)}
-                        variant="secondary"
-                        className="h-12"
-                      />
-                    </div>
-                    {suggestions.length > 0 && (
-                      <>
-                        <p
-                          className={`mt-2xs ${hereForType.caption} text-text-secondary`}
-                        >
-                          {me.status === "ready" && me.data.addedBy.length
-                            ? t("add.suggestionsNear")
-                            : t("add.suggestionsTop")}
-                        </p>
-                        <ul className="unstyled-list grid gap-2xs sm:grid-cols-2">
-                          {suggestions.map((s) => (
-                            <li key={s.handle}>
-                              <button
-                                type="button"
-                                onClick={() => addHandle(s.handle)}
-                                className="flex h-14 w-full items-center gap-xs border border-stroke-primary px-xs text-left font-sans normal-case tracking-normal transition-colors hover:border-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple"
-                              >
-                                <span className="flex min-w-0 flex-col">
-                                  <span
-                                    className={`truncate ${hereForType.name}`}
-                                  >
-                                    {s.handle}
-                                  </span>
-                                  <span
-                                    className={`truncate ${hereForType.small} text-text-secondary`}
-                                  >
-                                    {s.why}
-                                  </span>
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="flex flex-col gap-s border-t border-stroke-primary p-s md:flex-row md:items-center md:px-l">
-                <div className="flex flex-1 flex-col gap-3xs">
-                  <SectionLabel index={3}>{t("add.postPreview")}</SectionLabel>
-                  <p className={`${hereForType.body} text-white`}>{postText}</p>
-                </div>
                 {savedHandle ? (
                   <Button
                     label={t("add.postYour3")}
                     onClick={() =>
                       openXIntent(postText, personUrl(locale, savedHandle))
                     }
+                    className="h-12 md:self-start"
                     arrow
                   />
                 ) : (
@@ -419,13 +526,27 @@ export default function AddYour3({ locale }: { locale: string }) {
                     label={
                       saving
                         ? t("add.saving")
-                        : returning
-                          ? t("add.update")
-                          : t("add.save")
+                        : !ownHandle
+                          ? t("add.signInToSave")
+                          : returning
+                            ? t("add.update")
+                            : t("add.save")
                     }
-                    disabled={!ready || saving}
+                    disabled={!ready || saving || me.status === "loading"}
+                    className="h-12 md:self-start"
                     arrow
                   />
+                )}
+                {!ownHandle && !closed && adds.length < HERE_FOR_MAX_ADDS && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = xSignInUrl(adds);
+                    }}
+                    className={`self-start ${hereForType.small} text-text-secondary underline underline-offset-4 hover:text-white`}
+                  >
+                    {t("add.alreadyAdded")}
+                  </button>
                 )}
               </div>
               <p
