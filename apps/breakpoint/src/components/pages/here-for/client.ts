@@ -121,7 +121,11 @@ export function xSignInUrl() {
 }
 
 export async function signOutOfX() {
-  await fetch(`${API}/x/logout`, { method: "POST" }).catch(() => {});
+  try {
+    return (await fetch(`${API}/x/logout`, { method: "POST" })).ok;
+  } catch {
+    return false;
+  }
 }
 
 /** "@handle" -> "handle" for URL segments. */

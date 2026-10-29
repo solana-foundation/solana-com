@@ -99,7 +99,12 @@ export async function POST(request: NextRequest) {
     return failure(503, "unavailable", "ballot_validation_failed", error);
   }
   if (!ballotId) return failure(400, "unavailable", "ballot_missing");
-  const x = readXSession(request);
+  let x;
+  try {
+    x = await readXSession(request);
+  } catch (error) {
+    return failure(503, "unavailable", "session_validation_failed", error);
+  }
   if (!x) return failure(401, "auth_required", "x_session_missing");
   try {
     if (hereForStatus() === "closed") return failure(403, "closed", "closed");

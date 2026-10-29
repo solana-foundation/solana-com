@@ -1,7 +1,8 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
-import { defaultLocale } from "@workspace/i18n/config";
-import { localizedRouteUrl } from "@/config";
+import { defaultLocale, locales } from "@workspace/i18n/config";
+import { localizedRoutePath, localizedRouteUrl } from "@/config";
+import { awardsPrisma } from "@/lib/awards-db";
 import { signAwardsValue } from "@/lib/awards-session";
 import { normalizeHandle } from "./handles";
 import type { HereForHandle } from "./types";
@@ -142,20 +143,36 @@ export async function finishXSignIn(
   return { userId, handle };
 }
 
-function seal(payload: string) {
-  const value = Buffer.from(payload).toString("base64url");
+function seal(payload: Record<string, unknown>, maxAge: number) {
+  const value = Buffer.from(
+    JSON.stringify({
+      ...payload,
+      expiresAt: Date.now() + maxAge * 1000,
+    }),
+  ).toString("base64url");
   return `${value}.${signAwardsValue(value)}`;
 }
 
 function unseal(cookie: string | undefined) {
   if (!cookie) return null;
-  const [value, received] = cookie.split(".");
-  if (!value || !received) return null;
+  const [value, received, extra] = cookie.split(".");
+  if (!value || !received || extra !== undefined) return null;
   const a = Buffer.from(received);
   const b = Buffer.from(signAwardsValue(value));
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
   try {
-    return JSON.parse(Buffer.from(value, "base64url").toString()) as unknown;
+    const data: unknown = JSON.parse(
+      Buffer.from(value, "base64url").toString(),
+    );
+    if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+    const payload = data as Record<string, unknown>;
+    if (
+      typeof payload.expiresAt !== "number" ||
+      !Number.isSafeInteger(payload.expiresAt) ||
+      payload.expiresAt <= Date.now()
+    )
+      return null;
+    return payload;
   } catch {
     return null;
   }
@@ -169,16 +186,35 @@ const cookieOptions = (maxAge: number) => ({
   secure: process.env.NODE_ENV === "production",
 });
 
-/** Only same-site paths, so the callback can't be used as an open redirect. */
+/** Normalize before checking the origin and the allowed mutuals routes. */
 export function safeReturnPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return null;
-  return value.includes("\\") ? null : value;
+  // URL parsing strips controls, which can turn a relative path into //host.
+  // eslint-disable-next-line no-control-regex
+  if (!value || !value.startsWith("/") || /[\\\u0000-\u0020\u007f]/.test(value))
+    return null;
+  try {
+    const base = "https://return.invalid";
+    const url = new URL(value, base);
+    if (url.origin !== base) return null;
+    const allowed = locales.some((locale) => {
+      const root = localizedRoutePath(locale, "/mutuals");
+      return (
+        url.pathname === root ||
+        url.pathname === `${root}/` ||
+        (url.pathname.startsWith(`${root}/`) &&
+          /^[a-z0-9_]{1,15}\/?$/i.test(url.pathname.slice(root.length + 1)))
+      );
+    });
+    return allowed ? `${url.pathname}${url.search}${url.hash}` : null;
+  } catch {
+    return null;
+  }
 }
 
 export const xRequestCookie = {
   name: REQUEST_COOKIE,
   value: (token: string, secret: string, returnTo: string) =>
-    seal(JSON.stringify({ token, secret, returnTo })),
+    seal({ token, secret, returnTo }, REQUEST_MAX_AGE),
   options: cookieOptions(REQUEST_MAX_AGE),
 };
 
@@ -194,21 +230,51 @@ export function readXRequest(request: NextRequest) {
     typeof data.returnTo !== "string"
   )
     return null;
-  return { token: data.token, secret: data.secret, returnTo: data.returnTo };
+  const returnTo = safeReturnPath(data.returnTo);
+  return returnTo ? { token: data.token, secret: data.secret, returnTo } : null;
 }
 
 export const xSessionCookie = {
   name: SESSION_COOKIE,
-  value: (session: XSession) => seal(JSON.stringify(session)),
+  value: async (session: XSession) => {
+    await awardsPrisma.hereForXSession.deleteMany({
+      where: { expiresAt: { lte: new Date() } },
+    });
+    const record = await awardsPrisma.hereForXSession.create({
+      data: {
+        xUserId: session.userId,
+        handle: session.handle,
+        expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000),
+      },
+    });
+    return seal({ sessionId: record.id }, SESSION_MAX_AGE);
+  },
   options: cookieOptions(SESSION_MAX_AGE),
 };
 
-export function readXSession(request: NextRequest): XSession | null {
-  const data = unseal(request.cookies.get(SESSION_COOKIE)?.value) as {
-    userId?: unknown;
-    handle?: unknown;
-  } | null;
-  const handle = normalizeHandle(data?.handle);
-  if (typeof data?.userId !== "string" || !handle) return null;
-  return { userId: data.userId, handle };
+function sessionId(request: NextRequest) {
+  const data = unseal(request.cookies.get(SESSION_COOKIE)?.value);
+  return typeof data?.sessionId === "string" &&
+    /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(
+      data.sessionId,
+    )
+    ? data.sessionId
+    : null;
+}
+
+export async function readXSession(
+  request: NextRequest,
+): Promise<XSession | null> {
+  const id = sessionId(request);
+  if (!id) return null;
+  const session = await awardsPrisma.hereForXSession.findUnique({
+    where: { id, expiresAt: { gt: new Date() } },
+  });
+  const handle = normalizeHandle(session?.handle);
+  return session && handle ? { userId: session.xUserId, handle } : null;
+}
+
+export async function revokeXSession(request: NextRequest) {
+  const id = sessionId(request);
+  if (id) await awardsPrisma.hereForXSession.deleteMany({ where: { id } });
 }

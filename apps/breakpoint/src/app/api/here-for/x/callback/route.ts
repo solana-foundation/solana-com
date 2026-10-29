@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     const response = back("ok");
     response.cookies.set(
       xSessionCookie.name,
-      xSessionCookie.value(session),
+      await xSessionCookie.value(session),
       xSessionCookie.options,
     );
     return response;

@@ -88,6 +88,14 @@ not migrate a database automatically.
 
 ## Production safeguards
 
+Mutuals X sign-ins use `here_for_x_sessions` for server-enforced 30-day expiry
+and logout revocation. Deploy the `20261029000000_here_for_x_sessions` migration
+before serving the updated app; the production build's `prisma:deploy` step does
+this automatically. Existing cookies from before this change require a fresh X
+sign-in. OAuth request cookies expire after ten minutes. Expired session records
+are removed when a new session is created. Profile ownership still uses the
+existing awards ballot and handle mapping.
+
 The nominations route requires these sensitive Vercel environment variables in
 Production and Preview:
 

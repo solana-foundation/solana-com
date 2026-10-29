@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const current = readAwardsBallot(request);
     const cookie = current ? null : newAwardsBallot();
     const ballotId = current ?? cookie!.ballotId;
-    const x = readXSession(request);
+    const x = await readXSession(request);
     const person = !x && current ? await loadMeByBallot(ballotId) : null;
     const handle =
       x?.handle ?? (person?.handle as HereForHandle | null) ?? null;

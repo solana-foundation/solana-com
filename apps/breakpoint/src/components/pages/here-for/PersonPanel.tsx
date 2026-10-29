@@ -132,18 +132,13 @@ export default function PersonPanel({
         </p>
         {claimed ? (
           <ol className="unstyled-list">
-            {outs.map((node, i) => (
+            {outs.map((node) => (
               <li key={node}>
                 <button
                   type="button"
                   onClick={() => onSelect(node)}
                   className={`flex h-12 w-full items-center gap-xs border-b border-stroke-primary px-s text-left ${hereForType.item} transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple`}
                 >
-                  <span
-                    className={`w-6 ${hereForType.caption} text-text-secondary`}
-                  >
-                    0{i + 1}
-                  </span>
                   <span className="flex-1 truncate">{handles[node]}</span>
                   {isMutual(index, focus, node) && (
                     <span

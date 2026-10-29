@@ -71,6 +71,12 @@ describe("here-for adds route", () => {
     expect((await response.json()).code).toBe("auth_required");
     expect(mocks.submit).not.toHaveBeenCalled();
   });
+  it("fails closed if the session store is unavailable", async () => {
+    mocks.session.mockRejectedValueOnce(new Error("Database unavailable"));
+    const response = await POST(request({ adds: ["b", "c", "d"] }));
+    expect(response.status).toBe(503);
+    expect(mocks.submit).not.toHaveBeenCalled();
+  });
   it("uses the signed-in X handle, not one from the body", async () => {
     await POST(request({ handle: "mallory", adds: ["b", "c", "d"] }));
     expect(mocks.submit.mock.calls[0]?.[1]).toBe("@alice");

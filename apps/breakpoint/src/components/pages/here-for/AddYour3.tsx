@@ -248,7 +248,11 @@ export default function AddYour3({ locale }: { locale: string }) {
                       <button
                         type="button"
                         onClick={async () => {
-                          await signOutOfX();
+                          setMessage(null);
+                          if (!(await signOutOfX())) {
+                            setMessage(t("errors.logout_error"));
+                            return;
+                          }
                           if (me.status === "ready")
                             setMe({ ...me.data, xHandle: null });
                         }}
