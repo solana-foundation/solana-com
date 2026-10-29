@@ -1,6 +1,7 @@
 CREATE TABLE "here_for_people" (
     "id" UUID NOT NULL,
     "handle" VARCHAR(16) NOT NULL,
+    "xUserId" VARCHAR(32),
     "claimedById" UUID,
     "hidden" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -36,3 +37,13 @@ CREATE INDEX "here_for_adds_toId_idx" ON "here_for_adds"("toId");
 ALTER TABLE "here_for_people" ADD CONSTRAINT "here_for_people_claimedById_fkey" FOREIGN KEY ("claimedById") REFERENCES "awards_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "here_for_adds" ADD CONSTRAINT "here_for_adds_fromId_fkey" FOREIGN KEY ("fromId") REFERENCES "here_for_people"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "here_for_adds" ADD CONSTRAINT "here_for_adds_toId_fkey" FOREIGN KEY ("toId") REFERENCES "here_for_people"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+CREATE TABLE "here_for_x_sessions" (
+    "id" UUID NOT NULL,
+    "xUserId" VARCHAR(32) NOT NULL,
+    "handle" VARCHAR(16) NOT NULL,
+    "expiresAt" TIMESTAMPTZ(6) NOT NULL,
+    CONSTRAINT "here_for_x_sessions_pkey" PRIMARY KEY ("id")
+);
+
+CREATE INDEX "here_for_x_sessions_expiresAt_idx" ON "here_for_x_sessions"("expiresAt");

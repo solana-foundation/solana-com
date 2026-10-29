@@ -116,12 +116,18 @@ vote rejection, and the closed boundary. Confirm both desktop and mobile views.
 ## Production safeguards
 
 Mutuals X sign-ins use `here_for_x_sessions` for server-enforced 30-day expiry
-and logout revocation. Deploy the `20261029000000_here_for_x_sessions` migration
-before serving the updated app; the production build's `prisma:deploy` step does
-this automatically. Existing cookies from before this change require a fresh X
+and logout revocation. Deploy the `20261026000000_here_for` migration before
+serving the updated app; the production build's `prisma:deploy` step does this
+automatically. Existing cookies from before this change require a fresh X
 sign-in. OAuth request cookies expire after ten minutes. Expired session records
-are removed when a new session is created. Profile ownership still uses the
-existing awards ballot and handle mapping.
+are removed when a new session is created. Fresh X sign-in binds each handle to
+its stable X user ID. Profile writes check that binding inside the transaction;
+the awards ballot remains the browser association.
+
+The unreleased Mutuals tables, sessions, and ownership binding share one
+migration. If a disposable local or preview database already applied an earlier
+version of these migrations, recreate that database before applying the
+consolidated history. Do not reset the production Awards database.
 
 The nominations route requires these sensitive Vercel environment variables in
 Production and Preview:
