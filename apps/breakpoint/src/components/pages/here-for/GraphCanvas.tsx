@@ -45,8 +45,9 @@ const COLOR = {
   blue: new THREE.Color("#3c91ff"),
   pink: new THREE.Color("#e65ddb"),
   white: new THREE.Color("#ffffff"),
-  node: new THREE.Color("#dfdfdf"),
-  ghost: new THREE.Color("#696969"),
+  // Neutrals lean slightly toward the purple links so the crowd isn't flat grey.
+  node: new THREE.Color("#e4dcf5"),
+  ghost: new THREE.Color("#6a6578"),
   black: new THREE.Color("#000000"),
 };
 
@@ -64,6 +65,12 @@ const FLY_MS = 700;
 // Desktop map size the link brightness was tuned at.
 const REFERENCE_AREA = 728 * 756;
 const IDLE_ORBIT_MS = 12000;
+
+// Stable 0..1 per node, so the crowd shimmers a little instead of reading as one flat tone.
+const nodeJitter = (i: number) => {
+  const x = Math.sin(i * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
 
 const easeOutExpo = (t: number) => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t));
 
@@ -285,7 +292,7 @@ function createScene(
     for (let i = 0; i < size; i++) {
       const claimed = index.payload.claimed[i] === 1;
       let scale = base * (claimed ? 1 : 0.7);
-      let brightness = claimed ? 0.55 : 0.4;
+      let brightness = (claimed ? 0.6 : 0.42) * (0.8 + nodeJitter(i) * 0.4);
       color.copy(claimed ? COLOR.node : COLOR.ghost);
 
       if (view === "most") scale = base * (0.8 + Math.sqrt(inDegree[i] ?? 0));

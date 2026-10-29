@@ -32,6 +32,7 @@ const GraphCanvas = dynamic(() => import("./GraphCanvas"), { ssr: false });
 const TRAIL_LIMIT = 6;
 const MOST_ADDED_LABELS = 10;
 const COMMUNITY_LABELS = 10;
+const STAT_SLOT = "\u0000";
 
 type ExplorerProps = {
   locale: string;
@@ -193,17 +194,11 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
   };
 
   const stats = index
-    ? [
-        t("explorer.stats.people", {
-          people: index.size.toLocaleString(locale),
-        }),
-        t("explorer.stats.adds", {
-          adds: (index.payload.links.length / 2).toLocaleString(locale),
-        }),
-        t("explorer.stats.mutuals", {
-          mutuals: index.mutualCount.toLocaleString(locale),
-        }),
-      ]
+    ? ([
+        ["people", index.size],
+        ["adds", index.payload.links.length / 2],
+        ["mutuals", index.mutualCount],
+      ] as const)
     : [];
 
   return (
@@ -222,13 +217,26 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
             >
               {t("explorer.eyebrow")}
             </h2>
-            <div
-              className={`flex min-h-[60px] flex-col ${hereForType.label} leading-5 text-text-secondary`}
+            <ul
+              className={`unstyled-list mt-2xs flex min-h-[96px] flex-col gap-3xs ${hereForType.caption} text-text-secondary`}
             >
-              {stats.map((stat) => (
-                <span key={stat}>{stat}</span>
-              ))}
-            </div>
+              {stats.map(([key, value]) => {
+                // Split the message around the number so it can be styled
+                // apart from its unit, wherever the locale puts it.
+                const [before, after] = t(`explorer.stats.${key}`, {
+                  [key]: STAT_SLOT,
+                }).split(STAT_SLOT);
+                return (
+                  <li key={key} className="flex items-baseline gap-3xs">
+                    {before}
+                    <span className={`${hereForType.stat} text-white`}>
+                      {value.toLocaleString(locale)}
+                    </span>
+                    {after}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
           <div className="relative flex flex-col gap-2xs">

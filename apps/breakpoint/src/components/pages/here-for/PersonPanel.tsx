@@ -114,7 +114,7 @@ export default function PersonPanel({
       aria-live="polite"
       className="flex h-full min-h-0 flex-col border-t-[6px] border-core-purple bg-background-secondary"
     >
-      <div className="flex flex-col gap-2xs p-s pb-xs">
+      <div className="flex flex-col gap-2xs p-s">
         <p className={`${hereForType.label} text-core-purple`}>{kind}</p>
         <h2 className="type-h5 break-all">{handle}</h2>
         <dl className="mt-2xs grid grid-cols-3 border border-stroke-primary">
@@ -137,10 +137,10 @@ export default function PersonPanel({
                 <button
                   type="button"
                   onClick={() => onSelect(node)}
-                  className={`flex h-10 w-full items-center gap-xs border-b border-stroke-primary px-s text-left ${hereForType.nameCompact} transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple`}
+                  className={`flex h-12 w-full items-center gap-xs border-b border-stroke-primary px-s text-left ${hereForType.item} transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple`}
                 >
                   <span
-                    className={`w-5 ${hereForType.caption} text-text-secondary`}
+                    className={`w-6 ${hereForType.caption} text-text-secondary`}
                   >
                     0{i + 1}
                   </span>
@@ -270,7 +270,7 @@ function Stat({
         {label}
       </dt>
       <dd
-        className={`${hereForType.stat} md:text-base min-[1300px]:text-2xl ${accent ? "text-core-green" : "text-white"}`}
+        className={`${hereForType.statLarge} md:text-base min-[1300px]:text-2xl lg:text-4xl ${accent ? "text-core-green" : "text-white"}`}
       >
         {value}
       </dd>

@@ -236,9 +236,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                 </p>
               )}
               <div className="flex flex-col gap-2xs p-s md:px-l md:pt-l">
-                <p className={`${hereForType.label} text-text-secondary`}>
-                  {t("add.handleLabel")}
-                </p>
+                <SectionLabel index={1}>{t("add.handleLabel")}</SectionLabel>
                 {ownHandle ? (
                   <div className="flex h-12 items-center justify-between gap-xs border border-stroke-secondary bg-black pl-xs pr-2xs">
                     <span
@@ -277,22 +275,28 @@ export default function AddYour3({ locale }: { locale: string }) {
               </div>
 
               <div className="flex flex-col gap-xs border-t border-stroke-primary p-s md:px-l">
-                <p className={`${hereForType.label} text-text-secondary`}>
-                  {t("add.picksLabel")}
-                </p>
+                <SectionLabel index={2}>{t("add.picksLabel")}</SectionLabel>
                 <ol className="unstyled-list grid gap-2xs md:grid-cols-3">
                   {Array.from({ length: HERE_FOR_MAX_ADDS }, (_, i) => {
                     const value = adds[i];
                     return (
                       <li
                         key={i}
-                        className={`relative flex min-h-[104px] flex-col items-center justify-center p-xs text-center [container-type:inline-size] ${
+                        className={`relative flex min-h-[120px] flex-col items-center justify-center p-xs text-center [container-type:inline-size] ${
                           value
                             ? "border border-core-purple bg-black text-white"
                             : "border border-dashed border-stroke-secondary text-neutral-500"
                         }`}
                       >
-                        <span className="break-all font-sans text-[clamp(0.75rem,8cqi,1.125rem)] font-normal">
+                        <span
+                          aria-hidden="true"
+                          className={`absolute left-2xs top-2xs ${hereForType.caption} ${value ? "text-core-purple" : ""}`}
+                        >
+                          0{i + 1}
+                        </span>
+                        <span
+                          className={`break-all font-sans text-[clamp(0.875rem,9cqi,1.5rem)] leading-tight ${value ? "font-bold" : "font-normal"}`}
+                        >
                           {value ?? t("add.empty")}
                         </span>
                         {value && !closed && (
@@ -394,14 +398,8 @@ export default function AddYour3({ locale }: { locale: string }) {
 
               <div className="flex flex-col gap-s border-t border-stroke-primary p-s md:flex-row md:items-center md:px-l">
                 <div className="flex flex-1 flex-col gap-3xs">
-                  <span
-                    className={`${hereForType.caption} text-text-secondary`}
-                  >
-                    {t("add.postPreview")}
-                  </span>
-                  <p className={`${hereForType.small} text-white`}>
-                    {postText}
-                  </p>
+                  <SectionLabel index={3}>{t("add.postPreview")}</SectionLabel>
+                  <p className={`${hereForType.body} text-white`}>{postText}</p>
                 </div>
                 {savedHandle ? (
                   <Button
@@ -509,5 +507,23 @@ function Saved({
         />
       </div>
     </div>
+  );
+}
+
+/** A numbered form section label, matching the step list beside the form. */
+function SectionLabel({
+  index,
+  children,
+}: {
+  index: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <p
+      className={`flex items-baseline gap-xs ${hereForType.label} text-text-secondary`}
+    >
+      <span className="text-core-purple">0{index}</span>
+      {children}
+    </p>
   );
 }

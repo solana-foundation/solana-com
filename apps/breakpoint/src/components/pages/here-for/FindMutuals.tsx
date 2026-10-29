@@ -79,9 +79,9 @@ export default function FindMutuals({ locale }: { locale: string }) {
           <p className={`${hereForType.eyebrow} text-core-purple`}>
             {t("mutuals.eyebrow")}
           </p>
-          <h1 className="type-h3">{t("mutuals.title")}</h1>
+          <h1 className="type-h1">{t("mutuals.title")}</h1>
           <p
-            className={`max-w-[560px] ${hereForType.body} text-text-secondary`}
+            className={`max-w-[640px] ${hereForType.lead} text-text-secondary`}
           >
             {t("mutuals.description")}
           </p>
@@ -197,9 +197,9 @@ export default function FindMutuals({ locale }: { locale: string }) {
                   {shown.map((s) => (
                     <li
                       key={s.handle}
-                      className="flex flex-wrap items-center gap-xs border-b border-stroke-primary px-s py-xs md:flex-nowrap md:gap-s md:px-l"
+                      className="flex flex-wrap items-center gap-xs border-b border-stroke-primary px-s py-s md:flex-nowrap md:gap-s md:px-l"
                     >
-                      <div className="flex min-w-0 flex-1 flex-col gap-3xs">
+                      <div className="flex min-w-0 flex-1 basis-full flex-col gap-2xs md:basis-auto">
                         <Link
                           href={breakpointHref(
                             `${HERE_FOR_PATH}/${handleSlug(s.handle)}`,
@@ -207,7 +207,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
                           aria-label={t("mutuals.viewOnMap", {
                             handle: s.handle,
                           })}
-                          className={`truncate ${hereForType.name} hover:text-core-purple`}
+                          className={`truncate ${hereForType.title} transition-colors hover:text-core-purple`}
                         >
                           {s.handle}
                         </Link>
@@ -215,7 +215,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
                           {s.reasons.map((reason, i) => (
                             <span
                               key={i}
-                              className={`inline-flex h-[22px] items-center px-[6px] ${hereForType.tag} ${
+                              className={`inline-flex min-h-[22px] items-center px-[6px] py-[3px] ${hereForType.tag} ${
                                 reason.kind === "addedYou"
                                   ? "bg-core-yellow text-black"
                                   : reason.kind === "sharedAdd"
@@ -229,7 +229,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
                         </span>
                       </div>
                       <span
-                        className={`w-10 text-right ${hereForType.stat} text-text-secondary`}
+                        className={`mr-auto w-12 md:mr-0 md:text-right ${hereForType.stat} text-text-secondary`}
                       >
                         {s.score}
                       </span>
@@ -289,7 +289,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
                 </nav>
               )}
               <div className="mt-auto flex flex-col gap-s border-t border-stroke-primary p-s md:flex-row md:items-center md:px-l">
-                <p className={`flex-1 ${hereForType.small} text-white`}>
+                <p className={`flex-1 ${hereForType.body} text-white`}>
                   {mutualsPost}
                 </p>
                 <Button
