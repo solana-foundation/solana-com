@@ -43,7 +43,7 @@ export default function PersonPanel({
         aria-label={t("panel.label")}
         className="flex h-full flex-col gap-s border-t-[6px] border-core-purple bg-background-secondary p-s"
       >
-        <p className={`${hereForType.label} text-core-purple`}>
+        <p className={`${hereForType.label} text-text-secondary`}>
           {t("panel.selectSomeone")}
         </p>
         <p className={`${hereForType.body} text-text-secondary`}>
@@ -126,7 +126,7 @@ export default function PersonPanel({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <p
-          className={`border-t border-stroke-primary px-s pb-3xs pt-xs ${hereForType.label} text-core-purple`}
+          className={`border-t border-stroke-primary px-s pb-3xs pt-xs ${hereForType.label} text-text-secondary`}
         >
           {isYou ? t("panel.your3") : t("panel.their3")}
         </p>
@@ -139,7 +139,9 @@ export default function PersonPanel({
                   onClick={() => onSelect(node)}
                   className={`flex h-10 w-full items-center gap-xs border-b border-stroke-primary px-s text-left ${hereForType.nameCompact} transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple`}
                 >
-                  <span className={`w-5 ${hereForType.field} text-neutral-500`}>
+                  <span
+                    className={`w-5 ${hereForType.caption} text-text-secondary`}
+                  >
                     0{i + 1}
                   </span>
                   <span className="flex-1 truncate">{handles[node]}</span>
@@ -155,19 +157,19 @@ export default function PersonPanel({
             ))}
           </ol>
         ) : (
-          <p className={`px-s pb-xs ${hereForType.small} text-neutral-500`}>
+          <p className={`px-s pb-xs ${hereForType.small} text-text-secondary`}>
             {t("panel.notJoined")}
           </p>
         )}
 
         <p
-          className={`px-s pb-3xs pt-xs ${hereForType.label} text-core-purple`}
+          className={`px-s pb-3xs pt-xs ${hereForType.label} text-text-secondary`}
         >
           {t("panel.addedBy")}
         </p>
         <div className="flex flex-wrap gap-3xs px-s">
           {ins.length === 0 && (
-            <span className={`${hereForType.small} text-neutral-500`}>
+            <span className={`${hereForType.small} text-text-secondary`}>
               {t("panel.nobodyAdded")}
             </span>
           )}
@@ -197,17 +199,17 @@ export default function PersonPanel({
         {!isYou && (
           <>
             <p
-              className={`px-s pb-3xs pt-s ${hereForType.label} text-core-purple`}
+              className={`px-s pb-3xs pt-s ${hereForType.label} text-text-secondary`}
             >
               {t("panel.howYouConnect")}
             </p>
             <div className="flex flex-wrap items-center gap-3xs px-s pb-s">
               {you === null ? (
-                <span className={`${hereForType.small} text-neutral-500`}>
+                <span className={`${hereForType.small} text-text-secondary`}>
                   {t("panel.joinToConnect")}
                 </span>
               ) : path.length === 0 ? (
-                <span className={`${hereForType.small} text-neutral-500`}>
+                <span className={`${hereForType.small} text-text-secondary`}>
                   {t("panel.noPath")}
                 </span>
               ) : (

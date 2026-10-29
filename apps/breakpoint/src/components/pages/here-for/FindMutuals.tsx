@@ -79,9 +79,9 @@ export default function FindMutuals({ locale }: { locale: string }) {
           <p className={`${hereForType.eyebrow} text-core-purple`}>
             {t("mutuals.eyebrow")}
           </p>
-          <h1 className="type-h1">{t("mutuals.title")}</h1>
+          <h1 className="type-h3">{t("mutuals.title")}</h1>
           <p
-            className={`max-w-[720px] ${hereForType.lead} text-text-secondary`}
+            className={`max-w-[560px] ${hereForType.body} text-text-secondary`}
           >
             {t("mutuals.description")}
           </p>
@@ -90,7 +90,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
         {me.status === "loading" ? (
           <p
             role="status"
-            className={`${hereForType.field} text-text-secondary md:col-span-16`}
+            className={`${hereForType.label} text-text-secondary md:col-span-16`}
           >
             {t("mutuals.loading")}
           </p>
@@ -105,7 +105,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
           <>
             <aside className="flex flex-col gap-l md:col-span-4">
               <div>
-                <p className={`${hereForType.eyebrow} mb-xs`}>
+                <p className={`${hereForType.label} mb-xs text-text-secondary`}>
                   {t("mutuals.yourMutuals", { count: data.mutuals.length })}
                 </p>
                 {data.mutuals.length === 0 ? (
@@ -134,7 +134,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
               </div>
               <div>
                 <p
-                  className={`flex h-10 items-center border-y border-stroke-primary px-2xs ${hereForType.label} text-core-purple`}
+                  className={`flex h-10 items-center border-y border-stroke-primary px-2xs ${hereForType.label} text-text-secondary`}
                 >
                   {t("mutuals.filtersLabel")}
                 </p>
@@ -153,7 +153,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
                         className={`flex h-10 w-full items-center gap-s border-b border-stroke-primary px-2xs text-left ${hereForType.control} focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple ${
                           selected
                             ? "bg-white text-black"
-                            : "text-neutral-100 hover:bg-neutral-800"
+                            : "text-white hover:bg-neutral-800"
                         }`}
                       >
                         <span className="w-m">0{i + 1}</span>
@@ -168,14 +168,14 @@ export default function FindMutuals({ locale }: { locale: string }) {
                   })}
                 </div>
               </div>
-              <p className={`${hereForType.small} text-neutral-500`}>
+              <p className={`${hereForType.small} text-text-secondary`}>
                 {t("mutuals.scoring")}
               </p>
             </aside>
 
             <div className="flex flex-col border-t-[6px] border-core-purple bg-background-secondary md:col-span-11 md:col-start-6">
               <div className="flex flex-col gap-3xs border-b border-stroke-primary p-s md:flex-row md:items-baseline md:justify-between md:px-l">
-                <span className={`${hereForType.label} text-core-purple`}>
+                <span className={`${hereForType.label} text-text-secondary`}>
                   {t("mutuals.count", {
                     from: shown.length ? start + 1 : 0,
                     to: start + shown.length,
@@ -219,7 +219,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
                                 reason.kind === "addedYou"
                                   ? "bg-core-yellow text-black"
                                   : reason.kind === "sharedAdd"
-                                    ? "border border-core-purple text-neutral-100"
+                                    ? "border border-core-purple text-white"
                                     : "border border-stroke-secondary text-text-secondary"
                               }`}
                             >
@@ -289,7 +289,7 @@ export default function FindMutuals({ locale }: { locale: string }) {
                 </nav>
               )}
               <div className="mt-auto flex flex-col gap-s border-t border-stroke-primary p-s md:flex-row md:items-center md:px-l">
-                <p className={`flex-1 ${hereForType.small} text-neutral-100`}>
+                <p className={`flex-1 ${hereForType.small} text-white`}>
                   {mutualsPost}
                 </p>
                 <Button

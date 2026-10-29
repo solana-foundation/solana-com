@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import { localizedRoutePath } from "@/config";
 import type { HereForHandle } from "@/lib/here-for/types";
 import type { GraphCanvasHandle, GraphLabel } from "./GraphCanvas";
 import {
@@ -71,6 +72,9 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
     (node: number | null, nextView: HereForView) => {
       if (!index) return;
       const url = new URL(window.location.href);
+      url.pathname = localizedRoutePath(locale, HERE_FOR_PATH);
+      url.searchParams.delete("with");
+      url.searchParams.delete("card");
       if (node === null) url.searchParams.delete("focus");
       else
         url.searchParams.set("focus", handleSlug(index.payload.handles[node]!));
@@ -78,7 +82,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
       else url.searchParams.set("view", nextView);
       window.history.replaceState(window.history.state, "", url);
     },
-    [index],
+    [index, locale],
   );
 
   const select = useCallback(
@@ -214,12 +218,12 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
           <div className="flex flex-col gap-3xs">
             <h2
               id="here-for-explorer-title"
-              className={`${hereForType.label} text-core-purple`}
+              className={`${hereForType.eyebrow} text-core-purple`}
             >
               {t("explorer.eyebrow")}
             </h2>
             <div
-              className={`flex min-h-[60px] flex-col ${hereForType.field} leading-5 text-text-secondary`}
+              className={`flex min-h-[60px] flex-col ${hereForType.label} leading-5 text-text-secondary`}
             >
               {stats.map((stat) => (
                 <span key={stat}>{stat}</span>
@@ -230,7 +234,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
           <div className="relative flex flex-col gap-2xs">
             <label
               htmlFor="here-for-search"
-              className={`${hereForType.field} text-text-secondary`}
+              className={`${hereForType.label} text-text-secondary`}
             >
               {t("explorer.searchLabel")}
             </label>
@@ -251,14 +255,14 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                   }
                 }}
                 placeholder={t("explorer.searchPlaceholder")}
-                className={`h-full min-w-0 flex-1 bg-transparent ${hereForType.input} text-white outline-none placeholder:text-neutral-500`}
+                className={`h-full w-0 min-w-0 flex-1 bg-transparent ${hereForType.input} text-white outline-none placeholder:text-neutral-500`}
               />
             </div>
             {query && (
               <ul className="unstyled-list absolute inset-x-0 top-full z-20 border border-t-0 border-stroke-primary bg-black">
                 {results.length === 0 ? (
                   <li
-                    className={`px-2xs py-2xs ${hereForType.small} text-neutral-500`}
+                    className={`px-2xs py-2xs ${hereForType.small} text-text-secondary`}
                   >
                     {t("explorer.noResults")}
                   </li>
@@ -272,7 +276,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                       >
                         <span>{index?.payload.handles[node]}</span>
                         <span
-                          className={`${hereForType.count} text-text-secondary`}
+                          className={`${hereForType.caption} text-text-secondary`}
                         >
                           {index?.payload.inDegree[node]}
                         </span>
@@ -286,7 +290,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
 
           <div>
             <p
-              className={`flex h-10 items-center justify-between border-y border-stroke-primary px-2xs ${hereForType.label} text-core-purple`}
+              className={`flex h-10 items-center justify-between border-y border-stroke-primary px-2xs ${hereForType.label} text-text-secondary`}
             >
               {t("explorer.viewsLabel")}
             </p>
@@ -304,7 +308,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                     className={`flex h-10 w-full items-center gap-s border-b border-stroke-primary px-2xs text-left ${hereForType.control} transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple aria-disabled:cursor-not-allowed aria-disabled:text-neutral-600 aria-disabled:hover:bg-transparent ${
                       selected
                         ? "bg-white text-black"
-                        : "text-neutral-100 hover:bg-neutral-800"
+                        : "text-white hover:bg-neutral-800"
                     }`}
                   >
                     <span className="w-m">0{i + 1}</span>
@@ -367,7 +371,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
             ) : (
               <p
                 role="status"
-                className={`absolute inset-0 flex items-center justify-center px-m text-center ${hereForType.field} text-text-secondary`}
+                className={`absolute inset-0 flex items-center justify-center px-m text-center ${hereForType.label} text-text-secondary`}
               >
                 {graph.status === "error"
                   ? t("explorer.error")
@@ -389,7 +393,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                 </ZoomButton>
                 <span
                   aria-live="polite"
-                  className={`flex h-7 items-center justify-center border-b border-stroke-primary ${hereForType.count} text-text-secondary`}
+                  className={`flex h-7 items-center justify-center border-b border-stroke-primary ${hereForType.caption} text-text-secondary`}
                 >
                   {zoom}%
                 </span>
@@ -442,17 +446,19 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                 aria-label={t("explorer.trail")}
                 className={`absolute bottom-2xs left-2xs right-14 z-10 flex flex-wrap items-center gap-3xs ${hereForType.caption} md:bottom-xs md:left-xs`}
               >
-                <span className="text-neutral-500">{t("explorer.trail")}</span>
+                <span className="text-text-secondary">
+                  {t("explorer.trail")}
+                </span>
                 {trail.map((node) => (
                   <button
                     key={node}
                     type="button"
                     onClick={() => select(node)}
                     aria-current={node === focus ? "location" : undefined}
-                    className={`h-[26px] px-2 ${
+                    className={`h-[26px] px-2 ${hereForType.nameCompact} ${
                       node === focus
                         ? "bg-white text-black"
-                        : "border border-stroke-secondary bg-black text-neutral-100 hover:border-white"
+                        : "border border-stroke-secondary bg-black text-white hover:border-white"
                     }`}
                   >
                     {node === you
@@ -472,7 +478,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
           </div>
           {index && (
             <p
-              className={`hidden text-right ${hereForType.caption} text-neutral-500 md:block`}
+              className={`hidden text-right ${hereForType.caption} text-text-secondary md:block`}
             >
               {t("explorer.hint")}
             </p>
@@ -601,7 +607,7 @@ function EggDialog({
             ref={closeRef}
             type="button"
             onClick={onClose}
-            className="h-10 border border-white px-5 font-mono text-button uppercase hover:bg-neutral-700"
+            className="type-button h-10 border border-white px-5 hover:bg-neutral-700"
           >
             {t("egg.close")}
           </button>

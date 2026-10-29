@@ -182,13 +182,13 @@ export default function AddYour3({ locale }: { locale: string }) {
             </p>
             <h1 className="type-h3">{t("add.title")}</h1>
             <p
-              className={`max-w-[420px] ${hereForType.intro} text-text-secondary`}
+              className={`max-w-[420px] ${hereForType.body} text-text-secondary`}
             >
               {t("add.description")}
             </p>
           </div>
           <div>
-            <p className={`${hereForType.eyebrow} mb-xs text-core-purple`}>
+            <p className={`${hereForType.label} mb-xs text-text-secondary`}>
               {t("add.progress", { count: adds.length })}
             </p>
             <ol className="unstyled-list border-t border-stroke-primary">
@@ -201,7 +201,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                       ? "bg-white text-black"
                       : i < step
                         ? "text-core-green"
-                        : "text-neutral-100"
+                        : "text-white"
                   }`}
                 >
                   <span className="w-m">0{i + 1}</span>
@@ -236,7 +236,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                 </p>
               )}
               <div className="flex flex-col gap-2xs p-s md:px-l md:pt-l">
-                <p className={`${hereForType.field} text-text-secondary`}>
+                <p className={`${hereForType.label} text-text-secondary`}>
                   {t("add.handleLabel")}
                 </p>
                 {ownHandle ? (
@@ -271,13 +271,13 @@ export default function AddYour3({ locale }: { locale: string }) {
                     arrow
                   />
                 )}
-                <p className={`${hereForType.small} text-neutral-500`}>
+                <p className={`${hereForType.small} text-text-secondary`}>
                   {ownHandle ? t("add.signedInHint") : t("add.signInHint")}
                 </p>
               </div>
 
               <div className="flex flex-col gap-xs border-t border-stroke-primary p-s md:px-l">
-                <p className={`${hereForType.field} text-text-secondary`}>
+                <p className={`${hereForType.label} text-text-secondary`}>
                   {t("add.picksLabel")}
                 </p>
                 <ol className="unstyled-list grid gap-2xs md:grid-cols-3">
@@ -292,7 +292,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                             : "border border-dashed border-stroke-secondary text-neutral-500"
                         }`}
                       >
-                        <span className="break-all text-[clamp(0.75rem,8cqi,1.125rem)] font-bold">
+                        <span className="break-all font-sans text-[clamp(0.75rem,8cqi,1.125rem)] font-normal">
                           {value ?? t("add.empty")}
                         </span>
                         {value && !closed && (
@@ -316,7 +316,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                   <>
                     <label
                       htmlFor="here-for-add"
-                      className={`mt-2xs ${hereForType.field} text-text-secondary`}
+                      className={`mt-2xs ${hereForType.label} text-text-secondary`}
                     >
                       {t("add.addLabel")}
                     </label>
@@ -343,7 +343,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                           autoCapitalize="none"
                           spellCheck={false}
                           maxLength={16}
-                          className={`h-full min-w-0 flex-1 bg-transparent ${hereForType.input} text-white outline-none placeholder:text-neutral-500`}
+                          className={`h-full w-0 min-w-0 flex-1 bg-transparent ${hereForType.input} text-white outline-none placeholder:text-neutral-500`}
                         />
                       </div>
                       <Button
@@ -356,7 +356,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                     {suggestions.length > 0 && (
                       <>
                         <p
-                          className={`mt-2xs ${hereForType.caption} text-neutral-500`}
+                          className={`mt-2xs ${hereForType.caption} text-text-secondary`}
                         >
                           {me.status === "ready" && me.data.addedBy.length
                             ? t("add.suggestionsNear")
@@ -394,10 +394,12 @@ export default function AddYour3({ locale }: { locale: string }) {
 
               <div className="flex flex-col gap-s border-t border-stroke-primary p-s md:flex-row md:items-center md:px-l">
                 <div className="flex flex-1 flex-col gap-3xs">
-                  <span className={`${hereForType.caption} text-neutral-500`}>
+                  <span
+                    className={`${hereForType.caption} text-text-secondary`}
+                  >
                     {t("add.postPreview")}
                   </span>
-                  <p className={`${hereForType.small} text-neutral-100`}>
+                  <p className={`${hereForType.small} text-white`}>
                     {postText}
                   </p>
                 </div>

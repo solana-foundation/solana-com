@@ -104,7 +104,7 @@ export default async function HereForPage({
               >
                 <StepIcon step={step} />
                 <h3 className="type-h4">{t(`how.step${step}Title`)}</h3>
-                <p className={`${hereForType.intro} text-text-secondary`}>
+                <p className={`${hereForType.body} text-text-secondary`}>
                   {t(`how.step${step}Body`)}
                 </p>
               </li>
@@ -125,7 +125,7 @@ export default async function HereForPage({
               </h2>
             </div>
             <p
-              className={`max-w-[420px] ${hereForType.intro} text-text-secondary`}
+              className={`max-w-[420px] ${hereForType.body} text-text-secondary`}
             >
               {t("shareSection.description")}
             </p>
