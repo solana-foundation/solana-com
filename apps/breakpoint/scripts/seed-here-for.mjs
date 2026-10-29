@@ -4,6 +4,8 @@ import { runLayout } from "./here-for-layout.mjs";
 const db = new PrismaClient();
 const seedArg = process.argv.indexOf("--seed");
 const seed = seedArg >= 0 ? Number(process.argv[seedArg + 1]) : 2026;
+const countArg = process.argv.indexOf("--count");
+const count = countArg >= 0 ? Number(process.argv[countArg + 1]) : 5000;
 let state = seed >>> 0;
 const rng = () =>
   (state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 4294967296;
@@ -69,13 +71,13 @@ try {
       where: { browserUuid: { startsWith: "seed-" } },
     });
   }
-  const claimed = Array.from({ length: 5000 }, (_, i) => ({
+  const claimed = Array.from({ length: count }, (_, i) => ({
     id: randomUUID(),
     handle: handle(),
     cluster: i % 12,
     createdAt: new Date(Date.now() - rng() * 14 * 86400000),
   }));
-  const ghosts = Array.from({ length: 900 }, (_, i) => ({
+  const ghosts = Array.from({ length: Math.round(count * 0.18) }, (_, i) => ({
     id: randomUUID(),
     handle: handle(),
     cluster: i % 12,
