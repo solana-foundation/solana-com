@@ -101,6 +101,29 @@ describe("withMe overlay", () => {
     expect(isMutual(index, fresh, 0)).toBe(false);
   });
 
+  it("spreads unseen adds around the visitor instead of stacking them", () => {
+    const merged = withMe(payload(), {
+      handle: "@harkl",
+      adds: ["@x", "@y", "@z"],
+    });
+    const index = buildGraphIndex(merged);
+    const at = (handle: string) => {
+      const n = index.byHandle.get(handle)!;
+      return merged.positions.slice(n * 3, n * 3 + 3);
+    };
+    const points = ["@x", "@y", "@z"].map(at);
+    for (let i = 0; i < points.length; i++)
+      for (let j = i + 1; j < points.length; j++)
+        expect(
+          Math.hypot(...points[i]!.map((v, axis) => v - points[j]![axis]!)),
+        ).toBeGreaterThan(30);
+    const self = at("@harkl");
+    for (const point of points)
+      expect(
+        Math.hypot(...point.map((v, axis) => v - self[axis]!)),
+      ).toBeGreaterThan(30);
+  });
+
   it("reuses an up-to-date payload so personalisation does not rebuild the scene", () => {
     const original = payload();
     expect(withMe(original, { handle: "@rob", adds: ["@ana", "@mira"] })).toBe(

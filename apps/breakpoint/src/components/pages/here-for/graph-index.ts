@@ -40,6 +40,9 @@ export type GraphIndex = {
 
 const pairKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
+/** Matches the layout's same-community link distance. */
+const NEW_TARGET_RADIUS = 40;
+
 export function buildGraphIndex(payload: HereForGraphPayload): GraphIndex {
   const size = payload.handles.length;
   const outs: number[][] = Array.from({ length: size }, () => []);
@@ -190,30 +193,61 @@ export function withMe(
     links: [],
   };
   const lookup = new Map(next.handles.map((handle, i) => [handle, i]));
-  const ensure = (handle: HereForHandle, near: number[]) => {
+  const ensure = (
+    handle: HereForHandle,
+    position: number[],
+    community: number,
+  ) => {
     const existing = lookup.get(handle);
     if (existing !== undefined) return existing;
     const node = next.handles.length;
-    const anchors = near.filter((n) => n < node);
-    const centroid = [0, 1, 2].map((axis) =>
-      anchors.length
-        ? anchors.reduce((sum, n) => sum + next.positions[n * 3 + axis]!, 0) /
-          anchors.length
-        : 0,
-    );
     next.handles.push(handle);
     next.claimed.push(0);
-    next.positions.push(centroid[0]! + 12, centroid[1]! + 12, centroid[2]!);
-    next.community.push(
-      anchors[0] !== undefined ? next.community[anchors[0]]! : 0,
-    );
+    next.positions.push(position[0]!, position[1]!, position[2]!);
+    next.community.push(community);
     next.inDegree.push(0);
     lookup.set(handle, node);
     return node;
   };
 
-  const targets = me.adds.map((handle) => ensure(handle, []));
-  const self = ensure(me.handle, targets);
+  // Place the visitor first so people the cached layout has not seen yet can
+  // fan out around them instead of all landing on the same point.
+  const knownSelf = lookup.get(me.handle);
+  const knownTargets = me.adds
+    .map((handle) => lookup.get(handle))
+    .filter((n): n is number => n !== undefined);
+  const selfPosition =
+    knownSelf !== undefined
+      ? next.positions.slice(knownSelf * 3, knownSelf * 3 + 3)
+      : [0, 1, 2].map(
+          (axis) =>
+            (knownTargets.length
+              ? knownTargets.reduce(
+                  (sum, n) => sum + next.positions[n * 3 + axis]!,
+                  0,
+                ) / knownTargets.length
+              : 0) + (axis < 2 ? 12 : 0),
+        );
+  const selfCommunity =
+    knownSelf !== undefined
+      ? next.community[knownSelf]!
+      : knownTargets[0] !== undefined
+        ? next.community[knownTargets[0]]!
+        : 0;
+
+  const targets = me.adds.map((handle, i) => {
+    const angle = (2 * Math.PI * i) / me.adds.length;
+    return ensure(
+      handle,
+      [
+        selfPosition[0]! + Math.cos(angle) * NEW_TARGET_RADIUS,
+        selfPosition[1]! + Math.sin(angle) * NEW_TARGET_RADIUS,
+        selfPosition[2]! + (i % 2 ? -1 : 1) * NEW_TARGET_RADIUS * 0.25,
+      ],
+      selfCommunity,
+    );
+  });
+  const self = ensure(me.handle, selfPosition, selfCommunity);
   next.claimed[self] = 1;
   for (let i = 0; i < payload.links.length; i += 2) {
     const from = payload.links[i]!;

@@ -51,6 +51,64 @@ const rows: GraphRows = {
 };
 
 describe("personal graph", () => {
+  it.each([false, true])(
+    "honors an add made before the recipient signs in (added back: %s)",
+    async (addedBack) => {
+      const alice = {
+        id: "alice",
+        handle: "@alice" as const,
+        claimedAt: new Date("2026-10-29"),
+      };
+      // Signing in alone does not mark someone as having submitted their three.
+      const bob = { id: "bob", handle: "@bob" as const, claimedAt: null };
+      mocks.person.mockResolvedValue({
+        id: bob.id,
+        adds: addedBack ? [{ toId: alice.id }] : [],
+        addedBy: [{ fromId: alice.id }],
+      });
+      mocks.adds.mockImplementation(async ({ where }) => {
+        const edges = [
+          { from: alice, to: bob },
+          ...(addedBack ? [{ from: bob, to: alice }] : []),
+        ];
+        return edges
+          .filter(
+            ({ from, to }) =>
+              where.OR[0].fromId.in.includes(from.id) ||
+              where.OR[1].toId.in.includes(to.id),
+          )
+          .map(({ from, to }) => ({
+            from,
+            to,
+            fromId: from.id,
+            toId: to.id,
+            rank: 1,
+          }));
+      });
+
+      const profile = mePayload(
+        await loadPersonalGraph("@bob"),
+        "@bob",
+        "open",
+        "@bob",
+      );
+      expect(profile).toMatchObject({
+        handle: "@bob",
+        xHandle: "@bob",
+        addedBy: ["@alice"],
+        adds: addedBack ? ["@alice"] : [],
+        mutuals: addedBack ? ["@alice"] : [],
+      });
+      if (!addedBack)
+        expect(profile.suggestions).toContainEqual(
+          expect.objectContaining({
+            handle: "@alice",
+            reasons: expect.arrayContaining([{ kind: "addedYou" }]),
+          }),
+        );
+    },
+  );
+
   it("preserves all profile fields and recommendation scores without unrelated edges", async () => {
     mocks.person.mockResolvedValue({
       id: "0",

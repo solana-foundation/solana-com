@@ -8,6 +8,7 @@ import {
   readXRequest,
   xSessionCookie,
   readXSession,
+  finishXSignIn,
 } from "@/lib/here-for/x-auth";
 import { POST as logout } from "@/app/api/here-for/x/logout/route";
 
@@ -58,9 +59,34 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 describe("here-for X auth", () => {
+  it("matches a mixed-case Twitter login to the normalized handle already added", async () => {
+    vi.stubEnv("X_CONSUMER_KEY", "key");
+    vi.stubEnv("X_SECRET_KEY", "secret");
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            "oauth_token=access&oauth_token_secret=secret&user_id=123&screen_name=Alice",
+          ),
+        ),
+    );
+    const session = await finishXSignIn("token", "secret", "verifier");
+    expect(session).toEqual(identity);
+    await xSessionCookie.value(session);
+    // Updating only the identity keeps the placeholder's ID and incoming edges.
+    expect(mocks.claim).toHaveBeenCalledWith({
+      where: { handle: "@alice" },
+      create: { handle: "@alice", xUserId: "123" },
+      update: { xUserId: "123" },
+    });
+  });
+
   // Worked example from X's "Creating a signature" OAuth 1.0a docs.
   it("signs requests the way X documents", () => {
     const header = oauthHeader(
