@@ -24,6 +24,7 @@ import {
   usePrefersReducedMotion,
 } from "./client";
 import PersonPanel from "./PersonPanel";
+import { hereForType } from "./typography";
 
 const GraphCanvas = dynamic(() => import("./GraphCanvas"), { ssr: false });
 
@@ -213,11 +214,13 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
           <div className="flex flex-col gap-3xs">
             <h2
               id="here-for-explorer-title"
-              className="font-mono text-2xs uppercase tracking-[0.08em] text-core-purple"
+              className={`${hereForType.label} text-core-purple`}
             >
               {t("explorer.eyebrow")}
             </h2>
-            <div className="flex min-h-[60px] flex-col font-mono text-2xs uppercase leading-5 tracking-[0.08em] text-text-secondary">
+            <div
+              className={`flex min-h-[60px] flex-col ${hereForType.field} leading-5 text-text-secondary`}
+            >
               {stats.map((stat) => (
                 <span key={stat}>{stat}</span>
               ))}
@@ -227,7 +230,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
           <div className="relative flex flex-col gap-2xs">
             <label
               htmlFor="here-for-search"
-              className="font-mono text-2xs uppercase tracking-[0.08em] text-text-secondary"
+              className={`${hereForType.field} text-text-secondary`}
             >
               {t("explorer.searchLabel")}
             </label>
@@ -248,13 +251,15 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                   }
                 }}
                 placeholder={t("explorer.searchPlaceholder")}
-                className="h-full min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-neutral-500"
+                className={`h-full min-w-0 flex-1 bg-transparent ${hereForType.input} text-white outline-none placeholder:text-neutral-500`}
               />
             </div>
             {query && (
               <ul className="unstyled-list absolute inset-x-0 top-full z-20 border border-t-0 border-stroke-primary bg-black">
                 {results.length === 0 ? (
-                  <li className="px-2xs py-2xs text-2xs text-neutral-500">
+                  <li
+                    className={`px-2xs py-2xs ${hereForType.small} text-neutral-500`}
+                  >
                     {t("explorer.noResults")}
                   </li>
                 ) : (
@@ -263,10 +268,12 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                       <button
                         type="button"
                         onClick={() => select(node)}
-                        className="flex h-10 w-full items-center justify-between border-b border-stroke-primary px-2xs text-left font-sans text-2xs normal-case tracking-normal hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple"
+                        className={`flex h-10 w-full items-center justify-between border-b border-stroke-primary px-2xs text-left ${hereForType.nameCompact} hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple`}
                       >
                         <span>{index?.payload.handles[node]}</span>
-                        <span className="font-mono text-3xs text-text-secondary">
+                        <span
+                          className={`${hereForType.count} text-text-secondary`}
+                        >
                           {index?.payload.inDegree[node]}
                         </span>
                       </button>
@@ -278,7 +285,9 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
           </div>
 
           <div>
-            <p className="flex h-10 items-center justify-between border-y border-stroke-primary px-2xs font-mono text-2xs uppercase tracking-[0.08em] text-core-purple">
+            <p
+              className={`flex h-10 items-center justify-between border-y border-stroke-primary px-2xs ${hereForType.label} text-core-purple`}
+            >
               {t("explorer.viewsLabel")}
             </p>
             <div role="group" aria-label={t("explorer.viewsLabel")}>
@@ -292,7 +301,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                     aria-pressed={selected}
                     aria-disabled={disabled || undefined}
                     onClick={() => !disabled && changeView(key)}
-                    className={`flex h-10 w-full items-center gap-s border-b border-stroke-primary px-2xs text-left font-mono text-button-small font-bold uppercase transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple aria-disabled:cursor-not-allowed aria-disabled:text-neutral-600 aria-disabled:hover:bg-transparent ${
+                    className={`flex h-10 w-full items-center gap-s border-b border-stroke-primary px-2xs text-left ${hereForType.control} transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple aria-disabled:cursor-not-allowed aria-disabled:text-neutral-600 aria-disabled:hover:bg-transparent ${
                       selected
                         ? "bg-white text-black"
                         : "text-neutral-100 hover:bg-neutral-800"
@@ -306,7 +315,9 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
             </div>
           </div>
 
-          <ul className="unstyled-list hidden flex-col gap-2xs font-mono text-3xs uppercase tracking-[0.08em] text-text-secondary md:flex">
+          <ul
+            className={`unstyled-list hidden flex-col gap-2xs ${hereForType.caption} text-text-secondary md:flex`}
+          >
             <Legend swatch="h-[2px] bg-core-purple">
               {t("explorer.legend.out")}
             </Legend>
@@ -356,7 +367,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
             ) : (
               <p
                 role="status"
-                className="absolute inset-0 flex items-center justify-center px-m text-center font-mono text-2xs uppercase tracking-[0.08em] text-text-secondary"
+                className={`absolute inset-0 flex items-center justify-center px-m text-center ${hereForType.field} text-text-secondary`}
               >
                 {graph.status === "error"
                   ? t("explorer.error")
@@ -378,7 +389,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                 </ZoomButton>
                 <span
                   aria-live="polite"
-                  className="flex h-7 items-center justify-center border-b border-stroke-primary font-mono text-3xs text-text-secondary"
+                  className={`flex h-7 items-center justify-center border-b border-stroke-primary ${hereForType.count} text-text-secondary`}
                 >
                   {zoom}%
                 </span>
@@ -429,7 +440,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
             {index && trail.length > 0 && (
               <nav
                 aria-label={t("explorer.trail")}
-                className="absolute bottom-2xs left-2xs right-14 z-10 flex flex-wrap items-center gap-3xs font-mono text-3xs uppercase tracking-[0.08em] md:bottom-xs md:left-xs"
+                className={`absolute bottom-2xs left-2xs right-14 z-10 flex flex-wrap items-center gap-3xs ${hereForType.caption} md:bottom-xs md:left-xs`}
               >
                 <span className="text-neutral-500">{t("explorer.trail")}</span>
                 {trail.map((node) => (
@@ -460,7 +471,9 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
             )}
           </div>
           {index && (
-            <p className="hidden text-right font-mono text-3xs uppercase tracking-[0.08em] text-neutral-500 md:block">
+            <p
+              className={`hidden text-right ${hereForType.caption} text-neutral-500 md:block`}
+            >
               {t("explorer.hint")}
             </p>
           )}
@@ -555,23 +568,21 @@ function EggDialog({
         aria-labelledby="here-for-egg-title"
         className="flex w-full max-w-[420px] flex-col gap-s border-t-[6px] border-core-pink bg-background-secondary p-m"
       >
-        <p className="font-mono text-2xs uppercase tracking-[0.08em] text-core-pink">
+        <p className={`${hereForType.label} text-core-pink`}>
           {t("egg.eyebrow")}
         </p>
         <h3 id="here-for-egg-title" className="type-h5">
           {t("egg.title")}
         </h3>
-        <p className="text-paragraph text-text-secondary">
+        <p className={`${hereForType.body} text-text-secondary`}>
           {t("egg.description")}
         </p>
         <div className="flex h-14 items-center justify-between border border-core-pink pl-s">
-          <span className="font-mono text-2xl font-bold tracking-[0.08em]">
-            {EGG_COUPON_CODE}
-          </span>
+          <span className={`${hereForType.code}`}>{EGG_COUPON_CODE}</span>
           <button
             type="button"
             onClick={onCopy}
-            className="h-full px-s font-mono text-button-small uppercase text-core-pink hover:bg-core-pink hover:text-black"
+            className={`h-full px-s ${hereForType.control} text-core-pink hover:bg-core-pink hover:text-black`}
           >
             <span aria-live="polite">
               {copied ? t("egg.copied") : t("egg.copy")}

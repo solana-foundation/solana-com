@@ -11,6 +11,7 @@ import {
   personUrl,
   withAsk,
 } from "./client";
+import { hereForType } from "./typography";
 
 const ADDED_BY_LIMIT = 12;
 
@@ -23,8 +24,7 @@ type PersonPanelProps = {
   onSelect: (node: number) => void;
 };
 
-const chipClass =
-  "inline-flex h-7 items-center border px-2 font-sans text-2xs normal-case tracking-normal transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple";
+const chipClass = `inline-flex h-7 items-center border px-2 ${hereForType.nameCompact} transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple`;
 
 export default function PersonPanel({
   index,
@@ -43,10 +43,10 @@ export default function PersonPanel({
         aria-label={t("panel.label")}
         className="flex h-full flex-col gap-s border-t-[6px] border-core-purple bg-background-secondary p-s"
       >
-        <p className="font-mono text-2xs uppercase tracking-[0.08em] text-core-purple">
+        <p className={`${hereForType.label} text-core-purple`}>
           {t("panel.selectSomeone")}
         </p>
-        <p className="text-paragraph text-text-secondary">
+        <p className={`${hereForType.body} text-text-secondary`}>
           {t("panel.selectHint")}
         </p>
         <div className="mt-auto flex flex-col gap-2xs">
@@ -115,9 +115,7 @@ export default function PersonPanel({
       className="flex h-full min-h-0 flex-col border-t-[6px] border-core-purple bg-background-secondary"
     >
       <div className="flex flex-col gap-2xs p-s pb-xs">
-        <p className="font-mono text-2xs uppercase tracking-[0.08em] text-core-purple">
-          {kind}
-        </p>
+        <p className={`${hereForType.label} text-core-purple`}>{kind}</p>
         <h2 className="type-h5 break-all">{handle}</h2>
         <dl className="mt-2xs grid grid-cols-3 border border-stroke-primary">
           <Stat label={t("panel.added")} value={outs.length} />
@@ -127,7 +125,9 @@ export default function PersonPanel({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <p className="border-t border-stroke-primary px-s pb-3xs pt-xs font-mono text-2xs uppercase tracking-[0.08em] text-core-purple">
+        <p
+          className={`border-t border-stroke-primary px-s pb-3xs pt-xs ${hereForType.label} text-core-purple`}
+        >
           {isYou ? t("panel.your3") : t("panel.their3")}
         </p>
         {claimed ? (
@@ -137,14 +137,16 @@ export default function PersonPanel({
                 <button
                   type="button"
                   onClick={() => onSelect(node)}
-                  className="flex h-10 w-full items-center gap-xs border-b border-stroke-primary px-s text-left font-sans text-2xs normal-case tracking-normal transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple"
+                  className={`flex h-10 w-full items-center gap-xs border-b border-stroke-primary px-s text-left ${hereForType.nameCompact} transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple`}
                 >
-                  <span className="w-5 font-mono text-button-small text-neutral-500">
+                  <span className={`w-5 ${hereForType.field} text-neutral-500`}>
                     0{i + 1}
                   </span>
                   <span className="flex-1 truncate">{handles[node]}</span>
                   {isMutual(index, focus, node) && (
-                    <span className="bg-core-green px-[6px] py-[3px] font-mono text-3xs uppercase tracking-[0.06em] text-black">
+                    <span
+                      className={`bg-core-green px-[6px] py-[3px] ${hereForType.tag} text-black`}
+                    >
                       {t("panel.mutual")}
                     </span>
                   )}
@@ -153,17 +155,19 @@ export default function PersonPanel({
             ))}
           </ol>
         ) : (
-          <p className="px-s pb-xs text-2xs text-neutral-500">
+          <p className={`px-s pb-xs ${hereForType.small} text-neutral-500`}>
             {t("panel.notJoined")}
           </p>
         )}
 
-        <p className="px-s pb-3xs pt-xs font-mono text-2xs uppercase tracking-[0.08em] text-core-purple">
+        <p
+          className={`px-s pb-3xs pt-xs ${hereForType.label} text-core-purple`}
+        >
           {t("panel.addedBy")}
         </p>
         <div className="flex flex-wrap gap-3xs px-s">
           {ins.length === 0 && (
-            <span className="text-2xs text-neutral-500">
+            <span className={`${hereForType.small} text-neutral-500`}>
               {t("panel.nobodyAdded")}
             </span>
           )}
@@ -182,7 +186,9 @@ export default function PersonPanel({
             </button>
           ))}
           {ins.length > ADDED_BY_LIMIT && (
-            <span className="inline-flex h-7 items-center text-2xs text-text-secondary">
+            <span
+              className={`inline-flex h-7 items-center ${hereForType.small} text-text-secondary`}
+            >
               {t("panel.more", { count: ins.length - ADDED_BY_LIMIT })}
             </span>
           )}
@@ -190,16 +196,18 @@ export default function PersonPanel({
 
         {!isYou && (
           <>
-            <p className="px-s pb-3xs pt-s font-mono text-2xs uppercase tracking-[0.08em] text-core-purple">
+            <p
+              className={`px-s pb-3xs pt-s ${hereForType.label} text-core-purple`}
+            >
               {t("panel.howYouConnect")}
             </p>
             <div className="flex flex-wrap items-center gap-3xs px-s pb-s">
               {you === null ? (
-                <span className="text-2xs text-neutral-500">
+                <span className={`${hereForType.small} text-neutral-500`}>
                   {t("panel.joinToConnect")}
                 </span>
               ) : path.length === 0 ? (
-                <span className="text-2xs text-neutral-500">
+                <span className={`${hereForType.small} text-neutral-500`}>
                   {t("panel.noPath")}
                 </span>
               ) : (
@@ -254,11 +262,13 @@ function Stat({
 }) {
   return (
     <div className="flex min-w-0 flex-col-reverse justify-end gap-2xs border-l border-stroke-primary px-2xs py-xs first:border-l-0 md:px-3xs min-[1300px]:px-2xs">
-      <dt className="font-mono text-3xs uppercase leading-tight tracking-[0.08em] text-text-secondary">
+      <dt
+        className={`${hereForType.caption} leading-tight text-text-secondary`}
+      >
         {label}
       </dt>
       <dd
-        className={`font-display text-2xl leading-none md:text-base min-[1300px]:text-2xl ${accent ? "text-core-green" : "text-white"}`}
+        className={`${hereForType.stat} md:text-base min-[1300px]:text-2xl ${accent ? "text-core-green" : "text-white"}`}
       >
         {value}
       </dd>

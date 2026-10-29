@@ -6,6 +6,7 @@ import Footer from "@/components/sections/Footer";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import Explorer from "./Explorer";
 import { HERE_FOR_PATH } from "./constants";
+import { hereForType } from "./typography";
 
 const MARQUEE_KEYS = [
   "community",
@@ -77,7 +78,7 @@ export default async function HereForPage({
         heroImage="awards"
         title={t("hero.title")}
       >
-        <p className="max-w-[620px] text-p-large text-white">
+        <p className={`max-w-[620px] ${hereForType.lead} text-white`}>
           {t("hero.description")}
         </p>
       </SubpageHero>
@@ -91,7 +92,7 @@ export default async function HereForPage({
       <section className="bg-black pb-2xl md:pb-3xl">
         <div className="mx-auto grid w-full max-w-[1440px] gap-m px-4 md:grid-cols-bp-desktop md:gap-x-s md:px-8">
           <div className="border-t border-stroke-primary pt-m md:col-span-5 md:pt-l">
-            <h2 className="type-eyebrow text-core-purple">
+            <h2 className={`${hereForType.eyebrow} text-core-purple`}>
               {t("how.eyebrow")}
             </h2>
           </div>
@@ -103,7 +104,7 @@ export default async function HereForPage({
               >
                 <StepIcon step={step} />
                 <h3 className="type-h4">{t(`how.step${step}Title`)}</h3>
-                <p className="text-paragraph text-text-secondary antialiased md:text-lg">
+                <p className={`${hereForType.intro} text-text-secondary`}>
                   {t(`how.step${step}Body`)}
                 </p>
               </li>
@@ -116,14 +117,16 @@ export default async function HereForPage({
         <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-l px-4 md:px-8">
           <div className="flex flex-col gap-s border-t border-stroke-primary pt-m md:flex-row md:items-end md:justify-between md:pt-l">
             <div className="flex flex-col gap-xs">
-              <p className="type-eyebrow text-core-purple">
+              <p className={`${hereForType.eyebrow} text-core-purple`}>
                 {t("shareSection.eyebrow")}
               </p>
               <h2 className="type-h3 max-w-[720px]">
                 {t("shareSection.title")}
               </h2>
             </div>
-            <p className="max-w-[420px] text-paragraph text-text-secondary antialiased md:text-lg">
+            <p
+              className={`max-w-[420px] ${hereForType.intro} text-text-secondary`}
+            >
               {t("shareSection.description")}
             </p>
           </div>
@@ -138,7 +141,7 @@ export default async function HereForPage({
                   loading="lazy"
                   className="block aspect-[1200/630] h-auto w-full border border-stroke-primary bg-background-secondary"
                 />
-                <span className="font-mono text-3xs uppercase tracking-[0.08em] text-text-secondary">
+                <span className={`${hereForType.caption} text-text-secondary`}>
                   {t(`shareSection.${card.key}`)}
                 </span>
               </li>
