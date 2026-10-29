@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { localizedRouteUrl } from "@/config";
 import type {
   HereForAddsRequest,
@@ -24,15 +24,21 @@ export type Loadable<T> =
   | { status: "error" }
   | { status: "ready"; data: T };
 
-export function useGraphIndex(
-  me: HereForMePayload | null,
-): Loadable<GraphIndex> {
+export function useGraphIndex(me: HereForMePayload | null): {
+  graph: Loadable<GraphIndex>;
+  refreshing: boolean;
+  refresh: () => void;
+} {
   const [payload, setPayload] = useState<Loadable<HereForGraphPayload>>({
     status: "loading",
   });
+  const [version, setVersion] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API}/graph`)
+    // A refresh skips the browser and CDN caches; the first load uses them.
+    const url = version ? `${API}/graph?fresh=${Date.now()}` : `${API}/graph`;
+    fetch(url, version ? { cache: "no-store" } : undefined)
       .then((response) => {
         if (!response.ok) throw new Error(String(response.status));
         return response.json() as Promise<HereForGraphPayload>;
@@ -41,17 +47,30 @@ export function useGraphIndex(
         if (!cancelled) setPayload({ status: "ready", data });
       })
       .catch(() => {
-        if (!cancelled) setPayload({ status: "error" });
+        // A failed refresh keeps the map it already has.
+        if (!cancelled)
+          setPayload((current) =>
+            version && current.status === "ready"
+              ? current
+              : { status: "error" },
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setRefreshing(false);
       });
     return () => {
       cancelled = true;
     };
+  }, [version]);
+  const refresh = useCallback(() => {
+    setRefreshing(true);
+    setVersion((current) => current + 1);
   }, []);
   const personalised = useMemo(
     () => (payload.status === "ready" ? withMe(payload.data, me) : null),
     [payload, me],
   );
-  return useMemo(
+  const graph = useMemo<Loadable<GraphIndex>>(
     () =>
       personalised
         ? { status: "ready", data: buildGraphIndex(personalised) }
@@ -60,6 +79,7 @@ export function useGraphIndex(
           : { status: "loading" },
     [personalised, payload],
   );
+  return { graph, refreshing, refresh };
 }
 
 export function useMe(): [

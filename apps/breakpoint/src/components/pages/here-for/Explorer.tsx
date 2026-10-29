@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
+import { RefreshCw } from "@boxicons/react/RefreshCw";
 import Button from "@/components/Button";
 import { localizedRoutePath } from "@/config";
 import type { HereForHandle } from "@/lib/here-for/types";
@@ -11,6 +12,7 @@ import {
   HERE_FOR_VIEWS,
   isMutual,
   neighbourhood,
+  type GraphIndex,
   searchHandles,
   shortestPath,
   type HereForView,
@@ -42,7 +44,9 @@ type ExplorerProps = {
 export default function Explorer({ locale, initialFocus }: ExplorerProps) {
   const t = useTranslations("breakpoint.hereFor");
   const [me] = useMe();
-  const graph = useGraphIndex(me.status === "ready" ? me.data : null);
+  const { graph, refreshing, refresh } = useGraphIndex(
+    me.status === "ready" ? me.data : null,
+  );
   const reducedMotion = usePrefersReducedMotion();
   const canvasRef = useRef<GraphCanvasHandle>(null);
   const initialFlight = useRef<number | null>(null);
@@ -63,11 +67,36 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
   const [copied, setCopied] = useState(false);
 
   const index = graph.status === "ready" ? graph.data : null;
+  // Node ids are positions in the payload, so a refreshed graph can renumber
+  // everyone. Carry the selection over by handle before anything renders it.
+  const [selectionIndex, setSelectionIndex] = useState<GraphIndex | null>(null);
+  const [reselect, setReselect] = useState(false);
+  if (index !== selectionIndex) {
+    setSelectionIndex(index);
+    if (selectionIndex && index) {
+      const carry = (node: number) =>
+        index.byHandle.get(selectionIndex.payload.handles[node]!);
+      setFocus((current) =>
+        current === null ? null : (carry(current) ?? null),
+      );
+      setTrail((current) =>
+        current.map(carry).filter((node) => node !== undefined),
+      );
+      setReselect(true);
+    }
+  }
+
   const youHandle = me.status === "ready" ? me.data.handle : null;
   const you = useMemo(
     () => (index && youHandle ? (index.byHandle.get(youHandle) ?? null) : null),
     [index, youHandle],
   );
+  // The canvas rebuilds its scene for a new graph; point it back at the focus.
+  useEffect(() => {
+    if (!reselect) return;
+    setReselect(false);
+    if (focus !== null) canvasRef.current?.flyTo(focus);
+  }, [reselect, focus]);
 
   const syncUrl = useCallback(
     (node: number | null, nextView: HereForView) => {
@@ -385,6 +414,26 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                   ? t("explorer.error")
                   : t("explorer.loading")}
               </p>
+            )}
+
+            {index && (
+              <div className="absolute left-2xs top-2xs z-10 flex border border-stroke-secondary bg-black md:left-xs md:top-xs">
+                <button
+                  type="button"
+                  aria-label={t("explorer.refresh")}
+                  title={t("explorer.refresh")}
+                  aria-busy={refreshing || undefined}
+                  aria-disabled={refreshing || undefined}
+                  onClick={() => !refreshing && refresh()}
+                  className="flex size-5 items-center justify-center text-white transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-2 focus-visible:outline-core-purple aria-disabled:cursor-wait"
+                >
+                  <RefreshCw
+                    aria-hidden="true"
+                    pack="basic"
+                    className={`size-3 ${refreshing ? "animate-spin motion-reduce:animate-none" : ""}`}
+                  />
+                </button>
+              </div>
             )}
 
             {index && (

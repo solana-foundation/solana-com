@@ -41,7 +41,7 @@ type Result = {
 export default function AddYour3({ locale }: { locale: string }) {
   const t = useTranslations("breakpoint.hereFor");
   const [me, setMe] = useMe();
-  const graph = useGraphIndex(null);
+  const { graph } = useGraphIndex(null);
 
   const [adds, setAdds] = useState<HereForHandle[]>([]);
   const [draft, setDraft] = useState("");
