@@ -23,6 +23,12 @@ type PageMetadataConfig = {
   description: string;
   path: string;
   title: string;
+  /** Replaces the site card; must be 1200×630. */
+  image?: { url: string; alt: string; type: string };
+  /** Keeps the page out of search results; its links are still followed. */
+  noindex?: boolean;
+  /** Query for og:url when a share variant unfurls differently, e.g. "?with=x". */
+  shareSearch?: string;
 };
 
 const getLanguageAlternates = (path: string) => {
@@ -90,7 +96,14 @@ export async function getBaseMetadata(
 
 export async function getPageMetadata(
   locale: string = defaultLocale,
-  { description, path, title }: PageMetadataConfig,
+  {
+    description,
+    path,
+    title,
+    image,
+    noindex,
+    shareSearch = "",
+  }: PageMetadataConfig,
 ): Promise<Metadata> {
   const base = await getBaseMetadata(locale, path);
   const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
@@ -98,20 +111,27 @@ export async function getPageMetadata(
   const socialTitle = `${title} | ${siteName}`;
   const openGraph = base.openGraph ?? {};
   const twitter = base.twitter ?? {};
+  const images = image && [
+    { ...image, secureUrl: image.url, width: 1200, height: 630 },
+  ];
 
   return {
     ...base,
     title,
     description,
+    ...(noindex && { robots: { index: false, follow: true } }),
     openGraph: {
       ...openGraph,
+      url: `${publicLocalizedRouteUrl(locale, path)}${shareSearch}`,
       title: socialTitle,
       description,
+      ...(images && { images }),
     },
     twitter: {
       ...twitter,
       title: socialTitle,
       description,
+      ...(images && { images }),
     },
   };
 }

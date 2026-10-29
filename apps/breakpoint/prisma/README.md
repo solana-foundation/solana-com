@@ -62,6 +62,25 @@ pnpm db:reset  # remove all local nominations and recreate the schema
 pnpm prisma:migrate # create a new migration after editing schema.prisma
 ```
 
+## Who are you here for map
+
+The `/here-for` map shares this database, schema, and migration history. Its
+tables use a `here_for_` prefix next to the `awards_` tables, and
+`here_for_people.claimedById` points at `awards_users`, so the X sign-in reuses
+the awards ballot. Do not point it at a separate database.
+
+To fill the local map with synthetic people after `pnpm db:up`, run from
+`apps/breakpoint`:
+
+```bash
+pnpm here-for:seed            # ~5,600 people and 15,000 adds, then a layout
+pnpm here-for:seed --reset    # replace the seeded map and its seed-* users
+pnpm here-for:layout          # recompute the layout snapshot only
+```
+
+The seed writes to whatever `POSTGRES_URL` points at. Only run it against the
+local container.
+
 For deployed environments, set `POSTGRES_URL` to the managed Postgres connection
 string. Production Vercel builds run `pnpm prisma:deploy` before `next build`
 and fail before deployment if the connection string is absent. Preview builds do
