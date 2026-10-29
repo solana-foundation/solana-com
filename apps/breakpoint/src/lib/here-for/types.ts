@@ -106,3 +106,11 @@ export type HereForErrorResponse = {
   error: string;
   code: HereForErrorCode;
 };
+
+/**
+ * GET /api/here-for/directory: known X accounts for typeahead, most followed
+ * first, as [handle without "@", display name] pairs to keep the payload small.
+ */
+export type HereForDirectoryPayload = {
+  entries: [string, string][];
+};

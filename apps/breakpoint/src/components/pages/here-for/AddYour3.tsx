@@ -18,10 +18,12 @@ import {
   signOutOfX,
   submitAdds,
   useGraphIndex,
+  useDirectory,
   useMe,
   withAsk,
   xSignInUrl,
 } from "./client";
+import { buildCandidates, matchCandidates } from "./typeahead";
 import BackToMap from "./BackToMap";
 import { hereForType } from "./typography";
 
@@ -127,31 +129,25 @@ export default function AddYour3({ locale }: { locale: string }) {
     return out.slice(0, SUGGESTION_COUNT);
   }, [adds, ownHandle, me, graph, t]);
 
-  // Typeahead over everyone on the map, most-added first, prefixes before
-  // substrings, so most picks take a few letters and a tap.
-  const matches = useMemo(() => {
-    const query = draft.trim().replace(/^@+/, "").toLowerCase();
-    if (!query || query.includes("/")) return [];
-    const taken = new Set<string>([...adds, ownHandle ?? ""]);
-    const out: HereForHandle[] = [];
-    if (graph.status === "ready") {
-      const { payload, ranked } = graph.data;
-      for (const prefix of [true, false]) {
-        for (const node of ranked) {
-          if (out.length >= MATCH_COUNT) break;
-          const h = payload.handles[node]!;
-          const at = h.indexOf(query, 1);
-          if (at === -1 || (at === 1) !== prefix || taken.has(h)) continue;
-          out.push(h);
-        }
-      }
-    }
-    // Anyone not on the map yet can still be added by their exact handle.
-    const typed = handleFromInput(draft);
-    if (typed && !taken.has(typed) && !out.includes(typed))
-      return [...out.slice(0, MATCH_COUNT - 1), typed];
-    return out;
-  }, [draft, adds, ownHandle, graph]);
+  // Typeahead over the map and the seeded directory, so most picks take a
+  // few letters of a name or handle and a tap. Nothing here calls X.
+  const [searching, setSearching] = useState(false);
+  const directory = useDirectory(searching);
+  const candidates = useMemo(
+    () =>
+      buildCandidates(graph.status === "ready" ? graph.data : null, directory),
+    [graph, directory],
+  );
+  const matches = useMemo(
+    () =>
+      matchCandidates(
+        candidates,
+        draft,
+        new Set<string>([...adds, ownHandle ?? ""]),
+        MATCH_COUNT,
+      ),
+    [candidates, draft, adds, ownHandle],
+  );
 
   const addHandle = (value: string) => {
     const next = handleFromInput(value);
@@ -359,6 +355,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                         aria-autocomplete="list"
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
+                        onFocus={() => setSearching(true)}
                         onPaste={(event) => {
                           // A pasted handle or profile link is a complete pick.
                           const text = event.clipboardData.getData("text");
@@ -369,7 +366,7 @@ export default function AddYour3({ locale }: { locale: string }) {
                         onKeyDown={(event) => {
                           if (event.key === "Enter") {
                             event.preventDefault();
-                            addHandle(matches[0] ?? draft);
+                            addHandle(matches[0]?.handle ?? draft);
                           }
                         }}
                         placeholder={t("add.addPlaceholder")}
@@ -395,41 +392,43 @@ export default function AddYour3({ locale }: { locale: string }) {
                             {t("add.noMatch")}
                           </li>
                         ) : (
-                          matches.map((handle) => {
-                            const node =
-                              graph.status === "ready"
-                                ? graph.data.byHandle.get(handle)
-                                : undefined;
-                            return (
-                              <li key={handle} role="presentation">
-                                <button
-                                  type="button"
-                                  role="option"
-                                  aria-selected={false}
-                                  onClick={() => addHandle(handle)}
-                                  className="flex h-14 w-full items-center justify-between gap-xs border-b border-stroke-primary px-xs text-left font-sans normal-case tracking-normal transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple"
-                                >
+                          matches.map(({ handle, name, addedBy }) => (
+                            <li key={handle} role="presentation">
+                              <button
+                                type="button"
+                                role="option"
+                                aria-selected={false}
+                                onClick={() => addHandle(handle)}
+                                className="flex h-14 w-full items-center justify-between gap-xs border-b border-stroke-primary px-xs text-left font-sans normal-case tracking-normal transition-colors hover:bg-neutral-800 focus-visible:outline focus-visible:outline-1 focus-visible:-outline-offset-1 focus-visible:outline-core-purple"
+                              >
+                                <span className="flex min-w-0 flex-col">
                                   <span
                                     className={`truncate ${hereForType.name}`}
                                   >
-                                    {handle}
+                                    {name ?? handle}
                                   </span>
+                                  {name && (
+                                    <span
+                                      className={`truncate ${hereForType.small} text-text-secondary`}
+                                    >
+                                      {handle}
+                                    </span>
+                                  )}
+                                </span>
+                                {(addedBy !== null || !name) && (
                                   <span
                                     className={`shrink-0 ${hereForType.small} text-text-secondary`}
                                   >
-                                    {node === undefined ||
-                                    graph.status !== "ready"
+                                    {addedBy === null
                                       ? t("add.notOnMap")
                                       : t("add.onMapCount", {
-                                          count:
-                                            graph.data.payload.inDegree[node] ??
-                                            0,
+                                          count: addedBy,
                                         })}
                                   </span>
-                                </button>
-                              </li>
-                            );
-                          })
+                                )}
+                              </button>
+                            </li>
+                          ))
                         )}
                       </ul>
                     ) : (

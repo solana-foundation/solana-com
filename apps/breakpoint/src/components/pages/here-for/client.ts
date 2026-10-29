@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { localizedRouteUrl } from "@/config";
 import type {
   HereForAddsRequest,
+  HereForDirectoryPayload,
   HereForAddsResponse,
   HereForErrorResponse,
   HereForGraphPayload,
@@ -80,6 +81,34 @@ export function useGraphIndex(me: HereForMePayload | null): {
     [personalised, payload],
   );
   return { graph, refreshing, refresh };
+}
+
+/**
+ * Known X accounts for typeahead. Loads only once `enabled` turns true (the
+ * search box gains focus), so visitors who only browse never download it.
+ */
+export function useDirectory(enabled: boolean) {
+  const [directory, setDirectory] = useState<HereForDirectoryPayload | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!enabled || directory) return;
+    let cancelled = false;
+    fetch(`${API}/directory`)
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.json() as Promise<HereForDirectoryPayload>;
+      })
+      // Typeahead still works from the map alone if this fails.
+      .then((data) => {
+        if (!cancelled) setDirectory(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, directory]);
+  return directory;
 }
 
 export function useMe(): [
