@@ -129,6 +129,7 @@ describe("here-for orphan handling", () => {
       where: {
         id: { in: ["dropped", "kept"] },
         claimedById: null,
+        xUserId: null,
         adds: { none: {} },
         addedBy: { none: {} },
       },

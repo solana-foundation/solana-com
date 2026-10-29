@@ -58,9 +58,9 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
     }
   }, []);
 
-  const [focus, setFocus] = useState<number | null>(null);
+  const [selectedNode, setFocus] = useState<number | null>(null);
   const [view, setView] = useState<HereForView>("all");
-  const [trail, setTrail] = useState<number[]>([]);
+  const [selectedTrail, setTrail] = useState<number[]>([]);
   const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(100);
   const [eggOpen, setEggOpen] = useState(false);
@@ -71,19 +71,24 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
   // everyone. Carry the selection over by handle before anything renders it.
   const [selectionIndex, setSelectionIndex] = useState<GraphIndex | null>(null);
   const [reselect, setReselect] = useState(false);
+  const carry = (node: number) => {
+    const handle = selectionIndex?.payload.handles[node];
+    return handle ? index?.byHandle.get(handle) : undefined;
+  };
+  const changed = index !== selectionIndex;
+  const focus = changed
+    ? selectedNode === null
+      ? null
+      : (carry(selectedNode) ?? null)
+    : selectedNode;
+  const trail = changed
+    ? selectedTrail.map(carry).filter((node) => node !== undefined)
+    : selectedTrail;
   if (index !== selectionIndex) {
     setSelectionIndex(index);
-    if (selectionIndex && index) {
-      const carry = (node: number) =>
-        index.byHandle.get(selectionIndex.payload.handles[node]!);
-      setFocus((current) =>
-        current === null ? null : (carry(current) ?? null),
-      );
-      setTrail((current) =>
-        current.map(carry).filter((node) => node !== undefined),
-      );
-      setReselect(true);
-    }
+    setFocus(focus);
+    setTrail(trail);
+    setReselect(Boolean(selectionIndex && index));
   }
 
   const youHandle = me.status === "ready" ? me.data.handle : null;

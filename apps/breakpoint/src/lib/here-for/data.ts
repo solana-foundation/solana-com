@@ -192,6 +192,7 @@ export async function submitAdds(
           where: {
             id: { in: previous.map((add) => add.toId) },
             claimedById: null,
+            xUserId: null,
             adds: { none: {} },
             addedBy: { none: {} },
           },
