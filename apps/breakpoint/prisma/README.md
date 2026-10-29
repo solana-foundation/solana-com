@@ -73,7 +73,7 @@ To fill the local map with synthetic people after `pnpm db:up`, run from
 `apps/breakpoint`:
 
 ```bash
-pnpm here-for:seed            # ~5,600 people and 15,000 adds, then a layout
+pnpm here-for:seed            # ~6,000 people and 15,000 adds, then a layout
 pnpm here-for:seed --reset    # replace the seeded map and its seed-* users
 pnpm here-for:layout          # recompute the layout snapshot only
 ```
