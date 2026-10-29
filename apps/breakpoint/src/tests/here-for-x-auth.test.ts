@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { signAwardsValue } from "@/lib/awards-session";
+import { handleFromInput } from "@/lib/here-for/handles";
 import {
-  oauthHeader,
   safeReturnPath,
-  xRequestCookie,
-  readXRequest,
+  sealXState,
+  openXState,
+  compactReturnPath,
+  startXSignIn,
   xSessionCookie,
   readXSession,
   finishXSignIn,
 } from "@/lib/here-for/x-auth";
+import { GET as callback } from "@/app/api/here-for/x/callback/route";
 import { POST as logout } from "@/app/api/here-for/x/logout/route";
 
 const mocks = vi.hoisted(() => ({
@@ -63,20 +66,23 @@ afterEach(() => {
 });
 
 describe("here-for X auth", () => {
-  it("matches a mixed-case Twitter login to the normalized handle already added", async () => {
-    vi.stubEnv("X_CONSUMER_KEY", "key");
-    vi.stubEnv("X_SECRET_KEY", "secret");
-    vi.stubGlobal(
-      "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            "oauth_token=access&oauth_token_secret=secret&user_id=123&screen_name=Alice",
-          ),
-        ),
-    );
-    const session = await finishXSignIn("token", "secret", "verifier");
+  const xResponses = (username = "Alice") => {
+    const fetch = vi.fn(async (url: string, _init?: RequestInit) => {
+      if (url.endsWith("/2/oauth2/token"))
+        return Response.json({ access_token: "access", token_type: "bearer" });
+      if (url.endsWith("/2/users/me"))
+        return Response.json({ data: { id: "123", username, name: "A" } });
+      return new Response("{}");
+    });
+    vi.stubGlobal("fetch", fetch);
+    return fetch;
+  };
+
+  it("matches a mixed-case X login to the normalized handle already added", async () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    vi.stubEnv("X_CLIENT_SECRET", "secret");
+    xResponses();
+    const session = await finishXSignIn("code", "verifier");
     expect(session).toEqual(identity);
     await xSessionCookie.value(session);
     // Updating only the identity keeps the placeholder's ID and incoming edges.
@@ -87,27 +93,78 @@ describe("here-for X auth", () => {
     });
   });
 
-  // Worked example from X's "Creating a signature" OAuth 1.0a docs.
-  it("signs requests the way X documents", () => {
-    const header = oauthHeader(
-      "post",
-      "https://api.twitter.com/1.1/statuses/update.json",
-      {
-        include_entities: "true",
-        status: "Hello Ladies + Gentlemen, a signed OAuth request!",
-        oauth_token: "370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb",
-      },
-      {
-        key: "xvz1evFS4wEEPTGEFPHBog",
-        secret: "kAcSOqF21Fu85e7zjz7ZN2U4ZRhfV3WpwPAoE3Z7kBw",
-      },
-      "LswwdoUaIvS8ltyTt5jkRh4J50vUPVVHtR2YPi5kE",
-      "kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg",
-      "1318622958",
+  it("asks X only for the two read scopes and uses PKCE", () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    const url = new URL(startXSignIn(returnTo));
+    expect(url.origin + url.pathname).toBe("https://x.com/i/oauth2/authorize");
+    expect(url.searchParams.get("scope")).toBe("users.read tweet.read");
+    expect(url.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(url.searchParams.get("client_id")).toBe("client");
+    expect(openXState(url.searchParams.get("state"))?.returnTo).toBe(returnTo);
+  });
+
+  it("revokes the token after reading the handle, even when the read fails", async () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    const fetch = xResponses("not a handle!");
+    await expect(finishXSignIn("code", "verifier")).rejects.toThrow();
+    const revoke = fetch.mock.calls.find(([url]) =>
+      String(url).endsWith("/2/oauth2/revoke"),
     );
-    expect(header).toContain(
-      `oauth_signature="${encodeURIComponent("hCtSmYh+iHYCEqBWrE7C7hYmtUk=")}"`,
+    expect(String(revoke?.[1]?.body)).toContain("token=access");
+  });
+
+  it("completes sign-in from a browser that never saw the login", async () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    vi.stubEnv(
+      "X_OAUTH_CALLBACK_URL",
+      "https://solana.com/breakpoint/api/here-for/x/callback",
     );
+    xResponses();
+    const state = sealXState("verifier", returnTo);
+    const response = await callback(
+      new NextRequest(
+        `https://solana.com/breakpoint/api/here-for/x/callback?code=c&state=${state}`,
+      ),
+    );
+    expect(response.headers.get("location")).toBe(
+      `https://solana.com${returnTo}`,
+    );
+    expect(response.headers.get("set-cookie")).toContain("here_for_x=");
+    // Only a finished sign-in may let the add page save carried picks.
+    expect(response.headers.get("set-cookie")).toContain("here_for_x_return=1");
+  });
+
+  it("sends a cancelled sign-in back to the picks with a notice", async () => {
+    vi.stubEnv(
+      "X_OAUTH_CALLBACK_URL",
+      "https://solana.com/breakpoint/api/here-for/x/callback",
+    );
+    const state = sealXState("verifier", returnTo);
+    const response = await callback(
+      new NextRequest(
+        `https://solana.com/breakpoint/api/here-for/x/callback?error=access_denied&state=${state}`,
+      ),
+    );
+    expect(response.headers.get("location")).toBe(
+      `https://solana.com${returnTo}&x=denied`,
+    );
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(
+      "here_for_x_return",
+    );
+  });
+
+  it("reads handles from typed text and pasted X profile links", () => {
+    for (const [input, handle] of [
+      ["alice", "@alice"],
+      [" @Alice ", "@alice"],
+      ["https://x.com/Alice?s=21&t=abc", "@alice"],
+      ["x.com/alice", "@alice"],
+      ["https://twitter.com/alice/", "@alice"],
+      ["https://mobile.twitter.com/alice", "@alice"],
+      ["https://evil.test/alice", null],
+      ["two words", null],
+    ] as const)
+      expect(handleFromInput(input)).toBe(handle);
   });
 
   it("preserves mutuals routes, locales and query strings", () => {
@@ -143,26 +200,28 @@ describe("here-for X auth", () => {
       expect(safeReturnPath(bad)).toBeNull();
   });
 
-  it("expires OAuth request cookies on the server after ten minutes", () => {
-    const request = cookieRequest(
-      xRequestCookie.name,
-      xRequestCookie.value("token", "secret", returnTo),
-    );
-    expect(readXRequest(request)).toEqual({
-      token: "token",
-      secret: "secret",
-      returnTo,
-    });
+  it("expires OAuth state after ten minutes and rejects tampering", () => {
+    const state = sealXState("verifier", returnTo);
+    expect(openXState(state)).toEqual({ verifier: "verifier", returnTo });
+    const raw = Buffer.from(state, "base64url");
+    raw[raw.length - 1] = raw[raw.length - 1]! ^ 1;
+    expect(openXState(raw.toString("base64url"))).toBeNull();
     vi.advanceTimersByTime(10 * 60 * 1000);
-    expect(readXRequest(request)).toBeNull();
+    expect(openXState(state)).toBeNull();
   });
 
-  it("revalidates return paths stored in signed request cookies", () => {
-    const request = cookieRequest(
-      xRequestCookie.name,
-      xRequestCookie.value("token", "secret", "/\t/evil.test"),
-    );
-    expect(readXRequest(request)).toBeNull();
+  it("keeps long return paths small enough for the callback to accept", () => {
+    const long = `/breakpoint/mutuals/add?picks=alice,bob,carol&utm_source=${"x".repeat(900)}#top`;
+    const compact = compactReturnPath(long);
+    expect(compact).toBe("/breakpoint/mutuals/add?picks=alice%2Cbob%2Ccarol");
+    vi.stubEnv("X_CLIENT_ID", "client");
+    const state = new URL(startXSignIn(long)).searchParams.get("state");
+    expect(openXState(state)?.returnTo).toBe(compact);
+    expect(compactReturnPath(returnTo)).toBe(returnTo);
+  });
+
+  it("revalidates return paths stored in OAuth state", () => {
+    expect(openXState(sealXState("verifier", "/\t/evil.test"))).toBeNull();
   });
 
   it("accepts a persisted session until its 30-day server expiry", async () => {

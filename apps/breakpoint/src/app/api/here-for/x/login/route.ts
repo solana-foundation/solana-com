@@ -3,7 +3,6 @@ import {
   safeReturnPath,
   startXSignIn,
   xCallbackUrl,
-  xRequestCookie,
 } from "@/lib/here-for/x-auth";
 export const runtime = "nodejs";
 const DEFAULT_RETURN = "/breakpoint/mutuals/add";
@@ -12,14 +11,8 @@ export async function GET(request: NextRequest) {
     safeReturnPath(request.nextUrl.searchParams.get("return")) ??
     DEFAULT_RETURN;
   try {
-    const { token, secret, authorizeUrl } = await startXSignIn();
-    const response = NextResponse.redirect(authorizeUrl);
+    const response = NextResponse.redirect(startXSignIn(returnTo));
     response.headers.set("Cache-Control", "no-store");
-    response.cookies.set(
-      xRequestCookie.name,
-      xRequestCookie.value(token, secret, returnTo),
-      xRequestCookie.options,
-    );
     return response;
   } catch (error) {
     console.error(

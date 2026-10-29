@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   finishXSignIn,
-  readXRequest,
+  openXState,
   xCallbackUrl,
-  xRequestCookie,
+  xReturnCookie,
   xSessionCookie,
 } from "@/lib/here-for/x-auth";
 export const runtime = "nodejs";
 const DEFAULT_RETURN = "/breakpoint/mutuals/add";
 export async function GET(request: NextRequest) {
-  const pending = readXRequest(request);
+  const params = request.nextUrl.searchParams;
+  // State carries everything the callback needs, so it works even when X's
+  // app opens it in a different browser from the one that started sign-in.
+  const pending = openXState(params.get("state"));
   // Send people back to the public origin the callback is registered on, not
   // the deployment URL a proxied request.url carries.
   const back = (outcome: "ok" | "denied" | "error") => {
@@ -20,22 +23,23 @@ export async function GET(request: NextRequest) {
     if (outcome !== "ok") url.searchParams.set("x", outcome);
     const response = NextResponse.redirect(url);
     response.headers.set("Cache-Control", "no-store");
-    response.cookies.delete(xRequestCookie.name);
     return response;
   };
-  const params = request.nextUrl.searchParams;
-  if (params.has("denied")) return back("denied");
-  const token = params.get("oauth_token");
-  const verifier = params.get("oauth_verifier");
-  if (!pending || !token || !verifier || token !== pending.token)
-    return back("error");
+  if (params.get("error") === "access_denied") return back("denied");
+  const code = params.get("code");
+  if (!pending || !code) return back("error");
   try {
-    const session = await finishXSignIn(token, pending.secret, verifier);
+    const session = await finishXSignIn(code, pending.verifier);
     const response = back("ok");
     response.cookies.set(
       xSessionCookie.name,
       await xSessionCookie.value(session),
       xSessionCookie.options,
+    );
+    response.cookies.set(
+      xReturnCookie.name,
+      xReturnCookie.value,
+      xReturnCookie.options,
     );
     return response;
   } catch (error) {

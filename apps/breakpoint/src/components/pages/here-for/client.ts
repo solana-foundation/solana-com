@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { localizedRouteUrl } from "@/config";
 import type {
   HereForAddsRequest,
+  HereForDirectoryPayload,
   HereForAddsResponse,
   HereForErrorResponse,
   HereForGraphPayload,
@@ -82,6 +83,34 @@ export function useGraphIndex(me: HereForMePayload | null): {
   return { graph, refreshing, refresh };
 }
 
+/**
+ * Known X accounts for typeahead. Loads only once `enabled` turns true (the
+ * search box gains focus), so visitors who only browse never download it.
+ */
+export function useDirectory(enabled: boolean) {
+  const [directory, setDirectory] = useState<HereForDirectoryPayload | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!enabled || directory) return;
+    let cancelled = false;
+    fetch(`${API}/directory`)
+      .then((response) => {
+        if (!response.ok) throw new Error(String(response.status));
+        return response.json() as Promise<HereForDirectoryPayload>;
+      })
+      // Typeahead still works from the map alone if this fails.
+      .then((data) => {
+        if (!cancelled) setDirectory(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, directory]);
+  return directory;
+}
+
 export function useMe(): [
   Loadable<HereForMePayload>,
   (me: HereForMePayload) => void,
@@ -133,11 +162,33 @@ export async function submitAdds(
   }
 }
 
-/** Starts X sign-in and comes back to the current page afterwards. */
-export function xSignInUrl() {
+/**
+ * Starts X sign-in and comes back to the current page afterwards. Picks ride
+ * along in the return URL, which survives X opening the callback in another
+ * browser where local storage would be empty.
+ */
+export function xSignInUrl(picks: readonly HereForHandle[] = []) {
   const back = new URL(window.location.href);
   back.searchParams.delete("x");
+  back.searchParams.delete("add");
+  back.searchParams.delete("picks");
+  if (picks.length)
+    back.searchParams.set("picks", picks.map(handleSlug).join(","));
   return `${API}/x/login?return=${encodeURIComponent(back.pathname + back.search)}`;
+}
+
+const RETURN_COOKIE = "here_for_x_return";
+
+/**
+ * True once, right after the X callback signed this browser in. Only the
+ * callback sets the cookie, so a link can't make the page save picks.
+ */
+export function consumeSignInReturn() {
+  const returned = document.cookie
+    .split("; ")
+    .some((c) => c === `${RETURN_COOKIE}=1`);
+  if (returned) document.cookie = `${RETURN_COOKIE}=; Max-Age=0; Path=/`;
+  return returned;
 }
 
 export async function signOutOfX() {

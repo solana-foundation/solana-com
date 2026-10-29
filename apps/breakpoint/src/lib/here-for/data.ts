@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { awardsPrisma } from "@/lib/awards-db";
-import type { HereForHandle } from "./types";
+import type { HereForDirectoryPayload, HereForHandle } from "./types";
 import type { GraphRows } from "./graph";
 
 export type LayoutSnapshot = {
@@ -254,4 +254,12 @@ export async function loadCardAdds(handle: HereForHandle) {
     handle: add.to.handle as HereForHandle,
     mutual: incoming.has(add.toId),
   }));
+}
+
+export async function loadDirectory(): Promise<HereForDirectoryPayload> {
+  const rows = await awardsPrisma.hereForDirectoryEntry.findMany({
+    select: { handle: true, name: true },
+    orderBy: [{ followers: "desc" }, { handle: "asc" }],
+  });
+  return { entries: rows.map((row) => [row.handle.slice(1), row.name]) };
 }

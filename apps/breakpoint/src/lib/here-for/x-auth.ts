@@ -1,4 +1,10 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import type { NextRequest } from "next/server";
 import { defaultLocale, locales } from "@workspace/i18n/config";
 import { localizedRoutePath, localizedRouteUrl } from "@/config";
@@ -8,25 +14,29 @@ import { normalizeHandle } from "./handles";
 import type { HereForHandle } from "./types";
 
 /**
- * "Sign in with X" for Here For, using OAuth 1.0a three-legged auth with the
- * app's consumer key. X's access_token step returns the user's screen_name, so
- * no extra API call is needed to learn who signed in.
+ * "Sign in with X" for Here For, using OAuth 2.0 with PKCE and the two
+ * narrowest scopes X offers for reading who signed in. The token is used once
+ * for GET /2/users/me and revoked straight away; nothing else is read.
+ *
+ * The PKCE verifier and return path travel encrypted inside `state` rather
+ * than in a cookie. On phones X often hands the consent screen to its app and
+ * then opens the callback in a different browser than the one that started
+ * sign-in, where a request cookie would be missing.
  */
 
 const X_API = "https://api.x.com";
+const X_AUTHORIZE = "https://x.com/i/oauth2/authorize";
+const X_SCOPES = "users.read tweet.read";
 const SESSION_COOKIE = "here_for_x";
-const REQUEST_COOKIE = "here_for_x_request";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
-const REQUEST_MAX_AGE = 60 * 10;
+const STATE_MAX_AGE = 60 * 10;
 
 export type XSession = { userId: string; handle: HereForHandle };
 
-function credentials() {
-  const key = process.env.X_CONSUMER_KEY;
-  const secret = process.env.X_SECRET_KEY;
-  if (!key || !secret)
-    throw new Error("X_CONSUMER_KEY and X_SECRET_KEY must be set.");
-  return { key, secret };
+function client() {
+  const id = process.env.X_CLIENT_ID;
+  if (!id) throw new Error("X_CLIENT_ID must be set.");
+  return { id, secret: process.env.X_CLIENT_SECRET || null };
 }
 
 export function xCallbackUrl() {
@@ -36,71 +46,101 @@ export function xCallbackUrl() {
   );
 }
 
-// RFC 3986 encoding, which OAuth 1.0a signatures require.
-const encode = (value: string) =>
-  encodeURIComponent(value).replace(
-    /[!'()*]/g,
-    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`,
-  );
+// AES-256-GCM key derived from the awards cookie secret.
+const stateKey = () =>
+  Buffer.from(signAwardsValue("here-for-x-oauth-state"), "base64url");
 
-export function oauthHeader(
-  method: string,
-  url: string,
-  params: Record<string, string>,
-  consumer: { key: string; secret: string },
-  tokenSecret = "",
-  nonce = randomBytes(16).toString("hex"),
-  timestamp = String(Math.floor(Date.now() / 1000)),
-) {
-  const oauth: Record<string, string> = {
-    oauth_consumer_key: consumer.key,
-    oauth_nonce: nonce,
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: timestamp,
-    oauth_version: "1.0",
-    ...params,
-  };
-  const base = [
-    method.toUpperCase(),
-    encode(url),
-    encode(
-      Object.keys(oauth)
-        .sort()
-        .map((k) => `${encode(k)}=${encode(oauth[k]!)}`)
-        .join("&"),
+/** Encrypts the PKCE verifier and return path into the OAuth `state`. */
+export function sealXState(verifier: string, returnTo: string) {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", stateKey(), iv);
+  const body = Buffer.concat([
+    cipher.update(
+      JSON.stringify({
+        v: verifier,
+        r: returnTo,
+        e: Date.now() + STATE_MAX_AGE * 1000,
+      }),
     ),
-  ].join("&");
-  // X requires HMAC-SHA1 for OAuth 1.0a request signatures (not passwords).
-  // https://docs.x.com/fundamentals/authentication/oauth-1-0a/creating-a-signature
-  oauth.oauth_signature = createHmac(
-    "sha1",
-    `${encode(consumer.secret)}&${encode(tokenSecret)}`,
-  )
-    .update(base)
-    .digest("base64");
-  return `OAuth ${Object.keys(oauth)
-    .sort()
-    .map((k) => `${encode(k)}="${encode(oauth[k]!)}"`)
-    .join(", ")}`;
+    cipher.final(),
+  ]);
+  return Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url");
 }
 
-async function oauthPost(
-  path: string,
-  params: Record<string, string>,
-  tokenSecret?: string,
-) {
-  const url = `${X_API}${path}`;
-  const response = await fetch(url, {
+export function openXState(state: string | null) {
+  if (!state || state.length > 1024) return null;
+  try {
+    const raw = Buffer.from(state, "base64url");
+    if (raw.length < 29) return null;
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      stateKey(),
+      raw.subarray(0, 12),
+    );
+    decipher.setAuthTag(raw.subarray(12, 28));
+    const data: unknown = JSON.parse(
+      Buffer.concat([
+        decipher.update(raw.subarray(28)),
+        decipher.final(),
+      ]).toString(),
+    );
+    if (!data || typeof data !== "object") return null;
+    const { v, r, e } = data as Record<string, unknown>;
+    if (typeof v !== "string" || typeof r !== "string" || typeof e !== "number")
+      return null;
+    if (e <= Date.now()) return null;
+    const returnTo = safeReturnPath(r);
+    return returnTo ? { verifier: v, returnTo } : null;
+  } catch {
+    return null;
+  }
+}
+
+// Keeps the encrypted state well under the length the callback accepts.
+const MAX_RETURN_LENGTH = 200;
+
+/** A long return path keeps its route and picks, dropping other params. */
+export function compactReturnPath(returnTo: string) {
+  if (returnTo.length <= MAX_RETURN_LENGTH) return returnTo;
+  const url = new URL(returnTo, "https://return.invalid");
+  const picks = url.searchParams.get("picks");
+  const compact = picks
+    ? `${url.pathname}?picks=${encodeURIComponent(picks)}`
+    : url.pathname;
+  return compact.length <= MAX_RETURN_LENGTH ? compact : url.pathname;
+}
+
+/** Step 1: the URL to send the user to, with PKCE and encrypted state. */
+export function startXSignIn(returnTo: string) {
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  const url = new URL(X_AUTHORIZE);
+  url.search = new URLSearchParams({
+    response_type: "code",
+    client_id: client().id,
+    redirect_uri: xCallbackUrl(),
+    scope: X_SCOPES,
+    state: sealXState(verifier, compactReturnPath(returnTo)),
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  }).toString();
+  return url.toString();
+}
+
+async function xPost(path: string, params: Record<string, string>) {
+  const { id, secret } = client();
+  const response = await fetch(`${X_API}${path}`, {
     method: "POST",
     headers: {
-      Authorization: oauthHeader(
-        "POST",
-        url,
-        params,
-        credentials(),
-        tokenSecret,
-      ),
+      "Content-Type": "application/x-www-form-urlencoded",
+      // Web App clients are confidential; Native App clients send only the id.
+      ...(secret
+        ? {
+            Authorization: `Basic ${Buffer.from(`${id}:${secret}`).toString("base64")}`,
+          }
+        : {}),
     },
+    body: new URLSearchParams({ client_id: id, ...params }),
     cache: "no-store",
   });
   const text = await response.text();
@@ -108,41 +148,48 @@ async function oauthPost(
     throw new Error(
       `X ${path} failed: ${response.status} ${text.slice(0, 200)}`,
     );
-  return new URLSearchParams(text);
+  return text;
 }
 
-/** Step 1: get a request token and the URL to send the user to. */
-export async function startXSignIn() {
-  const body = await oauthPost("/oauth/request_token", {
-    oauth_callback: xCallbackUrl(),
-  });
-  const token = body.get("oauth_token");
-  const secret = body.get("oauth_token_secret");
-  if (!token || !secret || body.get("oauth_callback_confirmed") !== "true")
-    throw new Error("X request_token returned an unexpected body");
-  return {
-    token,
-    secret,
-    authorizeUrl: `${X_API}/oauth/authenticate?oauth_token=${encode(token)}`,
-  };
-}
-
-/** Step 3: trade the verifier for an access token and the user's identity. */
+/** Step 2: trade the code for a token, read who it is, then revoke it. */
 export async function finishXSignIn(
-  token: string,
-  tokenSecret: string,
+  code: string,
   verifier: string,
 ): Promise<XSession> {
-  const body = await oauthPost(
-    "/oauth/access_token",
-    { oauth_token: token, oauth_verifier: verifier },
-    tokenSecret,
-  );
-  const userId = body.get("user_id");
-  const handle = normalizeHandle(body.get("screen_name"));
-  if (!userId || !/^\d+$/.test(userId) || !handle)
-    throw new Error("X access_token returned an unexpected body");
-  return { userId, handle };
+  const token = (
+    JSON.parse(
+      await xPost("/2/oauth2/token", {
+        grant_type: "authorization_code",
+        code,
+        redirect_uri: xCallbackUrl(),
+        code_verifier: verifier,
+      }),
+    ) as { access_token?: unknown }
+  ).access_token;
+  if (typeof token !== "string")
+    throw new Error("X token returned an unexpected body");
+  try {
+    const response = await fetch(`${X_API}/2/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!response.ok)
+      throw new Error(`X /2/users/me failed: ${response.status}`);
+    const { data } = (await response.json()) as {
+      data?: { id?: unknown; username?: unknown };
+    };
+    const userId = data?.id;
+    const handle = normalizeHandle(data?.username);
+    if (typeof userId !== "string" || !/^\d+$/.test(userId) || !handle)
+      throw new Error("X /2/users/me returned an unexpected body");
+    return { userId, handle };
+  } finally {
+    // We only needed the handle, so give the access back right away.
+    await xPost("/2/oauth2/revoke", {
+      token,
+      token_type_hint: "access_token",
+    }).catch(() => {});
+  }
 }
 
 function seal(payload: Record<string, unknown>, maxAge: number) {
@@ -213,28 +260,17 @@ export function safeReturnPath(value: string | null) {
   }
 }
 
-export const xRequestCookie = {
-  name: REQUEST_COOKIE,
-  value: (token: string, secret: string, returnTo: string) =>
-    seal({ token, secret, returnTo }, REQUEST_MAX_AGE),
-  options: cookieOptions(REQUEST_MAX_AGE),
+/**
+ * Marks a sign-in that just finished, so the add page may save the picks that
+ * came back with it. Only the callback sets it; a link carrying ?picks= can't,
+ * which stops a crafted URL from overwriting a signed-in visitor's picks. The
+ * page reads and clears it, hence not httpOnly.
+ */
+export const xReturnCookie = {
+  name: "here_for_x_return",
+  value: "1",
+  options: { ...cookieOptions(60), httpOnly: false },
 };
-
-export function readXRequest(request: NextRequest) {
-  const data = unseal(request.cookies.get(REQUEST_COOKIE)?.value) as {
-    token?: unknown;
-    secret?: unknown;
-    returnTo?: unknown;
-  } | null;
-  if (
-    typeof data?.token !== "string" ||
-    typeof data.secret !== "string" ||
-    typeof data.returnTo !== "string"
-  )
-    return null;
-  const returnTo = safeReturnPath(data.returnTo);
-  return returnTo ? { token: data.token, secret: data.secret, returnTo } : null;
-}
 
 export const xSessionCookie = {
   name: SESSION_COOKIE,
