@@ -1,18 +1,14 @@
 "use client";
 
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import {
-  CardDeck,
-  CodeBlock,
-  ContentEditor,
-  Heading,
-  Hero,
-  HtmlParser,
-} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
+import {
+  BLOCK_CLASSES,
+  DocsCode,
+  DocsHtml,
+  MigrationDocsLayout,
+} from "../components/migration-docs-layout";
 import Image from "next/image";
 import {
-  BLOCK_STYLES,
   IMAGE_ASSETS,
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
@@ -46,12 +42,12 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
   }: {
     index: number;
     id?: string;
-    styleKey?: keyof typeof BLOCK_STYLES;
+    styleKey?: string;
   }) => {
     const html = contentBlocks[index];
     const content = (
       <div className="min-w-0 max-w-full overflow-x-auto" id={id}>
-        <HtmlParser rawHtml={html} />
+        <DocsHtml rawHtml={html} />
       </div>
     );
 
@@ -59,11 +55,7 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
       return content;
     }
 
-    return (
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES[styleKey]}>
-        {content}
-      </ResponsiveBox>
-    );
+    return <div className={BLOCK_CLASSES[styleKey]}>{content}</div>;
   };
 
   const renderHtmlBlock = ({
@@ -71,11 +63,11 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
     styleKey,
   }: {
     html: string;
-    styleKey?: keyof typeof BLOCK_STYLES;
+    styleKey?: string;
   }) => {
     const content = (
       <div className="min-w-0 max-w-full overflow-x-auto">
-        <HtmlParser rawHtml={html} />
+        <DocsHtml rawHtml={html} />
       </div>
     );
 
@@ -83,11 +75,7 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
       return content;
     }
 
-    return (
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES[styleKey]}>
-        {content}
-      </ResponsiveBox>
-    );
+    return <div className={BLOCK_CLASSES[styleKey]}>{content}</div>;
   };
 
   const renderImageBlock = ({
@@ -95,7 +83,7 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
     styleKey,
   }: {
     image: ImageAsset;
-    styleKey?: keyof typeof BLOCK_STYLES;
+    styleKey?: string;
   }) => {
     const content = (
       <Image
@@ -116,11 +104,7 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
       return content;
     }
 
-    return (
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES[styleKey]}>
-        {content}
-      </ResponsiveBox>
-    );
+    return <div className={BLOCK_CLASSES[styleKey]}>{content}</div>;
   };
 
   const renderCodeBlock = ({
@@ -130,55 +114,60 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
     id,
   }: {
     code: string;
-    language: React.ComponentProps<typeof CodeBlock>["language"];
-    styleKey?: keyof typeof BLOCK_STYLES;
+    language: string;
+    styleKey?: string;
     id?: string;
   }) => {
-    const content = <CodeBlock code={code} language={language} />;
+    const content = <DocsCode code={code} language={language} />;
 
     if (!styleKey) {
       return <div id={id}>{content}</div>;
     }
 
     return (
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES[styleKey]}>
+      <div className={BLOCK_CLASSES[styleKey]}>
         <div id={id}>{content}</div>
-      </ResponsiveBox>
+      </div>
     );
   };
 
   return (
-    <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
-        eyebrow={t("hero.eyebrow")}
-        headline={t("hero.headline")}
-        body={t.raw("hero.body")}
-      />
-
-      <ContentEditor tocHeadline={t("contentEditor.tocHeadline")}>
-        <div key="copy-1">
-          {renderCopyBlock({ index: 0, styleKey: "spacingWithMargins" })}
-        </div>
-        <div key="copy-2">
-          {renderCopyBlock({
-            index: 1,
-            id: "account-model",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-3">
-          {renderCopyBlock({
-            index: 2,
-            id: "types-clients",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="code-4">
-          {renderCodeBlock({
-            code: `contract Counter {
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/complete-guide"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body")}
+      buttons={navButtons.map((button) => ({
+        url: button.url,
+        label: button.label,
+      }))}
+      tocHeadline={t("contentEditor.tocHeadline")}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceCards={resourceCards.map((card) => ({
+        heading: card.heading,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      <div key="copy-1">
+        {renderCopyBlock({ index: 0, styleKey: "spacingWithMargins" })}
+      </div>
+      <div key="copy-2">
+        {renderCopyBlock({
+          index: 1,
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-3">
+        {renderCopyBlock({
+          index: 2,
+          id: "types-clients",
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="code-4">
+        {renderCodeBlock({
+          code: `contract Counter {
   int private count = 0;
   function incrementCounter() public {
     count += 1;
@@ -187,23 +176,22 @@ export function DevelopersEvmToSvmCompleteGuidePage() {
     return count;
   }
 }`,
-            language: "solidity",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-5">
-          {renderCopyBlock({
-            index: 3,
-            id: "types-clients",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-6">
-          {renderCopyBlock({ index: 4, styleKey: "smallOnly" })}
-        </div>
-        <div key="code-7">
-          {renderCodeBlock({
-            code: `#[program]
+          language: "solidity",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-5">
+        {renderCopyBlock({
+          index: 3,
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-6">
+        {renderCopyBlock({ index: 4, styleKey: "smallOnly" })}
+      </div>
+      <div key="code-7">
+        {renderCodeBlock({
+          code: `#[program]
 pub mod counter_anchor {
   use super::*;
   pub fn initialize_counter(_ctx: Context<InitializeCounter>) -> Result<()> {
@@ -239,130 +227,129 @@ pub struct Increment<'info> {
 pub struct Counter {
   count: u64,
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-8">
-          {renderCopyBlock({ index: 5, styleKey: "spacing" })}
-        </div>
-        <div key="image-9">
-          {renderImageBlock({
-            image: IMAGE_ASSETS.accountModel,
-            styleKey: "imageFull",
-          })}
-        </div>
-        <div key="copy-10">
-          {renderCopyBlock({ index: 6, id: "benefits", styleKey: "spacing" })}
-        </div>
-        <div key="image-11">
-          {renderImageBlock({
-            image: IMAGE_ASSETS.tokenProgram,
-            styleKey: "imageFull",
-          })}
-        </div>
-        <div key="copy-12">
-          {renderCopyBlock({ index: 7, styleKey: "spacing" })}
-        </div>
-        <div key="code-13">
-          {renderCodeBlock({
-            code: "$ spl-token create-token",
-            language: "bash",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-14">
-          {renderCopyBlock({
-            index: 8,
-            id: "local-fee-markets",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-15">
-          {renderCopyBlock({
-            index: 9,
-            id: "fees-solana",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-16">
-          {renderCopyBlock({
-            index: 10,
-            id: "transactions-solana",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-17">
-          {renderCopyBlock({
-            index: 11,
-            id: "transaction-limitations",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="table-18">
-          {renderHtmlBlock({ html: tableBlocks[0], styleKey: "tableWrapper" })}
-        </div>
-        <div key="copy-19">
-          {renderCopyBlock({ index: 12, styleKey: "spacing" })}
-        </div>
-        <div key="copy-20">
-          {renderCopyBlock({ index: 13, id: "mempool", styleKey: "spacing" })}
-        </div>
-        <div key="copy-21">
-          {renderCopyBlock({
-            index: 14,
-            id: "where-smart-contract-code",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-22">
-          {renderCopyBlock({
-            index: 15,
-            id: "developer-environment",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-23">
-          {renderCopyBlock({ index: 16, id: "languages", styleKey: "spacing" })}
-        </div>
-        <div key="table-24">
-          {renderHtmlBlock({ html: tableBlocks[1], styleKey: "tableWrapper" })}
-        </div>
-        <div key="copy-25">
-          {renderCopyBlock({ index: 17, id: "tools", styleKey: "spacing" })}
-        </div>
-        <div key="table-26">
-          {renderHtmlBlock({ html: tableBlocks[2], styleKey: "tableWrapper" })}
-        </div>
-        <div key="code-27">
-          {renderCopyBlock({
-            index: 44,
-            id: "differences-smart-contract",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="code-28">
-          {renderCodeBlock({
-            code: `mapping(address => uint) public balances;`,
-            language: "solidity",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-29">{renderCopyBlock({ index: 18 })}</div>
-        <div key="code-30">
-          {renderCodeBlock({
-            code: `const [BALANCE_PDA] = await anchor.web3.PublicKey.findProgramAddress(
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-8">
+        {renderCopyBlock({ index: 5, styleKey: "spacing" })}
+      </div>
+      <div key="image-9">
+        {renderImageBlock({
+          image: IMAGE_ASSETS.accountModel,
+          styleKey: "imageFull",
+        })}
+      </div>
+      <div key="copy-10">
+        {renderCopyBlock({ index: 6, id: "benefits", styleKey: "spacing" })}
+      </div>
+      <div key="image-11">
+        {renderImageBlock({
+          image: IMAGE_ASSETS.tokenProgram,
+          styleKey: "imageFull",
+        })}
+      </div>
+      <div key="copy-12">
+        {renderCopyBlock({ index: 7, styleKey: "spacing" })}
+      </div>
+      <div key="code-13">
+        {renderCodeBlock({
+          code: "$ spl-token create-token",
+          language: "bash",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-14">
+        {renderCopyBlock({
+          index: 8,
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-15">
+        {renderCopyBlock({
+          index: 9,
+          id: "fees-solana",
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-16">
+        {renderCopyBlock({
+          index: 10,
+          id: "transactions-solana",
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-17">
+        {renderCopyBlock({
+          index: 11,
+          id: "transaction-limitations",
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="table-18">
+        {renderHtmlBlock({ html: tableBlocks[0], styleKey: "tableWrapper" })}
+      </div>
+      <div key="copy-19">
+        {renderCopyBlock({ index: 12, styleKey: "spacing" })}
+      </div>
+      <div key="copy-20">
+        {renderCopyBlock({ index: 13, id: "mempool", styleKey: "spacing" })}
+      </div>
+      <div key="copy-21">
+        {renderCopyBlock({
+          index: 14,
+          id: "where-smart-contract-code",
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-22">
+        {renderCopyBlock({
+          index: 15,
+          id: "developer-environment",
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-23">
+        {renderCopyBlock({ index: 16, id: "languages", styleKey: "spacing" })}
+      </div>
+      <div key="table-24">
+        {renderHtmlBlock({ html: tableBlocks[1], styleKey: "tableWrapper" })}
+      </div>
+      <div key="copy-25">
+        {renderCopyBlock({ index: 17, id: "tools", styleKey: "spacing" })}
+      </div>
+      <div key="table-26">
+        {renderHtmlBlock({ html: tableBlocks[2], styleKey: "tableWrapper" })}
+      </div>
+      <div key="code-27">
+        {renderCopyBlock({
+          index: 44,
+          id: "differences-smart-contract",
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="code-28">
+        {renderCodeBlock({
+          code: `mapping(address => uint) public balances;`,
+          language: "solidity",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-29">{renderCopyBlock({ index: 18 })}</div>
+      <div key="code-30">
+        {renderCodeBlock({
+          code: `const [BALANCE_PDA] = await anchor.web3.PublicKey.findProgramAddress(
   [Buffer.from("BALANCE"), pg.wallet.publicKey.toBuffer()],
   pg.program.programId
 );`,
-            language: "typescript",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-31">{renderCopyBlock({ index: 19 })}</div>
-        <div key="code-32">
-          {renderCodeBlock({
-            code: `#[derive(Accounts)]
+          language: "typescript",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-31">{renderCopyBlock({ index: 19 })}</div>
+      <div key="code-32">
+        {renderCodeBlock({
+          code: `#[derive(Accounts)]
 #[instruction(restaurant: String)]
 pub struct BalanceAccounts<'info> {
     #[account(
@@ -382,25 +369,25 @@ pub struct BalanceAccounts<'info> {
 pub struct BalanceAccount {
     pub balance: u8
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-33">
-          {renderCopyBlock({ index: 20, styleKey: "spacing" })}
-        </div>
-        <div key="image-34">
-          {renderImageBlock({
-            image: IMAGE_ASSETS.upgradeFlow,
-            styleKey: "imageMax400",
-          })}
-        </div>
-        <div key="copy-35">
-          {renderCopyBlock({ index: 21, styleKey: "spacing" })}
-        </div>
-        <div key="code-36">
-          {renderCodeBlock({
-            code: `#[program]
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-33">
+        {renderCopyBlock({ index: 20, styleKey: "spacing" })}
+      </div>
+      <div key="image-34">
+        {renderImageBlock({
+          image: IMAGE_ASSETS.upgradeFlow,
+          styleKey: "imageMax400",
+        })}
+      </div>
+      <div key="copy-35">
+        {renderCopyBlock({ index: 21, styleKey: "spacing" })}
+      </div>
+      <div key="code-36">
+        {renderCodeBlock({
+          code: `#[program]
 pub mod gettingSigners {
     use super::*;
 
@@ -418,16 +405,16 @@ pub struct Initialize<'info> {
     #[account(mut)]
     pub the_signer: Signer<'info>,
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-37">
-          {renderCopyBlock({ index: 22, styleKey: "spacing" })}
-        </div>
-        <div key="copy-38">
-          {renderCodeBlock({
-            code: `#[program]
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-37">
+        {renderCopyBlock({ index: 22, styleKey: "spacing" })}
+      </div>
+      <div key="copy-38">
+        {renderCodeBlock({
+          code: `#[program]
 pub mod gettingSigners {
     use super::*;
 
@@ -446,19 +433,19 @@ pub struct Initialize<'info> {
     pub first_signer: Signer<'info>,
     pub second_signer: Signer<'info>,
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-39">
-          {renderCopyBlock({ index: 24, styleKey: "spacing" })}
-        </div>
-        <div key="copy-40">
-          {renderCopyBlock({ index: 25, id: "building", styleKey: "spacing" })}
-        </div>
-        <div key="copy-41">
-          {renderCodeBlock({
-            code: `pragma solidity ^0.6.4;
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-39">
+        {renderCopyBlock({ index: 24, styleKey: "spacing" })}
+      </div>
+      <div key="copy-40">
+        {renderCopyBlock({ index: 25, id: "building", styleKey: "spacing" })}
+      </div>
+      <div key="copy-41">
+        {renderCodeBlock({
+          code: `pragma solidity ^0.6.4;
 
 contract Voting {
 
@@ -489,16 +476,16 @@ contract Voting {
         return false;
     }
 }`,
-            language: "solidity",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-42">
-          {renderCopyBlock({ index: 27, styleKey: "spacing" })}
-        </div>
-        <div key="copy-43">
-          {renderCodeBlock({
-            code: `use anchor_lang::prelude::*;
+          language: "solidity",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-42">
+        {renderCopyBlock({ index: 27, styleKey: "spacing" })}
+      </div>
+      <div key="copy-43">
+        {renderCodeBlock({
+          code: `use anchor_lang::prelude::*;
 
 declare_id!("6voY4gV7kzuGr4hE2xjZnkdagFGNhEe8WonZ8UtdPWig");
 
@@ -520,16 +507,16 @@ pub struct InitializeCandidate {}
 
 #[derive(Accounts)]
 pub struct VoteCandidate {}`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-44">
-          {renderCopyBlock({ index: 29, styleKey: "spacing" })}
-        </div>
-        <div key="copy-45">
-          {renderCodeBlock({
-            code: `use anchor_lang::prelude::*;
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-44">
+        {renderCopyBlock({ index: 29, styleKey: "spacing" })}
+      </div>
+      <div key="copy-45">
+        {renderCodeBlock({
+          code: `use anchor_lang::prelude::*;
 
 declare_id!("6voY4gV7kzuGr4hE2xjZnkdagFGNhEe8WonZ8UtdPWig");
 
@@ -573,30 +560,30 @@ pub enum OnlyOwnerError {
     #[msg("Only owner can call this function!")]
     NotOwner,
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-46">
-          {renderCopyBlock({ index: 31, styleKey: "spacing" })}
-        </div>
-        <div key="copy-47">
-          {renderCodeBlock({
-            code: `#[account]
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-46">
+        {renderCopyBlock({ index: 31, styleKey: "spacing" })}
+      </div>
+      <div key="copy-47">
+        {renderCodeBlock({
+          code: `#[account]
 #[derive(InitSpace)]
 pub struct Candidate {
     pub votes_received: u8,
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-48">
-          {renderCopyBlock({ index: 33, styleKey: "spacing" })}
-        </div>
-        <div key="copy-49">
-          {renderCodeBlock({
-            code: `#[derive(Accounts)]
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-48">
+        {renderCopyBlock({ index: 33, styleKey: "spacing" })}
+      </div>
+      <div key="copy-49">
+        {renderCodeBlock({
+          code: `#[derive(Accounts)]
 #[instruction(_candidate_Name: String)]
 pub struct InitializeCandidate<'info> {
     #[account(mut)]
@@ -623,29 +610,29 @@ pub struct VoteCandidate<'info> {
     )]
     pub candidate: Account<'info, Candidate>,
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-50">
-          {renderCopyBlock({ index: 35, styleKey: "spacing" })}
-        </div>
-        <div key="copy-51">
-          {renderCodeBlock({
-            code: `pub fn vote_for_candidate(ctx: Context<VoteCandidate>, _candidate_name: String) -> Result<()> {
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-50">
+        {renderCopyBlock({ index: 35, styleKey: "spacing" })}
+      </div>
+      <div key="copy-51">
+        {renderCodeBlock({
+          code: `pub fn vote_for_candidate(ctx: Context<VoteCandidate>, _candidate_name: String) -> Result<()> {
     ctx.accounts.candidate.votes_received += 1;
     Ok(())
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-52">
-          {renderCopyBlock({ index: 37, styleKey: "spacing" })}
-        </div>
-        <div key="copy-53">
-          {renderCodeBlock({
-            code: `use anchor_lang::prelude::*;
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-52">
+        {renderCopyBlock({ index: 37, styleKey: "spacing" })}
+      </div>
+      <div key="copy-53">
+        {renderCodeBlock({
+          code: `use anchor_lang::prelude::*;
 
 declare_id!("6voY4gV7kzuGr4hE2xjZnkdagFGNhEe8WonZ8UtdPWig");
 
@@ -715,74 +702,49 @@ pub enum OnlyOwnerError {
     #[msg("Only owner can call this function!")]
     NotOwner,
 }`,
-            language: "rust",
-            styleKey: "codeBlock",
-          })}
-        </div>
-        <div key="copy-54">
-          {renderCopyBlock({ index: 39, styleKey: "spacing" })}
-        </div>
-        <div key="image-55">
-          {renderImageBlock({
-            image: IMAGE_ASSETS.playgroundInit,
-            styleKey: "imageMax500",
-          })}
-        </div>
-        <div key="copy-56">
-          {renderCopyBlock({ index: 40, styleKey: "spacing" })}
-        </div>
-        <div key="image-57">
-          {renderImageBlock({
-            image: IMAGE_ASSETS.playgroundLogs,
-            styleKey: "imageMax700",
-          })}
-        </div>
-        <div key="copy-58">
-          {renderCopyBlock({ index: 41, styleKey: "spacing" })}
-        </div>
-        <div key="image-59">
-          {renderImageBlock({
-            image: IMAGE_ASSETS.playgroundVote,
-            styleKey: "imageMax700",
-          })}
-        </div>
-        <div key="copy-60">
-          {renderCopyBlock({ index: 42, styleKey: "spacing" })}
-        </div>
-        <div key="image-61">
-          {renderImageBlock({
-            image: IMAGE_ASSETS.playgroundResults,
-            styleKey: "imageMax500",
-          })}
-        </div>
-        <div key="copy-62">
-          {renderCopyBlock({ index: 43, styleKey: "spacing" })}
-        </div>
-      </ContentEditor>
-
-      <Heading
-        variant="centered"
-        eyebrow={t("navHeading.eyebrow")}
-        headline=""
-        body=""
-        buttons={navButtons as React.ComponentProps<typeof Heading>["buttons"]}
-      />
-
-      <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES.cardDeckWrapper}>
-        <CardDeck
-          cards={
-            resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-          }
-          numCols={
-            RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-              typeof CardDeck
-            >["numCols"]
-          }
-          featured={RESOURCE_CARD_DECK.featured}
-        />
-      </ResponsiveBox>
-    </>
+          language: "rust",
+          styleKey: "codeBlock",
+        })}
+      </div>
+      <div key="copy-54">
+        {renderCopyBlock({ index: 39, styleKey: "spacing" })}
+      </div>
+      <div key="image-55">
+        {renderImageBlock({
+          image: IMAGE_ASSETS.playgroundInit,
+          styleKey: "imageMax500",
+        })}
+      </div>
+      <div key="copy-56">
+        {renderCopyBlock({ index: 40, styleKey: "spacing" })}
+      </div>
+      <div key="image-57">
+        {renderImageBlock({
+          image: IMAGE_ASSETS.playgroundLogs,
+          styleKey: "imageMax700",
+        })}
+      </div>
+      <div key="copy-58">
+        {renderCopyBlock({ index: 41, styleKey: "spacing" })}
+      </div>
+      <div key="image-59">
+        {renderImageBlock({
+          image: IMAGE_ASSETS.playgroundVote,
+          styleKey: "imageMax700",
+        })}
+      </div>
+      <div key="copy-60">
+        {renderCopyBlock({ index: 42, styleKey: "spacing" })}
+      </div>
+      <div key="image-61">
+        {renderImageBlock({
+          image: IMAGE_ASSETS.playgroundResults,
+          styleKey: "imageMax500",
+        })}
+      </div>
+      <div key="copy-62">
+        {renderCopyBlock({ index: 43, styleKey: "spacing" })}
+      </div>
+    </MigrationDocsLayout>
   );
 }

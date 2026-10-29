@@ -391,8 +391,15 @@ const chainMigrationRedirects: RedirectInput[] = [
   },
   {
     source: "/developers/cosmos-to-svm",
-    destination: "/developers/migrate-to-solana/cosmos",
+    destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
     permanent: true,
+  },
+  // The Cosmos hub only listed two guides, which the docs sidebar now
+  // covers. Temporary so the hub can come back without cached redirects.
+  {
+    source: "/developers/migrate-to-solana/cosmos",
+    destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
+    permanent: false,
   },
   // The CosmWasm guide lives under the Cosmos hub
   {
