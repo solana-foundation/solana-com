@@ -8,7 +8,7 @@ const people = ["@alice", "@bob", "@cara", "@dave", "@eve", "@fran"].map(
   (handle, i) => ({
     id: String(i),
     handle: handle as `@${string}`,
-    claimedById: null,
+    claimedAt: null,
   }),
 );
 const adds = [

@@ -143,6 +143,7 @@ export async function POST(request: NextRequest) {
       validated.adds!,
       hashIp(clientIp(request)),
       clientCountry(request),
+      x.userId,
     );
     const rows = await loadPersonalGraph(handle);
     const me = mePayload(rows, handle, hereForStatus(), handle);

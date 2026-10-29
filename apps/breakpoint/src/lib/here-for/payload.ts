@@ -100,7 +100,7 @@ export function graphPayload(
     version: snapshot?.id ?? "pending",
     generatedAt: snapshot?.createdAt.toISOString() ?? new Date(0).toISOString(),
     handles: people.map((p) => p.handle),
-    claimed: people.map((p) => (p.claimedById ? 1 : 0)),
+    claimed: people.map((p) => (p.claimedAt ? 1 : 0)),
     positions,
     community,
     communities: visibleCommunities,
@@ -131,7 +131,7 @@ export function personPayload(
     .sort((a, b) => a.handle.localeCompare(b.handle));
   return {
     handle,
-    claimed: Boolean(person.claimedById),
+    claimed: Boolean(person.claimedAt),
     adds,
     addedBy,
     mutualCount: adds.filter((a) => a.mutual).length,

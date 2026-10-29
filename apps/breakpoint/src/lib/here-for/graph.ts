@@ -3,7 +3,7 @@ import type { HereForHandle } from "./types";
 export type PersonRow = {
   id: string;
   handle: HereForHandle;
-  claimedById: string | null;
+  claimedAt: Date | null;
 };
 export type AddRow = { fromId: string; toId: string; rank: number };
 export type GraphRows = { people: PersonRow[]; adds: AddRow[] };

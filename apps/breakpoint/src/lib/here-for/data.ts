@@ -23,7 +23,7 @@ export async function loadGraph(): Promise<GraphRows> {
           { addedBy: { some: { from: { hidden: false } } } },
         ],
       },
-      select: { id: true, handle: true, claimedById: true },
+      select: { id: true, handle: true, claimedAt: true },
     }),
     awardsPrisma.hereForAdd.findMany({
       where: { from: { hidden: false }, to: { hidden: false } },
@@ -65,7 +65,7 @@ export async function loadPersonalGraph(
       ...person.addedBy.map((add) => add.fromId),
     ]),
   ];
-  const selectPerson = { id: true, handle: true, claimedById: true } as const;
+  const selectPerson = { id: true, handle: true, claimedAt: true } as const;
   const edges = await awardsPrisma.hereForAdd.findMany({
     where: {
       from: { hidden: false },
@@ -127,9 +127,13 @@ export async function submitAdds(
   adds: HereForHandle[],
   ipHash: string | null,
   country: string | null,
+  xUserId: string,
 ) {
   return awardsPrisma.$transaction(
     async (tx) => {
+      const existing = await tx.hereForPerson.findUnique({ where: { handle } });
+      if (!existing || existing.xUserId !== xUserId)
+        throw new HandleClaimedError();
       const user = await tx.user.upsert({
         where: { browserUuid: ballotId },
         create: { browserUuid: ballotId, ipHash, country },
@@ -146,7 +150,6 @@ export async function submitAdds(
           where: { id: owned.id },
           data: { claimedById: null },
         });
-      const existing = await tx.hereForPerson.findUnique({ where: { handle } });
       const person = await tx.hereForPerson.upsert({
         where: { handle },
         create: {

@@ -48,7 +48,7 @@ export function suggestionsFor(
   return [...scored]
     .map(([id, entry]) => ({
       handle: graph.byId.get(id)!.handle,
-      claimed: Boolean(graph.byId.get(id)!.claimedById),
+      claimed: Boolean(graph.byId.get(id)!.claimedAt),
       score: entry.score,
       reasons: entry.reasons
         .sort(

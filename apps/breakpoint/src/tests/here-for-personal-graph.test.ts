@@ -30,7 +30,7 @@ const rows: GraphRows = {
   people: handles.map((handle, i) => ({
     id: String(i),
     handle,
-    claimedById: "user",
+    claimedAt: new Date("2026-10-29"),
   })),
   adds: [
     [0, 1],

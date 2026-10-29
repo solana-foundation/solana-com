@@ -91,7 +91,7 @@ describe("here-for adds route", () => {
     const people = ["alice", "b", "c", "d"].map((name, i) => ({
       id: String(i),
       handle: `@${name}`,
-      claimedById: i === 0 ? "user" : null,
+      claimedAt: i === 0 ? new Date("2026-10-29") : null,
     }));
     mocks.load.mockResolvedValueOnce({
       people,
@@ -110,6 +110,7 @@ describe("here-for adds route", () => {
       ["@b", "@c", "@d"],
       null,
       null,
+      "1",
     );
   });
   it("only announces newly mutual adds after saving", async () => {
@@ -121,7 +122,7 @@ describe("here-for adds route", () => {
       people: ["alice", "b", "c", "d"].map((name, i) => ({
         id: String(i),
         handle: `@${name}`,
-        claimedById: "user",
+        claimedAt: new Date("2026-10-29"),
       })),
       adds: [
         [0, 1],

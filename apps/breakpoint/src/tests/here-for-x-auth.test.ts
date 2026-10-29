@@ -15,9 +15,15 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   find: vi.fn(),
   remove: vi.fn(),
+  claim: vi.fn(),
 }));
 vi.mock("@/lib/awards-db", () => ({
   awardsPrisma: {
+    $transaction: (work: (tx: unknown) => unknown) =>
+      work({
+        hereForPerson: { upsert: mocks.claim },
+        hereForXSession: { create: mocks.create, deleteMany: mocks.remove },
+      }),
     hereForXSession: {
       create: mocks.create,
       findUnique: mocks.find,
@@ -161,6 +167,24 @@ describe("here-for X auth", () => {
     expect(await readXSession(request)).toBeNull();
     expect(mocks.find).toHaveBeenCalledWith({
       where: { id, expiresAt: { gt: new Date() } },
+    });
+  });
+
+  it("binds a fresh sign-in to the stable account and revokes stale handle sessions", async () => {
+    await xSessionCookie.value(identity);
+    expect(mocks.claim).toHaveBeenCalledWith({
+      where: { handle: "@alice" },
+      create: { handle: "@alice", xUserId: "123" },
+      update: { xUserId: "123" },
+    });
+    expect(mocks.remove).toHaveBeenCalledWith({
+      where: {
+        OR: [
+          { expiresAt: { lte: new Date() } },
+          { handle: "@alice", xUserId: { not: "123" } },
+          { xUserId: "123", handle: { not: "@alice" } },
+        ],
+      },
     });
   });
 

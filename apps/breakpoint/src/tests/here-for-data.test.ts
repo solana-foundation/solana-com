@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { loadCardAdds, loadGraph, submitAdds } from "@/lib/here-for/data";
+import { graphPayload, personPayload } from "@/lib/here-for/payload";
 
 const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
@@ -16,6 +17,43 @@ vi.mock("@/lib/awards-db", () => ({
 }));
 
 describe("here-for orphan handling", () => {
+  it("keeps submitted profiles joined after their browser switches accounts", async () => {
+    mocks.people.mockResolvedValue([
+      { id: "a", handle: "@alice", claimedAt: new Date(), claimedById: null },
+      { id: "b", handle: "@bob", claimedAt: null, claimedById: null },
+    ]);
+    mocks.adds.mockResolvedValue([{ fromId: "a", toId: "b", rank: 1 }]);
+    const rows = await loadGraph();
+    expect(graphPayload(rows, null).claimed).toEqual([1, 0]);
+    expect(personPayload(rows, "@alice")).toMatchObject({
+      claimed: true,
+      adds: [{ handle: "@bob" }],
+    });
+  });
+
+  it("rejects stale X identities before modifying a profile or its picks", async () => {
+    const user = { upsert: vi.fn() };
+    const tx = {
+      user,
+      hereForPerson: {
+        findUnique: vi.fn().mockResolvedValue({ xUserId: "new-owner" }),
+      },
+    };
+    mocks.transaction.mockImplementation((work: (client: unknown) => unknown) =>
+      work(tx),
+    );
+    await expect(
+      submitAdds(
+        "ballot",
+        "@alice",
+        ["@a", "@b", "@c"],
+        null,
+        null,
+        "old-owner",
+      ),
+    ).rejects.toThrow();
+    expect(user.upsert).not.toHaveBeenCalled();
+  });
   it("loads a card's adds and mutual status without the full graph", async () => {
     mocks.person.mockResolvedValue({
       adds: [
@@ -41,13 +79,18 @@ describe("here-for orphan handling", () => {
           { addedBy: { some: { from: { hidden: false } } } },
         ],
       },
-      select: { id: true, handle: true, claimedById: true },
+      select: { id: true, handle: true, claimedAt: true },
     });
   });
 
   it("deletes dropped, unclaimed targets only after replacing adds", async () => {
     const events: string[] = [];
-    const person = { id: "me", handle: "@me", claimedById: "user" };
+    const person = {
+      id: "me",
+      handle: "@me",
+      claimedById: "user",
+      xUserId: "123",
+    };
     const tx = {
       user: { upsert: vi.fn().mockResolvedValue({ id: "user" }) },
       hereForPerson: {
@@ -80,7 +123,7 @@ describe("here-for orphan handling", () => {
     mocks.transaction.mockImplementation((work: (client: unknown) => unknown) =>
       work(tx),
     );
-    await submitAdds("ballot", "@me", ["@a", "@b", "@c"], null, null);
+    await submitAdds("ballot", "@me", ["@a", "@b", "@c"], null, null, "123");
     expect(events).toEqual(["remove adds", "create adds", "cleanup"]);
     expect(tx.hereForPerson.deleteMany).toHaveBeenCalledWith({
       where: {

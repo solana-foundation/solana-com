@@ -70,6 +70,8 @@ export function oauthHeader(
         .join("&"),
     ),
   ].join("&");
+  // X requires HMAC-SHA1 for OAuth 1.0a request signatures (not passwords).
+  // https://docs.x.com/fundamentals/authentication/oauth-1-0a/creating-a-signature
   oauth.oauth_signature = createHmac(
     "sha1",
     `${encode(consumer.secret)}&${encode(tokenSecret)}`,
@@ -237,16 +239,35 @@ export function readXRequest(request: NextRequest) {
 export const xSessionCookie = {
   name: SESSION_COOKIE,
   value: async (session: XSession) => {
-    await awardsPrisma.hereForXSession.deleteMany({
-      where: { expiresAt: { lte: new Date() } },
-    });
-    const record = await awardsPrisma.hereForXSession.create({
-      data: {
-        xUserId: session.userId,
-        handle: session.handle,
-        expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000),
+    const record = await awardsPrisma.$transaction(
+      async (tx) => {
+        // Only fresh OAuth proof may change the account associated with a handle.
+        await tx.hereForPerson.upsert({
+          where: { handle: session.handle },
+          create: { handle: session.handle, xUserId: session.userId },
+          update: { xUserId: session.userId },
+        });
+        await tx.hereForXSession.deleteMany({
+          where: {
+            OR: [
+              { expiresAt: { lte: new Date() } },
+              { handle: session.handle, xUserId: { not: session.userId } },
+              { xUserId: session.userId, handle: { not: session.handle } },
+            ],
+          },
+        });
+        return tx.hereForXSession.create({
+          data: {
+            xUserId: session.userId,
+            handle: session.handle,
+            expiresAt: new Date(Date.now() + SESSION_MAX_AGE * 1000),
+          },
+        });
       },
-    });
+      {
+        isolationLevel: "Serializable",
+      },
+    );
     return seal({ sessionId: record.id }, SESSION_MAX_AGE);
   },
   options: cookieOptions(SESSION_MAX_AGE),
