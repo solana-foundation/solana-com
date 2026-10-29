@@ -6,6 +6,7 @@ import {
   safeReturnPath,
   sealXState,
   openXState,
+  compactReturnPath,
   startXSignIn,
   xSessionCookie,
   readXSession,
@@ -207,6 +208,16 @@ describe("here-for X auth", () => {
     expect(openXState(raw.toString("base64url"))).toBeNull();
     vi.advanceTimersByTime(10 * 60 * 1000);
     expect(openXState(state)).toBeNull();
+  });
+
+  it("keeps long return paths small enough for the callback to accept", () => {
+    const long = `/breakpoint/mutuals/add?picks=alice,bob,carol&utm_source=${"x".repeat(900)}#top`;
+    const compact = compactReturnPath(long);
+    expect(compact).toBe("/breakpoint/mutuals/add?picks=alice%2Cbob%2Ccarol");
+    vi.stubEnv("X_CLIENT_ID", "client");
+    const state = new URL(startXSignIn(long)).searchParams.get("state");
+    expect(openXState(state)?.returnTo).toBe(compact);
+    expect(compactReturnPath(returnTo)).toBe(returnTo);
   });
 
   it("revalidates return paths stored in OAuth state", () => {

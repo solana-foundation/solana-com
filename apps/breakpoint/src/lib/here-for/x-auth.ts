@@ -96,6 +96,20 @@ export function openXState(state: string | null) {
   }
 }
 
+// Keeps the encrypted state well under the length the callback accepts.
+const MAX_RETURN_LENGTH = 200;
+
+/** A long return path keeps its route and picks, dropping other params. */
+export function compactReturnPath(returnTo: string) {
+  if (returnTo.length <= MAX_RETURN_LENGTH) return returnTo;
+  const url = new URL(returnTo, "https://return.invalid");
+  const picks = url.searchParams.get("picks");
+  const compact = picks
+    ? `${url.pathname}?picks=${encodeURIComponent(picks)}`
+    : url.pathname;
+  return compact.length <= MAX_RETURN_LENGTH ? compact : url.pathname;
+}
+
 /** Step 1: the URL to send the user to, with PKCE and encrypted state. */
 export function startXSignIn(returnTo: string) {
   const verifier = randomBytes(32).toString("base64url");
@@ -106,7 +120,7 @@ export function startXSignIn(returnTo: string) {
     client_id: client().id,
     redirect_uri: xCallbackUrl(),
     scope: X_SCOPES,
-    state: sealXState(verifier, returnTo),
+    state: sealXState(verifier, compactReturnPath(returnTo)),
     code_challenge: challenge,
     code_challenge_method: "S256",
   }).toString();

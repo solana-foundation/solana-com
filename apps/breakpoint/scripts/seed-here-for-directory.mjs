@@ -151,7 +151,8 @@ const entries = [
             // eslint-disable-next-line no-control-regex
             .replace(/[\u0000-\u001f\u007f]/g, "")
             .slice(0, 64),
-          followers: Number.isSafeInteger(e.followers) ? e.followers : 0,
+          // Null when the source has no count (CSV, plain handles).
+          followers: Number.isSafeInteger(e.followers) ? e.followers : null,
         },
       ]),
   ).values(),
@@ -179,11 +180,17 @@ if (out) {
             })),
           },
         }),
-        ...chunk.map(({ handle, ...entry }) =>
+        ...chunk.map(({ handle, xUserId, name, followers }) =>
           db.hereForDirectoryEntry.upsert({
             where: { handle },
-            create: { handle, ...entry },
-            update: entry,
+            create: { handle, xUserId, name, followers: followers ?? 0 },
+            // Leave fields this source doesn't know, so a handles-only or
+            // nameless import can't blank names, ids or follower counts.
+            update: {
+              ...(xUserId ? { xUserId } : {}),
+              ...(name ? { name } : {}),
+              ...(followers !== null ? { followers } : {}),
+            },
           }),
         ),
       ]);

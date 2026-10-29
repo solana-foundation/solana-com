@@ -81,10 +81,12 @@ export default function AddYour3({ locale }: { locale: string }) {
     const start = carried.length ? carried : (existing?.adds ?? []);
     // Save only picks carried through a sign-in that just finished; a shared
     // ?picks= link prefills the form and waits for the visitor to confirm.
+    // Consume the marker on every visit so a stale one can't arm a later link.
+    const justSignedIn = consumeSignInReturn();
     autoSave.current =
+      justSignedIn &&
       carried.length === HERE_FOR_MAX_ADDS &&
-      Boolean(existing?.xHandle) &&
-      consumeSignInReturn();
+      Boolean(existing?.xHandle);
     // Keep the URL clean so a reload doesn't replay the sign-in outcome.
     if (params.has("picks") || x) {
       params.delete("picks");
