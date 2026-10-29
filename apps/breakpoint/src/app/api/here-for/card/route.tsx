@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { defaultLocale, locales } from "@workspace/i18n/config";
@@ -30,8 +31,8 @@ const COLOR = {
   muted: "#696969",
 };
 
-const asset = (path: string) =>
-  readFile(new URL(`../../../../../public/${path}`, import.meta.url));
+const asset = (file: string) =>
+  readFile(path.join(process.cwd(), "public", file));
 
 let assetsPromise: ReturnType<typeof loadAssets> | null = null;
 async function loadAssets() {
