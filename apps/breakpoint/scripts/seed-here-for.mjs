@@ -1,11 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
 import { runLayout } from "./here-for-layout.mjs";
-const db = new PrismaClient();
 const seedArg = process.argv.indexOf("--seed");
 const seed = seedArg >= 0 ? Number(process.argv[seedArg + 1]) : 2026;
 const countArg = process.argv.indexOf("--count");
 const count = countArg >= 0 ? Number(process.argv[countArg + 1]) : 5000;
+// Three claimed people plus one ghost provide three distinct picks per person.
+if (!Number.isSafeInteger(count) || count < 3) {
+  throw new Error("--count must be a safe integer of at least 3.");
+}
+const db = new PrismaClient();
 let state = seed >>> 0;
 const rng = () =>
   (state = (Math.imul(state, 1664525) + 1013904223) >>> 0) / 4294967296;
