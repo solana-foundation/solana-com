@@ -112,6 +112,47 @@ if (missingOnly) {
   process.exit(0);
 }
 
+function sha256(filePath) {
+  return crypto
+    .createHash("sha256")
+    .update(fs.readFileSync(path.join(rootDir, filePath)))
+    .digest("hex");
+}
+
+// Lingo skips sources whose hash matches the lock, so a target edited by hand
+// under an unchanged source keeps its old lock hash and would fail the
+// divergence check below on every run. Record those edits before pushing.
+if (process.argv.includes("--relock-unchanged")) {
+  let relocked = 0;
+
+  for (const sourcePath of sourceFiles) {
+    if (!lock || lock.files[sourcePath]?.sha256 !== sha256(sourcePath)) {
+      continue;
+    }
+
+    for (const targetLocale of config.targetLocales) {
+      const targetPath = getTargetPath(sourcePath, targetLocale);
+      const entry = lock.files[targetPath];
+
+      if (!entry?.sha256 || !fs.existsSync(path.join(rootDir, targetPath))) {
+        continue;
+      }
+
+      const targetHash = sha256(targetPath);
+      if (targetHash !== entry.sha256) {
+        entry.sha256 = targetHash;
+        relocked += 1;
+        console.log(`Recorded manual edit in the Lingo lock: ${targetPath}`);
+      }
+    }
+  }
+
+  if (relocked > 0) {
+    fs.writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+  }
+  process.exit(0);
+}
+
 function getLeafKeys(value, prefix = "") {
   if (value === null || typeof value !== "object") {
     return [prefix];
