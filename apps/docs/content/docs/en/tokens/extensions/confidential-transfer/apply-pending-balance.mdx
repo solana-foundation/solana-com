@@ -110,7 +110,7 @@ use solana_zk_elgamal_proof_interface::{
 use solana_zk_sdk::{
     encryption::{
         auth_encryption::AeCiphertext,
-        derivation::derive_confidential_keys,
+        derivation::{derive_confidential_keys_from_signature, STANDARD_DERIVATION_MESSAGE},
         elgamal::ElGamalCiphertext,
     },
     zk_elgamal_proof_program::pubkey_validity::build_pubkey_validity_proof_data,
@@ -119,7 +119,7 @@ use solana_zk_sdk_pod::encryption::auth_encryption::PodAeCiphertext;
 use spl_associated_token_account::{
     get_associated_token_address_with_program_id, instruction::create_associated_token_account,
 };
-use spl_token_2022::{
+use spl_token_2022_interface::{
     extension::{
         confidential_transfer::{
             instruction::{
@@ -153,8 +153,9 @@ fn main() -> Result<()> {
     let (_mint, token_account) = setup_pending_balance_account(&rpc_client, &owner, amount, decimals)?;
 
     // Derive the owner's keys to decrypt the current balances.
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(&owner)
-        .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
+    let (elgamal_keypair, aes_key) =
+        derive_confidential_keys_from_signature(&owner.sign_message(STANDARD_DERIVATION_MESSAGE))
+            .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
 
     let account_data = rpc_client.get_account(&token_account)?;
     let account = StateWithExtensions::<TokenAccount>::unpack(&account_data.data)?;
@@ -199,7 +200,7 @@ fn main() -> Result<()> {
     let expected_counter: u64 = ct_extension.pending_balance_credit_counter.into();
 
     let apply_ix = apply_pending_balance(
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
         &token_account,
         expected_counter,
         &new_decryptable,
@@ -227,7 +228,7 @@ fn setup_pending_balance_account(
     let token_account = configure_confidential_token_account(rpc_client, owner, owner, &mint)?;
 
     let mint_to_ix = mint_to(
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
         &mint,
         &token_account,
         &owner.pubkey(),
@@ -235,7 +236,7 @@ fn setup_pending_balance_account(
         amount,
     )?;
     let deposit_ix = deposit(
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
         &token_account,
         &mint,
         amount,
@@ -259,17 +260,17 @@ fn create_confidential_mint(rpc_client: &RpcClient, payer: &Keypair, decimals: u
         &mint.pubkey(),
         rent,
         space as u64,
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
     );
     let init_confidential_ix = initialize_confidential_transfer_mint(
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
         &mint.pubkey(),
         Some(payer.pubkey()),
         true,
         None,
     )?;
     let init_mint_ix = initialize_mint_base(
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
         &mint.pubkey(),
         &payer.pubkey(),
         None,
@@ -293,16 +294,16 @@ fn configure_confidential_token_account(
     let token_account = get_associated_token_address_with_program_id(
         &owner.pubkey(),
         mint,
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
     );
     let create_ata_ix = create_associated_token_account(
         &payer.pubkey(),
         &owner.pubkey(),
         mint,
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
     );
     let realloc_ix = reallocate(
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
         &token_account,
         &payer.pubkey(),
         &owner.pubkey(),
@@ -310,8 +311,9 @@ fn configure_confidential_token_account(
         &[ExtensionType::ConfidentialTransferAccount],
     )?;
 
-    let (elgamal_keypair, aes_key) = derive_confidential_keys(owner)
-        .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
+    let (elgamal_keypair, aes_key) =
+        derive_confidential_keys_from_signature(&owner.sign_message(STANDARD_DERIVATION_MESSAGE))
+            .map_err(|e| anyhow::anyhow!("derive confidential keys: {e}"))?;
     let decryptable_balance: PodAeCiphertext = aes_key.encrypt(0).into();
 
     let proof_data = build_pubkey_validity_proof_data(&elgamal_keypair)
@@ -338,7 +340,7 @@ fn configure_confidential_token_account(
     let proof_location: ProofLocation<PubkeyValidityProofData> =
         ProofLocation::ContextStateAccount(&proof_account.pubkey());
     let configure_account_ixs = configure_account(
-        &spl_token_2022::id(),
+        &spl_token_2022_interface::id(),
         &token_account,
         mint,
         &decryptable_balance,
@@ -390,27 +392,27 @@ name = "confidential-transfer"
 version = "0.1.0"
 edition = "2021"
 
-# spl-token-2022 11 requires solana-system-interface 3.2 (which needs
-# solana-instruction >= 3.4). The stable solana-client 4.0.0 caps it lower, so
-# pin the 4.0.0-rc.0 line and use the granular solana crates instead of the
-# solana-sdk umbrella. This collapses back to solana-sdk once a stable
-# solana-client that allows solana-instruction 3.4 ships.
+# solana-system-interface 3.2 needs solana-instruction >= 3.4, which the
+# stable solana-client 4.0.0 caps lower, so pin the 4.0.0-rc.0 line and use
+# the granular solana crates instead of the solana-sdk umbrella. This collapses
+# back to solana-sdk once a stable solana-client that allows solana-instruction
+# 3.4 ships.
 [dependencies]
 solana-client = "4.0.0-rc.0"
 solana-pubkey = "4.2"
 solana-keypair = "3.1"
 solana-signer = "3.0"
-solana-transaction = "3.1"
+solana-transaction = "4.3"
 solana-instruction = "3.4"
 solana-commitment-config = "3.1.1"
 solana-system-interface = { version = "3.2.0", features = ["bincode"] }
 solana-address = "2.6"
-solana-zk-sdk = "7.0.1"
+solana-zk-sdk = "8.0.1"
 solana-zk-sdk-pod = "0.1.2"
-solana-zk-elgamal-proof-interface = "0.1.2"
-spl-token-2022 = { version = "11.0.0", features = ["zk-ops"] }
+solana-zk-elgamal-proof-interface = "1.0.0"
+spl-token-2022-interface = "4.0.0"
 spl-associated-token-account = "8.0.0"
-spl-token-confidential-transfer-proof-extraction = "0.6.1"
+spl-token-confidential-transfer-proof-extraction = "0.7.0"
 
 anyhow = "1.0"
 dirs = "6.0.0"
