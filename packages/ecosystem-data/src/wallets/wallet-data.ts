@@ -89,6 +89,7 @@ import nightlyIcon from "../../assets/wallets/icons/nightly.webp";
 import novaIcon from "../../assets/wallets/icons/nova.webp";
 import nowwalletIcon from "../../assets/wallets/icons/nowwallet.webp";
 import nufiIcon from "../../assets/wallets/icons/nufi.webp";
+import oathIcon from "../../assets/wallets/icons/oath.webp";
 import okxIcon from "../../assets/wallets/icons/okx.webp";
 import omniIcon from "../../assets/wallets/icons/omni.webp";
 import onekeyIcon from "../../assets/wallets/icons/onekey.webp";
@@ -1738,6 +1739,18 @@ const walletRecords = {
     website: "https://nu.fi/",
     icon: nufiIcon,
     lastVerified: "2026-09-02",
+  },
+  oath: {
+    name: "Oath Wallet",
+    aliases: ["Oath", "Aperture", "Aperture Wallet"],
+    category: "consumer",
+    platforms: ["ios"],
+    features: ["non_custodial", "open_source", "multi_chain"],
+    description:
+      "Open-source wallet for iPhone and iPad with local signing and support for sending, receiving, and viewing Solana assets alongside Bitcoin and Ethereum",
+    website: "https://oathwallet.org/",
+    icon: oathIcon,
+    lastVerified: "2026-10-30",
   },
   okx: {
     name: "OKX",
