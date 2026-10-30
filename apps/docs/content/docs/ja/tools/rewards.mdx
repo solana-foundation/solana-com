@@ -1,0 +1,95 @@
+---
+title: リワードプログラム
+seoTitle: トークンベスティングとマークル配布のためのSolanaリワードプログラム
+description:
+  受取人ごとのアカウントまたはマークルルートを使い、ベスティングスケジュールに沿ってSPL TokenおよびToken-2022のトークンを配布します。取り消しとクローバックも任意で設定できます。
+---
+
+Rewardsプログラムは、プログラムが所有するボールトから複数の受取人へトークンを配布し、それぞれにベスティングスケジュールを適用します。オーソリティがボールトに資金を入れ、誰が何を受け取るかを定義します。受取人はベスティング済みのトークンを時間の経過とともにクレームでき、配布設定で許可されている場合、オーソリティは受取人の取り消しや残りのトークンの回収を行えます。このプログラムはSolana Foundationが管理するPinocchioで構築されており、SPL TokenとToken-2022の両方のミントに対応しています。ただし、transfer hook拡張機能を持つToken-2022ミントは除きます。
+
+プログラムID(メインネットおよびデブネット):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  このプログラムはOtterSecによる監査を受けています。監査対象のコミットについては[AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)を参照してください。
+</Callout>
+
+## 配布タイプを選択する
+
+このプログラムは2つの配布タイプをサポートしています。どちらも同じベスティングスケジュールと取り消しモードを使用します。
+
+|                  | ダイレクト                                       | マークル                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **仕組み** | 受取人ごとにオンチェーンアカウントを作成します     | 単一のマークルルートをオンチェーンに保存し、受取人はプルーフを提示してクレームします  |
+| **初期コスト** | 支払者がすべての受取人アカウントの rent を負担します | 誰かがクレームするまで、受取人ごとのアカウントは作成されません                           |
+| **スケール**        | 受取人数は数千人程度までが現実的です  | 数百万人の受取人までスケールでき、ストレージは受取人がクレームした分だけ増加します |
+| **変更可否**   | 作成後に受取人を追加できます       | 受取人の集合は作成時に固定されます                                       |
+| **用途**   | 時間とともに変化する小規模な配布    | エアドロップのような、大規模で固定的な配布                              |
+
+## ベスティングスケジュール
+
+各割り当てには、次の4つのスケジュールのいずれかが設定されます。タイムスタンプはUnix秒です。
+
+| スケジュール      | 動作                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | すべてのトークンをただちにクレームできます                                                                                    |
+| `Linear`      | `startTs`から`endTs`までの間に、比例してトークンがアンロックされます                                                             |
+| `Cliff`       | `cliffTs`までは何もアンロックされず、その時点ですべてが一度にアンロックされます                                                       |
+| `CliffLinear` | `startTs`から`endTs`まで線形にベスティングされ、`cliffTs`までクレームできません。それ以前に累積された分はクリフ時点でアンロックされます |
+
+## アカウント
+
+| アカウント              | PDA seed                                        | 保存内容                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | オーソリティ、ミント、および割り当て合計       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | 1人の受取人の割り当てとベスティング       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | オーソリティ、ミント、合計、およびマークルルート |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | 1人のクレーム者がこれまでにクレームした数量        |
+| `Revocation`         | `["revocation", distribution, user]`             | 取り消されたマークルのクレーム者をブロックするマーカー |
+
+`seed`は作成時に渡される追加署名者のアドレスで、これにより1つのオーソリティが同じミントに対して複数の配布を運用できます。各配布のボールトは、そのミントに対する配布PDAの associated token account です。
+
+## instructions
+
+### ダイレクト配布
+
+1. オーソリティが`CreateDirectDistribution`を呼び出して、配布PDAとそのボールトを作成します。
+2. オーソリティは、受取人ごとに1回`AddDirectRecipient`を呼び出し、数量とベスティングスケジュールを指定します。各呼び出しでは、その数量がオーソリティの token account からボールトへ転送されます。
+3. 受取人は`ClaimDirect`を呼び出して、ベスティング済みのトークンを引き出します。`amount: 0`を渡すと、現在ベスティング済みのすべてをクレームします。
+4. 受取人がすべてをクレームした後、または配布がクローズされた後に`CloseDirectRecipient`を呼び出すと、受取人アカウントがクローズされ、rent がそのアカウントの作成費用を支払ったアカウントに返還されます。
+5. オーソリティは`CloseDirectDistribution`を呼び出して、ボールトの残高と rent を回収します。`clawbackTs`が設定されている場合、クローズできるのはその時刻以降のみです。
+
+### マークル配布
+
+1. オーソリティはオフチェーンでマークルツリーを構築します。各リーフは、クレーム者、そのクレーム者の合計数量、およびベスティングスケジュールを表します。
+2. オーソリティは、ルート、クレーム可能な合計数量、`clawbackTs`を指定して`CreateMerkleDistribution`を呼び出し、同じ instruction内でボールトに資金を入れます。
+3. クレーム者は、自身のリーフデータとプルーフを指定して`ClaimMerkle`を呼び出します。最初のクレームで、そのクレーム者の`MerkleClaim`アカウントが作成されます。`amount: 0`を渡すと、現在ベスティング済みのすべてをクレームします。
+4. `clawbackTs`の後、オーソリティは`CloseMerkleDistribution`を呼び出して、ボールトの残高と rent を回収します。
+5. 配布がクローズされた後、クレーム者は`CloseMerkleClaim`を呼び出して、自身のクレームアカウントの rent を回収します。
+
+このプログラムは、Keccak-256を使って`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`としてリーフをハッシュ化します。ここで`totalAmount`はリトルエンディアンの`u64`、`schedule`はinstructionの`VestingSchedule`引数と同じエンコーディングです。プルーフのノードは、小さいハッシュを先にしたソート済みのペアとしてハッシュ化されます。
+
+### 取り消し
+
+取り消しはオプトイン方式です。作成時に設定する`revocable`ビットマスクで、オーソリティが使用できるモードを選択します。ビット0で`NonVested`、ビット1で`Full`が有効になり、`0`の場合は取り消しが無効になります。
+
+| モード        | instruction                                    | 結果                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient`または`RevokeMerkleClaim` | ベスティング済みで未クレームのトークンはユーザーに渡り、未ベスティングのトークンはオーソリティに返却されます |
+| `Full`      | `RevokeDirectRecipient`または`RevokeMerkleClaim` | ベスティング済みか未ベスティングかを問わず、未クレームのトークンはすべてオーソリティに返却されます               |
+
+マークルのクレーム者を取り消すと`Revocation`マーカーが作成され、まだ一度もクレームしていない場合でも、以降のクレームがブロックされます。ダイレクト受取人を取り消すと、その`DirectRecipient`アカウントがクローズされ、rent が返還されます。
+
+## クライアント
+
+リポジトリの[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients)には、CodamaによってプログラムIDLから生成された[`@solana/kit`](/docs/clients/official/javascript)クライアントとRustクライアントが含まれています。このクライアントはまだnpmに公開されていません。`just generate-clients`でソースからビルドしてください。
+
+## リソース
+
+- [ソースコード](https://github.com/solana-foundation/rewards)
+- [OtterSec監査レポート](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [問題を報告する](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/)、タグ`rewards-program`

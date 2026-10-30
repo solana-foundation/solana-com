@@ -1,76 +1,118 @@
 ---
 title: "Quickstart: terima pembayaran"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  Tampilkan kode QR Solana Pay di aplikasi React, konfirmasi pembayaran secara onchain, dan terima pembayaran stablecoin pertama Anda di devnet.
 ---
 
-Anda akan memiliki tombol pembayaran di aplikasi React yang menghubungkan dompet, memungkinkan pembayar memilih token, dan mengonfirmasi pembayaran nyata ke alamat Anda. Anda memerlukan Node.js 20+, aplikasi React atau Next.js (aplikasi `create-next-app` baru sudah cukup), dan dompet untuk membayar.
+Anda akan memiliki komponen React yang menampilkan kode QR Solana Pay untuk pembayaran USDC, menunggu pembayaran masuk, dan memeriksa apakah pembayaran tersebut sesuai dengan yang Anda minta. Anda memerlukan Node.js 20+, aplikasi React atau Next.js (aplikasi `create-next-app` baru sudah cukup), dan dompet seluler yang diatur ke devnet. Isi dompet dengan USDC devnet dari [faucet.circle.com](https://faucet.circle.com) dan SOL devnet dari [faucet.solana.com](https://faucet.solana.com) untuk menutup biaya transaksi.
 
 <Callout type="caution">
-  Commerce Kit saat ini dalam versi beta. API dapat berubah sebelum rilis stabil.
+  `@solana/pay` saat ini dalam versi beta. API dapat berubah sebelum rilis stabil.
 </Callout>
 
-## 1. Instal Commerce Kit
+## 1. Instal Solana Pay
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. Tambahkan tombol
+## 2. Tambahkan kode QR pembayaran
 
-Tempatkan komponen `PaymentButton` di mana saja dalam aplikasi Anda dan atur dompet merchant ke alamat yang Anda kendalikan:
+Komponen ini membuat referensi unik untuk pesanan, mengodekannya ke dalam URL [permintaan transfer](/docs/tools/solana-pay/quickstart/transfer-requests), dan menampilkan URL tersebut sebagai kode QR. Komponen kemudian memantau transaksi yang menyertakan referensi tersebut dan memvalidasi penerima, jumlah, dan token sebelum menandai pesanan sebagai lunas. Atur `MERCHANT_WALLET` ke alamat yang Anda kendalikan:
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-Komponen ini menangani koneksi dompet, pemilihan token, pemrosesan transaksi, dan status UI secara internal. `mode: "tip"` memungkinkan pembayar memilih jumlahnya; lihat [mode pembayaran](/docs/tools/commerce-kit/quickstart/payment-button)
-untuk checkout harga tetap dan keranjang belanja.
-
-## Coba di browser
-
-Konfigurasikan tombol pembayaran dan jalankan alur tip tanpa meninggalkan halaman ini.
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="Commerce Kit Playground"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[Buka Commerce Kit Playground layar penuh](https://launch.solana.com/products/commercekit/playground)
+`amount` dalam satuan token, jadi `1` berarti meminta 1 USDC. Hilangkan `splToken` untuk meminta SOL.
 
 ## 3. Terima pembayaran
 
-Jalankan aplikasi Anda, klik tombol, hubungkan dompet, dan lakukan pembayaran. Callback `onPaymentSuccess` menerima tanda tangan transaksi, yang merupakan tanda terima Anda: cari menggunakan [getTransaction](/docs/rpc/http/gettransaction) atau di explorer mana pun.
+Jalankan aplikasi Anda, pindai kode QR dengan dompet Anda, dan setujui pembayaran. Setelah transaksi terkonfirmasi dan lolos validasi, komponen menampilkan tanda tangan transaksi. Tanda tangan itu adalah bukti pembayaran Anda: cari dengan [getTransaction](/docs/rpc/http/gettransaction) atau di explorer mana pun.
+
+<Callout type="warn">
+  Validasi di browser sudah cukup untuk demo. Sebelum memproses pesanan sungguhan, validasi pembayaran di server Anda. Lihat [verifikasi pembayaran](/docs/payments/accept-payments/verification-tools).
+</Callout>
 
 ## Langkah selanjutnya
 
+- [Solana Pay](/docs/tools/solana-pay) - permintaan transfer, permintaan transaksi, dan opsi kode QR
 - [Cara kerja pembayaran di Solana](/docs/payments/how-payments-work) - dompet,
   stablecoin, token account, dan biaya
 - [Verifikasi pembayaran](/docs/payments/accept-payments/verification-tools) - konfirmasi

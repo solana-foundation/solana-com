@@ -1,0 +1,134 @@
+---
+title: Πρόγραμμα Rewards
+seoTitle: Πρόγραμμα Rewards της Solana για Token Vesting και διανομές Merkle
+description:
+  Διανείμετε SPL Token και Token-2022 tokens με χρονοδιαγράμματα vesting, χρησιμοποιώντας λογαριασμούς ανά αποδέκτη ή merkle root, με προαιρετική ανάκληση και clawback.
+---
+
+Το πρόγραμμα Rewards διανέμει tokens από ένα vault που ανήκει στο πρόγραμμα σε ένα σύνολο
+αποδεκτών, ο καθένας με δικό του χρονοδιάγραμμα vesting. Ένα authority χρηματοδοτεί το vault και ορίζει
+ποιος λαμβάνει τι. Οι αποδέκτες διεκδικούν τα vested tokens τους με την πάροδο του χρόνου και το
+authority μπορεί να ανακαλέσει αποδέκτες ή να ανακτήσει τα εναπομείναντα tokens όταν η διανομή
+το επιτρέπει. Το πρόγραμμα έχει δημιουργηθεί με το Pinocchio, συντηρείται από το Solana
+Foundation και λειτουργεί τόσο με mints SPL Token όσο και Token-2022, εκτός από
+τα mints Token-2022 με την επέκταση transfer hook.
+
+Program ID (mainnet και devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  Το πρόγραμμα ελέγχθηκε (audit) από την OtterSec. Δείτε το
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)
+  για το commit έως το οποίο έχει γίνει έλεγχος.
+</Callout>
+
+## Επιλέξτε τύπο διανομής
+
+Το πρόγραμμα υποστηρίζει δύο τύπους διανομής. Και οι δύο χρησιμοποιούν τα ίδια χρονοδιαγράμματα vesting
+και τις ίδιες λειτουργίες ανάκλησης.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Πώς λειτουργεί** | Δημιουργεί έναν onchain λογαριασμό ανά αποδέκτη     | Αποθηκεύει ένα μόνο merkle root onchain· οι αποδέκτες παρέχουν proofs για να κάνουν claim  |
+| **Αρχικό κόστος** | Ο payer χρηματοδοτεί το rent για κάθε λογαριασμό αποδέκτη | Δεν υπάρχουν λογαριασμοί ανά αποδέκτη μέχρι να κάνει κάποιος claim                           |
+| **Κλίμακα**        | Πρακτικό έως μερικές χιλιάδες αποδέκτες  | Κλιμακώνεται σε εκατομμύρια αποδέκτες· ο αποθηκευτικός χώρος αυξάνεται μόνο καθώς οι αποδέκτες κάνουν claim |
+| **Τροποποιησιμότητα**   | Μπορούν να προστεθούν αποδέκτες μετά τη δημιουργία       | Το σύνολο των αποδεκτών είναι σταθερό από τη δημιουργία                                       |
+| **Κατάλληλο για**   | Μικρές διανομές που αλλάζουν με την πάροδο του χρόνου    | Μεγάλες, σταθερές διανομές, όπως τα airdrops                              |
+
+## Χρονοδιαγράμματα vesting
+
+Κάθε κατανομή ακολουθεί ένα από τέσσερα χρονοδιαγράμματα. Οι χρονοσφραγίδες είναι σε δευτερόλεπτα Unix.
+
+| Χρονοδιάγραμμα      | Συμπεριφορά                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | Όλα τα tokens μπορούν να διεκδικηθούν αμέσως                                                                                    |
+| `Linear`      | Τα tokens ξεκλειδώνουν αναλογικά μεταξύ `startTs` και `endTs`                                                             |
+| `Cliff`       | Τίποτα δεν ξεκλειδώνει μέχρι το `cliffTs` και τότε ξεκλειδώνουν όλα μαζί                                                       |
+| `CliffLinear` | Γραμμικό vesting από το `startTs` έως το `endTs`, χωρίς τίποτα διαθέσιμο προς διεκδίκηση μέχρι το `cliffTs`· το ποσό που έχει συσσωρευτεί νωρίτερα ξεκλειδώνει στο cliff |
+
+## Λογαριασμοί
+
+| Λογαριασμός              | PDA seeds                                        | Αποθηκεύει                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Authority, mint και συνολικά ποσά κατανομής       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | Η κατανομή και το vesting ενός αποδέκτη       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Authority, mint, σύνολα και το merkle root |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Το ποσό που έχει διεκδικήσει μέχρι τώρα ένας claimant        |
+| `Revocation`         | `["revocation", distribution, user]`             | Δείκτης που μπλοκάρει έναν ανακληθέντα claimant του merkle |
+
+Το `seed` είναι η διεύθυνση ενός επιπλέον signer που περνιέται κατά τη δημιουργία, ώστε ένα
+authority να μπορεί να τρέχει πολλές διανομές για το ίδιο mint. Το vault κάθε διανομής
+είναι το associated token account του PDA της διανομής για το mint της.
+
+## Εντολές
+
+### Direct διανομή
+
+1. Το authority καλεί το `CreateDirectDistribution` για να δημιουργήσει το PDA της διανομής
+   και το vault της.
+2. Το authority καλεί το `AddDirectRecipient` μία φορά για κάθε αποδέκτη, με ένα ποσό
+   και ένα χρονοδιάγραμμα vesting. Κάθε κλήση μεταφέρει αυτό το ποσό από το
+   token account του authority στο vault.
+3. Οι αποδέκτες καλούν το `ClaimDirect` για να αναλάβουν τα vested tokens. Περάστε `amount: 0` για να
+   διεκδικήσουν ό,τι έχει γίνει vested μέχρι εκείνη τη στιγμή.
+4. Μόλις ένας αποδέκτης έχει διεκδικήσει τα πάντα ή η διανομή κλείσει,
+   το `CloseDirectRecipient` κλείνει τον λογαριασμό του αποδέκτη και επιστρέφει το rent στον
+   λογαριασμό που το κατέβαλε.
+5. Το authority καλεί το `CloseDirectDistribution` για να ανακτήσει το υπόλοιπο του vault
+   και το rent. Αν έχει οριστεί το `clawbackTs`, το κλείσιμο επιτρέπεται μόνο μετά από αυτή
+   τη στιγμή.
+
+### Merkle διανομή
+
+1. Το authority δημιουργεί ένα merkle tree offchain. Κάθε leaf δεσμεύεται σε έναν claimant,
+   στο συνολικό ποσό του και σε ένα χρονοδιάγραμμα vesting.
+2. Το authority καλεί το `CreateMerkleDistribution` με το root, το συνολικό
+   ποσό προς διεκδίκηση και ένα `clawbackTs`, και χρηματοδοτεί το vault στην ίδια
+   εντολή.
+3. Οι claimants καλούν το `ClaimMerkle` με τα δεδομένα του leaf τους και το proof. Το πρώτο claim
+   δημιουργεί τον λογαριασμό `MerkleClaim` του claimant. Περάστε `amount: 0` για να διεκδικήσουν
+   ό,τι έχει γίνει vested μέχρι εκείνη τη στιγμή.
+4. Μετά το `clawbackTs`, το authority καλεί το `CloseMerkleDistribution` για να ανακτήσει
+   το υπόλοιπο του vault και το rent.
+5. Αφού κλείσει η διανομή, οι claimants καλούν το `CloseMerkleClaim` για να
+   ανακτήσουν το rent του λογαριασμού claim τους.
+
+Το πρόγραμμα κατακερματίζει (hash) τα leaves με Keccak-256 ως
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, όπου
+το `totalAmount` είναι `u64` little-endian και το `schedule` χρησιμοποιεί την ίδια κωδικοποίηση με
+το όρισμα `VestingSchedule` της εντολής. Οι κόμβοι του proof κατακερματίζονται ως ταξινομημένα
+ζεύγη, με πρώτο το μικρότερο hash.
+
+### Ανάκληση
+
+Η ανάκληση είναι προαιρετική (opt-in). Η bitmask `revocable` που ορίζεται κατά τη δημιουργία επιλέγει ποιες
+λειτουργίες μπορεί να χρησιμοποιήσει το authority: το bit 0 ενεργοποιεί το `NonVested`, το bit 1 ενεργοποιεί το `Full`
+και το `0` απενεργοποιεί την ανάκληση.
+
+| Λειτουργία        | Εντολή                                    | Αποτέλεσμα                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` ή `RevokeMerkleClaim` | Τα vested tokens που δεν έχουν διεκδικηθεί πηγαίνουν στον χρήστη· τα unvested tokens επιστρέφουν στο authority |
+| `Full`      | `RevokeDirectRecipient` ή `RevokeMerkleClaim` | Όλα τα tokens που δεν έχουν διεκδικηθεί, vested και unvested, επιστρέφουν στο authority               |
+
+Η ανάκληση ενός claimant του merkle δημιουργεί έναν δείκτη `Revocation` που μπλοκάρει μελλοντικά
+claims, ακόμη και αν δεν έχει κάνει ποτέ claim. Η ανάκληση ενός direct αποδέκτη κλείνει
+τον λογαριασμό του `DirectRecipient` και επιστρέφει το rent του.
+
+## Clients
+
+Το repository περιλαμβάνει clients [`@solana/kit`](/docs/clients/official/javascript) και
+Rust, που παράγονται από το IDL του προγράμματος με το Codama, στον φάκελο
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+Ο client δεν έχει δημοσιευτεί ακόμη στο npm. Κάντε build από τον πηγαίο κώδικα με
+`just generate-clients`.
+
+## Πόροι
+
+- [Πηγαίος κώδικας](https://github.com/solana-foundation/rewards)
+- [Αναφορά ελέγχου της OtterSec](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Αναφορά προβλήματος](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), ετικέτα
+  `rewards-program`

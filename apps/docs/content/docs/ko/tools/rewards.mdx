@@ -1,0 +1,130 @@
+---
+title: 리워드 프로그램
+seoTitle: 토큰 베스팅과 머클 분배를 위한 Solana 리워드 프로그램
+description:
+  수령자별 계정 또는 머클 루트를 사용해 SPL Token 및 Token-2022 토큰을 베스팅 스케줄에 따라 분배하며, 선택적으로 철회 및 회수 기능을 지원합니다.
+---
+
+Rewards 프로그램은 프로그램이 소유한 볼트에서 여러 수령자에게 토큰을 분배하며,
+각 수령자에게는 베스팅 스케줄이 적용됩니다. authority가 볼트에 자금을 넣고
+누가 얼마를 받을지 정의합니다. 수령자는 시간이 지남에 따라 베스팅된 토큰을 클레임하고,
+분배 설정에서 허용하는 경우 authority는 수령자를 철회하거나 남은 토큰을 회수할 수 있습니다.
+이 프로그램은 Solana Foundation이 관리하는 Pinocchio로 구축되었으며, transfer hook 확장이 있는
+Token-2022 mint를 제외한 SPL Token 및 Token-2022 mint와 모두 호환됩니다.
+
+프로그램 ID (메인넷 및 devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  이 프로그램은 OtterSec의 감사를 받았습니다. 감사가 완료된 커밋은
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)
+  를 참고하세요.
+</Callout>
+
+## 분배 유형 선택
+
+이 프로그램은 두 가지 분배 유형을 지원합니다. 두 유형 모두 동일한 베스팅 스케줄과
+철회 모드를 사용합니다.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **작동 방식** | 수령자마다 온체인 계정을 생성합니다     | 단일 머클 루트를 온체인에 저장하며, 수령자는 증명(proof)을 제공해 클레임합니다  |
+| **초기 비용** | 납부자가 모든 수령자 계정의 rent를 부담합니다 | 누군가 클레임하기 전까지는 수령자별 계정이 생성되지 않습니다                           |
+| **확장성**        | 수령자 수가 수천 명 정도까지 현실적으로 사용 가능합니다  | 수백만 명의 수령자까지 확장 가능하며, 저장 공간은 수령자가 클레임할 때만 증가합니다 |
+| **변경 가능 여부**   | 생성 후에도 수령자를 추가할 수 있습니다       | 수령자 집합이 생성 시점에 고정됩니다                                       |
+| **적합한 용도**   | 시간이 지남에 따라 변경되는 소규모 분배    | 에어드롭과 같이 규모가 크고 고정된 분배                              |
+
+## 베스팅 스케줄
+
+각 할당에는 네 가지 스케줄 중 하나가 적용됩니다. 타임스탬프는 Unix 초 단위입니다.
+
+| 스케줄      | 동작                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | 모든 토큰을 즉시 클레임할 수 있습니다                                                                                    |
+| `Linear`      | `startTs`와 `endTs` 사이에 토큰이 비례적으로 잠금 해제됩니다                                                             |
+| `Cliff`       | `cliffTs` 전까지는 아무것도 잠금 해제되지 않으며, 이후 전체가 한 번에 잠금 해제됩니다                                                       |
+| `CliffLinear` | `startTs`부터 `endTs`까지 선형으로 베스팅되며, `cliffTs` 전까지는 클레임할 수 없습니다. 그 이전에 누적된 분량은 cliff 시점에 잠금 해제됩니다 |
+
+## 계정
+
+| 계정              | PDA seed                                        | 저장 내용                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | authority, mint, 할당 총량       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | 한 수령자의 할당량 및 베스팅 정보       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | authority, mint, 총량, 머클 루트 |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | 한 청구자가 지금까지 클레임한 수량        |
+| `Revocation`         | `["revocation", distribution, user]`             | 철회된 머클 청구자를 차단하는 마커 |
+
+`seed`는 생성 시 전달되는 추가 서명자의 주소로, 하나의 authority가 동일한 mint에 대해
+여러 분배를 운영할 수 있게 해 줍니다. 각 분배의 볼트는 해당 mint에 대한 분배 PDA의
+associated token account입니다.
+
+## 인스트럭션
+
+### Direct 분배
+
+1. authority가 `CreateDirectDistribution`을 호출해 분배 PDA와
+   해당 볼트를 생성합니다.
+2. authority가 수령자마다 한 번씩 `AddDirectRecipient`를 호출하며, 수량과
+   베스팅 스케줄을 지정합니다. 각 호출은 해당 수량을 authority의
+   token account에서 볼트로 전송합니다.
+3. 수령자는 `ClaimDirect`를 호출해 베스팅된 토큰을 인출합니다. `amount: 0`을 전달하면
+   현재 베스팅된 전체 수량을 클레임합니다.
+4. 수령자가 모든 토큰을 클레임했거나 분배가 종료되면
+   `CloseDirectRecipient`가 수령자 계정을 닫고 rent를 해당 계정을
+   생성하는 데 비용을 낸 계정으로 환불합니다.
+5. authority가 `CloseDirectDistribution`을 호출해 볼트에 남은
+   잔액과 rent를 회수합니다. `clawbackTs`가 설정된 경우, 해당 시각 이후에만
+   종료할 수 있습니다.
+
+### Merkle 분배
+
+1. authority가 오프체인에서 머클 트리를 구성합니다. 각 리프는 청구자, 해당 청구자의
+   총 수량, 그리고 베스팅 스케줄을 커밋합니다.
+2. authority가 루트, 총 클레임 가능 수량, `clawbackTs`와 함께
+   `CreateMerkleDistribution`을 호출하며, 같은 인스트럭션에서 볼트에 자금을 넣습니다.
+3. 청구자는 자신의 리프 데이터와 증명(proof)으로 `ClaimMerkle`을 호출합니다. 첫 번째 클레임에서
+   청구자의 `MerkleClaim` 계정이 생성됩니다. `amount: 0`을 전달하면
+   현재 베스팅된 전체 수량을 클레임합니다.
+4. `clawbackTs` 이후 authority가 `CloseMerkleDistribution`을 호출해
+   볼트에 남은 잔액과 rent를 회수합니다.
+5. 분배가 종료된 후 청구자는 `CloseMerkleClaim`을 호출해
+   자신의 클레임 계정 rent를 회수합니다.
+
+프로그램은 Keccak-256으로 리프를
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))` 방식으로 해시합니다. 여기서
+`totalAmount`는 리틀 엔디언 `u64`이며, `schedule`은 인스트럭션의 `VestingSchedule` 인자와
+동일한 인코딩을 사용합니다. 증명 노드는 정렬된 쌍으로 해시되며, 더 작은 해시가 앞에 옵니다.
+
+### 철회
+
+철회는 선택 사항입니다. 생성 시 설정하는 `revocable` 비트마스크가 authority가 사용할 수 있는
+모드를 결정합니다. 비트 0은 `NonVested`를 활성화하고, 비트 1은 `Full`을 활성화하며,
+`0`은 철회를 비활성화합니다.
+
+| 모드        | 인스트럭션                                    | 결과                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` 또는 `RevokeMerkleClaim` | 베스팅되었지만 클레임되지 않은 토큰은 사용자에게 지급되고, 베스팅되지 않은 토큰은 authority에게 반환됩니다 |
+| `Full`      | `RevokeDirectRecipient` 또는 `RevokeMerkleClaim` | 베스팅 여부와 관계없이 클레임되지 않은 모든 토큰이 authority에게 반환됩니다               |
+
+머클 청구자를 철회하면 이후 클레임을 차단하는 `Revocation` 마커가 생성되며,
+한 번도 클레임하지 않은 경우에도 마찬가지입니다. direct 수령자를 철회하면
+해당 `DirectRecipient` 계정이 닫히고 rent가 환불됩니다.
+
+## 클라이언트
+
+저장소의 [`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients)에는 Codama로 프로그램 IDL에서 생성한
+[`@solana/kit`](/docs/clients/official/javascript) 및 Rust 클라이언트가 포함되어 있습니다.
+이 클라이언트는 아직 npm에 배포되지 않았습니다. `just generate-clients`로
+소스에서 직접 빌드하세요.
+
+## 리소스
+
+- [소스 코드](https://github.com/solana-foundation/rewards)
+- [OtterSec 감사 보고서](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [문제 신고](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), 태그
+  `rewards-program`

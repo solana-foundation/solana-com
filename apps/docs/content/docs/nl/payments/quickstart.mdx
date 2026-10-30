@@ -1,76 +1,118 @@
 ---
 title: "Quickstart: een betaling accepteren"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  Toon een Solana Pay-QR-code in een React-app, bevestig de betaling onchain en ontvang je eerste stablecoinbetaling op devnet.
 ---
 
-Je eindigt met een betaalknop in een React-app die een wallet verbindt, de betaler een token laat kiezen en een echte betaling naar jouw adres bevestigt. Je hebt Node.js 20+, een React- of Next.js-app (een nieuwe `create-next-app` volstaat) en een wallet om vanuit te betalen nodig.
+Je eindigt met een React-component die een Solana Pay-QR-code toont voor een USDC-betaling, wacht tot de betaling binnenkomt en controleert of die overeenkomt met wat je hebt gevraagd. Je hebt Node.js 20+, een React- of Next.js-app (een nieuwe `create-next-app` volstaat) en een mobiele wallet die is ingesteld op devnet nodig. Vul die aan met devnet-USDC van [faucet.circle.com](https://faucet.circle.com) en devnet-SOL van [faucet.solana.com](https://faucet.solana.com) om de transactiekosten te dekken.
 
 <Callout type="caution">
-  De Commerce Kit is momenteel in beta. API's kunnen veranderen vóór de stabiele release.
+  `@solana/pay` is momenteel in beta. API's kunnen veranderen vóór de stabiele release.
 </Callout>
 
-## 1. Installeer de Commerce Kit
+## 1. Installeer Solana Pay
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. Voeg de knop toe
+## 2. Voeg de betaal-QR-code toe
 
-Plaats de `PaymentButton`-component ergens in je app en stel de merchant-wallet in op een adres dat je beheert:
+De component maakt een unieke referentie voor de bestelling aan, codeert die in een [transfer request](/docs/tools/solana-pay/quickstart/transfer-requests)-URL en rendert de URL als QR-code. Daarna wacht de component op een transactie die de referentie bevat en valideert die de ontvanger, het bedrag en het token voordat de bestelling als betaald wordt gemarkeerd. Stel `MERCHANT_WALLET` in op een adres dat je zelf beheert:
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-De component verwerkt wallet-verbinding, tokenselectie, transactieverwerking en UI-status intern. `mode: "tip"` laat de betaler het bedrag kiezen; zie [betaalmodi](/docs/tools/commerce-kit/quickstart/payment-button)
-voor vaste prijzen en winkelwagen-afrekeningen.
-
-## Probeer het in de browser
-
-Configureer de betaalknop en start de tipflow zonder deze pagina te verlaten.
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="Commerce Kit Playground"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[Open de Commerce Kit Playground op volledig scherm](https://launch.solana.com/products/commercekit/playground)
+`amount` is in tokeneenheden, dus `1` vraagt 1 USDC aan. Laat `splToken` weg om in plaats daarvan SOL aan te vragen.
 
 ## 3. Ontvang een betaling
 
-Start je app, klik op de knop, verbind een wallet en betaal. De `onPaymentSuccess`-callback ontvangt de transactiehandtekening, die als je ontvangstbewijs dient: zoek deze op met [getTransaction](/docs/rpc/http/gettransaction) of in een willekeurige explorer.
+Start je app, scan de QR-code met je wallet en keur de betaling goed. Zodra de transactie is bevestigd en de validatie doorstaat, toont de component de transactiehandtekening. Die handtekening is je bewijs van betaling: zoek hem op met [getTransaction](/docs/rpc/http/gettransaction) of in een willekeurige explorer.
+
+<Callout type="warn">
+  Validatie in de browser is prima voor een demo. Valideer betalingen op je server voordat je echte bestellingen afhandelt. Zie [betalingen verifiëren](/docs/payments/accept-payments/verification-tools).
+</Callout>
 
 ## Wat nu?
 
+- [Solana Pay](/docs/tools/solana-pay) - transfer requests, transaction requests en QR-code-opties
 - [Hoe betalingen werken op Solana](/docs/payments/how-payments-work) - wallets,
   stablecoins, token accounts en kosten
 - [Betalingen verifiëren](/docs/payments/accept-payments/verification-tools) - bevestig

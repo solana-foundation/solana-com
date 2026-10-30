@@ -1,0 +1,135 @@
+---
+title: Rewards-ohjelma
+seoTitle: Solanan Rewards-ohjelma token vestingiin ja merkle-jakeluihin
+description:
+  Jaa SPL Token- ja Token-2022-tokeneita vesting-aikataulujen mukaan käyttämällä vastaanottajakohtaisia tilejä tai merkle-juurta, valinnaisella peruutuksella ja takaisinotolla.
+---
+
+Rewards-ohjelma jakaa tokeneita ohjelman omistamasta holvista joukolle
+vastaanottajia, joilla kullakin on oma vesting-aikataulunsa. Valtuutettu rahoittaa
+holvin ja määrittää, kuka saa mitä. Vastaanottajat lunastavat vestatut tokenit
+ajan kuluessa, ja valtuutettu voi peruuttaa vastaanottajia tai ottaa takaisin
+jäljelle jääneet tokenit, jos jakelu sen sallii. Ohjelma on rakennettu
+Pinocchiolla, jota ylläpitää Solana Foundation, ja se toimii sekä SPL Token- että
+Token-2022-minttien kanssa, lukuun ottamatta Token-2022-minttejä, joissa on
+transfer hook -laajennus.
+
+Ohjelman tunnus (Program ID) (mainnet ja devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  Ohjelman on auditoinut OtterSec. Auditoitu commit selviää tiedostosta
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md).
+</Callout>
+
+## Valitse jakelutyyppi
+
+Ohjelma tukee kahta jakelutyyppiä. Molemmat käyttävät samoja vesting-aikatauluja
+ja peruutustiloja.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Toimintatapa** | Luo onchain-tilin jokaiselle vastaanottajalle     | Tallentaa onchainiin yhden merkle-juuren; vastaanottajat lunastavat todisteen avulla  |
+| **Alkukustannus** | Maksaja kattaa rent-kulut jokaisesta vastaanottajatilistä | Vastaanottajakohtaisia tilejä ei synny ennen kuin joku lunastaa                           |
+| **Skaalautuvuus**        | Käytännössä muutamaan tuhanteen vastaanottajaan asti  | Skaalautuu miljooniin vastaanottajiin; tallennustila kasvaa vain vastaanottajien lunastaessa |
+| **Muokattavuus**   | Vastaanottajia voi lisätä luomisen jälkeen       | Vastaanottajajoukko lukitaan luomishetkellä                                       |
+| **Käyttötarkoitus**   | Pienet jakelut, jotka muuttuvat ajan myötä    | Suuret, kiinteät jakelut, kuten airdropit                              |
+
+## Vesting-aikataulut
+
+Jokaisella allokaatiolla on yksi neljästä aikataulusta. Aikaleimat ovat Unix-sekunteja.
+
+| Aikataulu      | Toiminta                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | Kaikki tokenit ovat heti lunastettavissa                                                                                    |
+| `Linear`      | Tokenit vapautuvat tasaisesti `startTs`- ja `endTs`-ajankohtien välillä                                                             |
+| `Cliff`       | Mitään ei vapaudu ennen `cliffTs`-ajankohtaa, minkä jälkeen kaikki vapautuu kerralla                                                       |
+| `CliffLinear` | Lineaarinen vesting `startTs`-ajankohdasta `endTs`-ajankohtaan, eikä mitään ole lunastettavissa ennen `cliffTs`-ajankohtaa; aiemmin kertynyt osuus vapautuu cliffin kohdalla |
+
+## Tilit
+
+| Tili              | PDA seedit                                        | Sisältö                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Valtuutettu, mint ja allokaatioiden kokonaismäärät       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | Yhden vastaanottajan allokaatio ja vesting       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Valtuutettu, mint, kokonaismäärät ja merkle-juuri |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Yhden lunastajan tähän mennessä lunastama määrä        |
+| `Revocation`         | `["revocation", distribution, user]`             | Merkki, joka estää peruutetun merkle-lunastajan lunastukset |
+
+`seed` on luomisen yhteydessä annetun lisäallekirjoittajan osoite, jonka ansiosta
+yksi valtuutettu voi ajaa useita jakeluja samalle mintille. Jokaisen jakelun
+holvi on jakelun PDA:n associated token account kyseiselle mintille.
+
+## Ohjeet (instructions)
+
+### Direct-jakelu
+
+1. Valtuutettu kutsuu `CreateDirectDistribution`-ohjetta luodakseen jakelun PDA:n
+   ja sen holvin.
+2. Valtuutettu kutsuu `AddDirectRecipient`-ohjetta kerran jokaista vastaanottajaa
+   kohden määrän ja vesting-aikataulun kanssa. Jokainen kutsu siirtää kyseisen
+   määrän valtuutetun token account -tililtä holviin.
+3. Vastaanottajat kutsuvat `ClaimDirect`-ohjetta nostaakseen vestattuja tokeneita.
+   Anna `amount: 0` lunastaaksesi kaiken, mikä on tällä hetkellä vestattu.
+4. Kun vastaanottaja on lunastanut kaiken tai jakelu on suljettu,
+   `CloseDirectRecipient` sulkee vastaanottajan tilin ja palauttaa rent-summan
+   sen maksaneelle tilille.
+5. Valtuutettu kutsuu `CloseDirectDistribution`-ohjetta saadakseen takaisin holvin
+   jäljellä olevan saldon ja rent-summan. Jos `clawbackTs` on asetettu, sulkeminen
+   on sallittu vasta kyseisen ajankohdan jälkeen.
+
+### Merkle-jakelu
+
+1. Valtuutettu rakentaa merkle-puun ketjun ulkopuolella (offchain). Jokainen lehti
+   sitoutuu lunastajaan, kyseisen lunastajan kokonaismäärään ja vesting-aikatauluun.
+2. Valtuutettu kutsuu `CreateMerkleDistribution`-ohjetta juuren, lunastettavan
+   kokonaismäärän ja `clawbackTs`-arvon kanssa sekä rahoittaa holvin samassa
+   ohjeessa.
+3. Lunastajat kutsuvat `ClaimMerkle`-ohjetta lehtidatansa ja todisteensa kanssa.
+   Ensimmäinen lunastus luo lunastajan `MerkleClaim`-tilin. Anna `amount: 0`
+   lunastaaksesi kaiken, mikä on tällä hetkellä vestattu.
+4. `clawbackTs`-ajankohdan jälkeen valtuutettu kutsuu `CloseMerkleDistribution`-ohjetta
+   saadakseen takaisin holvin jäljellä olevan saldon ja rent-summan.
+5. Kun jakelu on suljettu, lunastajat kutsuvat `CloseMerkleClaim`-ohjetta
+   saadakseen takaisin claim-tilinsä rent-summan.
+
+Ohjelma hajauttaa lehdet Keccak-256:lla muodossa
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, jossa
+`totalAmount` on little-endian-muotoinen `u64` ja `schedule` käyttää samaa koodausta kuin
+ohjeen `VestingSchedule`-argumentti. Todistesolmut hajautetaan lajiteltuina
+pareina, pienempi hajautusarvo ensin.
+
+### Peruutus
+
+Peruutus on valinnainen. Luomisen yhteydessä asetettu `revocable`-bittimaski
+määrittää, mitä tiloja valtuutettu saa käyttää: bitti 0 ottaa käyttöön tilan
+`NonVested`, bitti 1 ottaa käyttöön tilan `Full`, ja `0` poistaa peruutuksen
+käytöstä.
+
+| Tila        | Ohje                                    | Tulos                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` tai `RevokeMerkleClaim` | Vestatut, lunastamattomat tokenit menevät käyttäjälle; vestaamattomat tokenit palautuvat valtuutetulle |
+| `Full`      | `RevokeDirectRecipient` tai `RevokeMerkleClaim` | Kaikki lunastamattomat tokenit, sekä vestatut että vestaamattomat, palautuvat valtuutetulle               |
+
+Merkle-lunastajan peruuttaminen luo `Revocation`-merkin, joka estää tulevat
+lunastukset, vaikka hän ei olisi koskaan lunastanut mitään. Direct-vastaanottajan
+peruuttaminen sulkee hänen `DirectRecipient`-tilinsä ja palauttaa sen rent-summan.
+
+## Clientit
+
+Repositoriossa on [`@solana/kit`](/docs/clients/official/javascript)- ja
+Rust-clientit, jotka on generoitu ohjelman IDL:stä Codamalla, hakemistossa
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+Clientiä ei ole vielä julkaistu npm:ään. Rakenna se lähdekoodista komennolla
+`just generate-clients`.
+
+## Resurssit
+
+- [Lähdekoodi](https://github.com/solana-foundation/rewards)
+- [OtterSecin auditointiraportti](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Ilmoita ongelmasta](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), tagi
+  `rewards-program`
