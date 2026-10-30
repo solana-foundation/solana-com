@@ -10,7 +10,6 @@ describe("shared header route matching", () => {
   const enterpriseSection = HEADER_SECTION_METADATA.find(
     ({ id }) => id === "enterprise",
   );
-  const buildSection = HEADER_SECTION_METADATA.find(({ id }) => id === "build");
   const productsSection = HEADER_SECTION_METADATA.find(
     ({ id }) => id === "products",
   );
@@ -94,18 +93,27 @@ describe("shared header route matching", () => {
     ).toBe(false);
   });
 
-  it("keeps Product tool routes active under Products instead of Build", () => {
-    expect(buildSection).toBeDefined();
+  it("lists the dropdown sections in header order, with no Build dropdown", () => {
+    // "Developers" is a plain link after Ecosystem (developers-link.tsx).
+    expect(HEADER_SECTION_METADATA.map(({ id }) => id)).toEqual([
+      "use_solana",
+      "enterprise",
+      "products",
+      "ecosystem",
+    ]);
+  });
+
+  it("keeps Product tool routes active under Products", () => {
     expect(productsSection).toBeDefined();
 
     const productToolRoutes = [
-      "/docs/tools",
-      "/docs/tools/commerce-kit",
-      "/docs/tools/kora",
-      "/docs/tools/solana-pay",
-      "/docs/payments/developer-tools",
-      "/fr/docs/payments/developer-tools",
-      "/fr/docs/tools/kora",
+      "/developers/docs/tools",
+      "/developers/docs/tools/commerce-kit",
+      "/developers/docs/tools/kora",
+      "/developers/docs/tools/solana-pay",
+      "/developers/docs/payments/developer-tools",
+      "/fr/developers/docs/payments/developer-tools",
+      "/fr/developers/docs/tools/kora",
       "/rpc",
       "/solutions/payments-tooling",
       "/solutions/token-extensions",
@@ -116,32 +124,6 @@ describe("shared header route matching", () => {
       expect(isNavSectionActive(route, productsSection?.matchRules ?? [])).toBe(
         true,
       );
-      expect(isNavSectionActive(route, buildSection?.matchRules ?? [])).toBe(
-        false,
-      );
     }
-
-    expect(isNavSectionActive("/docs", buildSection?.matchRules ?? [])).toBe(
-      true,
-    );
-    expect(
-      isNavSectionActive(
-        "/docs/intro/quick-start",
-        buildSection?.matchRules ?? [],
-      ),
-    ).toBe(true);
-    expect(isNavSectionActive("/data", buildSection?.matchRules ?? [])).toBe(
-      true,
-    );
-    expect(
-      isNavSectionActive("/changelog", buildSection?.matchRules ?? []),
-    ).toBe(true);
-  });
-
-  it("keeps the hackathons archive active under Build", () => {
-    expect(buildSection).toBeDefined();
-    expect(
-      isNavSectionActive("/hackathons", buildSection?.matchRules ?? []),
-    ).toBe(true);
   });
 });

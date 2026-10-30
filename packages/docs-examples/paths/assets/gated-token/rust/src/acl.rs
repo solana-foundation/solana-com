@@ -1,0 +1,229 @@
+// #region acl
+// src/acl.rs: Token ACL and gate program instructions, built by hand.
+//
+// The published Rust clients for both programs pin spl-token-2022-interface
+// 2.x, which predates the Permissioned Burn extension this mint carries. Each
+// instruction is a one-byte discriminator followed by an account list.
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+};
+
+use crate::{ata, token_account_state, TOKEN_2022};
+use solana_client::nonblocking::rpc_client::RpcClient;
+use spl_token_2022_interface::state::AccountState;
+
+pub const TOKEN_ACL: Pubkey = Pubkey::from_str_const("TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP");
+pub const GATE: Pubkey = Pubkey::from_str_const("GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz");
+pub const ATA_PROGRAM: Pubkey =
+    Pubkey::from_str_const("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const SYSTEM_PROGRAM: Pubkey = solana_system_interface::program::ID;
+
+pub fn pda(program: &Pubkey, seeds: &[&[u8]]) -> Pubkey {
+    Pubkey::find_program_address(seeds, program).0
+}
+
+pub fn mint_config(mint: &Pubkey) -> Pubkey {
+    pda(&TOKEN_ACL, &[b"MINT_CONFIG", mint.as_ref()])
+}
+
+// The allowlist, keyed by its authority (the key that created the mint) and
+// the mint, and one entry account per approved wallet.
+pub fn list_config(authority: &Pubkey, mint: &Pubkey) -> Pubkey {
+    pda(&GATE, &[b"list_config", authority.as_ref(), mint.as_ref()])
+}
+
+pub fn wallet_entry(list: &Pubkey, wallet: &Pubkey) -> Pubkey {
+    pda(&GATE, &[b"wallet_entry", list.as_ref(), wallet.as_ref()])
+}
+
+// Token ACL createConfig (0): takes the mint's freeze authority, which must
+// sign, and points the config at the gate program.
+pub fn create_config(payer: &Pubkey, authority: &Pubkey, mint: &Pubkey) -> Instruction {
+    Instruction {
+        program_id: TOKEN_ACL,
+        accounts: vec![
+            AccountMeta::new(*payer, true),
+            AccountMeta::new_readonly(*authority, true),
+            AccountMeta::new(*mint, false),
+            AccountMeta::new(mint_config(mint), false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+            AccountMeta::new_readonly(TOKEN_2022, false),
+        ],
+        data: [vec![0], GATE.to_bytes().to_vec()].concat(),
+    }
+}
+
+// Token ACL togglePermissionlessInstructions (8): freeze off, thaw on.
+pub fn enable_permissionless_thaw(authority: &Pubkey, mint: &Pubkey) -> Instruction {
+    Instruction {
+        program_id: TOKEN_ACL,
+        accounts: vec![
+            AccountMeta::new_readonly(*authority, true),
+            AccountMeta::new(mint_config(mint), false),
+        ],
+        data: vec![8, 0, 1],
+    }
+}
+
+// Gate createList (1): mode 0 is an allowlist; the seed is the mint.
+pub fn create_allowlist(authority: &Pubkey, mint: &Pubkey) -> Instruction {
+    Instruction {
+        program_id: GATE,
+        accounts: vec![
+            AccountMeta::new_readonly(*authority, true),
+            AccountMeta::new(*authority, true),
+            AccountMeta::new(list_config(authority, mint), false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+        ],
+        data: [vec![1, 0], mint.to_bytes().to_vec()].concat(),
+    }
+}
+
+// Gate setupExtraMetas (4): records the list as an account the gate reads on
+// every thaw.
+pub fn setup_extra_metas(authority: &Pubkey, mint: &Pubkey) -> Instruction {
+    Instruction {
+        program_id: GATE,
+        accounts: vec![
+            AccountMeta::new_readonly(*authority, true),
+            AccountMeta::new(*authority, true),
+            AccountMeta::new_readonly(mint_config(mint), false),
+            AccountMeta::new_readonly(*mint, false),
+            AccountMeta::new(
+                pda(&GATE, &[b"thaw_extra_account_metas", mint.as_ref()]),
+                false,
+            ),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+            AccountMeta::new_readonly(list_config(authority, mint), false),
+        ],
+        data: vec![4],
+    }
+}
+
+// Gate addWallet (2) and removeWallet (3).
+pub fn add_wallet(authority: &Pubkey, list: &Pubkey, wallet: &Pubkey) -> Instruction {
+    Instruction {
+        program_id: GATE,
+        accounts: vec![
+            AccountMeta::new_readonly(*authority, true),
+            AccountMeta::new(*authority, true),
+            AccountMeta::new(*list, false),
+            AccountMeta::new_readonly(*wallet, false),
+            AccountMeta::new(wallet_entry(list, wallet), false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+        ],
+        data: vec![2],
+    }
+}
+
+pub fn remove_wallet(authority: &Pubkey, list: &Pubkey, wallet: &Pubkey) -> Instruction {
+    Instruction {
+        program_id: GATE,
+        accounts: vec![
+            AccountMeta::new(*authority, true),
+            AccountMeta::new(*list, false),
+            AccountMeta::new(wallet_entry(list, wallet), false),
+        ],
+        data: vec![3],
+    }
+}
+
+// Token ACL freeze (5) and thaw (4), signed by the config authority. Token ACL
+// holds the mint's freeze authority.
+pub fn freeze(authority: &Pubkey, mint: &Pubkey, token_account: &Pubkey) -> Instruction {
+    freeze_or_thaw(5, authority, mint, token_account)
+}
+
+pub fn thaw(authority: &Pubkey, mint: &Pubkey, token_account: &Pubkey) -> Instruction {
+    freeze_or_thaw(4, authority, mint, token_account)
+}
+
+fn freeze_or_thaw(
+    discriminator: u8,
+    authority: &Pubkey,
+    mint: &Pubkey,
+    token_account: &Pubkey,
+) -> Instruction {
+    Instruction {
+        program_id: TOKEN_ACL,
+        accounts: vec![
+            AccountMeta::new_readonly(*authority, true),
+            AccountMeta::new_readonly(*mint, false),
+            AccountMeta::new(*token_account, false),
+            AccountMeta::new_readonly(mint_config(mint), false),
+            AccountMeta::new_readonly(TOKEN_2022, false),
+        ],
+        data: vec![discriminator],
+    }
+}
+
+// Token ACL thawPermissionless (6). Token ACL asks the gate program, which
+// reads three extra accounts: its extra-metas record for the mint, the
+// allowlist ($LIST), and the owner's entry on that list.
+pub fn thaw_through_gate(
+    payer: &Pubkey,
+    mint: &Pubkey,
+    token_account: &Pubkey,
+    owner: &Pubkey,
+    list: &Pubkey,
+) -> Instruction {
+    Instruction {
+        program_id: TOKEN_ACL,
+        accounts: vec![
+            AccountMeta::new(*payer, true),
+            AccountMeta::new_readonly(*mint, false),
+            AccountMeta::new(*token_account, false),
+            AccountMeta::new(
+                pda(&TOKEN_ACL, &[b"FLAG_ACCOUNT", token_account.as_ref()]),
+                false,
+            ),
+            AccountMeta::new_readonly(*owner, false),
+            AccountMeta::new_readonly(mint_config(mint), false),
+            AccountMeta::new_readonly(TOKEN_2022, false),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+            AccountMeta::new_readonly(GATE, false),
+            AccountMeta::new_readonly(
+                pda(&GATE, &[b"thaw_extra_account_metas", mint.as_ref()]),
+                false,
+            ),
+            AccountMeta::new_readonly(*list, false),
+            AccountMeta::new_readonly(wallet_entry(list, owner), false),
+        ],
+        data: vec![6],
+    }
+}
+
+// New accounts on this mint start frozen. Returns the owner's token account
+// and the instructions that create it (if missing) and thaw it (if frozen).
+pub async fn open_through_gate(
+    rpc: &RpcClient,
+    payer: &Pubkey,
+    mint: &Pubkey,
+    owner: &Pubkey,
+    list: &Pubkey,
+) -> anyhow::Result<(Pubkey, Vec<Instruction>)> {
+    let token_account = ata(mint, owner);
+    let state = token_account_state(rpc, &token_account).await?;
+    let mut instructions = Vec::new();
+    if state.is_none() {
+        // Associated Token Account program, create idempotent (1).
+        instructions.push(Instruction {
+            program_id: ATA_PROGRAM,
+            accounts: vec![
+                AccountMeta::new(*payer, true),
+                AccountMeta::new(token_account, false),
+                AccountMeta::new_readonly(*owner, false),
+                AccountMeta::new_readonly(*mint, false),
+                AccountMeta::new_readonly(SYSTEM_PROGRAM, false),
+                AccountMeta::new_readonly(TOKEN_2022, false),
+            ],
+            data: vec![1],
+        });
+    }
+    if state.is_none() || state == Some(AccountState::Frozen) {
+        instructions.push(thaw_through_gate(payer, mint, &token_account, owner, list));
+    }
+    Ok((token_account, instructions))
+}
+// #endregion acl

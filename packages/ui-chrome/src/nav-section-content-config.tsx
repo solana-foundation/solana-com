@@ -1,8 +1,4 @@
-import NewspaperIcon from "./assets/nav/build/newspaper.inline.svg";
 import ApiConnectionBuildIcon from "./assets/nav/build/api-connection.inline.svg";
-import TemplatesIcon from "./assets/nav/build/templates.inline.svg";
-import EthereumIcon from "./assets/nav/build/ethereum.inline.svg";
-import SchoolIcon from "./assets/nav/build/school.inline.svg";
 import HandIcon from "./assets/nav/build/hand.inline.svg";
 import MaintenanceIcon from "./assets/nav/build/maintenance.inline.svg";
 import BankIcon from "./assets/nav/solutions/bank.inline.svg";
@@ -112,119 +108,6 @@ export const useSolanaSafetyItems: NavItemDefinition[] = [
     titleKey: "nav.useSolana.safety.items.consumer.title",
     href: "/solutions/consumer",
     icon: StoreIcon,
-  },
-];
-
-export const buildStartItems: NavItemDefinition[] = [
-  {
-    id: "build-docs",
-    titleKey: "nav.build.start.items.docs.title",
-    descriptionKey: "nav.build.start.items.docs.description",
-    href: "/docs",
-    icon: NewspaperIcon,
-    variant: "large",
-  },
-  {
-    id: "build-quickstart",
-    titleKey: "nav.build.start.items.quickstart.title",
-    descriptionKey: "nav.build.start.items.quickstart.description",
-    href: "/docs/intro/quick-start",
-    icon: HandIcon,
-    variant: "large",
-  },
-  {
-    id: "build-installation",
-    titleKey: "nav.build.start.items.installation.title",
-    descriptionKey: "nav.build.start.items.installation.description",
-    href: "/docs/intro/installation",
-    icon: MaintenanceIcon,
-    variant: "large",
-  },
-  {
-    id: "build-hub",
-    titleKey: "nav.build.start.items.hub.title",
-    descriptionKey: "nav.build.start.items.hub.description",
-    href: "/developers",
-    icon: SchoolIcon,
-    variant: "large",
-  },
-];
-
-export const buildResourceItems: NavItemDefinition[] = [
-  {
-    id: "build-cookbook",
-    titleKey: "nav.build.resources.items.cookbook.title",
-    href: "/developers/cookbook",
-    icon: NewspaperIcon,
-  },
-  {
-    id: "build-chain-migration",
-    titleKey: "nav.developers.tutorials.chain-migration",
-    href: "/developers/migrate-to-solana",
-    icon: EthereumIcon,
-  },
-  {
-    id: "build-templates",
-    titleKey: "nav.build.resources.items.templates.title",
-    href: "/developers/templates",
-    icon: TemplatesIcon,
-  },
-  {
-    id: "build-data",
-    titleKey: "nav.build.resources.items.data.title",
-    href: "/data",
-    icon: PulseIcon,
-  },
-  {
-    id: "build-rpc-docs",
-    titleKey: "nav.build.resources.items.rpcDocs.title",
-    href: "/docs/rpc",
-    icon: ApiConnectionBuildIcon,
-  },
-  {
-    id: "build-rpc-providers",
-    titleKey: "nav.build.resources.items.rpcProviders.title",
-    href: "/rpc",
-    icon: ApiConnectionNetworkIcon,
-  },
-  {
-    id: "build-finance-docs",
-    titleKey: "nav.build.resources.items.financeDocs.title",
-    href: "/docs/finance",
-    icon: MoneyIcon,
-  },
-];
-
-export const buildUseCaseItems: NavItemDefinition[] = [
-  {
-    id: "build-payments",
-    titleKey: "nav.build.useCases.items.payments.title",
-    href: "/developers/payments",
-    icon: MoneyIcon,
-  },
-  {
-    id: "build-defi",
-    titleKey: "nav.build.useCases.items.defi.title",
-    href: "/developers/defi",
-    icon: TradingViewIcon,
-  },
-  {
-    id: "build-gaming",
-    titleKey: "nav.build.useCases.items.gaming.title",
-    href: "/developers/gaming",
-    icon: GlobusIcon,
-  },
-  {
-    id: "build-token-extensions",
-    titleKey: "nav.build.useCases.items.tokenExtensions.title",
-    href: "/solutions/token-extensions",
-    icon: CoinsAddIcon,
-  },
-  {
-    id: "build-ai",
-    titleKey: "nav.build.useCases.items.ai.title",
-    href: "/solutions/ai",
-    icon: RootingIcon,
   },
 ];
 
@@ -392,31 +275,31 @@ export const productToolItems: NavItemDefinition[] = [
   {
     id: "products-developer-tools",
     titleKey: "nav.products.tools.items.developerTools.title",
-    href: "/docs/tools",
+    href: "/developers/docs/tools",
     icon: MaintenanceIcon,
   },
   {
     id: "products-payment-developer-tools",
     titleKey: "nav.products.tools.items.paymentDeveloperTools.title",
-    href: "/docs/payments/developer-tools",
+    href: "/developers/docs/payments/developer-tools",
     icon: MoneyIcon,
   },
   {
     id: "products-commerce-kit",
     titleKey: "nav.products.tools.items.commerceKit.title",
-    href: "/docs/tools/commerce-kit",
+    href: "/developers/docs/tools/commerce-kit",
     icon: StoreIcon,
   },
   {
     id: "products-kora",
     titleKey: "nav.products.tools.items.kora.title",
-    href: "/docs/tools/kora",
+    href: "/developers/docs/tools/kora",
     icon: ApiConnectionBuildIcon,
   },
   {
     id: "products-solana-pay",
     titleKey: "nav.products.tools.items.solanaPay.title",
-    href: "/docs/tools/solana-pay",
+    href: "/developers/docs/tools/solana-pay",
     icon: MoneyIcon,
   },
   {

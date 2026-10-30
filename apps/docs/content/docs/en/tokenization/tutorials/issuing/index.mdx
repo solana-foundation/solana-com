@@ -1,0 +1,207 @@
+---
+title: Issue a gated token
+sidebarTitle: "Overview"
+description:
+  Build a Token-2022 mint whose accounts start frozen, gate who can hold it
+  with an onchain allowlist, and run the controls an issuer operates day to
+  day.
+type: tutorial
+prerequisites:
+  - /developers/docs/tokenization/design/choosing-controls
+related:
+  - /developers/docs/tokenization/tutorials/issuing/create-the-mint
+  - /developers/docs/tokens/extensions
+  - /developers/cookbook/tokens/create-mint-with-extensions
+"og:title": Issue a Gated Token-2022 Mint on Solana
+"twitter:title": Issue a Gated Token-2022 Mint on Solana
+---
+
+import Common from "/snippets/examples/paths/assets/gated-token/common.mdx";
+import Gate from "/snippets/examples/paths/assets/gated-token/gate.mdx";
+
+This tutorial builds one token in three steps. It ends with a Token-2022 mint
+whose accounts start frozen, whose holders are gated by an onchain allowlist,
+and whose pause, forced-transfer, burn, and metadata powers sit on separate
+keys. The design decisions behind that mint are set out in
+[choosing token controls](/developers/docs/tokenization/design/choosing-controls).
+
+<Columns cols={2}>
+  <Card title="1. Create the mint" href="/developers/docs/tokenization/tutorials/issuing/create-the-mint">
+    A mint with metadata, pause, a permanent delegate, permissioned burn, an
+    onchain allowlist, and frozen-by-default accounts, with the operational
+    authorities on different keys.
+  </Card>
+  <Card title="2. Gate the holders" href="/developers/docs/tokenization/tutorials/issuing/gate-the-holders">
+    Put an address on the allowlist, watch its account thaw, and confirm that
+    an address which is not on the list cannot hold the token.
+  </Card>
+  <Card title="3. Operate the token" href="/developers/docs/tokenization/tutorials/issuing/operate-the-token">
+    Freeze one account, pause the token, force a transfer, burn with and
+    without the holder, and offboard a wallet.
+  </Card>
+</Columns>
+
+Each step is a short script that reads key files from `~/.config/solana` and
+the mint's addresses from environment variables, so you run them one after
+another from a terminal. Every code block on these pages is tested. Most steps
+are shown in all four implementations; where a step is shown only for some of
+them, the page says so. The output under it is what that script printed on a local
+test network ([Surfpool](/developers/docs/tools/surfpool)).
+
+## Before you start
+
+You need the [Solana CLI](/developers/docs/quickstart) for key files
+and airdrops, and Node.js 20.18 or later for the TypeScript implementations or
+a Rust toolchain for the Rust one.
+
+### 1. Create the project
+
+<Tabs>
+  <Tab title="Mosaic SDK">
+    The scripts use top-level `await`, so the project must be an ES module
+    project. The Mosaic SDK and the Token ACL clients it uses declare
+    `@solana/kit` 6 and older Token-2022 clients; the `overrides` keep the
+    project on one copy of Kit 8 and its `@solana/sysvars`, and give the Token
+    ACL client the Token-2022 client built for Kit 8.
+
+    ```bash Terminal
+    mkdir gated-token && cd gated-token
+    npm init -y && npm pkg set type=module
+    npm pkg set 'overrides[@solana/kit]=$@solana/kit' \
+      'overrides[@solana/sysvars]=$@solana/kit' \
+      'overrides[@solana/token-acl-sdk][@solana-program/token-2022]=^0.19.0'
+    npm install @solana/kit@8 @solana/mosaic-sdk@0.2.0
+    npm install --save-dev tsx
+    ```
+  </Tab>
+  <Tab title="Kit">
+    The scripts use top-level `await`, so the project must be an ES module
+    project. The Token ACL clients declare `@solana/kit` 6 and an older
+    `@solana-program/token-2022`; the `overrides` keep the project on one copy
+    of each.
+
+    ```bash Terminal
+    mkdir gated-token && cd gated-token
+    npm init -y && npm pkg set type=module
+    npm pkg set 'overrides[@solana/kit]=$@solana/kit' \
+      'overrides[@solana/token-acl-sdk][@solana-program/token-2022]=$@solana-program/token-2022'
+    npm install @solana/kit@8 @solana-program/system@0.15 \
+      @solana-program/token-2022@0.19 @solana/token-acl-sdk @solana/token-acl-gate-sdk
+    npm install --save-dev tsx
+    ```
+  </Tab>
+  <Tab title="Web3.js v3">
+    The scripts use top-level `await`, so the project must be an ES module
+    project. The Token ACL clients declare `@solana/kit` 6 and an older
+    `@solana-program/token-2022`; the `overrides` keep the project on the copy
+    of Kit that web3.js v3 uses, and on one copy of the Token-2022 client.
+
+    ```bash Terminal
+    mkdir gated-token && cd gated-token
+    npm init -y && npm pkg set type=module
+    npm pkg set 'overrides[@solana/kit]=$@solana/kit' \
+      'overrides[@solana/token-acl-sdk][@solana-program/token-2022]=$@solana-program/token-2022'
+    npm install @solana/web3.js @solana/kit@8 @solana-program/system@0.15 \
+      @solana-program/token-2022@0.19 @solana/token-acl-sdk @solana/token-acl-gate-sdk
+    npm install --save-dev tsx
+    ```
+  </Tab>
+  <Tab title="Rust">
+    The published Rust clients for Token ACL and its gate program pin
+    `spl-token-2022-interface` 2.x, which predates the Permissioned Burn
+    extension this mint uses, so the crate builds those instructions itself
+    (`src/acl.rs`, below).
+
+    ```bash Terminal
+    cargo new --lib gated-token && cd gated-token && mkdir src/bin
+    cargo add anyhow tokio --features tokio/full
+    cargo add solana-client@=4.2.2 solana-sdk@4 solana-commitment-config@3 \
+      solana-system-interface@3 solana-account-decoder-client-types@4 \
+      spl-token-2022-interface@3 spl-token-metadata-interface@1
+    ```
+
+    Each step is a binary in `src/bin`, run with
+    `cargo run --release --bin <step> -- <arguments>`.
+  </Tab>
+</Tabs>
+
+<Warning>
+The Mosaic SDK and the Token ACL clients are pre-1.0, and a minor release can
+change their APIs. These tutorials are tested against `@solana/mosaic-sdk`
+0.2.0, `@solana/token-acl-sdk` 0.4.0, and `@solana/token-acl-gate-sdk` 0.3.1.
+Keep those versions pinned in anything that depends on them, and check the
+[Mosaic](https://github.com/solana-foundation/mosaic) and
+[Token ACL](https://github.com/solana-foundation/token-acl) repositories
+before you upgrade.
+</Warning>
+
+### 2. Generate the issuer's keys
+
+The fee payer, `tokenization-demo.json`, creates the mint and holds the mint
+authority. Create the four operational keys now as well; the next page explains
+what each one controls.
+
+```bash Terminal
+solana-keygen new --no-bip39-passphrase --silent \
+  --outfile ~/.config/solana/tokenization-demo.json
+mkdir -p ~/.config/solana/demo-authorities
+for role in metadata pause delegate burn; do
+  solana-keygen new --no-bip39-passphrase --silent \
+    --outfile ~/.config/solana/demo-authorities/$role.json
+done
+```
+
+### 3. Pick a network
+
+The scripts read the network from two environment variables and use devnet
+when they are unset.
+
+- **Local:** install the
+  [Surfpool CLI](/developers/docs/tools/surfpool/toolchain/getting-started)
+  (1.6 or later) and run `surfpool start`. In the terminal you run the scripts
+  from, set the two variables:
+
+  ```bash Terminal
+  export RPC_URL=http://127.0.0.1:8899 RPC_SUBSCRIPTIONS_URL=ws://127.0.0.1:8900
+  ```
+
+- **Devnet:** leave both unset.
+
+Then fund the fee payer. `${RPC_URL:-devnet}` points the Solana CLI at the same
+network as the scripts. If the devnet airdrop is rate-limited, use the
+[Solana Faucet](https://faucet.solana.com/) instead.
+
+```bash Terminal
+solana airdrop 2 $(solana-keygen pubkey ~/.config/solana/tokenization-demo.json) \
+  --url ${RPC_URL:-devnet}
+```
+
+### 4. Add the shared helpers
+
+Save this as `common.ts` (in Rust, `src/lib.rs`). Every script imports it: it
+creates the connection, loads key files, reads `$MINT` and `$LIST`, and sends
+transactions. When a transaction is rejected, it prints the failing program's
+error and exits with a non-zero code.
+
+<Common />
+
+The Kit, Web3.js v3, and Rust implementations build the Token ACL
+instructions themselves, so they need one more file: save this as `gate.ts`
+(in Rust, `src/acl.rs`). New accounts on the mint start frozen, and
+`openThroughGate` (`open_through_gate` in Rust) returns the instructions that
+create a holder's account and thaw it through the gate. The thaw is permissionless: anyone can send it, and
+the gate program approves it only for a wallet on the allowlist. The Mosaic SDK
+does the same inside its transaction builders.
+
+<Gate />
+
+<Note>
+Mosaic also publishes a CLI, `@solana/mosaic-cli`. Its write commands do not
+send transactions in version 0.2.0 (October 2026), so these tutorials use the
+SDK.
+</Note>
+
+## Next steps
+
+- [Create the mint](/developers/docs/tokenization/tutorials/issuing/create-the-mint):
+  a Token-2022 mint with its operational authorities on separate keys

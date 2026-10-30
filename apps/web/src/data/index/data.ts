@@ -96,7 +96,7 @@ export const LINKS = [
     Icon: CheckShield,
   },
   {
-    href: "/docs/intro/quick-start",
+    href: "/developers/docs/quickstart",
     Icon: Window,
   },
   {
@@ -119,7 +119,7 @@ export const GET_STARTED_LINKS = {
   ],
   developer: [
     { href: "/developers" },
-    { href: "/docs/intro/quick-start" },
+    { href: "/developers/docs/quickstart" },
     { href: "/solutions/real-world-assets" },
     { href: "/events" },
   ],

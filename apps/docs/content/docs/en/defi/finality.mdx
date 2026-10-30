@@ -1,0 +1,188 @@
+---
+title: Settlement and finality
+sidebarTitle: "Settlement and finality"
+description:
+  What processed, confirmed, and finalized mean on Solana, how long each
+  takes, and which commitment level a system of record should treat as
+  settled.
+type: reference
+related:
+  - /developers/docs/tokenization/design
+  - /developers/docs/defi/cash-leg
+  - /developers/docs/tools/production-readiness
+  - /developers/docs/references/terminology
+  - /developers/docs/core/transactions
+"og:title": Solana Settlement Finality and Commitment Levels
+"twitter:title": Solana Settlement Finality and Commitment Levels
+---
+
+<Info>
+Solana exposes three commitment levels. A block is final once validators
+certify it with a finalization certificate, roughly 150 milliseconds after it
+is produced on mainnet. `confirmed` and `finalized` report the same block, so a
+system of record can mark a transfer settled at `finalized` without waiting
+longer than an interface does.
+[Transaction confirmation](/developers/docs/core/transactions/confirmation)
+covers how to wait for a commitment level in client code.
+</Info>
+
+## Payment, settlement, and finality
+
+- **Payment execution** moves value from one party to another; see
+  [Payments](/developers/docs/payments).
+- **Settlement** discharges both sides of an obligation, so the asset and the
+  cash both end up where they belong; see
+  [choosing the cash leg](/developers/docs/defi/cash-leg).
+- **Finality** is the point at which the ledger will not reverse the transfer,
+  which is a different question from whether your records call it settled.
+
+## The three commitment levels
+
+| Level       | Means                                                         | Reached after            | Can it be reversed?                                      |
+| ----------- | ------------------------------------------------------------- | ------------------------ | -------------------------------------------------------- |
+| `processed` | The transaction is in a block this RPC node has processed     | About 1 slot             | Yes; the block can still be skipped                      |
+| `confirmed` | The same as `finalized`                                       | Roughly 150 milliseconds | No, on the same terms as `finalized`                     |
+| `finalized` | The block has a finalization certificate from validator votes | Roughly 150 milliseconds | Only if more than 20% of stake acts against the protocol |
+
+`confirmed` remains available so existing code keeps working, and is planned
+for removal in a later release. Point new code at `finalized`.
+
+## How a block becomes final
+
+Solana's consensus protocol is
+[Alpenglow (SIMD-0326)](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0326-alpenglow.md).
+Validators send votes directly to each other rather than as transactions, and
+the votes for a block are aggregated into a certificate. A block is finalized
+in one of two ways, and both run at the same time:
+
+- **Fast finalization**: validators holding at least 80% of stake vote for the
+  block in one round.
+- **Finalization**: validators holding at least 60% of stake vote for the
+  block in each of two rounds.
+
+Whichever certificate arrives first finalizes the block. Finality does not
+depend on later blocks being built on top, and on mainnet it takes roughly 150
+milliseconds, less than one slot. A block that collects neither certificate is
+skipped, which is why a `processed` result can still disappear.
+
+On 21 October 2026 (epoch 1064), Alpenglow replaced TowerBFT on mainnet;
+before then a block took about 32 slots to finalize.
+
+### Express these in time and slots
+
+**Record the slot, the commitment level, and the time you observed it.** The
+target slot time on mainnet is 200ms
+([SIMD-0525](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0525-reduce-slot-times.md)),
+and observed slots run slightly longer because the network does not hit the
+target exactly. [solana.com/200ms](https://solana.com/200ms) shows the live
+slot time on mainnet. In client code, read the slot time from the cluster (for
+example with `getRecentPerformanceSamples`), not from an SDK constant such as
+`DEFAULT_MS_PER_SLOT`, which can differ from the cluster's current value.
+Finality is measured in milliseconds rather than in a count of slots, so
+derive a finality time from when `finalized` was observed, not from a slot
+count.
+
+## Which level to use
+
+| Use                                               | Level       | Basis                                                              |
+| ------------------------------------------------- | ----------- | ------------------------------------------------------------------ |
+| A system of record, releasing an asset            | `finalized` | Reversal needs more than 20% of stake acting against the protocol  |
+| User-facing feedback                              | `finalized` | Reached as soon as `confirmed`, so there is no reason to show less |
+| Interface feedback where a reversal is acceptable | `processed` | One node's view; the block can still be skipped                    |
+
+A block that is not finalized can be skipped in normal operation: the
+transaction did not fail, the network did not certify that block. Crediting a
+balance at `processed`, as opposed to displaying it, can book a credit with no
+onchain counterpart. Record a dropped transaction as dropped rather than
+deleting it, so the history explains why an entry no longer appears.
+
+### Finality and the register of record
+
+Where the mint is the register of record, a finalized transfer updates that
+record and no separate book has to be updated. Whether the entitlement has
+moved as a matter of law is the legal-finality question below.
+
+Where the token records an asset held elsewhere, a finalized transfer settles
+the onchain leg only. The offchain register is updated in a separate step, so
+there is an interval in which the token and the register disagree, and the
+second update can fail independently of the first. This holds even where the
+trade settled atomically against cash: the two token legs move together, and
+the register update sits outside that transaction. See
+[token design](/developers/docs/tokenization/design) for the distinction and
+[choosing the cash leg](/developers/docs/defi/cash-leg) for what the atomic
+transaction does and does not complete.
+
+### Blockhash commitment and the validity window
+
+A transaction is valid only while the blockhash it references is recent: the
+blockhash is valid for 150 blocks (about 150 slots when none are skipped, or
+about 30 seconds at 200ms slots), and the runtime rejects anything older. The
+finalized block trails the tip by about a slot, so fetching the blockhash at
+`finalized` leaves the transaction nearly the full window. Use `finalized`
+both to fetch the blockhash and to decide whether the result counts.
+
+## Protocol finality is not legal finality
+
+**Protocol finality** is the property described above: the conditions under
+which the network will not reorganize a block. It is defined by the protocol
+and publicly observable.
+
+**Legal finality** is whether a transfer is irrevocable, and reversible only in
+defined exceptions, under the law of a particular jurisdiction, typically in
+insolvency. It depends on the venue, the governing law, the legal
+characterization of the token, and in some jurisdictions on whether the system
+is designated under a settlement finality regime.
+
+Regimes may treat settlement finality differently.
+
+## Ordering
+
+Order events by **slot**, not by block time. Block time is a validator-reported
+estimate and is not monotonic across the cluster. Slot numbers are the ledger's
+own sequence and are unambiguous.
+
+Where two instructions in the same transaction both affect your books, key
+your records on the transaction signature together with the instruction index.
+A signature alone is not a unique key for a ledger entry.
+
+## For a regulatory submission
+
+The statements below cover Solana's settlement properties. Each can be checked
+independently:
+
+1. Three commitment levels exist, with the meanings above; `confirmed` and
+   `finalized` report the same block.
+2. A block is final once it has a finalization certificate: votes from at
+   least 80% of stake in one round, or from at least 60% of stake in each of
+   two rounds. On mainnet this takes roughly 150 milliseconds. Slot time is a
+   protocol parameter (a 200ms target on mainnet); state the slot time assumed
+   alongside any figure derived from slots.
+3. Finality rests on assumptions about the distribution of stake: the protocol
+   stays safe while less than 20% of stake is malicious, and keeps making
+   progress with up to a further 20% of stake offline.
+4. Legal finality is a separate question determined by jurisdiction, and the
+   protocol makes no claim about it.
+5. Finality depends on the consensus protocol active at the relevant slots.
+   On mainnet the Alpenglow genesis block is slot 459,652,999 (epoch 1064, 21
+   October 2026): later blocks are finalized by Alpenglow, and blocks up to
+   and including it were finalized under TowerBFT.
+   [`getAgGenesisCert`](/developers/docs/rpc/http/getaggenesiscert) returns
+   that slot.
+
+For network liveness history, validator counts, and concentration measures,
+take current values from [status.solana.com](https://status.solana.com),
+[validators.app](https://www.validators.app), and
+[solana.com/data](https://solana.com/data) rather than from documentation.
+
+## Related
+
+- [Settle the trade](/developers/docs/defi/dvp-program/settle-the-trade): which
+  commitment level to treat a DvP settlement as final
+- [Choosing the cash leg](/developers/docs/defi/cash-leg): which instrument
+  settles against the asset
+- [Production readiness](/developers/docs/tools/production-readiness): commitment
+  levels, retries, and the pre-launch checklist for a mainnet integration
+- [Terminology](/developers/docs/references/terminology): the canonical
+  definitions
+- [Transactions](/developers/docs/core/transactions): how blockhashes and
+  validity windows work

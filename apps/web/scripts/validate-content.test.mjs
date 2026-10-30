@@ -84,32 +84,18 @@ test("rejects impossible local destinations and accepts known cross-app content"
     validateUrl("/developers/cookbook/does-not-exist", "card.url").join("\n"),
     /no local destination/,
   );
+  // The bootcamp was removed; its URLs redirect or rewrite to the docs app.
   assert.deepEqual(validateUrl("/developers/bootcamp/", "card.url"), []);
-  assert.deepEqual(
-    validateUrl("/developers/bootcamp/foundations", "card.url"),
-    [],
-  );
-  assert.deepEqual(
-    validateUrl("/developers/bootcamp/foundations/", "card.url"),
-    [],
-  );
   assert.deepEqual(
     validateUrl("/developers/bootcamp/foundations/bootcamp-intro", "card.url"),
     [],
   );
   assert.deepEqual(
-    validateUrl("/developers/bootcamp/foundations/bootcamp-intro/", "card.url"),
+    validateUrl("/developers/docs/core/accounts", "card.url"),
     [],
   );
   assert.match(
-    validateUrl("/developers/bootcamp/does-not-exist", "card.url").join("\n"),
-    /no local destination/,
-  );
-  assert.match(
-    validateUrl(
-      "/developers/bootcamp/foundations/does-not-exist",
-      "card.url",
-    ).join("\n"),
+    validateUrl("/developers/docs/does-not-exist", "card.url").join("\n"),
     /no local destination/,
   );
   // Rewrite patterns such as /developers/templates/:path* resolve, but a

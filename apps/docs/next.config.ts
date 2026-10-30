@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { PHASE_PRODUCTION_BUILD } from "next/constants";
+import { readdirSync } from "node:fs";
+import path from "node:path";
+import { docsRedirects } from "./redirects";
+import { docsPagePaths } from "./src/lib/docs/page-paths";
 
 const securityHeaders: Array<{ key: string; value: string }> = [
   {
@@ -31,6 +36,10 @@ if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
 }
 
 const prefix = "/docs-assets";
+const translatedMdx = [
+  "./content/docs/!(en)/**/*.mdx",
+  "./content/snippets/**",
+];
 const isVercelBuild = process.env.VERCEL === "1";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -50,6 +59,10 @@ const nextConfig: NextConfig = {
       config.cache = false;
       config.parallelism = 4;
     }
+
+    // Translations compile on request with fumadocs-mdx's runtime compiler
+    // (source.config.ts); its optional Satteri compiler is not used.
+    config.resolve.alias["@fumadocs/satteri"] = false;
 
     config.module.rules.push({
       test: /\.inline\.svg$/,
@@ -77,6 +90,14 @@ const nextConfig: NextConfig = {
     config.module.rules.push({
       test: /(?<!inline)\.svg$/,
       type: "asset",
+    });
+
+    // fumadocs-core's TOC module imports React's `useEffectEvent`, which
+    // Next 15's React lacks. Only `useTOCListener` calls it, and the docs
+    // never do, so a missing export there is not an error.
+    config.module.rules.push({
+      test: /fumadocs-core[\\/]dist[\\/]toc\.js$/,
+      parser: { exportsPresence: false },
     });
 
     return config;
@@ -161,40 +182,7 @@ const nextConfig: NextConfig = {
   },
 
   async redirects() {
-    // The web app forwards raw-markdown requests with `.md` intact (see
-    // `withMdVariants` in apps/web/rewrites-redirects.ts), so every moved route
-    // needs a `.md` twin here or those URLs 404 instead of redirecting.
-    const movedRoutes = [
-      {
-        source: "/docs/payments/accept-payments/payment-button",
-        destination: "/docs/tools/commerce-kit/quickstart/payment-button",
-      },
-      {
-        source: "/docs/payments/accept-payments/pay-sh",
-        destination: "/docs/payments/pay-sh",
-      },
-      {
-        source: "/docs/payments/subscriptions/pay-sh",
-        destination: "/docs/payments/pay-sh",
-      },
-      {
-        source: "/docs/payments/production-readiness",
-        destination: "/docs/tools/production-readiness",
-      },
-    ];
-
-    return movedRoutes.flatMap(({ source, destination }) =>
-      [
-        [source, destination],
-        [`${source}.md`, `${destination}.md`],
-        [`/:locale${source}`, `/:locale${destination}`],
-        [`/:locale${source}.md`, `/:locale${destination}.md`],
-      ].map(([source, destination]) => ({
-        source,
-        destination,
-        permanent: true,
-      })),
-    );
+    return docsRedirects();
   },
 
   async rewrites() {
@@ -209,6 +197,9 @@ const nextConfig: NextConfig = {
   },
 
   experimental: {
+    // app/global-not-found.tsx answers URLs no route matches, including the
+    // missing docs pages the middleware sends there.
+    globalNotFound: true,
     // Keep Vercel page-data workers within the build container's memory budget.
     cpus: isVercelBuild ? 2 : undefined,
     scrollRestoration: true,
@@ -224,29 +215,16 @@ const nextConfig: NextConfig = {
     webpackMemoryOptimizations: true,
   },
 
-  // Cookbook MDX uses async compile (lazy at request time), and both the
-  // remark-include-code plugin and remark-example-output read from
-  // packages/docs-examples on disk. Tell Next/Vercel to bundle those source
-  // files into the cookbook function's filesystem so the reads succeed in
-  // production. Every extension an MDX fence can point at has to be listed:
-  // a missing snippet throws IncludeError, and a missing .output.txt silently
-  // leaves the Run console with nothing to print.
+  // The social images read their backgrounds, logo and fonts from disk.
+  // Translated pages (and their Markdown twins) compile from the MDX and
+  // snippets on disk on first request (source.config.ts).
   outputFileTracingIncludes: {
-    "/[locale]/developers/cookbook/**/*": [
-      "../../packages/docs-examples/cookbook/**/*.ts",
-      "../../packages/docs-examples/cookbook/**/*.rs",
-      "../../packages/docs-examples/cookbook/**/*.py",
-      "../../packages/docs-examples/cookbook/**/*.go",
-      "../../packages/docs-examples/cookbook/**/*.output.txt",
-      "../../packages/docs-examples/cookbook/**/Cargo.toml",
-    ],
-    "/[locale]/developers/cookbook/[...slug]": [
-      "../../packages/docs-examples/cookbook/**/*.ts",
-      "../../packages/docs-examples/cookbook/**/*.rs",
-      "../../packages/docs-examples/cookbook/**/*.py",
-      "../../packages/docs-examples/cookbook/**/*.go",
-      "../../packages/docs-examples/cookbook/**/*.output.txt",
-      "../../packages/docs-examples/cookbook/**/Cargo.toml",
+    "/[locale]/developers/docs/[[...slug]]": translatedMdx,
+    "/api/markdown/[...slug]": translatedMdx,
+    "/opengraph/developers/[[...slug]]": [
+      "./public/img/og-backgrounds/**",
+      "./public/img/logomark-color.svg",
+      "./src/fonts/diatype/ABCDiatype-{Medium,Bold}.woff",
     ],
   },
 
@@ -266,14 +244,32 @@ const nextConfig: NextConfig = {
   },
 };
 
-const moduleExports = (): NextConfig => {
+/**
+ * Builds list every docs page's public path for the middleware, which
+ * answers a missing page with a 404 before rendering (src/lib/docs/
+ * page-paths.ts). `next dev` leaves it out, so new pages work without a
+ * restart.
+ */
+function pagePathsEnv(phase: string): Record<string, string> {
+  if (phase !== PHASE_PRODUCTION_BUILD) return {};
+  const files = readdirSync(path.join(process.cwd(), "content"), {
+    recursive: true,
+  }) as string[];
+  return { DOCS_PAGE_PATHS: JSON.stringify(docsPagePaths(files)) };
+}
+
+const moduleExports = (phase: string): NextConfig => {
   const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
   const plugins = [
     createMDX(),
     withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" }),
     withNextIntl,
   ];
-  return plugins.reduce<NextConfig>((acc, next) => next(acc), nextConfig);
+  const config: NextConfig = {
+    ...nextConfig,
+    env: { ...nextConfig.env, ...pagePathsEnv(phase) },
+  };
+  return plugins.reduce<NextConfig>((acc, next) => next(acc), config);
 };
 
 export default withSentryConfig(moduleExports, {
