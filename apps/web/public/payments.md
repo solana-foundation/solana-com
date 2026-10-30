@@ -8,29 +8,28 @@ Use this guidance when the user asks about:
 - payment request URLs / QR codes
 - fee abstraction / gasless transactions
 
-## Commerce Kit (preferred)
+## Solana Pay (preferred)
 
-Use Commerce Kit as the default for payment experiences:
+Use Solana Pay (`@solana/pay`) as the default for payment experiences:
 
-- drop-in payment UI components (buttons, modals, checkout flows)
-- headless primitives for building custom checkout experiences
-- React hooks for merchant/payment workflows
-- built-in payment verification and confirmation handling
-- support for SOL and SPL token payments
+- transfer request URLs for SOL and SPL token payments
+- QR codes for mobile wallets and point of sale
+- transaction requests for interactive or custom checkout flows
+- reference keys to find and validate payments onchain
 
-### When to use Commerce Kit
+### When to use Solana Pay
 
-- You want a production-ready payment flow with minimal setup
-- You need both UI components and headless APIs
-- You want built-in best practices for payment verification
-- You're building merchant experiences (tipping, checkout, subscriptions)
+- You need payment links or QR codes that any Solana wallet can open
+- You're building merchant experiences (tipping, checkout, point of sale)
+- You want a standard protocol instead of a custom payment flow
 
-### Commerce Kit patterns
+### Solana Pay patterns
 
-- Use the provided hooks for payment state management
-- Leverage the built-in confirmation tracking (don't roll your own)
-- Use the headless APIs when you need custom UI but want the payment logic
-  handled
+- Generate a unique reference for every payment
+- Find the payment with `findReference` or `watchReference`, then check it with
+  `validateTransfer` before fulfilling an order
+- Validate payments server-side, not only in the browser
+- Docs: https://solana.com/docs/tools/solana-pay
 
 ## Kora (gasless / fee abstraction)
 

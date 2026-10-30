@@ -15,7 +15,6 @@ import { Link as LinkIcon } from "@boxicons/react/Link";
 import { MessageCircle } from "@boxicons/react/MessageCircle";
 import { MessageCircleQuestionMark } from "@boxicons/react/MessageCircleQuestionMark";
 import { Microscope } from "@boxicons/react/Microscope";
-import { Package } from "@boxicons/react/Package";
 import { PlayCircle } from "@boxicons/react/PlayCircle";
 import { Podcast } from "@boxicons/react/Podcast";
 import { Rocket } from "@boxicons/react/Rocket";
@@ -169,13 +168,6 @@ const products: HubLink[] = [
     descriptionKey: "products.items.surfpool.description",
     href: "/docs/tools/surfpool",
     icon: Spanner,
-  },
-  {
-    id: "commerceKit",
-    titleKey: "products.items.commerceKit.title",
-    descriptionKey: "products.items.commerceKit.description",
-    href: "/docs/tools/commerce-kit",
-    icon: Package,
   },
   {
     id: "solanaPay",

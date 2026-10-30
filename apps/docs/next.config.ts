@@ -167,7 +167,11 @@ const nextConfig: NextConfig = {
     const movedRoutes = [
       {
         source: "/docs/payments/accept-payments/payment-button",
-        destination: "/docs/tools/commerce-kit/quickstart/payment-button",
+        destination: "/docs/tools/solana-pay",
+      },
+      {
+        source: "/docs/payments/accept-payments/solana-pay",
+        destination: "/docs/tools/solana-pay",
       },
       {
         source: "/docs/payments/accept-payments/pay-sh",
