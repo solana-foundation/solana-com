@@ -46,7 +46,7 @@ export const STATS = [
     value: { statType: "static", staticValue: "23,000" },
   },
   {
-    stat: "$0.00025",
-    value: { statType: "static", staticValue: "$0.00025" },
+    stat: "<$0.01",
+    value: { statType: "static", staticValue: "<$0.01" },
   },
 ];

@@ -2,10 +2,15 @@ import React from "react";
 import Image from "next/image";
 import { cn } from "@/app/components/utils";
 import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
+import {
+  MetricSourceNote,
+  type MetricSourceNoteProps,
+} from "@/component-library/metric-source-note";
 
 export type StatsGridItem = {
   value: React.ReactNode;
   label: string;
+  source?: Omit<MetricSourceNoteProps, "className">;
   Icon?:
     | string
     | React.ElementType<{
@@ -77,12 +82,20 @@ export const StatsGrid: React.FC<StatsGridProps> = ({
             </div>
           ) : null}
           <div>
-            <div className="text-[20px] xl:text-[40px] leading-none font-light uppercase">
+            <div
+              className={cn(
+                "text-[20px] xl:text-[40px] leading-none font-light",
+                // Registry values arrive locale-formatted (e.g. "200ms",
+                // "15 Mrd. $"); only uppercase hand-written values.
+                !stat.source && "uppercase",
+              )}
+            >
               {stat.value}
             </div>
             <div className="mt-1.5 md:mt-1 xl:mt-3 text-[14px] md:text-[18px] leading-[1.33] font-medium">
               {stat.label}
             </div>
+            {stat.source && <MetricSourceNote {...stat.source} />}
           </div>
         </div>
       ))}

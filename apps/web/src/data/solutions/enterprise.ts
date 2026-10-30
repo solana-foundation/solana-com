@@ -58,3 +58,10 @@ export const RESOURCES = [
     external: true,
   },
 ];
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "network.successful-transactions-30d",
+  "network.slot-time",
+  "network.average-fee-30d",
+] as const;

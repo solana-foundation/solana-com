@@ -12,6 +12,14 @@ import { PostItem } from "@/types/media";
 import uniqBy from "lodash/uniqBy";
 import { PROJECTS, LINKS, GET_STARTED_LINKS } from "@/data/index/data";
 import { getActiveCampaignId } from "@/components/index/campaigns/config";
+import { getDisplayMetrics } from "@/lib/metrics/present";
+
+const PERFORMANCE_METRICS = [
+  "network.daily-active-signers",
+  "network.successful-transactions-30d",
+  "defi.dex-volume-12m",
+  "apps.revenue-12m",
+] as const;
 
 export const revalidate = 60;
 
@@ -61,6 +69,8 @@ export default async function Page(_props: Props) {
     console.error(error);
   }
 
+  const performanceMetrics = await getDisplayMetrics(PERFORMANCE_METRICS);
+
   // --- Translations ---
   const lightFormatter = {
     light: (chunks: React.ReactNode) => (
@@ -107,24 +117,11 @@ export default async function Page(_props: Props) {
       t("index.performance.counters.0.label"),
       t("index.performance.counters.1.label"),
     ],
-    performanceStats: [
-      {
-        value: t("index.performance.stats.0.value"),
-        label: t("index.performance.stats.0.label"),
-      },
-      {
-        value: t("index.performance.stats.1.value"),
-        label: t("index.performance.stats.1.label"),
-      },
-      {
-        value: t("index.performance.stats.2.value"),
-        label: t("index.performance.stats.2.label"),
-      },
-      {
-        value: t("index.performance.stats.3.value"),
-        label: t("index.performance.stats.3.label"),
-      },
-    ],
+    performanceStats: PERFORMANCE_METRICS.map((key, index) => ({
+      value: performanceMetrics[key].value,
+      label: t(`index.performance.stats.${index}.label`),
+      source: performanceMetrics[key].source,
+    })),
 
     // What's Up
     whatsUpTitle: t.rich("index.whats-up.title", lightFormatter),

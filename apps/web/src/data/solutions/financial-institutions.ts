@@ -36,6 +36,7 @@ export const PROJECTS = [
     href: "https://www.sgforge.com/societe-generale-forge-solana-network/",
     statValue: "1:1",
     statSource: "https://www.sgforge.com/product/coinvertible/",
+    statSourceNote: "2026-09-27",
   },
   {
     src: getCompanyLogoSrc("state-street") ?? "",
