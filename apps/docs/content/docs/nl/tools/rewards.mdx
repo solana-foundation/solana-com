@@ -1,0 +1,134 @@
+---
+title: Rewards-programma
+seoTitle: Solana Rewards-programma voor token vesting en merkle-distributies
+description:
+  Distribueer SPL Token- en Token-2022-tokens met vestingschema's, via accounts per ontvanger of een merkle root, met optionele intrekking en clawback.
+---
+
+Het Rewards-programma distribueert tokens vanuit een vault die eigendom is van het programma naar een groep
+ontvangers, elk met een vestingschema. Een authority financiert de vault en bepaalt
+wie wat ontvangt. Ontvangers claimen hun geveste tokens in de loop van de tijd, en de
+authority kan ontvangers intrekken of overgebleven tokens terugvorderen wanneer de distributie
+dat toestaat. Het programma is gebouwd met Pinocchio, wordt onderhouden door de Solana
+Foundation en werkt met zowel SPL Token- als Token-2022-mints, behalve
+Token-2022-mints met de transfer hook-extensie.
+
+Program-ID (mainnet en devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  Het programma is geaudit door OtterSec. Zie
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)
+  voor de commit waarvoor de audit geldt.
+</Callout>
+
+## Kies een distributietype
+
+Het programma ondersteunt twee distributietypen. Beide gebruiken dezelfde vestingschema's
+en intrekkingsmodi.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Hoe het werkt** | Maakt per ontvanger een onchain account aan     | Slaat één enkele merkle root onchain op; ontvangers leveren proofs aan om te claimen  |
+| **Initiële kosten** | De payer financiert de rent voor elk ontvangeraccount | Geen accounts per ontvanger totdat iemand claimt                           |
+| **Schaal**        | Praktisch tot enkele duizenden ontvangers  | Schaalt tot miljoenen ontvangers; opslag groeit pas naarmate ontvangers claimen |
+| **Aanpasbaarheid**   | Ontvangers kunnen na het aanmaken worden toegevoegd       | De groep ontvangers ligt vast bij het aanmaken                                       |
+| **Te gebruiken voor**   | Kleine distributies die in de loop van de tijd veranderen    | Grote, vaste distributies zoals airdrops                              |
+
+## Vestingschema's
+
+Elke toewijzing heeft een van de vier schema's. Tijdstempels zijn Unix-seconden.
+
+| Schema      | Gedrag                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | Alle tokens zijn direct claimbaar                                                                                    |
+| `Linear`      | Tokens komen proportioneel vrij tussen `startTs` en `endTs`                                                             |
+| `Cliff`       | Er komt niets vrij tot `cliffTs`, daarna komt alles in één keer vrij                                                       |
+| `CliffLinear` | Lineaire vesting van `startTs` tot `endTs`, waarbij niets claimbaar is tot `cliffTs`; eerder opgebouwde tokens komen bij de cliff vrij |
+
+## Accounts
+
+| Account              | PDA seeds                                        | Bevat                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Authority, mint en totale toewijzingen       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | De toewijzing en vesting van één ontvanger       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Authority, mint, totalen en de merkle root |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Tot nu toe geclaimd bedrag van één claimant        |
+| `Revocation`         | `["revocation", distribution, user]`             | Markering die een ingetrokken merkle-claimant blokkeert |
+
+De `seed` is het adres van een extra ondertekenaar die bij het aanmaken wordt meegegeven, zodat één
+authority meerdere distributies voor dezelfde mint kan uitvoeren. De vault van elke distributie
+is de associated token account van de distributie-PDA voor de bijbehorende mint.
+
+## Instructies
+
+### Directe distributie
+
+1. De authority roept `CreateDirectDistribution` aan om de distributie-PDA
+   en de bijbehorende vault aan te maken.
+2. De authority roept `AddDirectRecipient` één keer per ontvanger aan met een bedrag
+   en een vestingschema. Elke aanroep draagt dat bedrag over van de token account
+   van de authority naar de vault.
+3. Ontvangers roepen `ClaimDirect` aan om geveste tokens op te nemen. Geef `amount: 0` mee om
+   alles te claimen wat op dat moment gevest is.
+4. Zodra een ontvanger alles heeft geclaimd, of de distributie is gesloten,
+   sluit `CloseDirectRecipient` het ontvangeraccount en wordt de rent terugbetaald aan het
+   account dat ervoor betaald heeft.
+5. De authority roept `CloseDirectDistribution` aan om het resterende vaultsaldo
+   en de rent terug te halen. Als `clawbackTs` is ingesteld, is sluiten pas toegestaan na dat
+   tijdstip.
+
+### Merkle-distributie
+
+1. De authority bouwt offchain een merkle tree. Elk blad (leaf) legt een claimant vast,
+   het totaalbedrag van die claimant en een vestingschema.
+2. De authority roept `CreateMerkleDistribution` aan met de root, het totale
+   claimbare bedrag en een `clawbackTs`, en financiert de vault in dezelfde
+   instructie.
+3. Claimants roepen `ClaimMerkle` aan met hun leaf-data en proof. De eerste claim
+   maakt het `MerkleClaim`-account van de claimant aan. Geef `amount: 0` mee om
+   alles te claimen wat op dat moment gevest is.
+4. Na `clawbackTs` roept de authority `CloseMerkleDistribution` aan om
+   het resterende vaultsaldo en de rent terug te halen.
+5. Nadat de distributie is gesloten, roepen claimants `CloseMerkleClaim` aan om
+   de rent voor hun claimaccount terug te halen.
+
+Het programma hasht leaves met Keccak-256 als
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, waarbij
+`totalAmount` een little-endian `u64` is en `schedule` dezelfde codering gebruikt als
+het `VestingSchedule`-argument van de instructie. Proof-nodes worden gehasht als gesorteerde
+paar, met de kleinste hash eerst.
+
+### Intrekking
+
+Intrekking is opt-in. De `revocable`-bitmask die bij het aanmaken wordt ingesteld, bepaalt welke
+modi de authority mag gebruiken: bit 0 schakelt `NonVested` in, bit 1 schakelt `Full` in,
+en `0` schakelt intrekking uit.
+
+| Modus        | Instructie                                    | Resultaat                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` of `RevokeMerkleClaim` | Geveste, niet-geclaimde tokens gaan naar de gebruiker; niet-gevestte tokens gaan terug naar de authority |
+| `Full`      | `RevokeDirectRecipient` of `RevokeMerkleClaim` | Alle niet-geclaimde tokens, zowel gevest als niet-gevest, gaan terug naar de authority               |
+
+Het intrekken van een merkle-claimant maakt een `Revocation`-markering aan die toekomstige
+claims blokkeert, ook als de claimant nog nooit heeft geclaimd. Het intrekken van een directe ontvanger sluit
+diens `DirectRecipient`-account en betaalt de rent terug.
+
+## Clients
+
+De repository bevat [`@solana/kit`](/docs/clients/official/javascript)- en
+Rust-clients, met Codama gegenereerd uit de IDL van het programma, in
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+De client is nog niet gepubliceerd op npm. Bouw hem vanuit de broncode met
+`just generate-clients`.
+
+## Bronnen
+
+- [Broncode](https://github.com/solana-foundation/rewards)
+- [Auditrapport van OtterSec](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Meld een probleem](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), tag
+  `rewards-program`

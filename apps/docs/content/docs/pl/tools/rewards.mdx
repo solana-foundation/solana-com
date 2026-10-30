@@ -1,0 +1,134 @@
+---
+title: Program Rewards
+seoTitle: Program Rewards w Solanie do vestingu tokenów i dystrybucji merkle
+description:
+  Dystrybuuj tokeny SPL Token i Token-2022 według harmonogramów vestingu, korzystając z kont dla poszczególnych odbiorców lub korzenia merkle, z opcjonalnym odwoływaniem i odzyskiwaniem tokenów.
+---
+
+Program Rewards dystrybuuje tokeny z vaulta należącego do programu do grupy
+odbiorców, z których każdy ma własny harmonogram vestingu. Authority zasila vault i określa,
+kto co otrzyma. Odbiorcy z czasem odbierają swoje odblokowane tokeny, a
+authority może odwoływać odbiorców lub odzyskiwać pozostałe tokeny, jeśli
+dystrybucja na to pozwala. Program został zbudowany przy użyciu Pinocchio, jest utrzymywany przez Solana
+Foundation i działa zarówno z mintami SPL Token, jak i Token-2022, z wyjątkiem
+mintów Token-2022 z rozszerzeniem transfer hook.
+
+Identyfikator programu (mainnet i devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  Program został zaudytowany przez OtterSec. Zobacz
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md),
+  aby sprawdzić, do którego commita przeprowadzono audyt.
+</Callout>
+
+## Wybierz typ dystrybucji
+
+Program obsługuje dwa typy dystrybucji. Oba korzystają z tych samych harmonogramów vestingu
+i trybów odwoływania.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Jak to działa** | Tworzy konto onchain dla każdego odbiorcy     | Przechowuje onchain pojedynczy korzeń merkle; odbiorcy przedstawiają dowody, aby odebrać tokeny  |
+| **Koszt początkowy** | Płatnik pokrywa rent dla konta każdego odbiorcy | Brak kont dla poszczególnych odbiorców, dopóki ktoś nie odbierze tokenów                           |
+| **Skala**        | Praktyczne do kilku tysięcy odbiorców  | Skaluje się do milionów odbiorców; zajętość pamięci rośnie tylko wraz z odbiorami |
+| **Zmienność**   | Odbiorców można dodawać po utworzeniu       | Zbiór odbiorców jest ustalony w momencie utworzenia                                       |
+| **Zastosowanie**   | Niewielkie dystrybucje, które zmieniają się w czasie    | Duże, stałe dystrybucje, takie jak airdropy                              |
+
+## Harmonogramy vestingu
+
+Każda alokacja ma jeden z czterech harmonogramów. Znaczniki czasu są podawane w sekundach Unix.
+
+| Harmonogram      | Zachowanie                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | Wszystkie tokeny są dostępne do odebrania od razu                                                                                    |
+| `Linear`      | Tokeny odblokowują się proporcjonalnie między `startTs` a `endTs`                                                             |
+| `Cliff`       | Nic nie jest odblokowywane do `cliffTs`, a potem wszystko odblokowuje się naraz                                                       |
+| `CliffLinear` | Liniowy vesting od `startTs` do `endTs`, przy czym nic nie można odebrać do `cliffTs`; wcześniej naliczone środki odblokowują się w momencie cliffu |
+
+## Konta
+
+| Konto              | PDA seeds                                        | Przechowuje                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Authority, mint i sumy alokacji       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | Alokacja i vesting jednego odbiorcy       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Authority, mint, sumy i korzeń merkle |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Kwota odebrana dotychczas przez jednego odbierającego        |
+| `Revocation`         | `["revocation", distribution, user]`             | Znacznik blokujący odwołanego odbierającego w dystrybucji merkle |
+
+`seed` to adres dodatkowego podpisującego przekazywanego podczas tworzenia, dzięki czemu jedno
+authority może prowadzić kilka dystrybucji dla tego samego mintu. Vault każdej dystrybucji
+to associated token account dla PDA dystrybucji i jej mintu.
+
+## Instrukcje
+
+### Dystrybucja direct
+
+1. Authority wywołuje `CreateDirectDistribution`, aby utworzyć PDA dystrybucji
+   i jej vault.
+2. Authority wywołuje `AddDirectRecipient` raz dla każdego odbiorcy, podając kwotę
+   i harmonogram vestingu. Każde wywołanie przenosi tę kwotę z token account
+   authority do vaulta.
+3. Odbiorcy wywołują `ClaimDirect`, aby wypłacić odblokowane tokeny. Przekaż `amount: 0`, aby
+   odebrać wszystko, co jest aktualnie odblokowane.
+4. Gdy odbiorca odbierze wszystko lub dystrybucja zostanie zamknięta,
+   `CloseDirectRecipient` zamyka konto odbiorcy i zwraca rent
+   kontu, które za nie zapłaciło.
+5. Authority wywołuje `CloseDirectDistribution`, aby odzyskać pozostałe saldo vaulta
+   i rent. Jeśli ustawiono `clawbackTs`, zamknięcie jest dozwolone dopiero po tym
+   czasie.
+
+### Dystrybucja merkle
+
+1. Authority buduje drzewo merkle offchain. Każdy liść zawiera zobowiązanie do odbierającego,
+   jego łącznej kwoty oraz harmonogramu vestingu.
+2. Authority wywołuje `CreateMerkleDistribution`, podając korzeń, łączną
+   kwotę do odebrania oraz `clawbackTs`, i zasila vault w tej samej
+   instrukcji.
+3. Odbierający wywołują `ClaimMerkle`, podając dane swojego liścia i dowód. Pierwszy odbiór
+   tworzy konto `MerkleClaim` odbierającego. Przekaż `amount: 0`, aby odebrać
+   wszystko, co jest aktualnie odblokowane.
+4. Po `clawbackTs` authority wywołuje `CloseMerkleDistribution`, aby odzyskać
+   pozostałe saldo vaulta i rent.
+5. Po zamknięciu dystrybucji odbierający wywołują `CloseMerkleClaim`, aby
+   odzyskać rent za swoje konto odbioru.
+
+Program haszuje liście za pomocą Keccak-256 jako
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, gdzie
+`totalAmount` to `u64` w formacie little-endian, a `schedule` używa tego samego kodowania co
+argument `VestingSchedule` instrukcji. Węzły dowodu są haszowane jako posortowane
+pary, od mniejszego hasha.
+
+### Odwoływanie
+
+Odwoływanie jest opcjonalne. Bitmaska `revocable` ustawiona podczas tworzenia określa, z których
+trybów może korzystać authority: bit 0 włącza `NonVested`, bit 1 włącza `Full`,
+a `0` wyłącza odwoływanie.
+
+| Tryb        | Instrukcja                                    | Wynik                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` lub `RevokeMerkleClaim` | Odblokowane, nieodebrane tokeny trafiają do użytkownika; nieodblokowane tokeny wracają do authority |
+| `Full`      | `RevokeDirectRecipient` lub `RevokeMerkleClaim` | Wszystkie nieodebrane tokeny, zarówno odblokowane, jak i nieodblokowane, wracają do authority               |
+
+Odwołanie odbierającego w dystrybucji merkle tworzy znacznik `Revocation`, który blokuje przyszłe
+odbiory, nawet jeśli nigdy wcześniej nie odbierał tokenów. Odwołanie odbiorcy w dystrybucji direct zamyka
+jego konto `DirectRecipient` i zwraca jego rent.
+
+## Klienty
+
+Repozytorium zawiera klienty [`@solana/kit`](/docs/clients/official/javascript) oraz
+klienty w Rust wygenerowane z IDL programu za pomocą Codama, w katalogu
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+Klient nie jest jeszcze opublikowany w npm. Zbuduj go ze źródeł za pomocą
+`just generate-clients`.
+
+## Zasoby
+
+- [Kod źródłowy](https://github.com/solana-foundation/rewards)
+- [Raport z audytu OtterSec](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Zgłoś problem](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), tag
+  `rewards-program`

@@ -1,75 +1,118 @@
 ---
 title: "快速入门：接受付款"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  在 React 应用中显示 Solana Pay 二维码，在链上确认付款，并在 devnet 上完成您的第一笔稳定币支付。
 ---
 
-最终，您将在 React 应用中获得一个支付按钮，该按钮可连接钱包、让付款方选择代币，并确认向您地址的真实付款。您需要 Node.js 20+、一个 React 或 Next.js 应用（全新的 `create-next-app` 即可），以及一个用于付款的钱包。
+最终，您将获得一个 React 组件：它会显示用于 USDC 支付的 Solana Pay 二维码，等待付款到账，并检查付款是否与您的请求一致。您需要 Node.js 20+、一个 React 或 Next.js 应用（全新的 `create-next-app` 即可），以及一个设置为 devnet 的移动钱包。请从 [faucet.circle.com](https://faucet.circle.com) 领取 devnet USDC，并从 [faucet.solana.com](https://faucet.solana.com) 领取 devnet SOL，用于支付交易手续费。
 
 <Callout type="caution">
-  Commerce Kit 目前处于测试阶段。API 在稳定版本发布前可能会有所变动。
+  `@solana/pay` 目前处于测试阶段。API 在稳定版本发布前可能会有所变动。
 </Callout>
 
-## 1. 安装 Commerce Kit
+## 1. 安装 Solana Pay
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. 添加按钮
+## 2. 添加支付二维码
 
-将 `PaymentButton` 组件放置在应用中的任意位置，并将商户钱包设置为您控制的地址：
+该组件会为订单创建唯一的 reference，将其编码为 [转账请求](/docs/tools/solana-pay/quickstart/transfer-requests) URL，并将该 URL 渲染为二维码。随后，它会监听包含该 reference 的交易，并在将订单标记为已支付之前，验证收款方、金额和代币。请将 `MERCHANT_WALLET` 设置为您控制的地址：
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-该组件在内部处理钱包连接、代币选择、交易处理和 UI 状态。`mode: "tip"` 允许付款方自选金额；固定价格和购物车结账请参阅 [支付模式](/docs/tools/commerce-kit/quickstart/payment-button)。
-
-## 在浏览器中试用
-
-配置支付按钮并在不离开本页面的情况下启动打赏流程。
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="Commerce Kit Playground"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[全屏打开 Commerce Kit Playground](https://launch.solana.com/products/commercekit/playground)
+`amount` 以代币单位计，因此 `1` 表示请求 1 USDC。省略 `splToken` 则改为请求 SOL。
 
 ## 3. 收取付款
 
-运行您的应用，点击按钮，连接钱包并完成付款。`onPaymentSuccess` 回调将接收交易签名，即您的收据：可通过 [getTransaction](/docs/rpc/http/gettransaction) 或任意区块链浏览器查询。
+运行您的应用，用钱包扫描二维码并批准付款。交易确认并通过验证后，组件会显示交易签名。该签名就是您的收据：可使用 [getTransaction](/docs/rpc/http/gettransaction) 或任意区块浏览器查询。
+
+<Callout type="warn">
+  在浏览器中验证对演示来说足够了。在处理真实订单之前，请在服务器上验证付款。参见 [验证付款](/docs/payments/accept-payments/verification-tools)。
+</Callout>
 
 ## 下一步
 
+- [Solana Pay](/docs/tools/solana-pay) - 转账请求、交易请求和二维码选项
 - [Solana 上的支付原理](/docs/payments/how-payments-work) - 钱包、稳定币、token account 和手续费
 - [验证付款](/docs/payments/accept-payments/verification-tools) - 在履行订单前在服务端确认付款
 - [发送付款](/docs/payments/send-payments) - 从您自己的后端进行打款和转账

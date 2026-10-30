@@ -1,75 +1,118 @@
 ---
 title: "Быстрый старт: приём платежа"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  Покажите QR-код Solana Pay в React-приложении, подтвердите платёж в блокчейне и примите свой первый платёж в стейблкоинах в devnet.
 ---
 
-В результате вы получите кнопку оплаты в React-приложении, которая подключает кошелёк, позволяет плательщику выбрать токен и подтверждает реальный платёж на ваш адрес. Вам понадобятся Node.js 20+, приложение на React или Next.js (подойдёт свежий `create-next-app`), а также кошелёк для оплаты.
+В результате вы получите React-компонент, который показывает QR-код Solana Pay для платежа в USDC, ожидает поступления платежа и проверяет, что он соответствует запрошенному. Вам понадобятся Node.js 20+, приложение на React или Next.js (подойдёт свежий `create-next-app`) и мобильный кошелёк, переключённый на devnet. Пополните его USDC для devnet на [faucet.circle.com](https://faucet.circle.com) и SOL для devnet на [faucet.solana.com](https://faucet.solana.com), чтобы оплачивать комиссии за транзакции.
 
 <Callout type="caution">
-  Commerce Kit в настоящее время находится в бета-версии. API может измениться до стабильного релиза.
+  `@solana/pay` в настоящее время находится в бета-версии. API может измениться до стабильного релиза.
 </Callout>
 
-## 1. Установите Commerce Kit
+## 1. Установите Solana Pay
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. Добавьте кнопку
+## 2. Добавьте QR-код для оплаты
 
-Разместите компонент `PaymentButton` в любом месте вашего приложения и укажите кошелёк мерчанта — адрес, которым вы управляете:
+Компонент создаёт уникальный идентификатор reference для заказа, кодирует его в URL [запроса на перевод](/docs/tools/solana-pay/quickstart/transfer-requests) и отображает этот URL в виде QR-кода. Затем он отслеживает транзакцию, содержащую reference, и перед тем как пометить заказ оплаченным, проверяет получателя, сумму и токен. Укажите в `MERCHANT_WALLET` адрес, которым вы владеете:
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-Компонент самостоятельно обрабатывает подключение кошелька, выбор токена, проведение транзакции и состояние интерфейса. `mode: "tip"` позволяет плательщику выбрать сумму; см. [режимы оплаты](/docs/tools/commerce-kit/quickstart/payment-button) для оплаты с фиксированной ценой и оформления корзины.
-
-## Попробуйте в браузере
-
-Настройте кнопку оплаты и запустите процесс чаевых, не покидая эту страницу.
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="Commerce Kit Playground"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[Открыть Commerce Kit Playground в полноэкранном режиме](https://launch.solana.com/products/commercekit/playground)
+`amount` указывается в единицах токена, поэтому `1` запрашивает 1 USDC. Чтобы запросить SOL, не указывайте `splToken`.
 
 ## 3. Примите платёж
 
-Запустите приложение, нажмите кнопку, подключите кошелёк и выполните оплату. Коллбэк `onPaymentSuccess` получает подпись транзакции, которая является вашим чеком: найдите её с помощью [getTransaction](/docs/rpc/http/gettransaction) или в любом обозревателе блокчейна.
+Запустите приложение, отсканируйте QR-код кошельком и подтвердите платёж. Когда транзакция будет подтверждена и пройдёт проверку, компонент покажет подпись транзакции. Эта подпись — ваш чек: найдите её с помощью [getTransaction](/docs/rpc/http/gettransaction) или в любом обозревателе.
+
+<Callout type="warn">
+  Проверки в браузере достаточно для демо. Прежде чем выполнять реальные заказы, проверяйте платежи на сервере. См. раздел «[Проверка платежей](/docs/payments/accept-payments/verification-tools)».
+</Callout>
 
 ## Что дальше
 
+- [Solana Pay](/docs/tools/solana-pay) — запросы на перевод, запросы транзакций и параметры QR-кода
 - [Как работают платежи в Solana](/docs/payments/how-payments-work) — кошельки, стейблкоины, token account и комиссии
 - [Верификация платежей](/docs/payments/accept-payments/verification-tools) — подтверждение платежа на стороне сервера перед выполнением заказа
 - [Отправка платежей](/docs/payments/send-payments) — выплаты и переводы из вашего собственного бэкенда
