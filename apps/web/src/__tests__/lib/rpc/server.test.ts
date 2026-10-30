@@ -540,7 +540,7 @@ describe("RPC latency cache identity", () => {
 
   it("scopes cached data to the RPC provider allowlist", () => {
     expect(getRpcLatencyCacheKey(config, {})).toContain(
-      "|alchemy,chainstack,fluxrpc,helius,quicknode,triton|",
+      "|alchemy,chainstack,fluxrpc,helius,quicknode,solanavibestation,triton|",
     );
   });
 });
