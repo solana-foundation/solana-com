@@ -10,13 +10,13 @@ handling, and UI helpers.
 
 Under the hood, the SDK uses [TanStack Query](https://tanstack.com/query) for
 caching and state management, [@solana/kit](https://github.com/anza-xyz/kit) for
-Solana primitives, and integrates seamlessly with `@solana-commerce/connector`
+Solana primitives, and works with `@solana-commerce/connector`
 for wallet connection.
 
 ## Installation
 
 ```bash
-pnpm add @solana-commerce/sdk
+npm install @solana-commerce/sdk
 ```
 
 ## Provider Setup
@@ -146,7 +146,7 @@ interface UseTransferSOLReturn {
 ##### Core Function
 
 - **`transferSOL`** - Initiates a SOL transfer. Returns a promise that resolves
-  when the transaction is confirmed on-chain.
+  when the transaction is confirmed onchain.
 
 ##### State Properties
 
@@ -348,8 +348,8 @@ interface TransferTokenOptions {
   transaction. When `false`, the transfer will fail if the recipient account
   doesn't exist.
 
-  _Note:_ Creating a token account costs ~0.00203 SOL. This is paid by the
-  sender.
+  _Note:_ Creating a token account costs a refundable rent deposit of about
+  0.0015 SOL on mainnet (as of October 2026). This is paid by the sender.
 
 - **`retryConfig`** - Configuration for automatic retry on blockhash expiration.
   See [Retry Configuration](#retry-configuration).
@@ -456,14 +456,32 @@ function useArcClient(): ArcClientSnapshot;
 interface ArcClientSnapshot {
   // Wallet State
   wallet: {
+    wallets: StandardWalletInfo[];
+    selectedWallet: Wallet | null;
+    connected: boolean;
+    connecting: boolean;
     address: Address | null;
     signer: TransactionSigner | null;
+    accounts?: Array<{ address: Address; icon?: string; raw?: unknown }>;
+    selectedAccount?: Address | null;
+    capabilities?: { walletSupportsVersioned: boolean };
+    connectors?: Array<{
+      id: string;
+      name: string;
+      icon?: string;
+      available: () => boolean;
+      connect: () => Promise<void>;
+    }>;
   };
 
   // Network Configuration
   network: {
-    cluster: "mainnet" | "devnet" | "testnet";
     rpcUrl: string;
+    isMainnet: boolean;
+    isDevnet: boolean;
+    isTestnet: boolean;
+    canAirdrop: boolean;
+    clusterInfo: ClusterInfo; // { name, rpcUrl, wsUrl?, ... }
   };
 
   // Client Configuration
@@ -481,16 +499,17 @@ interface ArcClientSnapshot {
 The `ArcClientSnapshot` extends the `ArcWebClient` which provides access to:
 
 - wallet state (address, signer, available wallets, features, and wallet status)
-- network configuration (RPC endpoint, Solana cluster)
+- network configuration (RPC endpoint, `isMainnet`/`isDevnet`/`isTestnet`,
+  `canAirdrop` and `clusterInfo.name`)
 
 #### Use Cases
 
 **Direct RPC Queries:**
 
 ```tsx
+import { useState, useEffect } from "react";
 import { useArcClient } from "@solana-commerce/sdk";
-import { getSharedRpc } from "@solana-commerce/sdk/core/rpc-manager";
-import { address } from "@solana/kit";
+import { createSolanaRpc } from "@solana/kit";
 
 function AccountBalance() {
   const { network, wallet } = useArcClient();
@@ -499,17 +518,20 @@ function AccountBalance() {
   useEffect(() => {
     if (!wallet.address) return;
 
-    const rpc = getSharedRpc(network.rpcUrl);
+    const rpc = createSolanaRpc(network.rpcUrl);
 
     async function fetchBalance() {
-      const result = await rpc.getBalance(wallet.address).send();
-      setBalance(result);
+      // getBalance resolves to { context, value }
+      const { value } = await rpc.getBalance(wallet.address!).send();
+      setBalance(value);
     }
 
     fetchBalance();
   }, [wallet.address, network.rpcUrl]);
 
   if (!wallet.address) return <div>Connect wallet to see balance</div>;
+
+  if (balance === null) return <div>Loading balance...</div>;
 
   return <div>Balance: {(Number(balance) / 1e9).toFixed(4)} SOL</div>;
 }
@@ -523,7 +545,7 @@ function NetworkIndicator() {
 
   return (
     <div>
-      <span>Network: {network.cluster}</span>
+      <span>Network: {network.clusterInfo.name}</span>
       {network.canAirdrop && <button onClick={handleAirdrop}>Airdrop</button>}
     </div>
   );

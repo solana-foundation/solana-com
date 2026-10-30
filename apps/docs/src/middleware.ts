@@ -3,59 +3,88 @@ import {
   getEffectiveOrigin,
   routingWithoutDetection,
 } from "@workspace/i18n/middleware";
-import { NextFetchEvent, NextRequest, NextResponse } from "next/server";
-import { locales } from "@workspace/i18n/config";
-import {
-  MarkdownRequestSource,
-  trackMarkdownRequest,
-} from "@@/src/lib/posthog/server";
+import { NextRequest, NextResponse } from "next/server";
+import { defaultLocale, locales } from "@workspace/i18n/config";
+import { prefersMarkdown } from "@/lib/docs/negotiation";
+import { isDocsPagePath, isKnownDocsPage } from "@/lib/docs/page-paths";
 
-// These are the prefixes that we want to serve as markdown if
-// the Accept header includes "text/markdown" or if
-// the pathname ends with ".md"
+// Pages under these prefixes, and the /developers landing, have a Markdown
+// twin: `<page>.md`, or the page URL with an Accept header that prefers
+// text/markdown (lib/docs/negotiation.ts). /learn is apps/web's.
 const MARKDOWN_PREFIXES = [
   "/docs",
+  "/developers/docs",
   "/developers/cookbook",
   "/developers/bootcamp",
 ] as const;
+const MARKDOWN_PAGES = ["/developers"] as const;
 const MARKDOWN_API_PREFIX = "/api/markdown";
 const SOLANA_SITE_ORIGIN = "https://solana.com";
 const DOCS_VERCEL_HOST = "solana-com-docs.vercel.app";
+// No route matches it, so Next answers with the not-found page
+// (app/global-not-found.tsx) and a 404.
+const NOT_FOUND_PATH = "/_docs/not-found";
+const DOCS_LLMS_TXT = `${SOLANA_SITE_ORIGIN}/developers/docs/llms.txt`;
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
-  return MARKDOWN_PREFIXES.some(
-    (prefix) =>
-      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
+  return (
+    MARKDOWN_PAGES.some((page) => pathWithoutExt === page) ||
+    MARKDOWN_PREFIXES.some(
+      (prefix) =>
+        pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
+    )
   );
 }
 
-function getRouteFromMarkdownApiPath(pathname: string): string {
-  const route = pathname.slice(MARKDOWN_API_PREFIX.length);
-  if (!route) {
-    return "/";
+function decodePath(path: string): string {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
   }
-  return route.startsWith("/") ? route : `/${route}`;
 }
 
-function trackMarkdownRequestInBackground(
-  event: NextFetchEvent,
-  route: string,
-  source: MarkdownRequestSource,
-) {
-  const normalizedRoute = route.endsWith(".md") ? route.slice(0, -3) : route;
-  event.waitUntil(
-    trackMarkdownRequest({
-      route: normalizedRoute,
-      source,
-      currentUrl: `${SOLANA_SITE_ORIGIN}${normalizedRoute}`,
-    }),
+/**
+ * A negotiated URL answers by Accept header as well as by URL, so caches
+ * keep one copy per Accept value. Next's own Vary for app pages (the
+ * routes manifest's `rsc.varyHeader`) is repeated first, for a platform
+ * that replaces the page's Vary with this one rather than merging them.
+ * (`next start` keeps only Next's own on app pages.)
+ */
+const NEGOTIATED_VARY =
+  "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch, Accept";
+
+/**
+ * The HTML page: Vary, and where its Markdown twin and the docs index are
+ * (RFC 8288 Link).
+ */
+function withNegotiationHeaders(
+  response: Response,
+  publicPath: string,
+): Response {
+  if (response.status !== 200) return response;
+  response.headers.set("Vary", NEGOTIATED_VARY);
+  response.headers.append(
+    "Link",
+    [
+      `<${SOLANA_SITE_ORIGIN}${publicPath}.md>; rel="alternate"; type="text/markdown"`,
+      `<${DOCS_LLMS_TXT}>; rel="describedby"; type="text/plain"`,
+    ].join(", "),
   );
+  return response;
 }
 
-function rewriteToMarkdownApi(req: NextRequest, segments: string[]) {
+// The markdown route takes the public path, locale included:
+// /api/markdown/ja/developers/docs/quickstart.
+function rewriteToMarkdownApi(
+  req: NextRequest,
+  locale: string | undefined,
+  segments: string[],
+) {
   const url = req.nextUrl.clone();
-  url.pathname = `/api/markdown/${segments.join("/")}`;
+  const prefix = locale && locale !== defaultLocale ? `/${locale}` : "";
+  url.pathname = `${MARKDOWN_API_PREFIX}${prefix}/${segments.join("/")}`;
   return NextResponse.rewrite(url);
 }
 
@@ -78,10 +107,7 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
   preserveProxiedLocaleCookie: true,
 });
 
-export default async function middleware(
-  req: NextRequest,
-  event: NextFetchEvent,
-) {
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // The production Vercel alias is also the web app's rewrite target. Only
@@ -103,16 +129,16 @@ export default async function middleware(
     pathname === MARKDOWN_API_PREFIX ||
     pathname.startsWith(`${MARKDOWN_API_PREFIX}/`)
   ) {
-    trackMarkdownRequestInBackground(
-      event,
-      getRouteFromMarkdownApiPath(pathname),
-      "direct-api",
-    );
     return NextResponse.next();
   }
 
   if (pathname !== pathname.toLowerCase()) {
-    return redirectWithEffectiveOrigin(req, pathname.toLowerCase());
+    return redirectWithEffectiveOrigin(
+      req,
+      pathname.toLowerCase(),
+      308,
+      req.nextUrl.search,
+    );
   }
 
   // Remove duplicate locale segments from path
@@ -150,6 +176,7 @@ export default async function middleware(
   }
 
   const hasLocalePrefix = locales.includes(pathSegments[0]);
+  const locale = hasLocalePrefix ? pathSegments[0] : undefined;
   const normalizedSegments = hasLocalePrefix
     ? pathSegments.slice(1)
     : pathSegments;
@@ -168,28 +195,61 @@ export default async function middleware(
     return redirectWithEffectiveOrigin(req, url.pathname, 308, url.search);
   }
 
-  // Accept header content negotiation for markdown
-  const acceptHeader = req.headers.get("accept") || "";
-  const wantsMarkdown = acceptHeader.includes("text/markdown");
-
+  // A page's /index URL is the page's own: one URL per page.
   if (
-    wantsMarkdown &&
-    !normalizedPath.endsWith(".md") &&
-    !normalizedPath.endsWith("/llms.txt") &&
+    normalizedSegments.at(-1) === "index" &&
     matchesMarkdownPrefix(normalizedPath)
   ) {
-    trackMarkdownRequestInBackground(event, normalizedPath, "accept-header");
-    return rewriteToMarkdownApi(req, normalizedSegments);
+    return redirectWithEffectiveOrigin(
+      req,
+      pathname.replace(/\/index$/, ""),
+      308,
+      req.nextUrl.search,
+    );
   }
 
   if (normalizedPath.endsWith(".md") && matchesMarkdownPrefix(normalizedPath)) {
-    trackMarkdownRequestInBackground(event, normalizedPath, "md-extension");
     const segments = [...normalizedSegments];
     segments[segments.length - 1] = segments[segments.length - 1].slice(0, -3);
-    return rewriteToMarkdownApi(req, segments);
+    return rewriteToMarkdownApi(req, locale, segments);
   }
 
-  return handleI18nRouting(req);
+  const negotiable =
+    !normalizedPath.endsWith("/llms.txt") &&
+    matchesMarkdownPrefix(normalizedPath);
+  if (!negotiable) {
+    // No docs route answers other paths (on solana.com they are another
+    // app's), so an agent asking for Markdown gets the Markdown 404.
+    if (
+      normalizedSegments.length > 0 &&
+      prefersMarkdown(req.headers.get("accept"))
+    ) {
+      return rewriteToMarkdownApi(req, locale, normalizedSegments);
+    }
+    return handleI18nRouting(req);
+  }
+
+  // Accept header content negotiation (q-values count). The markdown route
+  // answers a missing page with a Markdown 404.
+  if (prefersMarkdown(req.headers.get("accept"))) {
+    return rewriteToMarkdownApi(req, locale, normalizedSegments);
+  }
+
+  // A missing docs page: a real 404 page, rendered on the server.
+  if (
+    isDocsPagePath(normalizedPath) &&
+    !isKnownDocsPage(decodePath(normalizedPath), locale)
+  ) {
+    const url = req.nextUrl.clone();
+    url.pathname = NOT_FOUND_PATH;
+    url.search = "";
+    const response = NextResponse.rewrite(url);
+    response.headers.set("Vary", NEGOTIATED_VARY);
+    return response;
+  }
+
+  const publicPath = `${locale && locale !== defaultLocale ? `/${locale}` : ""}${normalizedPath}`;
+  return withNegotiationHeaders(await handleI18nRouting(req), publicPath);
 }
 
 export const config = {

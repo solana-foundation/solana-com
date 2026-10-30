@@ -4,7 +4,9 @@ description: Setter methods for configuring LiteSVM in Go
 ---
 
 Each setter mirrors the corresponding builder method on the Rust `LiteSVM` type.
-Calls take effect immediately and return an `error`.
+Calls take effect immediately and return an `error`. A fresh handle already has
+default sysvars, builtins, the default program set, signature verification, and
+the blockhash check on, and a transaction history of 32 entries.
 
 ## Typical Test Setup
 
@@ -43,9 +45,9 @@ if err := svm.SetSigverify(true); err != nil {  // restore production-like behav
 }
 ```
 
-<Callout type="info">
+<Info>
   Disabling signature verification makes tests faster but less realistic.
-</Callout>
+</Info>
 
 ### Sigverify
 
@@ -110,9 +112,9 @@ Enable the ed25519 / secp256k1 precompiled programs.
 func (s *LiteSVM) WithNativeMints() error
 ```
 
-Seed the SPL Token / Token-2022 native-mint accounts (wrapped SOL). No-op if the
-matching program is not loaded; call `SetDefaultPrograms` first if you want
-both.
+Seed the SPL Token / Token-2022 native-mint accounts (wrapped SOL). Native mints
+are opt-in. It skips a mint when the matching token program account is not
+installed, which is not the case on a fresh handle.
 
 ## Resource Limits
 
@@ -122,10 +124,12 @@ both.
 func (s *LiteSVM) SetLamports(lamports uint64) error
 ```
 
-Set the default lamports balance of the internal airdrop-pool account.
+Reset the balance of the internal airdrop-pool account that `Airdrop` draws
+from (about 1,000,000 SOL on a fresh handle, slightly less because the pool
+account must stay rent-exempt).
 
 ```go
-if err := svm.SetLamports(1 << 40); err != nil { // ~1.1 trillion lamports (~1,100 SOL)
+if err := svm.SetLamports(1 << 40); err != nil { // airdrop pool of ~1.1 trillion lamports (~1,100 SOL)
     t.Fatal(err)
 }
 ```
@@ -170,12 +174,14 @@ if err := svm.SetTransactionHistory(0); err != nil {   // disable dedup entirely
 
 ```go
 type ComputeBudget struct {
-    // See litesvm-go/litesvm.go for the full field list.
+    // Only ComputeUnitLimit and HeapSize can differ from the defaults.
     // usize fields are normalized to uint64; HeapSize stays uint32.
     ComputeUnitLimit uint64
     HeapSize         uint32
-    // ...
+    // ... VM cost constants, see DefaultComputeBudget()
 }
+
+func DefaultComputeBudget() ComputeBudget
 ```
 
 ### ComputeBudget
@@ -185,8 +191,9 @@ func (s *LiteSVM) ComputeBudget() (ComputeBudget, bool, error)
 ```
 
 Read the current compute budget. The second return value reports whether a
-budget was explicitly set; if `false`, the struct contains the default values
-that will be used.
+budget was explicitly set; if `false`, the struct is the zero value (not the
+defaults) and the runtime defaults are in effect. Start from
+`litesvm.DefaultComputeBudget()` when you want to change one field.
 
 ```go
 budget, set, err := svm.ComputeBudget()
@@ -194,8 +201,11 @@ if err != nil {
     t.Fatal(err)
 }
 if !set {
-    budget.ComputeUnitLimit = 1_400_000
+    // No custom budget yet: budget is the zero value, so start from the
+    // defaults before changing a field.
+    budget = litesvm.DefaultComputeBudget()
 }
+budget.ComputeUnitLimit = 200_000
 if err := svm.SetComputeBudget(budget); err != nil {
     t.Fatal(err)
 }
@@ -207,12 +217,17 @@ if err := svm.SetComputeBudget(budget); err != nil {
 func (s *LiteSVM) SetComputeBudget(b ComputeBudget) error
 ```
 
-Install a compute budget for subsequent transactions.
+Install a compute budget for subsequent transactions. Only `ComputeUnitLimit`
+(at most 1,400,000) and `HeapSize` (a multiple of 1024 between 32 KiB and
+256 KiB) can differ from `DefaultComputeBudget()`; any other field with a
+non-default value returns an error naming the field. The limit is applied to
+transactions that carry no compute-budget instructions of their own.
 
 ## Feature Sets
 
-`FeatureSet` is an opaque handle - construct it, mutate it with `Activate` /
-`Deactivate`, then install it with `SetFeatureSet`. Close handles you create.
+`FeatureSet` is a plain Go value - construct it, mutate it with `Activate` /
+`Deactivate`, then install it with `SetFeatureSet`. (`Close` still exists but is
+a deprecated no-op.)
 
 ```go
 // Start with all features off, then activate what you care about.
@@ -220,7 +235,6 @@ fs, err := litesvm.NewFeatureSet()
 if err != nil {
     t.Fatal(err)
 }
-defer fs.Close()
 if err := fs.Activate(featureID, 0); err != nil {
     t.Fatal(err)
 }
@@ -230,7 +244,6 @@ fs2, err := litesvm.NewFeatureSetAllEnabled()
 if err != nil {
     t.Fatal(err)
 }
-defer fs2.Close()
 if err := fs2.Deactivate(featureID); err != nil {
     t.Fatal(err)
 }
@@ -252,11 +265,10 @@ if err := svm.SetFeatureSet(fs); err != nil {
 | `fs.InactiveCount() int`                                 | Inactive feature count            |
 | `fs.ActiveFeatures() []solana.PublicKey`                 | List active feature IDs           |
 | `fs.InactiveFeatures() []solana.PublicKey`               | List inactive feature IDs         |
-| `fs.Close()`                                             | Release the handle                |
 | `svm.SetFeatureSet(*FeatureSet) error`                   | Install on the SVM                |
 
-<Callout type="info">
+<Info>
   Use feature gating to test how programs behave under a specific Solana version
   - activate the features that shipped with the release you target, then
   deactivate any that arrived later.
-</Callout>
+</Info>

@@ -18,15 +18,15 @@ export const SOLUTION_LINKS = [
 export const TECHNICAL_GUIDES = [
   {
     key: "dvp",
-    href: "/docs/tokenization/dvp",
+    href: "/developers/docs/tokenization/dvp",
   },
   {
     key: "nav-strikes",
-    href: "/docs/tokenization/nav-strikes",
+    href: "/developers/docs/tokenization/nav-strikes",
   },
   {
     key: "acl",
-    href: "/docs/tokenization/token-acl",
+    href: "/developers/docs/tokenization/token-acl",
   },
 ];
 
@@ -34,7 +34,7 @@ export const TECHNICAL_GUIDES = [
 export const RESOURCES = [
   {
     key: "docs",
-    href: "/docs",
+    href: "/developers/docs",
     external: false,
   },
   {
@@ -44,12 +44,12 @@ export const RESOURCES = [
   },
   {
     key: "token-extensions",
-    href: "/docs/tokens/extensions",
+    href: "/developers/docs/tokens/extensions",
     external: false,
   },
   {
     key: "keychain",
-    href: "/docs/tools/keychain",
+    href: "/developers/docs/tools/keychain",
     external: false,
   },
   {

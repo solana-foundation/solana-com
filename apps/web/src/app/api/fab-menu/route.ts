@@ -13,7 +13,7 @@ const EXPLORE_MENU = {
       label: "Quick Start",
       title: "Start building on Solana",
       ctaText: "Quick Start Guide",
-      ctaHref: "/docs/intro/quick-start",
+      ctaHref: "/developers/docs/quickstart",
     },
     business: {
       label: "Network Dominance",
@@ -35,8 +35,8 @@ const EXPLORE_MENU = {
   },
   links: {
     builder: [
-      { title: "Documentation", href: "/docs" },
-      { title: "RPC API", href: "/docs/rpc" },
+      { title: "Documentation", href: "/developers/docs" },
+      { title: "RPC API", href: "/developers/docs/rpc" },
       { title: "Templates", href: "/developers/templates" },
       { title: "Developer Hub", href: "/developers" },
       { title: "EVM to SVM", href: "/developers/migrate-to-solana/ethereum" },

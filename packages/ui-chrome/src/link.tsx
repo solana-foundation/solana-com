@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Link as I18nLink } from "@workspace/i18n/routing";
 import { useRouter, usePathname } from "@workspace/i18n/use-router";
 import { clsx as classNames } from "clsx";
-import { shouldUseNextLink } from "./url-config";
+import { isDocsHref, shouldUseNextLink } from "./url-config";
 
 interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   children: React.ReactNode;
@@ -35,7 +35,8 @@ const Link = ({
   ...other
 }: LinkProps) => {
   const linkTo = to ?? href ?? "";
-  const useNextLink = shouldUseNextLink(linkTo);
+  const opensDocs = isDocsHref(linkTo);
+  const useNextLink = !opensDocs && shouldUseNextLink(linkTo);
 
   const { isReady } = useRouter();
 
@@ -74,7 +75,8 @@ const Link = ({
     );
   }
   const { rel, target, ...anchorProps } = other;
-  const resolvedTarget = isExternalHref(linkTo) ? (target ?? "_blank") : target;
+  const resolvedTarget =
+    isExternalHref(linkTo) || opensDocs ? (target ?? "_blank") : target;
   const resolvedRel =
     resolvedTarget === "_blank" ? (rel ?? "noopener noreferrer") : rel;
 

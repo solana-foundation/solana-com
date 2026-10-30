@@ -3,7 +3,6 @@ import type React from "react";
 export type NavItemVariant = "medium" | "large";
 export type NavTopLevelSectionId =
   | "use_solana"
-  | "build"
   | "enterprise"
   | "products"
   | "ecosystem";

@@ -72,7 +72,7 @@ export function SolutionsPaymentsToolingPage() {
             label: t("buttons.getStarted"),
             hierarchy: "primary",
             size: "lg",
-            url: "/docs/tools/solana-pay",
+            url: "/developers/docs/tools/solana-pay",
           },
         ]}
         image={{
@@ -110,7 +110,7 @@ export function SolutionsPaymentsToolingPage() {
             body: t("featureCards.direct.body"),
             callToAction: {
               label: t("buttons.learnMore"),
-              url: "/docs/tools/solana-pay",
+              url: "/developers/docs/tools/solana-pay",
             },
           },
           {
@@ -194,7 +194,7 @@ export function SolutionsPaymentsToolingPage() {
               endIcon: "arrow-right",
               size: "lg",
               hierarchy: "outline",
-              url: "/docs/intro/quick-start",
+              url: "/developers/docs/quickstart",
             },
           },
           {
@@ -271,7 +271,7 @@ export function SolutionsPaymentsToolingPage() {
             hierarchy: "outline",
             size: "md",
             iconSize: "md",
-            url: "/docs/tools/solana-pay",
+            url: "/developers/docs/tools/solana-pay",
           },
         ]}
       />

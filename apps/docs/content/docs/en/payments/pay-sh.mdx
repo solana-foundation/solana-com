@@ -3,11 +3,10 @@ title: Pay.sh
 description:
   Accept pay-per-use and subscription payments for APIs with the Pay.sh
   command-line gateway.
-url: /docs/payments/pay-sh
 type: guide
 related:
-  - /docs/payments/accept-payments
-  - /docs/payments/subscriptions/overview
+  - /developers/docs/payments/accept-payments
+  - /developers/docs/payments/subscriptions/overview
 ---
 
 [Pay.sh](https://pay.sh/) is a command-line payment layer for HTTP APIs. A Pay
@@ -15,26 +14,34 @@ gateway returns an HTTP `402 Payment Required` challenge, verifies the client's
 payment proof, and then serves or proxies the requested endpoint. It supports
 pay-per-use endpoints and recurring subscription plans.
 
-<Callout type="info">
+<Info>
   Start with `--sandbox`. It uses an ephemeral, funded local account, so the
   examples do not spend real funds or require mainnet wallet setup.
-</Callout>
+</Info>
 
 ## Install Pay
 
-Install the CLI with Homebrew:
+On macOS, install the prebuilt binary with Homebrew:
 
 ```shell
 brew install pay
 pay --version
 ```
 
-You can also install it with npm or run it once through `npx`:
+On Linux and Windows, download the archive for your platform from the
+[latest `pay` release](https://github.com/solana-foundation/pay/releases/latest),
+extract it, and put the `pay` binary on your `PATH`:
 
 ```shell
-npm install -g @solana/pay
 pay --version
+```
 
+The commands on this page need `pay` 0.29.0 or later. The npm package
+(`npm install --global @solana/pay`) also installs a `pay` binary, but as of
+October 2026 it downloads `pay` 0.26.0, which does not have `pay gate demo` or
+`pay gate scaffold`. It still works for one-off client calls through `npx`:
+
+```shell
 npx @solana/pay --sandbox curl https://debugger.pay.sh/mpp/quote/AAPL
 ```
 
@@ -46,7 +53,7 @@ platform details, updates, and source installation.
 Start the built-in gateway demo in sandbox mode:
 
 ```shell
-pay --sandbox server demo
+pay --sandbox gate demo
 ```
 
 The command prints the local endpoints you can call from another terminal. Use
@@ -59,13 +66,13 @@ A paywall specification defines routing, allowed endpoints, pricing, currencies,
 and operator settings. Scaffold one with:
 
 ```shell
-pay server scaffold paywall.yml
+pay gate scaffold paywall.yml
 ```
 
 This minimal sandbox example serves a fixed response and charges one cent per
 request:
 
-```yaml title="paywall.yml"
+```yaml paywall.yml
 name: usage-api
 subdomain: usage-api
 title: "Usage API"
@@ -114,12 +121,90 @@ and keep upstream credentials in environment variables.
 See [Write a paywall spec](https://pay.sh/docs/accept-payments/provider-spec)
 for the complete schema and production routing options.
 
+## Let an agent pay (x402)
+
+Pay can also be the client side for an AI agent. Here an x402-only sandbox API
+charges a tenth of a cent per request, and Claude Code pays it through Pay's
+local tools. The API, payer wallet, and settlement all use the Solana sandbox,
+so no account or real funds are needed. You need Pay and Claude Code
+installed.
+
+Create `x402-demo.yaml`. `schemes: [x402-exact]` under `metering` makes this
+an x402-only endpoint:
+
+```yaml x402-demo.yaml
+name: x402-demo
+subdomain: x402-demo
+title: "x402 Demo"
+description: "Minimal x402 V2 sandbox endpoint."
+category: devtools
+version: v1
+routing:
+  type: respond
+operator:
+  currencies:
+    usd: ["USDC"]
+  network: "localnet"
+  fee_payer: true
+endpoints:
+  - method: GET
+    path: "report"
+    description: "Return a sandbox report."
+    metering:
+      schemes: [x402-exact]
+      dimensions:
+        - direction: usage
+          unit: requests
+          scale: 1
+          tiers:
+            - price_usd: 0.001
+```
+
+Start the API and leave it running. Sandbox mode creates and funds temporary
+operator and payer accounts automatically:
+
+```shell
+pay --sandbox gate api x402-demo.yaml --bind 127.0.0.1:1402
+```
+
+In another terminal, start Claude Code in sandbox mode:
+
+```shell
+pay --sandbox claude
+```
+
+Pay attaches its local MCP tools to the agent session. The agent does not
+receive a private key. Paste this prompt into the agent:
+
+```text
+Use Pay to make exactly one sandbox x402 API request to
+http://127.0.0.1:1402/report.
+
+Before paying, show me the amount and ask for approval. Then return the API
+result and payment receipt. Do not make any other paid requests.
+```
+
+The request follows one complete x402 V2 payment loop:
+
+1. The API returns `402 Payment Required` with a `PAYMENT-REQUIRED` challenge.
+2. Pay validates the x402 requirements and displays the payment terms.
+3. After approval, the sandbox wallet signs and Pay retries the request with
+   `PAYMENT-SIGNATURE`.
+4. The API returns the result with a `PAYMENT-RESPONSE` receipt.
+
+No real funds move. Rejecting the approval stops the request. To build an x402
+V2 client and resource server yourself, continue with
+[x402 on Solana](/developers/docs/payments/agentic-payments/x402). To see the same flow
+without installing anything, step through
+[Call a paid API](/developers/docs/payments/paywall-api/try-it). To settle x402 payments
+for other servers, [become an x402 facilitator](/developers/docs/tools/x402-facilitator).
+
 ## Add a subscription
 
 Use a `subscription` block instead of `metering` when access should renew on a
 fixed period. This endpoint creates a 30-day, 9.99 USDC plan:
 
-```yaml title="monthly.yml"
+```yaml monthly.yml
 name: subscriptions-api
 subdomain: subscriptions-api
 title: "Subscriptions API"

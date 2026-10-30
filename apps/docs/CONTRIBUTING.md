@@ -51,18 +51,35 @@ and block approval/merging.
 Translations are handled via the lingo.dev platform. The content within this
 repo is in the default/base language of English. When the content is pushed to
 `main`, there is a CI/CD process to convert the shared
-`packages/i18n/messages/*/en/common.json` UI catalogs and the docs content
-sources to the other translation variants.
+`packages/i18n/messages/*/en/common.json` UI catalogs and the English docs
+sources (`content/docs/en`) to the other translation variants. A page without a
+translation yet is served in English at its locale URL.
 
 ## Documentation
 
-The developer docs content for solana.com is located in the
-[`/content`](/content) directory which contains the pages for `/docs`,
-`/developers/cookbook`, `/developers/guides`, in the respective subdirectories.
+The developer docs content lives in `apps/docs/content`. This app renders it
+with Fumadocs and serves it at solana.com/developers/docs:
 
-The developer docs are built with [Fumadocs](https://fumadocs.vercel.app/). For
-additional details on how files are structured, see the
-[Fumadocs documentation](https://fumadocs.vercel.app/docs/headless/page-conventions#overview).
+- `content/docs/en/**` (/developers/docs) and `content/cookbook/**`
+  (/developers/cookbook) are the English pages; `content/docs/<locale>/…` holds
+  the translations. Folder paths are public URLs, so moving a file needs a
+  redirect in `apps/docs/redirects.ts`. The /learn articles are
+  `apps/web/content/learn`.
+- `content/navigation/en.json` is the navigation, used in every locale. Edit it
+  by hand.
+- Use the docs components (`<Note>`, `<Steps>`, `<CodeGroup>`, `<Tabs>`,
+  `<Card>`, …; `src/components/docs/docs-components.tsx`). Pages must read
+  completely without JavaScript: see "Reading without JavaScript" in
+  `packages/docs-tooling/AUTHORING.md` for the allowed patterns.
+- Preview locally with `pnpm --filter solana-docs dev` (docs at
+  http://localhost:3003/developers/docs). Before pushing run
+  `pnpm --filter @workspace/docs-tooling verify` and
+  `pnpm --filter @workspace/docs-tooling generate:check`; a content change that
+  touches components or MDX syntax should also pass
+  `pnpm --filter solana-docs build`.
+
+All tooling (generators, checks) lives in `packages/docs-tooling`;
+`packages/docs-tooling/AUTHORING.md` is the full guide.
 
 ## Cookbook code examples
 
@@ -82,8 +99,8 @@ A TypeScript example comes in up to three flavours, one file each:
 | `legacy.ts` | `@solana/web3.js` 1.x       | `Web3.js (legacy)` |
 
 Order tabs `Kit` → `Web3.js v3` → `Rust` → `Web3.js (legacy)`; the legacy tab
-always goes last. Tab selection persists in localStorage by tab title, so use
-these titles verbatim. Token pages use one section per language instead, in the
+always goes last. Use these titles verbatim: tab groups with the same titles
+stay in sync on a page. Token pages use one section per language instead, in the
 order `### Kit`, `### Web3.js v3`, `### Rust`, `### Python`,
 `### Web3.js (legacy)`; the TypeScript sections use the storage keys
 `token-ts-kit`, `token-ts-web3v3`, and `token-ts-legacy`.
@@ -91,10 +108,20 @@ order `### Kit`, `### Web3.js v3`, `### Rust`, `### Python`,
 Both web3.js majors are installed side by side, which pnpm only allows under
 distinct names, so example sources import the aliases `@solana/web3.js-v3` and
 `@solana/web3.js-legacy`. Both are rewritten back to `@solana/web3.js` when the
-snippet is inlined into a page
-(`apps/docs/src/lib/remark-web3js-specifier.mjs`), so readers see the real
-package name. `@solana/spl-token` depends on legacy web3.js and resolves to it
-automatically; v3 token examples use the `@solana-program/*` clients instead.
+snippet is generated (`examples:build`, via `restoreWeb3jsSpecifier()` in
+`packages/docs-tooling`), so readers see the real package name.
+`@solana/spl-token` depends on legacy web3.js and resolves to it automatically;
+v3 token examples use the `@solana-program/*` clients instead.
+
+Legacy tabs get the "no longer actively maintained" notice automatically:
+`examples:build` adds `<LegacyWeb3jsNotice />` to any tab whose source imports
+`@solana/web3.js-legacy`, and to any tab whose title names web3.js and says
+"legacy" (such as `Web3.js (legacy)`) unless its source imports
+`@solana/web3.js-v3`. `"legacy": true|false` on a tab overrides the check. In
+hand-written MDX, put `<LegacyWeb3jsNotice />` on its own line where 1.x code
+starts (see `packages/docs-tooling/AUTHORING.md`, "Legacy web3.js notice"). Its
+wording is `LEGACY_WEB3JS_NOTICE_SOURCE` in
+`apps/docs/src/lib/docs/remark-docs-compat.mjs`.
 
 1. Put the runnable file under
    `packages/docs-examples/cookbook/<section>/<page>/` (e.g. `kit.ts`).
@@ -102,11 +129,13 @@ automatically; v3 token examples use the `@solana-program/*` clients instead.
    `// #endregion <name>` markers.
 3. Add a sibling `<name>.test.ts` that imports the file — that's enough to
    exercise it end-to-end against surfpool.
-4. In the MDX page, replace the fenced code block with a `file=` directive on
-   the opening fence — same shape as
-   ` ```ts !! title="Kit" file=packages/docs-examples/cookbook/<section>/<page>/kit.ts#region=<name> `
-   followed by a closing ` ``` `. The Kit conversions already in
-   `cookbook/accounts` are good references.
+4. Describe the block (its tabs, files and regions) in that folder's
+   `blocks.json`, then run
+   `pnpm --filter @workspace/docs-tooling examples:build`. That writes the
+   snippet `apps/docs/content/snippets/examples/<section>/<page>/<block>.mdx`.
+5. In the MDX page, import and place it:
+   `import SendSol from "/snippets/examples/cookbook/transactions/send-sol/transfer.mdx";`
+   then `<SendSol />`. Every locale copy imports the same snippet.
 
 Run `pnpm --filter @workspace/docs-examples test` locally — needs the `surfpool`
 CLI installed via
@@ -123,8 +152,8 @@ Each Rust example is a member crate of the Cargo workspace at
    multiple `[[bin]]` entries.
 2. Wrap the rendered region of `main.rs` in `// #region <name>` /
    `// #endregion <name>` — same syntax as TS, the include plugin handles both.
-3. In the MDX page, point the directive at the source file:
-   ` ```rust !! title="Rust" file=packages/docs-examples/cookbook/<section>/<page>/rust/src/main.rs#region=<name> `
+3. Add the Rust tab to the block in `blocks.json` and rebuild the snippets
+   (`examples:build`).
 
 Run locally with `bash packages/docs-examples/scripts/run-rust-examples.sh` —
 spawns surfpool, ensures the fixture keypair exists, and cargo-runs every binary
@@ -140,8 +169,8 @@ Python snippets follow the same layout, one file per rendered block:
    matching its TypeScript siblings.
 2. Wrap the rendered region in `# #region <name>` / `# #endregion <name>`,
    reusing the region name the other tabs on that block use.
-3. Point the fence at it:
-   ` ```py !! title="Python" file=packages/docs-examples/cookbook/<section>/<page>/python.py#region=<name> `
+3. Add the Python tab to the block in `blocks.json` and rebuild the snippets
+   (`examples:build`).
 
 Dependencies are pinned in `packages/docs-examples/requirements.txt`. Run
 locally with `bash packages/docs-examples/scripts/run-python-examples.sh`, which
@@ -158,8 +187,8 @@ live in the single Go module at `packages/docs-examples/go.mod`:
    `go-<variant>/main.go` when the page has more than one runnable block.
 2. Wrap the rendered region in `// #region <name>` / `// #endregion <name>`,
    reusing the region name the other tabs on that block use.
-3. Point the fence at it, right after the Python tab:
-   ` ```go !! title="Go" file=packages/docs-examples/cookbook/<section>/<page>/go/main.go#region=<name> `
+3. Add the Go tab to the block in `blocks.json`, right after the Python tab, and
+   rebuild the snippets (`examples:build`).
 
 Run locally with `bash packages/docs-examples/scripts/run-go-examples.sh`. CI
 runs it in the `examples-go` job.
@@ -169,21 +198,18 @@ code for their SDK; they do not need to mirror the Kit code step by step.
 
 ### Runnable blocks and their console output
 
-`<CodeTabs flags="r">` renders a console with a Run button beside the code.
-Nothing executes in the browser — the console prints output captured from the
-real example, stored beside its source as `<name>.output.txt`. The include
-plugin looks for `<source>.<region>.output.txt`, then `<source>.output.txt`, so
-an example needs no extra wiring in the MDX. A block whose code is inline in the
-MDX can point at a file explicitly with `output=<path>` on the fence.
+A generated example snippet shows a Run button beside the code. Nothing executes
+in the browser: the console prints output recorded from the real example, stored
+beside its source as `<name>.output.txt` (looked up as
+`<source>.<region>.output.txt`, then `<source>.output.txt`). Record it with
+`RECORD_OUTPUT=1 pnpm --filter @workspace/docs-examples exec vitest run <dir>`
+and rebuild the snippets. A tab with no recorded output gets no Run button.
+Without JavaScript the recorded output is shown directly.
 
-An example whose output is a freshly generated key pair would read as wrong
-frozen into a file, so `cookbook/wallets/create-keypair` builds its output in
-the browser instead — it generates a real Ed25519 key pair with `@solana/keys`
-on each Run. To do the same for another example, add a module under
-`apps/docs/src/app/components/code/runners/` exporting one function per tab
-title, register it in `runners/registry.ts`, and name it from the MDX with
-`<CodeTabs flags="r" runner="<id>">`. Prefer a captured `.output.txt` wherever a
-fixed value is honest — it costs no client JavaScript.
+`cookbook/wallets/create-keypair` builds its output in the browser instead (a
+fresh Ed25519 key pair; `data-runner="generate-keypair"`, handled by
+`apps/docs/public/docs-assets/scripts/run-examples.js`). Prefer a recorded
+`.output.txt` wherever a fixed value is honest — it costs no client JavaScript.
 
 ## RPC providers
 
