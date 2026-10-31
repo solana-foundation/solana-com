@@ -16,3 +16,19 @@ project data so readers can inspect the evidence beside each figure. Keep the
 display value, English message, source link, and claim record in sync when a
 figure is updated; the validator checks that they match. Localized messages
 should be reviewed with the English source during the same update.
+
+## Site metrics registry
+
+Published figures that pages render as stats live in
+`src/data/metrics/registry.json` and reach components only through
+`getDisplayMetrics` (`src/lib/metrics/present.ts`). Each entry records a stable
+key, definition, unit, period, reader-facing source, owner, dated snapshot,
+verification date, and review deadline. Live entries name a data-api window or
+an RWA.xyz field; the snapshot is their explicit fallback, and every rendered
+figure shows its source and date. Reuse an existing key wherever a page shows
+the same measure for the same period, so one update reaches every page.
+
+The validator fails when an entry lacks provenance, its snapshot or review date
+is invalid, or a trailing period does not match its live window. See
+`docs/analytics/site-metrics-eco-927.md` for the audit, terminology standard,
+and remaining migration gaps.

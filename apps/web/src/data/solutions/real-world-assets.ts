@@ -193,3 +193,10 @@ export const LATEST_NEWS_QUERY: SolutionNewsQuery = {
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
   fallbackImageAspectRatio: "1200 / 630",
 };
+
+/** Registry keys for the live hero stats, in display order. */
+export const HERO_METRICS = [
+  "rwa.distributed-value",
+  "rwa.asset-count",
+  "rwa.holders",
+] as const;

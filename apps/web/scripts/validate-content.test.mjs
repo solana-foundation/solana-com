@@ -4,6 +4,7 @@ import {
   validateClaims,
   validateFinancialProjectStats,
   validateLinks,
+  validateMetricRegistry,
   validatePageStats,
   validateSource,
   validateUrl,
@@ -36,10 +37,16 @@ test("financial project cards display their audited figures and sources", () => 
       key: "morganStanley",
       statValue: "$1.9T",
       statSource: "https://example.com/report",
+      statSourceNote: "2025-12-31",
     },
   ];
   const claims = [
-    { path, claim: "$1.9T", sourceUrl: "https://example.com/report" },
+    {
+      path,
+      claim: "$1.9T",
+      sourceUrl: "https://example.com/report",
+      asOf: "2025-12-31",
+    },
   ];
   const messages = {
     "financial-institutions-solution": {
@@ -66,6 +73,60 @@ test("financial project cards display their audited figures and sources", () => 
     ).join("\n"),
     /displayed source must match/,
   );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...projects[0], statSourceNote: undefined }],
+      claims,
+      messages,
+    ).join("\n"),
+    /displayed date must match/,
+  );
+});
+
+test("registry metrics need provenance, a dated fallback, and a live review deadline", () => {
+  const metric = {
+    unit: "usd",
+    definition: "Circulating stablecoin supply on Solana.",
+    period: { kind: "point" },
+    source: { name: "Solana Data", url: "https://solana.com/data" },
+    owner: "Ecosystem Engineering",
+    live: {
+      provider: "data-api",
+      metrics: ["Circulating Supply"],
+      rollup: "last",
+      days: 1,
+    },
+    snapshot: { value: 15e9, asOf: "2026-10-28" },
+    verifiedAt: "2026-10-30",
+    reviewBy: "2027-01-30",
+  };
+  const today = "2026-10-30";
+  assert.deepEqual(
+    validateMetricRegistry({ "stablecoins.supply": metric }, today),
+    [],
+  );
+  const errors = validateMetricRegistry(
+    {
+      "stablecoins.supply": {
+        ...metric,
+        owner: "",
+        source: { name: "Solana Data", url: "http://solana.com/data" },
+        snapshot: { value: "15B", asOf: "2026-10-28" },
+        reviewBy: "2026-10-01",
+      },
+      "network.window": {
+        ...metric,
+        period: { kind: "trailing", days: 30 },
+        live: { ...metric.live, rollup: "sum", days: 7 },
+      },
+    },
+    today,
+  ).join("\n");
+  assert.match(errors, /owner is required/);
+  assert.match(errors, /valid HTTPS source/);
+  assert.match(errors, /snapshot value must be a number/);
+  assert.match(errors, /review deadline has passed/);
+  assert.match(errors, /trailing period must match the live window/);
 });
 
 test("rejects impossible local destinations and accepts known cross-app content", () => {
