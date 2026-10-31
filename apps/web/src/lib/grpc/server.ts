@@ -282,11 +282,16 @@ export async function getGrpcMetricRows(
 // is downtime if a reconnect attempt was refused (a provider failure right after
 // another disconnect) or it lasted at least 10 seconds. A drop whose first
 // reconnect succeeds is only a reconnect. Partition by the full subscriber/stream
-// identity when combining regions.
+// identity when combining regions. A reconnect needs an earlier successful
+// connection, which may predate the lookback on a long-lived stream.
 export function buildGrpcConnectionQuery() {
   const keys =
     "region, cloud_provider, data_type, commitment, subscription_id, provider";
   const local = "('arrival queue full', 'control queue full')";
+  const filters = `({region:String} = 'all' OR region = {region:String})
+        AND ${grpcCloudFilter}
+        AND ({stream:String} = 'all' OR data_type = {stream:String})
+        AND ${grpcCommitmentFilter}`;
   return `WITH
     toDateTime64({start:UInt32}, 9, 'UTC') AS range_start,
     toDateTime64({end:UInt32}, 9, 'UTC') AS range_end,
@@ -295,14 +300,14 @@ export function buildGrpcConnectionQuery() {
         NOT connected AND reason NOT IN ${local} AS provider_down,
         lagInFrame(toUInt8(NOT connected AND reason NOT IN ${local}), 1, toUInt8(0)) OVER stream AS previous_provider_down,
         maxIf(event_utc, connected OR reason IN ${local}) OVER before AS outage,
-        countIf(connected) OVER before AS prior_connections,
+        countIf(connected) OVER before > 0 OR (${keys}) IN (
+          SELECT ${keys} FROM benchmark_connection_events
+          WHERE ${filters} AND connected AND event_utc < range_start - INTERVAL 1 DAY
+        ) AS connected_before,
         NOT lagInFrame(connected, 1, true) OVER stream AS after_disconnect,
         leadInFrame(event_utc, 1, least(now64(9, 'UTC'), range_end + INTERVAL 10 SECOND)) OVER stream AS next_utc
       FROM benchmark_connection_events
-      WHERE ({region:String} = 'all' OR region = {region:String})
-        AND ${grpcCloudFilter}
-        AND ({stream:String} = 'all' OR data_type = {stream:String})
-        AND ${grpcCommitmentFilter}
+      WHERE ${filters}
         AND event_utc >= range_start - INTERVAL 1 DAY
         AND event_utc <= range_end + INTERVAL 10 SECOND
       WINDOW stream AS (PARTITION BY ${keys} ORDER BY event_utc
@@ -336,7 +341,7 @@ export function buildGrpcConnectionQuery() {
       UNION ALL
       SELECT provider, toNullable(toUnixTimestamp(toStartOfInterval(event_utc, INTERVAL {step:UInt32} SECOND))) AS timestamp,
         toFloat64(0) AS downtime,
-        toFloat64(countIf(connected AND previous_provider_down AND prior_connections > 0 AND event_utc >= range_start AND event_utc < range_end)) AS reconnects
+        toFloat64(countIf(connected AND previous_provider_down AND connected_before AND event_utc >= range_start AND event_utc < range_end)) AS reconnects
       FROM transitions WHERE event_utc >= range_start AND event_utc < range_end GROUP BY provider, timestamp
       UNION ALL
       SELECT DISTINCT provider, CAST(NULL AS Nullable(UInt32)) AS timestamp, toFloat64(0) AS downtime, toFloat64(0) AS reconnects
@@ -347,7 +352,7 @@ export function buildGrpcConnectionQuery() {
     SELECT provider, toFloat64(toUnixTimestamp64Milli(event_utc)) / 1000 AS timestamp,
       toUInt64(2) AS entire_period, toFloat64(0) AS downtime, toFloat64(count()) AS reconnects
     FROM transitions
-    WHERE connected AND previous_provider_down AND prior_connections > 0
+    WHERE connected AND previous_provider_down AND connected_before
       AND event_utc >= range_start AND event_utc < range_end
     GROUP BY provider, event_utc)
     ORDER BY entire_period, timestamp, provider`;

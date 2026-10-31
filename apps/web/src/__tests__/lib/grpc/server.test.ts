@@ -380,6 +380,17 @@ describe("gRPC benchmark", () => {
     );
   });
 
+  it("counts reconnects on streams connected before the lookback", () => {
+    const query = buildGrpcConnectionQuery();
+
+    expect(query).toContain("countIf(connected) OVER before > 0 OR (");
+    expect(query).toContain(
+      "AND connected AND event_utc < range_start - INTERVAL 1 DAY",
+    );
+    expect(query).not.toContain("prior_connections");
+    expect(query.match(/AND connected_before/g)).toHaveLength(2);
+  });
+
   it("keeps region input parameterized and excludes stale or incomplete summaries", async () => {
     const fetchMock = vi
       .fn()

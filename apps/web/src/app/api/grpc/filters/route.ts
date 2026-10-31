@@ -20,7 +20,8 @@ export async function GET() {
             : "no-store",
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("Failed to load gRPC benchmark filters", error);
     return NextResponse.json(
       { error: "gRPC benchmark filters are unavailable." },
       { status: 502, headers: { "Cache-Control": "no-store" } },

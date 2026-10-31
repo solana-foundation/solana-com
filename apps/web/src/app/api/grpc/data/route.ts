@@ -30,7 +30,8 @@ export async function GET(request: NextRequest) {
             : "no-store",
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("Failed to load gRPC benchmark data", error);
     return NextResponse.json(
       { error: "gRPC benchmark data is unavailable." },
       { status: 502, headers: { "Cache-Control": "no-store" } },
