@@ -218,6 +218,11 @@ describe("here-for X auth", () => {
     const state = new URL(startXSignIn(long)).searchParams.get("state");
     expect(openXState(state)?.returnTo).toBe(compact);
     expect(compactReturnPath(returnTo)).toBe(returnTo);
+    expect(
+      compactReturnPath(
+        `/breakpoint/mutuals/add?picks=alice&save=1&utm_source=${"x".repeat(900)}`,
+      ),
+    ).toBe("/breakpoint/mutuals/add?picks=alice&save=1");
   });
 
   it("revalidates return paths stored in OAuth state", () => {

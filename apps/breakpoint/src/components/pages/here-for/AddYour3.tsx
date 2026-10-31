@@ -11,6 +11,7 @@ import {
 } from "@/lib/here-for/types";
 import {
   HERE_FOR_PATH,
+  SAVE_PARAM,
   consumeSignInReturn,
   handleSlug,
   joinHandles,
@@ -79,17 +80,20 @@ export default function AddYour3({ locale }: { locale: string }) {
       .filter((h, i, all) => all.indexOf(h) === i)
       .slice(0, HERE_FOR_MAX_ADDS);
     const start = carried.length ? carried : (existing?.adds ?? []);
-    // Save only picks carried through a sign-in that just finished; a shared
-    // ?picks= link prefills the form and waits for the visitor to confirm.
+    // Save only picks the visitor pressed Save on, carried through a sign-in
+    // that just finished. A shared ?picks= link, or picks carried through the
+    // sign-in prompt, prefill the form and wait for the visitor to confirm.
     // Consume the marker on every visit so a stale one can't arm a later link.
     const justSignedIn = consumeSignInReturn();
     autoSave.current =
       justSignedIn &&
-      carried.length === HERE_FOR_MAX_ADDS &&
+      params.get(SAVE_PARAM) === "1" &&
+      carried.length > 0 &&
       Boolean(existing?.xHandle);
     // Keep the URL clean so a reload doesn't replay the sign-in outcome.
-    if (params.has("picks") || x) {
+    if (params.has("picks") || params.has(SAVE_PARAM) || x) {
       params.delete("picks");
+      params.delete(SAVE_PARAM);
       params.delete("x");
       const query = params.toString();
       window.history.replaceState(
@@ -196,7 +200,7 @@ export default function AddYour3({ locale }: { locale: string }) {
     if (!adds.length) return setMessage(t("errors.invalid_adds"));
     // Signing in is the last step: carry the picks to X and back.
     if (!ownHandle) {
-      window.location.href = xSignInUrl(adds);
+      window.location.href = xSignInUrl(adds, undefined, { save: true });
       return;
     }
     setSaving(true);
@@ -220,8 +224,7 @@ export default function AddYour3({ locale }: { locale: string }) {
 
   // Back from X with three picks: finish the save they started.
   useEffect(() => {
-    if (!autoSave.current || !ownHandle || adds.length !== HERE_FOR_MAX_ADDS)
-      return;
+    if (!autoSave.current || !ownHandle || !adds.length) return;
     autoSave.current = false;
     if (adds.includes(ownHandle)) return setMessage(t("errors.self_add"));
     save();

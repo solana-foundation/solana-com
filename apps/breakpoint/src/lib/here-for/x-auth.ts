@@ -99,13 +99,14 @@ export function openXState(state: string | null) {
 // Keeps the encrypted state well under the length the callback accepts.
 const MAX_RETURN_LENGTH = 200;
 
-/** A long return path keeps its route and picks, dropping other params. */
+/** A long return path keeps its route, picks and save marker, dropping other params. */
 export function compactReturnPath(returnTo: string) {
   if (returnTo.length <= MAX_RETURN_LENGTH) return returnTo;
   const url = new URL(returnTo, "https://return.invalid");
   const picks = url.searchParams.get("picks");
+  const save = url.searchParams.get("save") === "1" ? "&save=1" : "";
   const compact = picks
-    ? `${url.pathname}?picks=${encodeURIComponent(picks)}`
+    ? `${url.pathname}?picks=${encodeURIComponent(picks)}${save}`
     : url.pathname;
   return compact.length <= MAX_RETURN_LENGTH ? compact : url.pathname;
 }

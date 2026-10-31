@@ -663,6 +663,10 @@ function createScene(
       restyle(propsRef.current);
     }
     renderer.setSize(clientWidth, clientHeight, false);
+    // Keep the zoom the reader chose relative to the fit as the frame changes.
+    const zoom = sized
+      ? camera.position.distanceTo(controls.target) / fitDistance()
+      : 1;
     camera.aspect = clientWidth / clientHeight;
     const shift = Math.min(propsRef.current.shiftX ?? 0, clientWidth / 3);
     openWidth = 1 - (2 * shift) / clientWidth;
@@ -677,14 +681,19 @@ function createScene(
       );
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
-    // The camera is placed before the first real size is known; re-fit once.
-    if (!sized) {
-      sized = true;
-      camera.position
-        .sub(controls.target)
-        .setLength(fitDistance())
-        .add(controls.target);
-    }
+    // The camera is placed before the first real size is known, so fit it
+    // then; after that, keep the same zoom when the frame or shift changes.
+    sized = true;
+    camera.position
+      .sub(controls.target)
+      .setLength(
+        THREE.MathUtils.clamp(
+          fitDistance() * zoom,
+          controls.minDistance,
+          controls.maxDistance,
+        ),
+      )
+      .add(controls.target);
     requestRender();
   };
   const resizeObserver = new ResizeObserver(resize);

@@ -171,6 +171,7 @@ export async function submitAdds(
 export function xSignInUrl(
   picks: readonly HereForHandle[] = [],
   returnPath?: string,
+  { save = false }: { save?: boolean } = {},
 ) {
   const back = new URL(
     returnPath ?? window.location.href,
@@ -179,12 +180,17 @@ export function xSignInUrl(
   back.searchParams.delete("x");
   back.searchParams.delete("add");
   back.searchParams.delete("picks");
+  // Only a Save press asks for the picks to save on return; any marker
+  // already in the URL is dropped so a shared link can't set it.
+  back.searchParams.delete(SAVE_PARAM);
   if (picks.length)
     back.searchParams.set("picks", picks.map(handleSlug).join(","));
+  if (save && picks.length) back.searchParams.set(SAVE_PARAM, "1");
   return `${API}/x/login?return=${encodeURIComponent(back.pathname + back.search)}`;
 }
 
 const RETURN_COOKIE = "here_for_x_return";
+export const SAVE_PARAM = "save";
 
 /**
  * True once, right after the X callback signed this browser in. Only the
