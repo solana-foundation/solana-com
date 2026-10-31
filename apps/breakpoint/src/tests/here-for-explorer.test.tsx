@@ -4,12 +4,17 @@ import Explorer from "@/components/pages/here-for/Explorer";
 import { buildGraphIndex } from "@/components/pages/here-for/graph-index";
 import type { HereForHandle } from "@/lib/here-for/types";
 
-const mocks = vi.hoisted(() => ({ graph: vi.fn() }));
+const member = { handle: "@z", xHandle: "@z", adds: ["@a"], status: "open" };
+const guest = { handle: null, xHandle: null, adds: [], status: "open" };
+const mocks = vi.hoisted(() => ({ graph: vi.fn(), me: vi.fn() }));
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
 vi.mock("@workspace/i18n/client", () => ({
   useTranslations: () => (key: string) => key,
 }));
 vi.mock("@/components/Button", () => ({ default: () => null }));
+vi.mock("@/components/pages/here-for/JoinCard", () => ({
+  default: () => <p data-testid="join" />,
+}));
 vi.mock("@/components/pages/here-for/PersonPanel", () => ({
   default: ({
     index,
@@ -27,8 +32,9 @@ vi.mock("@/components/pages/here-for/client", async (importOriginal) => ({
   ...(await importOriginal<
     typeof import("@/components/pages/here-for/client")
   >()),
-  useMe: () => [{ status: "ready", data: { handle: null } }],
+  useMe: () => [{ status: "ready", data: mocks.me() }],
   useGraphIndex: mocks.graph,
+  useMediaQuery: () => false,
   usePrefersReducedMotion: () => true,
 }));
 
@@ -53,7 +59,24 @@ const graph = (handles: HereForHandle[]) => ({
 
 afterEach(cleanup);
 
+it("shows guests the map with only the join card", () => {
+  mocks.me.mockReturnValue(guest);
+  mocks.graph.mockReturnValue(graph(["@a", "@b"]));
+  render(<Explorer locale="en" />);
+  expect(screen.getByTestId("join")).toBeInTheDocument();
+  expect(screen.queryByLabelText("explorer.zoomControls")).toBeNull();
+});
+
+it("gives members the full explorer without the join card", () => {
+  mocks.me.mockReturnValue(member);
+  mocks.graph.mockReturnValue(graph(["@a", "@b"]));
+  render(<Explorer locale="en" />);
+  expect(screen.queryByTestId("join")).toBeNull();
+  expect(screen.getByLabelText("explorer.zoomControls")).toBeInTheDocument();
+});
+
 it("remaps selection immediately when refresh shrinks and renumbers the graph", () => {
+  mocks.me.mockReturnValue(member);
   mocks.graph.mockReturnValue(graph(["@a", "@b", "@c"]));
   const { rerender } = render(<Explorer locale="en" initialFocus="c" />);
   expect(screen.getByTestId("selection")).toHaveTextContent("@c");

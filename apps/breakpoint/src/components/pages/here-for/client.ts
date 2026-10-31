@@ -165,19 +165,32 @@ export async function submitAdds(
 /**
  * Starts X sign-in and comes back to the current page afterwards. Picks ride
  * along in the return URL, which survives X opening the callback in another
- * browser where local storage would be empty.
+ * browser where local storage would be empty. `returnPath` sends them to
+ * another page instead, such as the picker from the map.
  */
-export function xSignInUrl(picks: readonly HereForHandle[] = []) {
-  const back = new URL(window.location.href);
+export function xSignInUrl(
+  picks: readonly HereForHandle[] = [],
+  returnPath?: string,
+  { save = false }: { save?: boolean } = {},
+) {
+  const back = new URL(
+    returnPath ?? window.location.href,
+    window.location.href,
+  );
   back.searchParams.delete("x");
   back.searchParams.delete("add");
   back.searchParams.delete("picks");
+  // Only a Save press asks for the picks to save on return; any marker
+  // already in the URL is dropped so a shared link can't set it.
+  back.searchParams.delete(SAVE_PARAM);
   if (picks.length)
     back.searchParams.set("picks", picks.map(handleSlug).join(","));
+  if (save && picks.length) back.searchParams.set(SAVE_PARAM, "1");
   return `${API}/x/login?return=${encodeURIComponent(back.pathname + back.search)}`;
 }
 
 const RETURN_COOKIE = "here_for_x_return";
+export const SAVE_PARAM = "save";
 
 /**
  * True once, right after the X callback signed this browser in. Only the
@@ -236,14 +249,17 @@ export const joinHandles = (handles: readonly (HereForHandle | string)[]) =>
 export const withAsk = (text: string, ask: string, anyoneLeft: boolean) =>
   anyoneLeft ? `${text} ${ask}` : text;
 
-export function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(false);
+export function useMediaQuery(media: string) {
+  const [matches, setMatches] = useState(false);
   useEffect(() => {
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReduced(query.matches);
-    const onChange = (event: MediaQueryListEvent) => setReduced(event.matches);
+    const query = window.matchMedia(media);
+    setMatches(query.matches);
+    const onChange = (event: MediaQueryListEvent) => setMatches(event.matches);
     query.addEventListener("change", onChange);
     return () => query.removeEventListener("change", onChange);
-  }, []);
-  return reduced;
+  }, [media]);
+  return matches;
 }
+
+export const usePrefersReducedMotion = () =>
+  useMediaQuery("(prefers-reduced-motion: reduce)");

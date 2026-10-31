@@ -11,6 +11,7 @@ import {
 } from "@/lib/here-for/types";
 import {
   HERE_FOR_PATH,
+  SAVE_PARAM,
   consumeSignInReturn,
   handleSlug,
   joinHandles,
@@ -54,13 +55,13 @@ export default function AddYour3({ locale }: { locale: string }) {
   const closed = me.status === "ready" && me.data.status === "closed";
   const returning = me.status === "ready" && me.data.adds.length > 0;
   const ownHandle = me.status === "ready" ? me.data.xHandle : null;
-  // Their saved 3, untouched: nothing to update, so offer the post instead.
+  // Their saved picks, untouched: nothing to update, so offer the post instead.
   const savedHandle =
     me.status === "ready" &&
     me.data.handle === ownHandle &&
-    me.data.adds.length === HERE_FOR_MAX_ADDS &&
-    me.data.adds.every((handle, i) => adds[i] === handle) &&
-    adds.length === HERE_FOR_MAX_ADDS
+    me.data.adds.length > 0 &&
+    me.data.adds.length === adds.length &&
+    me.data.adds.every((handle, i) => adds[i] === handle)
       ? me.data.handle
       : null;
 
@@ -79,17 +80,20 @@ export default function AddYour3({ locale }: { locale: string }) {
       .filter((h, i, all) => all.indexOf(h) === i)
       .slice(0, HERE_FOR_MAX_ADDS);
     const start = carried.length ? carried : (existing?.adds ?? []);
-    // Save only picks carried through a sign-in that just finished; a shared
-    // ?picks= link prefills the form and waits for the visitor to confirm.
+    // Save only picks the visitor pressed Save on, carried through a sign-in
+    // that just finished. A shared ?picks= link, or picks carried through the
+    // sign-in prompt, prefill the form and wait for the visitor to confirm.
     // Consume the marker on every visit so a stale one can't arm a later link.
     const justSignedIn = consumeSignInReturn();
     autoSave.current =
       justSignedIn &&
-      carried.length === HERE_FOR_MAX_ADDS &&
+      params.get(SAVE_PARAM) === "1" &&
+      carried.length > 0 &&
       Boolean(existing?.xHandle);
     // Keep the URL clean so a reload doesn't replay the sign-in outcome.
-    if (params.has("picks") || x) {
+    if (params.has("picks") || params.has(SAVE_PARAM) || x) {
       params.delete("picks");
+      params.delete(SAVE_PARAM);
       params.delete("x");
       const query = params.toString();
       window.history.replaceState(
@@ -172,7 +176,9 @@ export default function AddYour3({ locale }: { locale: string }) {
     setDraft("");
   };
 
-  const ready = adds.length === HERE_FOR_MAX_ADDS && !closed;
+  // One pick is enough to get on the map; the rest can follow.
+  const ready = adds.length > 0 && !closed;
+  const remaining = HERE_FOR_MAX_ADDS - adds.length;
   // Until the map loads nobody is known to have added theirs, so keep asking.
   const hasAdded = (handle: HereForHandle) => {
     if (graph.status !== "ready") return false;
@@ -182,24 +188,19 @@ export default function AddYour3({ locale }: { locale: string }) {
   const your3Post = (handles: HereForHandle[]) =>
     withAsk(
       t("share.your3", {
-        handles: joinHandles(
-          Array.from(
-            { length: HERE_FOR_MAX_ADDS },
-            (_, i) => handles[i] ?? "@___",
-          ),
-        ),
+        count: Math.max(handles.length, 1),
+        handles: joinHandles(handles.length ? handles : ["@___"]),
       }),
       t("share.ask"),
-      !(handles.length === HERE_FOR_MAX_ADDS && handles.every(hasAdded)),
+      !(handles.length > 0 && handles.every(hasAdded)),
     );
   const postText = your3Post(adds);
 
   const save = async () => {
-    if (adds.length !== HERE_FOR_MAX_ADDS)
-      return setMessage(t("errors.invalid_adds"));
+    if (!adds.length) return setMessage(t("errors.invalid_adds"));
     // Signing in is the last step: carry the picks to X and back.
     if (!ownHandle) {
-      window.location.href = xSignInUrl(adds);
+      window.location.href = xSignInUrl(adds, undefined, { save: true });
       return;
     }
     setSaving(true);
@@ -223,8 +224,7 @@ export default function AddYour3({ locale }: { locale: string }) {
 
   // Back from X with three picks: finish the save they started.
   useEffect(() => {
-    if (!autoSave.current || !ownHandle || adds.length !== HERE_FOR_MAX_ADDS)
-      return;
+    if (!autoSave.current || !ownHandle || !adds.length) return;
     autoSave.current = false;
     if (adds.includes(ownHandle)) return setMessage(t("errors.self_add"));
     save();
@@ -232,8 +232,8 @@ export default function AddYour3({ locale }: { locale: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownHandle, adds]);
 
-  const step = result ? 2 : adds.length === HERE_FOR_MAX_ADDS ? 1 : 0;
-  const steps = ["picks", "handle", "post"] as const;
+  // Signing in comes first, so the picker below always knows who's saving.
+  const signedOut = me.status !== "loading" && !ownHandle && !closed;
 
   return (
     <section className="bg-black pb-3xl pt-[120px] md:pb-4xl md:pt-[136px]">
@@ -251,37 +251,46 @@ export default function AddYour3({ locale }: { locale: string }) {
               {t("add.description")}
             </p>
           </div>
-          {/* Phones go straight to the picker; the form numbers its own steps. */}
-          <div className="hidden md:block">
-            <p className={`${hereForType.label} mb-xs text-text-secondary`}>
-              {t("add.progress", { count: adds.length })}
-            </p>
-            <ol className="unstyled-list border-t border-stroke-primary">
-              {steps.map((key, i) => (
-                <li
-                  key={key}
-                  aria-current={i === step ? "step" : undefined}
-                  className={`flex h-10 items-center gap-s border-b border-stroke-primary px-2xs ${hereForType.control} ${
-                    i === step
-                      ? "bg-white text-black"
-                      : i < step
-                        ? "text-core-green"
-                        : "text-white"
-                  }`}
-                >
-                  <span className="w-m">0{i + 1}</span>
-                  {t(`add.steps.${key}`)}
-                </li>
-              ))}
-            </ol>
-          </div>
         </aside>
 
         <div className="md:col-span-10 md:col-start-7">
-          {result ? (
+          {me.status === "loading" ? (
+            <p
+              role="status"
+              className={`${hereForType.label} text-text-secondary`}
+            >
+              {t("add.loading")}
+            </p>
+          ) : signedOut ? (
+            <div className="flex flex-col gap-s border-t-[6px] border-core-purple bg-background-secondary p-s md:p-l">
+              <p className={`${hereForType.lead} text-white`}>
+                {t("add.signInFirst")}
+              </p>
+              <Button
+                label={t("join.signIn")}
+                onClick={() => {
+                  window.location.href = xSignInUrl(adds);
+                }}
+                arrow
+                className="h-12 w-full md:w-auto md:self-start"
+              />
+              <p className={`${hereForType.small} text-text-secondary`}>
+                {t("join.privacy")}
+              </p>
+              {message && (
+                <p
+                  role="alert"
+                  className={`${hereForType.small} text-core-pink`}
+                >
+                  {message}
+                </p>
+              )}
+            </div>
+          ) : result ? (
             <Saved
               locale={locale}
               result={result}
+              onAddMore={() => setResult(null)}
               post={your3Post(result.adds)}
             />
           ) : (
@@ -341,6 +350,11 @@ export default function AddYour3({ locale }: { locale: string }) {
                     );
                   })}
                 </ol>
+                {!closed && adds.length > 0 && remaining > 0 && (
+                  <p className={`${hereForType.small} text-text-secondary`}>
+                    {t("add.roomForMore", { count: remaining })}
+                  </p>
+                )}
 
                 {!closed && adds.length < HERE_FOR_MAX_ADDS && (
                   <>
@@ -542,14 +556,10 @@ export default function AddYour3({ locale }: { locale: string }) {
                       </button>
                     )}
                   </div>
-                ) : (
-                  <p className={`${hereForType.small} text-text-secondary`}>
-                    {t("add.signInHint")}
-                  </p>
-                )}
+                ) : null}
                 {savedHandle ? (
                   <Button
-                    label={t("add.postYour3")}
+                    label={t("add.postYour3", { count: adds.length })}
                     onClick={() =>
                       openXIntent(postText, personUrl(locale, savedHandle))
                     }
@@ -562,27 +572,14 @@ export default function AddYour3({ locale }: { locale: string }) {
                     label={
                       saving
                         ? t("add.saving")
-                        : !ownHandle
-                          ? t("add.signInToSave")
-                          : returning
-                            ? t("add.update")
-                            : t("add.save")
+                        : returning
+                          ? t("add.update")
+                          : t("add.save", { count: adds.length })
                     }
-                    disabled={!ready || saving || me.status === "loading"}
+                    disabled={!ready || saving}
                     className="h-12 md:self-start"
                     arrow
                   />
-                )}
-                {!ownHandle && !closed && adds.length < HERE_FOR_MAX_ADDS && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      window.location.href = xSignInUrl(adds);
-                    }}
-                    className={`self-start ${hereForType.small} text-text-secondary underline underline-offset-4 hover:text-white`}
-                  >
-                    {t("add.alreadyAdded")}
-                  </button>
                 )}
               </div>
               <p
@@ -608,10 +605,12 @@ function Saved({
   locale,
   result,
   post,
+  onAddMore,
 }: {
   locale: string;
   result: Result;
   post: string;
+  onAddMore: () => void;
 }) {
   const t = useTranslations("breakpoint.hereFor");
   const mutual = result.newMutuals[0];
@@ -634,7 +633,9 @@ function Saved({
             : joinHandles(result.adds)}
         </h2>
         <p className={`${hereForType.lead} text-text-secondary`}>
-          {mutual ? t("add.newMutualDescription") : t("add.savedDescription")}
+          {mutual
+            ? t("add.newMutualDescription")
+            : t("add.savedDescription", { count: result.adds.length })}
         </p>
       </div>
       <div className="flex flex-col gap-2xs md:flex-row md:flex-wrap">
@@ -650,10 +651,19 @@ function Saved({
           />
         )}
         <Button
-          label={t("add.postYour3")}
+          label={t("add.postYour3", { count: result.adds.length })}
           onClick={() => openXIntent(post, url)}
           variant={mutual ? "secondary" : "primary"}
         />
+        {result.adds.length < HERE_FOR_MAX_ADDS && (
+          <Button
+            label={t("add.addMore", {
+              count: HERE_FOR_MAX_ADDS - result.adds.length,
+            })}
+            onClick={onAddMore}
+            variant="secondary"
+          />
+        )}
         <Button
           href={`${HERE_FOR_PATH}/${handleSlug(result.handle)}`}
           label={t("add.openMap")}

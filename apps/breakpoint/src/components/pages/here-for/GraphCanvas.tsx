@@ -35,6 +35,8 @@ type GraphCanvasProps = {
   onEgg: () => void;
   onZoomChange: (percent: number) => void;
   onHandle?: (handle: GraphCanvasHandle | null) => void;
+  /** Pixels to move the map's centre right, clear of a card over its left. */
+  shiftX?: number;
 };
 
 // Breakpoint core tokens (tailwind.config.ts). three.js needs raw values.
@@ -112,6 +114,10 @@ const GraphCanvas = forwardRef<GraphCanvasHandle, GraphCanvasProps>(
       stateRef.current?.setReducedMotion(props.reducedMotion);
     }, [index, props.reducedMotion]);
 
+    useEffect(() => {
+      stateRef.current?.resize();
+    }, [index, props.shiftX]);
+
     const handle = useMemo<GraphCanvasHandle>(
       () => ({
         zoomIn: () => stateRef.current?.zoomBy(0.8),
@@ -151,9 +157,20 @@ type SceneState = {
   zoomBy: (factor: number) => void;
   fit: () => void;
   flyTo: (node: number) => void;
+  resize: () => void;
   dispose: () => void;
 };
 
+// Below this many people the map frames everyone, outliers included.
+const SMALL_MAP = 200;
+// Node size is tuned for a map this big; smaller maps draw nodes larger.
+const NODE_REFERENCE_COUNT = 1000;
+const MAX_NODE_BOOST = 6;
+
+/**
+ * How far out the map reaches, so the camera frames the people actually
+ * there. A big map ignores its furthest tenth; a small one keeps everyone.
+ */
 function boundingRadius(index: GraphIndex) {
   const { positions } = index.payload;
   const distances: number[] = [];
@@ -163,8 +180,21 @@ function boundingRadius(index: GraphIndex) {
     );
   }
   distances.sort((a, b) => a - b);
-  return Math.max(distances[Math.floor(distances.length * 0.9)] ?? 400, 200);
+  const share = index.size < SMALL_MAP ? 1 : 0.9;
+  const reach =
+    distances[
+      Math.min(Math.floor(distances.length * share), distances.length - 1)
+    ];
+  return Math.max(reach ?? 0, 30);
 }
+
+/** A few dozen nodes framed as tightly as thousands would read as specks. */
+const nodeBoost = (count: number) =>
+  THREE.MathUtils.clamp(
+    Math.sqrt(NODE_REFERENCE_COUNT / Math.max(count, 1)),
+    1,
+    MAX_NODE_BOOST,
+  );
 
 function createScene(
   container: HTMLDivElement,
@@ -196,6 +226,7 @@ function createScene(
 
   const { positions, handles } = index.payload;
   const size = handles.length;
+  const boost = nodeBoost(size);
 
   // Nodes: one instanced draw call.
   const nodeGeometry = new THREE.BoxGeometry(1, 1, 1);
@@ -270,7 +301,7 @@ function createScene(
     new THREE.MeshBasicMaterial({ color: COLOR.pink, toneMapped: false }),
   );
   egg.position.set(radius * EGG_DISTANCE, radius * 0.55, -radius * 0.35);
-  egg.scale.setScalar(Math.max(radius * 0.012, 4));
+  egg.scale.setScalar(radius * 0.012 * boost);
   scene.add(egg);
 
   const matrix = new THREE.Matrix4();
@@ -287,7 +318,7 @@ function createScene(
       index.ins[focus]!.forEach((n) => related.add(n));
     }
     const dimOthers = focus !== null || view === "network";
-    const base = radius * 0.006;
+    const base = radius * 0.006 * boost;
 
     for (let i = 0; i < size; i++) {
       const claimed = index.payload.claimed[i] === 1;
@@ -398,9 +429,13 @@ function createScene(
 
   // Camera helpers.
   // Fit whichever axis is tighter, so portrait phones don't crop the sides.
+  // The share of the width left uncovered once the view is shifted.
+  let openWidth = 1;
   const fitDistance = () => {
     const halfVertical = THREE.MathUtils.degToRad(camera.fov / 2);
-    const halfHorizontal = Math.atan(Math.tan(halfVertical) * camera.aspect);
+    const halfHorizontal = Math.atan(
+      Math.tan(halfVertical) * camera.aspect * openWidth,
+    );
     return (radius * 1.15) / Math.sin(Math.min(halfVertical, halfHorizontal));
   };
   let flight: {
@@ -628,16 +663,37 @@ function createScene(
       restyle(propsRef.current);
     }
     renderer.setSize(clientWidth, clientHeight, false);
+    // Keep the zoom the reader chose relative to the fit as the frame changes.
+    const zoom = sized
+      ? camera.position.distanceTo(controls.target) / fitDistance()
+      : 1;
     camera.aspect = clientWidth / clientHeight;
+    const shift = Math.min(propsRef.current.shiftX ?? 0, clientWidth / 3);
+    openWidth = 1 - (2 * shift) / clientWidth;
+    if (shift)
+      camera.setViewOffset(
+        clientWidth,
+        clientHeight,
+        -shift,
+        0,
+        clientWidth,
+        clientHeight,
+      );
+    else camera.clearViewOffset();
     camera.updateProjectionMatrix();
-    // The camera is placed before the first real size is known; re-fit once.
-    if (!sized) {
-      sized = true;
-      camera.position
-        .sub(controls.target)
-        .setLength(fitDistance())
-        .add(controls.target);
-    }
+    // The camera is placed before the first real size is known, so fit it
+    // then; after that, keep the same zoom when the frame or shift changes.
+    sized = true;
+    camera.position
+      .sub(controls.target)
+      .setLength(
+        THREE.MathUtils.clamp(
+          fitDistance() * zoom,
+          controls.minDistance,
+          controls.maxDistance,
+        ),
+      )
+      .add(controls.target);
     requestRender();
   };
   const resizeObserver = new ResizeObserver(resize);
@@ -674,6 +730,7 @@ function createScene(
     setLabels,
     zoomBy,
     fit,
+    resize,
     flyTo,
     dispose() {
       cancelAnimationFrame(frame);

@@ -24,8 +24,10 @@ import {
   handleSlug,
   useGraphIndex,
   useMe,
+  useMediaQuery,
   usePrefersReducedMotion,
 } from "./client";
+import JoinCard from "./JoinCard";
 import PersonPanel from "./PersonPanel";
 import { hereForType } from "./typography";
 
@@ -34,6 +36,12 @@ const GraphCanvas = dynamic(() => import("./GraphCanvas"), { ssr: false });
 const TRAIL_LIMIT = 6;
 const MOST_ADDED_LABELS = 10;
 const COMMUNITY_LABELS = 10;
+// A map this small names its most-added people even with nothing selected.
+const SMALL_MAP = 40;
+const SMALL_MAP_LABELS = 12;
+// Half the join card's width plus its margin, so the map centres in the open
+// space beside it on wider screens.
+const JOIN_CARD_SHIFT = 244;
 const STAT_SLOT = "\u0000";
 
 type ExplorerProps = {
@@ -48,6 +56,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
     me.status === "ready" ? me.data : null,
   );
   const reducedMotion = usePrefersReducedMotion();
+  const wide = useMediaQuery("(min-width: 768px)");
   const canvasRef = useRef<GraphCanvasHandle>(null);
   const initialFlight = useRef<number | null>(null);
   const receiveCanvas = useCallback((handle: GraphCanvasHandle | null) => {
@@ -91,7 +100,13 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
     setReselect(Boolean(selectionIndex && index));
   }
 
-  const youHandle = me.status === "ready" ? me.data.handle : null;
+  const meData = me.status === "ready" ? me.data : null;
+  // The full explorer is for people with a 3 on the map (or once adds close).
+  // Everyone else gets the map and one next step over it.
+  const member = Boolean(
+    meData && (meData.adds.length > 0 || meData.status === "closed"),
+  );
+  const youHandle = meData?.handle ?? null;
   const you = useMemo(
     () => (index && youHandle ? (index.byHandle.get(youHandle) ?? null) : null),
     [index, youHandle],
@@ -211,6 +226,9 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
         }
       });
     }
+    if (index.size <= SMALL_MAP) {
+      index.ranked.slice(0, SMALL_MAP_LABELS).forEach((n) => add(n, "plain"));
+    }
     if (you !== null) {
       out.delete(you);
       out.set(you, { node: you, tone: "you", text: t("explorer.you") });
@@ -239,11 +257,14 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
     <section
       id="map"
       aria-labelledby="here-for-explorer-title"
-      className="scroll-mt-20 bg-black pb-2xl pt-l md:pb-3xl md:pt-xl"
+      className="scroll-mt-20 bg-black pb-2xl pt-[96px] md:pb-3xl md:pt-[112px]"
     >
       <div className="mx-auto grid w-full max-w-[1440px] gap-s px-4 md:grid-cols-bp-desktop md:gap-x-s md:px-8">
+        {member && <h1 className="sr-only">{t("join.title")}</h1>}
         {/* Left rail: search, views, legend */}
-        <div className="flex flex-col gap-m md:col-span-3">
+        <div
+          className={member ? "flex flex-col gap-m md:col-span-3" : "hidden"}
+        >
           <div className="flex flex-col gap-3xs">
             <h2
               id="here-for-explorer-title"
@@ -386,11 +407,17 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
         </div>
 
         {/* Map */}
-        <div className="flex flex-col gap-3xs md:col-span-9">
+        <div
+          className={`relative flex flex-col gap-3xs ${member ? "md:col-span-9" : "md:col-span-16"}`}
+        >
           <div
             role="region"
             aria-label={t("explorer.mapLabel")}
-            className="relative h-[64vh] min-h-[420px] overflow-hidden border border-stroke-primary bg-black md:h-[756px]"
+            className={`relative overflow-hidden border border-stroke-primary bg-black ${
+              member
+                ? "h-[64vh] min-h-[420px] md:h-[756px]"
+                : "h-[52svh] min-h-[360px] md:h-[calc(100svh-136px)] md:min-h-[600px] md:max-h-[880px]"
+            }`}
           >
             {index ? (
               <GraphCanvas
@@ -409,6 +436,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
                   setEggOpen(true);
                 }}
                 onZoomChange={setZoom}
+                shiftX={!member && wide ? JOIN_CARD_SHIFT : 0}
               />
             ) : (
               <p
@@ -421,7 +449,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
               </p>
             )}
 
-            {index && (
+            {index && member && (
               <div className="absolute left-2xs top-2xs z-10 flex border border-stroke-secondary bg-black md:left-xs md:top-xs">
                 <button
                   type="button"
@@ -441,7 +469,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
               </div>
             )}
 
-            {index && (
+            {index && member && (
               <div
                 role="group"
                 aria-label={t("explorer.zoomControls")}
@@ -503,7 +531,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
               </div>
             )}
 
-            {index && trail.length > 0 && (
+            {index && member && trail.length > 0 && (
               <nav
                 aria-label={t("explorer.trail")}
                 className={`absolute bottom-2xs left-2xs right-14 z-10 flex flex-wrap items-center gap-3xs ${hereForType.caption} md:bottom-xs md:left-xs`}
@@ -538,7 +566,18 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
               />
             )}
           </div>
-          {index && (
+          {/* Phones stack the card under the map; wider screens float it over. */}
+          {!member && me.status !== "loading" && (
+            <div className="relative z-20 -mt-m mx-2xs md:absolute md:bottom-s md:left-s md:mx-0 md:mt-0 md:w-[460px]">
+              <JoinCard
+                locale={locale}
+                me={meData}
+                index={index}
+                focus={focus}
+              />
+            </div>
+          )}
+          {index && member && (
             <p
               className={`hidden text-right ${hereForType.caption} text-text-secondary md:block`}
             >
@@ -548,7 +587,7 @@ export default function Explorer({ locale, initialFocus }: ExplorerProps) {
         </div>
 
         {/* Panel */}
-        <div className="md:col-span-4 md:h-[756px]">
+        <div className={member ? "md:col-span-4 md:h-[756px]" : "hidden"}>
           {index ? (
             <PersonPanel
               index={index}

@@ -37,6 +37,10 @@ describe("here-for graph", () => {
     expect(validateAdds("@alice", ["bob", "@bob", "cara"])).toEqual({
       code: "invalid_adds",
     });
+    expect(validateAdds("@alice", ["Bob"])).toEqual({ adds: ["@bob"] });
+    expect(validateAdds("@alice", ["bob", "cara"])).toEqual({
+      adds: ["@bob", "@cara"],
+    });
   });
   it("detects mutual adds and degree", () => {
     const graph = buildGraph(rows);

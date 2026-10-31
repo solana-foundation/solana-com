@@ -1,4 +1,4 @@
-import type { HereForHandle } from "./types";
+import { HERE_FOR_MAX_ADDS, type HereForHandle } from "./types";
 
 export function normalizeHandle(value: unknown): HereForHandle | null {
   if (typeof value !== "string") return null;
@@ -20,11 +20,16 @@ export function handleFromInput(value: string): HereForHandle | null {
   return normalizeHandle(text);
 }
 
+/** One to three different handles: a first pick saves, the rest can follow. */
 export function validateAdds(handle: HereForHandle, values: unknown) {
-  if (!Array.isArray(values) || values.length !== 3)
+  if (
+    !Array.isArray(values) ||
+    values.length < 1 ||
+    values.length > HERE_FOR_MAX_ADDS
+  )
     return { code: "invalid_adds" as const };
   const adds = values.map(normalizeHandle);
-  if (adds.some((item) => !item) || new Set(adds).size !== 3)
+  if (adds.some((item) => !item) || new Set(adds).size !== adds.length)
     return { code: "invalid_adds" as const };
   if (adds.includes(handle)) return { code: "self_add" as const };
   return { adds: adds as HereForHandle[] };
