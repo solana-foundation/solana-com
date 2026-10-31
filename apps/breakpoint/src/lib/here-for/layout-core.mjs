@@ -5,7 +5,18 @@ import {
   forceLink,
   forceManyBody,
   forceCenter,
+  forceX,
+  forceY,
+  forceZ,
 } from "d3-force-3d";
+
+// Maps below this size lay out from scratch each run, spread wider and pull
+// stragglers in, so a few dozen people fill the view instead of forming a knot
+// with outliers. Past it, warm starts keep a big map steady between runs.
+const SMALL_MAP = 200;
+// The force tuning below was set for a map this big.
+const REFERENCE_COUNT = 1000;
+const MAX_SPREAD = 5;
 
 function hash(value) {
   let h = 2166136261;
@@ -21,6 +32,12 @@ function random(seed) {
 export function computeLayout(rows, previous = null, options = {}) {
   const people = [...rows.people].sort((a, b) =>
     a.handle.localeCompare(b.handle),
+  );
+  const small = people.length < SMALL_MAP;
+  if (small) previous = null;
+  const spread = Math.min(
+    Math.max(Math.sqrt(REFERENCE_COUNT / Math.max(people.length, 1)), 1),
+    MAX_SPREAD,
   );
   const ids = new Set(people.map((p) => p.id));
   const adds = rows.adds.filter((a) => ids.has(a.fromId) && ids.has(a.toId));
@@ -163,10 +180,24 @@ export function computeLayout(rows, previous = null, options = {}) {
         .distance((l) => l.distance)
         .strength((l) => l.strength),
     )
-    .force("charge", forceManyBody().strength(-22).theta(0.9).distanceMax(400))
+    .force(
+      "charge",
+      forceManyBody()
+        .strength(-22 * spread)
+        .theta(0.9)
+        .distanceMax(400),
+    )
     .force("center", forceCenter())
     .force("community", centroidForce)
     .stop();
+  if (small)
+    for (const axis of ["x", "y", "z"])
+      simulation.force(
+        axis,
+        (axis === "x" ? forceX : axis === "y" ? forceY : forceZ)(0).strength(
+          0.08,
+        ),
+      );
   if (previous) simulation.alpha(0.15);
   const ticks = options.ticks ?? (previous ? 40 : 200);
   for (let i = 0; i < ticks; i++) simulation.tick();

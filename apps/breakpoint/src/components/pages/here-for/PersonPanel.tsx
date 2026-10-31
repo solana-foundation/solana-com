@@ -2,6 +2,7 @@
 
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
+import { HERE_FOR_MAX_ADDS } from "@/lib/here-for/types";
 import { isMutual, type GraphIndex } from "./graph-index";
 import {
   HERE_FOR_PATH,
@@ -82,6 +83,7 @@ export default function PersonPanel({
       openXIntent(
         withAsk(
           t("share.your3", {
+            count: outs.length,
             handles: joinHandles(outs.map((n) => handles[n]!)),
           }),
           ask,
@@ -100,7 +102,14 @@ export default function PersonPanel({
   };
 
   const primary = isYou
-    ? { href: `${HERE_FOR_PATH}/find`, label: t("explorer.findMutuals") }
+    ? outs.length < HERE_FOR_MAX_ADDS
+      ? {
+          href: `${HERE_FOR_PATH}/add`,
+          label: t("panel.addMore", {
+            count: HERE_FOR_MAX_ADDS - outs.length,
+          }),
+        }
+      : { href: `${HERE_FOR_PATH}/find`, label: t("explorer.findMutuals") }
     : inYour3
       ? null
       : {

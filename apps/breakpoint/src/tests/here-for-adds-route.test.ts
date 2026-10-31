@@ -55,7 +55,8 @@ afterEach(() => {
 describe("here-for adds route", () => {
   it("returns contract validation codes", async () => {
     for (const [body, code] of [
-      [{ adds: ["b", "c"] }, "invalid_adds"],
+      [{ adds: [] }, "invalid_adds"],
+      [{ adds: ["b", "c", "d", "e"] }, "invalid_adds"],
       [{ adds: ["b", "c", "bad-name"] }, "invalid_adds"],
       [{ adds: ["alice", "b", "c"] }, "self_add"],
     ] as const) {
