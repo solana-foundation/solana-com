@@ -36,6 +36,11 @@ returning the same structure without changing page components.
   value is the median across providers; a day counts once at least half of the
   metric's providers have reported; flows sum, unique counts average, and levels
   take the latest day — the same rollups as the dashboard's period views.
+- **Complete windows only.** A trailing window is the N calendar days ending on
+  the latest complete day, and every day must be present. A gap or a shorter
+  history falls back to the dated snapshot instead of publishing a total over
+  fewer or older days. Annual figures use 52 weeks (364 days) because the /data
+  payload holds 364 complete days.
 - **Refresh.** data-api payloads are cached for 5 minutes server-side and the
   upstream pipeline publishes every 12 hours. RWA.xyz totals are cached for 1
   hour. Pages revalidate every 60 seconds.
@@ -56,8 +61,8 @@ returning the same structure without changing page components.
 | ----------------------------------------------- | ------------------------------------- | --------------------------- | -------------- | -------------------------------------- |
 | Home                                            | `network.daily-active-signers`        | Solana Data, 30-day average | 2.9M           | 50M "monthly active addresses"         |
 | Home, Enterprise                                | `network.successful-transactions-30d` | Solana Data, 30 days        | 3.32B          | 3.5B "monthly transactions"            |
-| Home, DeFi                                      | `defi.dex-volume-12m`                 | Solana Data, 12 months      | $1.54T         | $3.3T "trading volume"; DeFi $2T       |
-| Home                                            | `apps.revenue-12m`                    | Solana Data, 12 months      | $1.46B         | $3.4B "app revenue"                    |
+| Home, DeFi                                      | `defi.dex-volume-12m`                 | Solana Data, 52 weeks       | $1.54T         | $3.3T "trading volume"; DeFi $2T       |
+| Home                                            | `apps.revenue-12m`                    | Solana Data, 52 weeks       | $1.46B         | $3.4B "app revenue"                    |
 | Stablecoins, Institutional payments             | `stablecoins.circulating-supply`      | Solana Data, latest day     | $15B           | $10B                                   |
 | Stablecoins, Institutional payments             | `stablecoins.transfer-volume-30d`     | Solana Data, 30 days        | $392B          | $200B "monthly"                        |
 | Stablecoins, Institutional payments, Enterprise | `network.average-fee-30d`             | Solana Data, 30 days        | $0.0048        | $0.0013 "median fee"; $0.00025         |
@@ -78,7 +83,7 @@ Notes on changed measures:
   unique-address measure. The homepage now shows average daily active signers,
   labelled as such, rather than an unsupported monthly figure.
 - **Trading volume ($3.3T)** matched all-time cumulative DEX volume, which /data
-  cannot reproduce (it holds one year). It is replaced by trailing 12-month DEX
+  cannot reproduce (it holds one year). It is replaced by trailing 52-week DEX
   volume, the same key and period as the DeFi page.
 - **App revenue ($3.4B)** matched trailing app _fees_ on DefiLlama; app revenue
   is about $1.3–1.5B. The /data revenue measure is used.

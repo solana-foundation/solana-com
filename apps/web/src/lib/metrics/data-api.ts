@@ -14,6 +14,11 @@ type DailyMedians = Map<string, number>;
  * its KPIs: each day's value is the median across providers, then the window
  * rolls up per the spec. A day only counts once at least half the metric's
  * providers have reported, so partial latest days don't drag totals down.
+ *
+ * The window is the `days` calendar days ending on the latest complete day,
+ * and every one of them must be present: a gap or short history returns
+ * nothing (so the caller falls back to the dated snapshot) rather than a
+ * total over fewer or older days than its label claims.
  */
 export function computeDataApiMetric(
   spec: DataApiLiveSpec,
@@ -29,10 +34,17 @@ export function computeDataApiMetric(
     return undefined;
   }
 
-  const dates = intersectDates(series).slice(-spec.days);
-  const endDate = dates.at(-1);
+  const available = intersectDates(series);
+  const endDate = available.at(-1);
 
   if (!endDate) {
+    return undefined;
+  }
+
+  const availableSet = new Set(available);
+  const dates = getCalendarWindow(endDate, spec.days);
+
+  if (!dates.every((date) => availableSet.has(date))) {
     return undefined;
   }
 
@@ -108,6 +120,17 @@ function intersectDates(series: DailyMedians[]) {
   return Array.from(first.keys())
     .filter((date) => rest.every((daily) => daily.has(date)))
     .sort();
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The `days` consecutive UTC dates (YYYY-MM-DD) ending on `endDate`. */
+function getCalendarWindow(endDate: string, days: number) {
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+
+  return Array.from({ length: days }, (_, index) =>
+    new Date(end - (days - 1 - index) * DAY_MS).toISOString().slice(0, 10),
+  );
 }
 
 function sumAt(series: DailyMedians[], date: string) {

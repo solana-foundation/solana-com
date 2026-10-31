@@ -79,11 +79,33 @@ describe("computeDataApiMetric", () => {
           multiplyBy: "Price",
           divideBy: ["Ok", "Failed"],
           rollup: "sum",
-          days: 30,
+          days: 2,
         },
         data,
       ),
     ).toEqual({ value: 0.875, endDate: "2026-10-02" });
+  });
+
+  it("returns nothing unless every calendar day in the window is present", () => {
+    const withGap = rows("Tx", {
+      "2026-10-01": { A: 10 },
+      "2026-10-03": { A: 30 },
+    });
+
+    // A gap must not pull in an older day to fill the window.
+    expect(
+      computeDataApiMetric(
+        { provider: "data-api", metrics: ["Tx"], rollup: "sum", days: 2 },
+        withGap,
+      ),
+    ).toBeUndefined();
+    // Shorter history than the window is not a full-window total.
+    expect(
+      computeDataApiMetric(
+        { provider: "data-api", metrics: ["Tx"], rollup: "sum", days: 4 },
+        transactions,
+      ),
+    ).toBeUndefined();
   });
 
   it("returns nothing when a required metric is missing", () => {

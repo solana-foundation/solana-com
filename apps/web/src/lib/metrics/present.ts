@@ -15,6 +15,7 @@ export type DisplayMetric = {
     href: string;
     /** Localized reporting period, e.g. "30 days to Oct 29, 2026". */
     period: string;
+    status: MetricStatus;
   };
 };
 
@@ -45,11 +46,12 @@ export async function getDisplayMetrics<const K extends MetricKey>(
           source: {
             name: source.name,
             href: source.url,
+            status: metric.status,
             period:
               period.kind === "point"
                 ? t("period.asOf", { date })
-                : period.days === 365
-                  ? t("period.trailingYear", { date })
+                : period.days % 7 === 0 && period.days > 90
+                  ? t("period.trailingWeeks", { weeks: period.days / 7, date })
                   : t("period.trailingDays", { days: period.days, date }),
           },
         } satisfies DisplayMetric,

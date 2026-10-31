@@ -58,12 +58,7 @@ const ValidatorsCards = ({ visible, fallback }: ValidatorsCardsProps) => {
               }
             >
               <RoundedDepthCard className="px-6 py-12" shadow="bottom">
-                <div
-                  className="h1 text-black"
-                  data-metric-status={
-                    card.live === null ? card.fallback.status : "live"
-                  }
-                >
+                <div className="h1 text-black">
                   {card.live !== null ? (
                     <FormattedNumber value={card.live} />
                   ) : (
@@ -74,7 +69,7 @@ const ValidatorsCards = ({ visible, fallback }: ValidatorsCardsProps) => {
                 <MetricSourceNote
                   className="text-black"
                   {...(card.live !== null
-                    ? { ...RPC_SOURCE, period: liveLabel }
+                    ? { ...RPC_SOURCE, period: liveLabel, status: "live" }
                     : card.fallback.source)}
                 />
               </RoundedDepthCard>

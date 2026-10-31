@@ -5,6 +5,8 @@ export type MetricSourceNoteProps = {
   name: string;
   href: string;
   period: string;
+  /** Registry resolution status, exposed for QA (live, stale, fallback, snapshot). */
+  status?: string;
   className?: string;
 };
 
@@ -15,6 +17,7 @@ export function MetricSourceNote({
   name,
   href,
   period,
+  status,
   className,
 }: MetricSourceNoteProps) {
   const internalHref = href.startsWith(`${SITE_ORIGIN}/`)
@@ -27,6 +30,7 @@ export function MetricSourceNote({
 
   return (
     <p
+      data-metric-status={status}
       className={cn(
         "mt-2 text-[12px] md:text-[13px] leading-[1.4] font-normal normal-case opacity-60",
         className,
