@@ -1143,7 +1143,7 @@ function formatCompactNumber(value: number, locale: string) {
 
 function formatMillisecondsNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 1,
+    maximumFractionDigits: value > 0 && value < 1 ? 3 : 1,
     minimumFractionDigits: 1,
   }).format(value);
 }
