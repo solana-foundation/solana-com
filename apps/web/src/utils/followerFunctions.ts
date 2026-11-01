@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import cachedFetch from "node-fetch-cache";
+import { unstable_cache } from "next/cache";
 
 const ytBaseURL = "https://www.googleapis.com/youtube/v3/";
 
@@ -18,20 +19,49 @@ const scrapeUrlForTag = async (url: string, tagName: string) => {
   return "";
 };
 
-const scrapeMeetupMemberCount = async (): Promise<number> => {
-  const meetupMemberCountTag = await scrapeUrlForTag(
-    `https://www.meetup.com/topics/solana/`,
-    `div.font-medium`,
-  );
-  if (typeof meetupMemberCountTag !== "string" && meetupMemberCountTag.length) {
-    const node = meetupMemberCountTag[0] as {
-      children: Array<{ data: string }>;
+// Cache only validated counts; a failed refresh must not replace a good value.
+const scrapeMeetupMemberCount = unstable_cache(
+  async (): Promise<number> => {
+    const response = await fetch("https://www.meetup.com/topics/solana/", {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok) {
+      throw new Error(`Meetup returned ${response.status}`);
+    }
+
+    const $ = cheerio.load(await response.text());
+    const pageData = $("script#__NEXT_DATA__").text();
+    if (!pageData) throw new Error("Meetup topic data was not found");
+
+    const data = JSON.parse(pageData) as {
+      props?: {
+        pageProps?: {
+          country?: string;
+          topic?: {
+            urlkey?: string;
+            countryStats?: { memberCount?: unknown };
+          };
+        };
+      };
     };
-    const meetupCountString = node.children[0].data;
-    return parseInt(meetupCountString.replace(",", ""), 10);
-  }
-  return 0;
-};
+    const pageProps = data?.props?.pageProps;
+    if (pageProps?.country !== "" || pageProps.topic?.urlkey !== "solana") {
+      throw new Error("Meetup topic or worldwide scope did not match");
+    }
+    const count = pageProps.topic.countryStats?.memberCount;
+    if (
+      typeof count !== "number" ||
+      !Number.isSafeInteger(count) ||
+      count < 0
+    ) {
+      throw new Error("Meetup member count was invalid");
+    }
+    return count;
+  },
+  ["meetup-solana-member-count-v1"],
+  { revalidate: 3600 },
+);
 
 const getYoutubeSubscriberCount = async (): Promise<number> => {
   const channelId = process.env.YOUTUBE_CHANNEL_ID;
