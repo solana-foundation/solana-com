@@ -54,6 +54,26 @@ repo is in the default/base language of English. When the content is pushed to
 `packages/i18n/messages/*/en/common.json` UI catalogs and the docs content
 sources to the other translation variants.
 
+### Automated updates
+
+After an English source change merges, the `Lingo.dev i18n` workflow
+(`.github/workflows/i18n.yml`) translates it and opens the `i18n: Lingo` pull
+request. Once every check passes, GitHub Actions approves and squash-merges it,
+and Vercel deploys the affected apps. A failed check, a conflict, or a change
+outside target-locale files leaves the pull request open and fails the run.
+Approving needs **Allow GitHub Actions to create and approve pull requests**
+enabled in the repository's Actions settings.
+
+GitHub emails a failed run to whoever merged the change that started it. If a
+check on the Lingo pull request failed, re-run that check first. Then rerun the
+workflow from the Actions tab (**Run workflow**) or with
+`gh workflow run i18n.yml`. If it fails again, hand it to the code owners of
+`.github/workflows/`.
+
+To correct a translation, edit the target-locale file in a normal pull request
+and leave `.lingo/lock.json` alone. The next Lingo run records the edit, and
+Lingo keeps it until the English source string changes.
+
 ## Documentation
 
 The developer docs content for solana.com is located in the
