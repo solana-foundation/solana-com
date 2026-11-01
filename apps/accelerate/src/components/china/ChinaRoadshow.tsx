@@ -385,7 +385,7 @@ function ChinaFooter() {
             </span>
           </a>
           <a
-            href="https://x.com/SolanaConf"
+            href="https://x.com/SolanaEvents"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-2 pl-4 text-accelerate-gray-200 transition-colors hover:text-white"

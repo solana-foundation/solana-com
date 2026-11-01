@@ -95,9 +95,9 @@ export function HomepageFooter() {
                 Solana
               </span>
             </a>
-            {/* X / Solana Conf */}
+            {/* X / Solana Events */}
             <a
-              href="https://x.com/SolanaConf"
+              href="https://x.com/SolanaEvents"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-[6px] pl-3 transition-colors hover:opacity-80"
