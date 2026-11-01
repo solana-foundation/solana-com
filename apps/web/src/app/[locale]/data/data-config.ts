@@ -335,6 +335,7 @@ export type DashboardTab =
   | "lending"
   | "perps"
   | "rpc"
+  | "grpc"
   | "senders";
 export type Aggregation = "avg" | "sum";
 export type SeriesField = "provider" | "metric";
