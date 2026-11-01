@@ -465,6 +465,103 @@ export function validateFinancialProjectStats(projects, claims, messages) {
       );
     if (!project.statSource || project.statSource !== claim?.sourceUrl)
       errors.push(`${path}: displayed source must match the audited source`);
+    if (!project.statSourceNote || project.statSourceNote !== claim?.asOf)
+      errors.push(`${path}: displayed date must match the audited asOf`);
+  }
+  return errors;
+}
+
+const metricUnits = new Set(["usd", "count", "ms"]);
+const metricRollups = new Set(["sum", "avg", "last"]);
+const rwaXyzFields = new Set([
+  "distributedValueUSD",
+  "assetCount",
+  "holderCount",
+]);
+
+function isIsoDate(value) {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") &&
+    !Number.isNaN(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
+  );
+}
+
+/**
+ * Checks src/data/metrics/registry.json: every published metric needs a
+ * definition, HTTPS source, period, owner, dated snapshot (the published value
+ * or the live fallback), verification date, and an unexpired review deadline.
+ */
+export function validateMetricRegistry(
+  registry,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  const errors = [];
+  for (const [key, metric] of Object.entries(registry)) {
+    const location = `metrics registry:${key}`;
+    if (!/^[a-z]+(\.[a-z0-9-]+)+$/.test(key))
+      errors.push(`${location}: key must be dotted kebab-case`);
+    if (!metricUnits.has(metric.unit))
+      errors.push(`${location}: unit must be one of ${[...metricUnits]}`);
+    if (!metric.definition?.trim())
+      errors.push(`${location}: definition is required`);
+    if (!metric.owner?.trim()) errors.push(`${location}: owner is required`);
+    if (!metric.source?.name?.trim())
+      errors.push(`${location}: source name is required`);
+    try {
+      const sourceUrl = new URL(metric.source?.url);
+      if (sourceUrl.protocol !== "https:")
+        errors.push(`${location}: valid HTTPS source is required`);
+    } catch {
+      errors.push(`${location}: valid HTTPS source is required`);
+    }
+    const period = metric.period;
+    if (
+      period?.kind !== "point" &&
+      !(
+        period?.kind === "trailing" &&
+        Number.isInteger(period.days) &&
+        period.days > 0
+      )
+    )
+      errors.push(`${location}: period must be point or trailing days`);
+    if (!Number.isFinite(metric.snapshot?.value))
+      errors.push(`${location}: snapshot value must be a number`);
+    if (!isIsoDate(metric.snapshot?.asOf))
+      errors.push(`${location}: valid snapshot asOf date is required`);
+    for (const field of ["verifiedAt", "reviewBy"]) {
+      if (!isIsoDate(metric[field]))
+        errors.push(`${location}: valid ${field} date is required`);
+    }
+    if (metric.snapshot?.asOf > today || metric.verifiedAt > today)
+      errors.push(
+        `${location}: snapshot or verification date is in the future`,
+      );
+    if (metric.snapshot?.asOf > metric.verifiedAt)
+      errors.push(`${location}: snapshot is newer than its verification`);
+    if (metric.reviewBy < today)
+      errors.push(`${location}: review deadline has passed`);
+    const live = metric.live;
+    if (live?.provider === "data-api") {
+      if (
+        !Array.isArray(live.metrics) ||
+        live.metrics.length === 0 ||
+        !metricRollups.has(live.rollup) ||
+        !Number.isInteger(live.days) ||
+        live.days < 1
+      )
+        errors.push(`${location}: data-api spec needs metrics, rollup, days`);
+      if (
+        period?.kind === "trailing" &&
+        (period.days !== live.days || live.rollup === "last")
+      )
+        errors.push(`${location}: trailing period must match the live window`);
+    } else if (live?.provider === "rwa-xyz") {
+      if (!rwaXyzFields.has(live.field))
+        errors.push(`${location}: unknown RWA.xyz field ${live.field}`);
+    } else if (live !== undefined) {
+      errors.push(`${location}: unknown live provider`);
+    }
   }
   return errors;
 }
@@ -506,9 +603,13 @@ if (
       "utf8",
     ),
   );
+  const metricRegistry = JSON.parse(
+    readFileSync(path.join(webRoot, "src/data/metrics/registry.json"), "utf8"),
+  );
   const errors = [
     ...auditedFiles.flatMap(validateFile),
     ...validateClaims(claims, messages),
+    ...validateMetricRegistry(metricRegistry),
     ...validateFinancialProjectStats(
       readStaticExport(
         readFileSync(
@@ -539,7 +640,7 @@ if (
     process.exitCode = 1;
   } else {
     console.log(
-      `Validated links in ${auditedFiles.length} page data files and ${claims.length} dated claims.`,
+      `Validated links in ${auditedFiles.length} page data files, ${claims.length} dated claims, and ${Object.keys(metricRegistry).length} registry metrics.`,
     );
   }
 }

@@ -5,24 +5,24 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/jupiter.svg",
     key: "jupiter",
+    metric: "defi.protocol-tvl.jupiter",
   },
   {
     src: "/src/img/logos-eco/kamino.svg",
     key: "kamino",
-  },
-  {
-    src: "/src/img/logos-eco/drift.svg",
-    key: "drift",
+    metric: "defi.protocol-tvl.kamino",
   },
   {
     src: "/src/img/logos-eco/raydium.svg",
     key: "raydium",
+    metric: "defi.protocol-tvl.raydium",
   },
   {
     src: "/src/img/logos-eco/exponent.svg",
     key: "exponent",
+    metric: "defi.protocol-tvl.exponent",
   },
-];
+] as const;
 
 export const LOGOS = [
   {
@@ -97,3 +97,11 @@ export const VIDEOS = (
     badge: VideoBadge.Event,
   },
 ];
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "defi.dex-volume-12m",
+  "defi.tvl",
+  "defi.lending-deposits",
+  "defi.perps-volume-30d",
+] as const;

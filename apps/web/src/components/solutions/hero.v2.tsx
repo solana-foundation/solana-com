@@ -1,6 +1,10 @@
 "use client";
 
 import React from "react";
+import {
+  MetricSourceNote,
+  type MetricSourceNoteProps,
+} from "@/component-library/metric-source-note";
 import type { ComponentType } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
@@ -12,6 +16,7 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 export type SolutionHeroStat = {
   value: string;
   label: string;
+  source?: Omit<MetricSourceNoteProps, "className">;
   Icon?:
     | string
     | ComponentType<{
@@ -238,12 +243,20 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                       ) : null}
                     </div>
                     <div>
-                      <div className="text-[20px] xl:text-[40px] leading-none uppercase font-light">
+                      <div
+                        className={cn(
+                          "text-[20px] xl:text-[40px] leading-none font-light",
+                          // Registry values arrive locale-formatted (e.g. "200ms",
+                          // "15 Mrd. $"); only uppercase hand-written values.
+                          !stat.source && "uppercase",
+                        )}
+                      >
                         {stat.value}
                       </div>
                       <div className="mt-[6px] md:mt-[8px] text-[14px] md:text-[18px] font-medium leading-[1.42] md:leading-[1.44] xl:leading-[1.33]">
                         {stat.label}
                       </div>
+                      {stat.source && <MetricSourceNote {...stat.source} />}
                     </div>
                   </div>
                 ))}
