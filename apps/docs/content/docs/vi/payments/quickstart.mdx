@@ -1,85 +1,132 @@
 ---
 title: "Quickstart: chấp nhận thanh toán"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  Hiển thị mã QR Solana Pay trong ứng dụng React, xác nhận thanh toán onchain và nhận khoản thanh toán stablecoin đầu tiên của bạn trên devnet.
 ---
 
-Bạn sẽ tạo được một nút thanh toán trong ứng dụng React kết nối ví, cho phép
-người thanh toán chọn token và xác nhận thanh toán thực tế đến địa chỉ của bạn. Bạn cần
+Bạn sẽ tạo được một component React hiển thị mã QR Solana Pay cho khoản thanh toán USDC, chờ thanh toán được ghi nhận và kiểm tra xem khoản thanh toán có khớp với yêu cầu của bạn hay không. Bạn cần
 Node.js 20+, một ứng dụng React hoặc Next.js (có thể dùng `create-next-app` mới tạo), và một
-ví để thanh toán.
+ví di động được đặt sang devnet. Hãy nạp USDC devnet từ [faucet.circle.com](https://faucet.circle.com) và SOL
+devnet từ [faucet.solana.com](https://faucet.solana.com) để chi trả phí giao dịch.
 
 <Callout type="caution">
-  Commerce Kit hiện đang trong giai đoạn beta. Các API có thể thay đổi trước khi phát hành
-  phiên bản ổn định.
+  `@solana/pay` hiện đang trong giai đoạn beta. Các API có thể thay đổi trước khi phát hành phiên bản ổn định.
 </Callout>
 
-## 1. Cài đặt Commerce Kit
+## 1. Cài đặt Solana Pay
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. Thêm nút
+## 2. Thêm mã QR thanh toán
 
-Đặt component `PaymentButton` ở bất kỳ đâu trong ứng dụng của bạn và thiết lập
-ví merchant thành địa chỉ bạn kiểm soát:
+Component này tạo một mã tham chiếu (reference) duy nhất cho đơn hàng, mã hóa mã đó vào URL
+[yêu cầu chuyển khoản](/docs/tools/solana-pay/quickstart/transfer-requests), rồi
+hiển thị URL dưới dạng mã QR. Sau đó, component theo dõi giao dịch có chứa
+mã tham chiếu và xác thực người nhận, số tiền và token trước khi đánh dấu đơn hàng
+là đã thanh toán. Hãy đặt `MERCHANT_WALLET` thành một địa chỉ do bạn kiểm soát:
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-Component này xử lý kết nối ví, chọn token, xử lý giao dịch
-và trạng thái giao diện nội bộ. `mode: "tip"` cho phép người thanh toán chọn
-số tiền; xem [chế độ thanh toán](/docs/tools/commerce-kit/quickstart/payment-button)
-để biết về thanh toán giá cố định và thanh toán giỏ hàng.
-
-## Thử nghiệm trên trình duyệt
-
-Cấu hình nút thanh toán và khởi chạy luồng tip mà không cần rời khỏi trang này.
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="Commerce Kit Playground"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[Mở Commerce Kit Playground toàn màn hình](https://launch.solana.com/products/commercekit/playground)
+`amount` tính theo đơn vị token, nên `1` nghĩa là yêu cầu 1 USDC. Bỏ `splToken` để
+yêu cầu SOL thay thế.
 
 ## 3. Nhận thanh toán
 
-Chạy ứng dụng của bạn, nhấp vào nút, kết nối ví và thanh toán. Callback
-`onPaymentSuccess` nhận chữ ký giao dịch, đây chính là biên lai của bạn: tra cứu bằng [getTransaction](/docs/rpc/http/gettransaction) hoặc trên
-bất kỳ trình khám phá nào.
+Hãy chạy ứng dụng, quét mã QR bằng ví của bạn và phê duyệt thanh toán. Khi
+giao dịch được xác nhận và vượt qua bước xác thực, component sẽ hiển thị
+chữ ký giao dịch. Chữ ký đó chính là biên nhận của bạn: hãy tra cứu bằng
+[getTransaction](/docs/rpc/http/gettransaction) hoặc trên bất kỳ trình khám phá blockchain nào.
+
+<Callout type="warn">
+  Xác thực ngay trong trình duyệt là đủ cho bản demo. Trước khi xử lý các đơn hàng thật,
+  hãy xác thực thanh toán trên máy chủ của bạn. Xem [xác minh
+  thanh toán](/docs/payments/accept-payments/verification-tools).
+</Callout>
 
 ## Tiếp theo nên làm gì
 
+- [Solana Pay](/docs/tools/solana-pay) - yêu cầu chuyển khoản, yêu cầu
+  giao dịch và các tùy chọn mã QR
 - [Cách thanh toán hoạt động trên Solana](/docs/payments/how-payments-work) - ví,
   stablecoin, token account, và phí
 - [Xác minh thanh toán](/docs/payments/accept-payments/verification-tools) - xác nhận
