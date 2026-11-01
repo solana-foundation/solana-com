@@ -1,0 +1,95 @@
+---
+title: Rewards 程序
+seoTitle: 用于代币归属和默克尔分发的 Solana Rewards 程序
+description:
+  通过归属计划分发 SPL Token 和 Token-2022 代币,支持按接收者创建账户或使用默克尔根,并可选择启用撤销和追回功能。
+---
+
+Rewards 程序会将代币从程序所有的金库分发给一组接收者,每位接收者都有各自的归属计划。授权方为金库注资,并定义谁可以获得多少代币。接收者可随时间推移领取已归属的代币;在分发设置允许的情况下,授权方可以撤销接收者资格,或收回剩余的代币。该程序使用 Pinocchio 构建,由 Solana 基金会维护,支持 SPL Token 和 Token-2022 的 mint,但不支持启用了 transfer hook 扩展的 Token-2022 mint。
+
+程序 ID(主网和开发网):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  该程序已由 OtterSec 审计。已审计的提交请参阅 [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)。
+</Callout>
+
+## 选择分发类型
+
+程序支持两种分发类型,二者使用相同的归属计划和撤销模式。
+
+|                  | 直接                                       | 默克尔                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **运作方式** | 为每位接收者创建一个链上账户     | 在链上仅存储一个默克尔根;接收者需提供证明来领取  |
+| **前期成本** | 付款方需为每个接收者账户支付 rent | 在有人领取之前,不会创建按接收者划分的账户                           |
+| **规模**        | 适用于数千名以内的接收者  | 可扩展至数百万接收者;存储仅随接收者领取而增长 |
+| **可变性**   | 创建后仍可添加接收者       | 接收者集合在创建时即固定                                       |
+| **适用场景**   | 随时间变化的小规模分发    | 大规模、固定的分发,例如空投                              |
+
+## 归属计划
+
+每笔分配都采用以下四种计划之一。时间戳以 Unix 秒为单位。
+
+| 计划      | 行为                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | 所有代币立即可领取                                                                                    |
+| `Linear`      | 代币在 `startTs` 和 `endTs` 之间按比例解锁                                                             |
+| `Cliff`       | 在 `cliffTs` 之前不会解锁任何代币,之后全部一次性解锁                                                       |
+| `CliffLinear` | 从 `startTs` 到 `endTs` 线性归属,在 `cliffTs` 之前不可领取任何代币;此前累积的部分在 cliff 时间点解锁 |
+
+## 账户
+
+| 账户              | PDA seeds                                        | 存储内容                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | 授权方、mint 和分配总额       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | 单个接收者的分配及归属信息       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | 授权方、mint、总额以及默克尔根 |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | 单个领取者迄今已领取的数量        |
+| `Revocation`         | `["revocation", distribution, user]`             | 用于阻止已被撤销的默克尔领取者的标记 |
+
+`seed` 是创建时传入的额外签名者的地址,因此同一个授权方可以为同一个 mint 运行多个分发。每个分发的金库是该 mint 对应的分发 PDA 的 associated token account。
+
+## 指令
+
+### 直接分发
+
+1. 授权方调用 `CreateDirectDistribution` 来创建分发 PDA 及其金库。
+2. 授权方为每位接收者调用一次 `AddDirectRecipient`,并指定金额和归属计划。每次调用都会将该金额从授权方的 token account 转入金库。
+3. 接收者调用 `ClaimDirect` 提取已归属的代币。传入 `amount: 0` 可领取当前所有已归属的代币。
+4. 当接收者已领取全部代币,或分发已关闭后,可通过 `CloseDirectRecipient` 关闭接收者账户,并将 rent 退还给支付该费用的账户。
+5. 授权方调用 `CloseDirectDistribution` 以回收金库剩余余额和 rent。如果设置了 `clawbackTs`,则只有在该时间之后才允许关闭。
+
+### 默克尔分发
+
+1. 授权方在链下构建默克尔树。每个叶子节点都包含领取者、该领取者的总额以及归属计划。
+2. 授权方使用根、可领取总额和 `clawbackTs` 调用 `CreateMerkleDistribution`,并在同一条指令中为金库注资。
+3. 领取者使用自己的叶子数据和证明调用 `ClaimMerkle`。首次领取会创建该领取者的 `MerkleClaim` 账户。传入 `amount: 0` 可领取当前所有已归属的代币。
+4. 在 `clawbackTs` 之后,授权方调用 `CloseMerkleDistribution` 以回收金库剩余余额和 rent。
+5. 分发关闭后,领取者调用 `CloseMerkleClaim` 以回收其领取账户的 rent。
+
+该程序使用 Keccak-256 对叶子节点进行哈希,公式为 `keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`,其中 `totalAmount` 为小端序 `u64`,`schedule` 的编码与指令的 `VestingSchedule` 参数相同。证明节点按排序后的节点对进行哈希,较小的哈希在前。
+
+### 撤销
+
+撤销为可选功能。创建时设置的 `revocable` 位掩码决定授权方可使用的模式:bit 0 启用 `NonVested`,bit 1 启用 `Full`,`0` 表示禁用撤销。
+
+| 模式        | 指令                                    | 结果                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` 或 `RevokeMerkleClaim` | 已归属但未领取的代币归用户所有;未归属的代币返还给授权方 |
+| `Full`      | `RevokeDirectRecipient` 或 `RevokeMerkleClaim` | 所有未领取的代币(无论已归属还是未归属)均返还给授权方               |
+
+撤销默克尔领取者会创建一个 `Revocation` 标记,阻止其后续领取,即使该领取者从未领取过。撤销直接接收者会关闭其 `DirectRecipient` 账户并退还 rent。
+
+## 客户端
+
+代码仓库的 [`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients) 目录中包含使用 Codama 根据程序 IDL 生成的 [`@solana/kit`](/docs/clients/official/javascript) 和 Rust 客户端。该客户端尚未发布到 npm,请使用 `just generate-clients` 从源代码构建。
+
+## 资源
+
+- [源代码](https://github.com/solana-foundation/rewards)
+- [OtterSec 审计报告](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [报告问题](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/),标签 `rewards-program`
