@@ -110,7 +110,7 @@ export function HomepageFooter() {
                 className="h-[18px] w-[18px]"
               />
               <span className="font-diatype text-[15px] font-light leading-none tracking-[0.75px] text-accelerate-gray-200">
-                Solana Conf
+                Solana Events
               </span>
             </a>
           </div>

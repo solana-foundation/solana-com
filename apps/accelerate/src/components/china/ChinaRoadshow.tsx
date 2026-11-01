@@ -397,7 +397,7 @@ function ChinaFooter() {
               height={24}
             />
             <span className="font-diatype text-[15px] tracking-[0.75px] md:text-[20px]">
-              Solana Conf
+              Solana Events
             </span>
           </a>
         </div>
