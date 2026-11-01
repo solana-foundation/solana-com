@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
-import { publicAssetPath } from "@/config";
+import { config, publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
 import type { FinalistCategory } from "@/content/awards-finalists";
 import type { AwardsVotingStatus } from "@/lib/awards-campaign";
@@ -119,6 +119,7 @@ export default function AwardsVoting({
       (item) => item.twitterHandle === vote?.twitterHandle,
     );
     const text = t("voting.shareText", {
+      eventHandle: config.event.twitterHandle,
       name: finalist
         ? `${finalist.name} (${finalist.twitterHandle})`
         : (vote?.twitterHandle ?? ""),

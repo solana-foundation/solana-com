@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
 import Button, { useButtonScramble } from "@/components/Button";
-import { publicAssetPath } from "@/config";
+import { config, publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
 // import { resolveSponsorLogo } from "@/lib/sponsors";
 
@@ -213,6 +213,7 @@ export default function AwardsNominations() {
   const nomination = nominations[activeCategory.id];
   const share = () => {
     const text = t("nominations.shareText", {
+      eventHandle: config.event.twitterHandle,
       handle: nomination?.handle ?? "",
       category: activeCategoryCopy.name,
     });

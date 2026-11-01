@@ -114,6 +114,7 @@ export const config = {
   },
   event: {
     name: "Breakpoint 2026",
+    twitterHandle: "@SolanaEvents",
     description:
       "Three days of product launches, ecosystem strategy, builders, capital, and culture for the Solana community.",
     startDate: "2026-11-15",
