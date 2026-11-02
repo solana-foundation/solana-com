@@ -37,15 +37,17 @@ describe("legacy discovery URLs", () => {
     ["/developers/guides/getstarted/actions", "/docs/tools/actions"],
     [
       "/developers/guides/advanced/security-best-practices",
-      "/docs/tools/production-readiness",
+      "/docs/tools/security#key-management",
     ],
   ])("breaks the redirect loop for %s", (source, destination) => {
+    const markdownDestination = destination.replace(/(#|$)/, ".md$1");
+
     expect(rewritesAndRedirects.redirects).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ source, destination, locale: false }),
         expect.objectContaining({
           source: `${source}.md`,
-          destination: `${destination}.md`,
+          destination: markdownDestination,
           locale: false,
         }),
       ]),
