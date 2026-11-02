@@ -24,7 +24,12 @@ describe("awards voting rate limits", () => {
 
     expect(await enforceVotingRateLimit(request, "first-ballot")).toBe(false);
     expect(await enforceVotingRateLimit(request, "second-ballot")).toBe(false);
-    expect(checkRateLimit).toHaveBeenCalledTimes(4);
+    // burst: ballot key + client IP key, hourly: client IP key, per call
+    expect(checkRateLimit).toHaveBeenCalledTimes(6);
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "breakpoint-awards-vote-burst",
+      { request, rateLimitKey: undefined },
+    );
     expect(checkRateLimit).toHaveBeenCalledWith(
       "breakpoint-awards-vote-burst",
       { request, rateLimitKey: "first-ballot" },

@@ -401,6 +401,90 @@ describe("Inkeep API proxy", () => {
     expect(response.headers.get("allow")).toBe("POST");
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it("keys the rate limit on the Vercel-set IP, not caller-supplied proxy headers", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
+    const request = chatRequest(undefined, {
+      "cf-connecting-ip": "198.51.100.77",
+      "true-client-ip": "198.51.100.78",
+      forwarded: "for=198.51.100.79",
+      "x-real-ip": "192.0.2.1",
+    });
+    await proxyInkeepRequest(request, { endpoint: "chat" });
+    expect(checkRateLimitMock).toHaveBeenCalledWith(
+      "inkeep-chat",
+      expect.objectContaining({ rateLimitKey: "192.0.2.1" }),
+    );
+  });
+
+  it("forwards only known chat fields and caps the token budget", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}"));
+    const request = chatRequest({
+      model: "client-controlled-model",
+      messages: [{ role: "user", content: "hi" }],
+      stream: true,
+      max_tokens: 999_999,
+      temperature: 0.5,
+      tools: [{ type: "function", function: { name: "provideLinks" } }],
+      unknown_field: "dropped",
+      n: 50,
+      logit_bias: { 1: 100 },
+    });
+    await proxyInkeepRequest(request, { endpoint: "chat" });
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toEqual({
+      messages: [{ role: "user", content: "hi" }],
+      model: "inkeep-qa-expert",
+      stream: true,
+      tools: [{ type: "function", function: { name: "provideLinks" } }],
+      temperature: 0.5,
+      max_tokens: 4096,
+    });
+    expect(body).not.toHaveProperty("unknown_field");
+    expect(body).not.toHaveProperty("n");
+    expect(body).not.toHaveProperty("logit_bias");
+  });
+
+  it("only forwards analytics bodies in the shapes the widget sends", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response("{}"));
+    const analytics = (path: string[], body: unknown) =>
+      proxyInkeepRequest(
+        new Request(`${TEST_ORIGIN}/api/inkeep/analytics/${path.join("/")}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: TEST_ORIGIN,
+            "sec-fetch-site": "same-origin",
+            "x-forwarded-for": "192.0.2.40",
+          },
+          body: JSON.stringify(body),
+        }),
+        { endpoint: "analytics", path },
+      );
+    expect((await analytics(["feedback"], { anything: "goes" })).status).toBe(
+      400,
+    );
+    expect(
+      (await analytics(["conversations"], { messages: "not-an-array" })).status,
+    ).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      (await analytics(["feedback"], { type: "positive", messageId: "m1" }))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await analytics(["conversations"], {
+          type: "openai",
+          messages: [{ role: "user", content: "hello" }],
+        })
+      ).status,
+    ).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
 
 function chatRequest(

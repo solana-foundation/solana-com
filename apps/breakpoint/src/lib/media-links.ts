@@ -74,7 +74,9 @@ function isBreakpointAnnouncementLink(
   return (
     typeof link.id === "string" &&
     typeof link.title === "string" &&
-    typeof link.url === "string"
+    typeof link.url === "string" &&
+    // Only http(s) or root-relative targets may become hrefs.
+    /^(?:https?:\/\/|\/(?!\/))/i.test(link.url.trim())
   );
 }
 

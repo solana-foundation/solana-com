@@ -6,8 +6,33 @@ import parse, {
   type DOMNode,
   type HTMLReactParserOptions,
 } from "html-react-parser";
+import sanitizeHtml from "sanitize-html";
 
 import { cn } from "../lib/utils";
+
+// Landing copy is authored by staff, but it is still HTML from outside the
+// bundle. Strip everything that can load, frame, submit or script before the
+// parser turns it into React elements.
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [
+    ...sanitizeHtml.defaults.allowedTags.filter(
+      (tag) => !["iframe", "form", "input", "button", "style"].includes(tag),
+    ),
+    "img",
+    "span",
+    "u",
+  ],
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    "*": ["class", "id"],
+    a: ["href", "name", "target", "rel", "title"],
+    img: ["src", "alt", "title", "width", "height", "loading"],
+  },
+  allowedSchemes: ["http", "https", "mailto", "tel"],
+  allowedSchemesByTag: { img: ["https"] },
+  allowProtocolRelative: false,
+  disallowedTagsMode: "discard",
+};
 
 function textContent(nodes: DOMNode[]): string {
   return nodes
@@ -38,6 +63,8 @@ export function HtmlParser({
   classes?: string;
 }) {
   if (typeof rawHtml !== "string" || !rawHtml) return null;
+
+  const cleanHtml = sanitizeHtml(rawHtml, SANITIZE_OPTIONS);
 
   const options: HTMLReactParserOptions = {
     replace(node) {
@@ -86,7 +113,7 @@ export function HtmlParser({
         classes,
       )}
     >
-      {parse(rawHtml, options)}
+      {parse(cleanHtml, options)}
     </div>
   );
 }

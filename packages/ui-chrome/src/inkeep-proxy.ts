@@ -1,6 +1,10 @@
 import "server-only";
 
 import { checkRateLimit } from "@vercel/firewall";
+import { clientIpFromHeaders } from "./client-ip";
+import { RATE_LIMIT_IDS } from "./inkeep-rate-limits";
+
+export { RATE_LIMIT_IDS };
 
 const INKEEP_AI_API_BASE_URL = "https://api.inkeep.com";
 const INKEEP_ANALYTICS_API_BASE_URL = "https://api.io.inkeep.com";
@@ -27,13 +31,6 @@ const ENDPOINTS = {
     upstreamUrl: `${INKEEP_AI_API_BASE_URL}/graphql`,
   },
 } as const;
-
-const RATE_LIMIT_IDS: Record<InkeepEndpoint, string> = {
-  analytics: "inkeep-analytics",
-  chat: "inkeep-chat",
-  challenge: "inkeep-chat",
-  search: "inkeep-search",
-};
 
 const SEARCH_QUERY = `query GetSearchResults($searchInput: SearchInput!) {
   search(searchInput: $searchInput) {
@@ -290,7 +287,8 @@ async function prepareUpstreamRequest(
   }
 
   const upstreamUrl = getAnalyticsUrl(options.path);
-  return upstreamUrl && isRecord(parsedBody.value)
+  return upstreamUrl &&
+    isValidAnalyticsBody(options.path.join("/"), parsedBody.value)
     ? {
         ok: true,
         url: upstreamUrl,
@@ -386,10 +384,44 @@ function validateChatBody(value: unknown): Record<string, unknown> | null {
 
   if (totalContentLength > MAX_TOTAL_MESSAGE_CONTENT_LENGTH) return null;
 
-  return {
-    ...value,
+  return pickChatFields(value);
+}
+
+const MAX_CHAT_MAX_TOKENS = 4_096;
+
+/**
+ * Only the fields the widget legitimately sends reach Inkeep. Unknown keys are
+ * dropped rather than rejected so a widget upgrade degrades gracefully, and
+ * the model and token budget are always set server-side.
+ */
+function pickChatFields(value: Record<string, unknown>) {
+  const body: Record<string, unknown> = {
+    messages: value.messages,
     model: "inkeep-qa-expert",
   };
+  if (typeof value.stream === "boolean") body.stream = value.stream;
+  if (Array.isArray(value.tools)) body.tools = value.tools;
+  if (value.tool_choice !== undefined) body.tool_choice = value.tool_choice;
+  if (isRecord(value.response_format)) {
+    body.response_format = value.response_format;
+  }
+  if (isRecord(value.metadata)) body.metadata = value.metadata;
+  if (typeof value.temperature === "number" && value.temperature >= 0) {
+    body.temperature = Math.min(value.temperature, 2);
+  }
+  if (typeof value.top_p === "number" && value.top_p > 0) {
+    body.top_p = Math.min(value.top_p, 1);
+  }
+  if (typeof value.max_tokens === "number" && value.max_tokens > 0) {
+    body.max_tokens = Math.min(
+      Math.floor(value.max_tokens),
+      MAX_CHAT_MAX_TOKENS,
+    );
+  }
+  if (typeof value.user === "string" && value.user.length <= 200) {
+    body.user = value.user;
+  }
+  return body;
 }
 
 function getStringContentLength(value: unknown): number | null {
@@ -445,6 +477,38 @@ function buildSearchBody(value: unknown): Record<string, unknown> {
     query: SEARCH_QUERY,
     variables: { searchInput },
   };
+}
+
+const MAX_ANALYTICS_STRING_LENGTH = 2_000;
+
+/**
+ * The analytics API is written with the server key, so the proxy only
+ * forwards the shapes the widget produces: a conversation with messages, an
+ * event with a type, or feedback on a message. Anything else is rejected.
+ */
+function isValidAnalyticsBody(path: string, value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const shortString = (v: unknown) =>
+    typeof v === "string" && v.length <= MAX_ANALYTICS_STRING_LENGTH;
+  if (path === "conversations") {
+    return (
+      Array.isArray(value.messages) &&
+      value.messages.length > 0 &&
+      value.messages.length <= MAX_MESSAGES &&
+      value.messages.every(
+        (m) =>
+          isRecord(m) &&
+          shortString(m.role) &&
+          (getStringContentLength(m.content) ?? Infinity) <=
+            MAX_MESSAGE_CONTENT_LENGTH,
+      )
+    );
+  }
+  if (path === "events") return shortString(value.type);
+  if (path === "feedback") {
+    return shortString(value.type) && shortString(value.messageId);
+  }
+  return false;
 }
 
 function getAnalyticsUrl(path: string[]): string | null {
@@ -580,7 +644,7 @@ function errorResponse(
   );
 }
 
-function isSameOriginBrowserRequest(
+export function isSameOriginBrowserRequest(
   request: Request,
   options: { allowRefererFallback: boolean },
 ): boolean {
@@ -600,14 +664,10 @@ function isSameOriginBrowserRequest(
   }
 }
 
+// Only Vercel-set headers; see ./client-ip for why cf-connecting-ip and
+// true-client-ip must never be used as a rate-limit key.
 function getClientIp(headers: Headers): string {
-  const direct =
-    headers.get("cf-connecting-ip") ??
-    headers.get("true-client-ip") ??
-    headers.get("x-real-ip");
-  if (direct?.trim()) return direct.trim();
-
-  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return clientIpFromHeaders(headers);
 }
 
 async function checkDistributedRateLimit(

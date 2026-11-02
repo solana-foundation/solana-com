@@ -85,4 +85,47 @@ describe("DvP treasury relay", () => {
       /treasury account inside a token instruction/,
     );
   });
+
+  it("refuses treasury-paid ATA creates that do not accompany a DvP step", () => {
+    const ataCreate = {
+      programAddress: ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
+      accounts: [
+        { address: treasury, role: 3 },
+        { address: party, role: 1 },
+      ],
+      data: new Uint8Array([1]),
+    };
+    expect(() =>
+      assertRelayable(transaction(treasury, [ataCreate]), treasury),
+    ).toThrow(/must accompany a DvP instruction/);
+    const dvpIx = {
+      programAddress: address(PROGRAM_ID),
+      data: new Uint8Array([2]),
+    };
+    expect(() =>
+      assertRelayable(
+        transaction(treasury, [
+          ataCreate,
+          ataCreate,
+          ataCreate,
+          ataCreate,
+          dvpIx,
+        ]),
+        treasury,
+      ),
+    ).not.toThrow();
+    expect(() =>
+      assertRelayable(
+        transaction(treasury, [
+          ataCreate,
+          ataCreate,
+          ataCreate,
+          ataCreate,
+          ataCreate,
+          dvpIx,
+        ]),
+        treasury,
+      ),
+    ).toThrow(/too many associated token account creates/);
+  });
 });

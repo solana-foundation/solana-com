@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import { relay } from "@/lib/delivery-vs-payment/server/solana";
 import { allow, clientKey } from "@/lib/delivery-vs-payment/server/rateLimit";
+import {
+  crossOriginResponse,
+  isSameOriginRequest,
+} from "@/lib/delivery-vs-payment/server/request-origin";
 
 export const runtime = "nodejs";
+// confirm() may poll for up to 45 s; keep the function budget above it.
+export const maxDuration = 60;
 
 const PER_IP = { limit: 30, windowMs: 10 * 60 * 1000 };
 const GLOBAL = { limit: 300, windowMs: 10 * 60 * 1000 };
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) return crossOriginResponse();
   if (
     !allow(`relay:${clientKey(request)}`, PER_IP.limit, PER_IP.windowMs) ||
     !allow("relay:global", GLOBAL.limit, GLOBAL.windowMs)
@@ -26,9 +33,7 @@ export async function POST(request: Request) {
   try {
     return NextResponse.json({ signature: await relay(tx) });
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Relay failed" },
-      { status: 500 },
-    );
+    console.error("dvp-demo relay failed:", error);
+    return NextResponse.json({ error: "Relay failed" }, { status: 500 });
   }
 }

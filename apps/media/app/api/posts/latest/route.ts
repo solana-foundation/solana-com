@@ -52,6 +52,11 @@ async function fetchPosts(params: PostConnectionParams) {
 /**
  * Parse and validate query parameters
  */
+// Query values that become cache keys and filters: short, printable, no
+// delimiters, so a caller cannot flood the data cache with unique entries.
+const SAFE_PARAM = /^[A-Za-z0-9_\-=.:]{1,96}$/;
+const isSafeParam = (value: string) => SAFE_PARAM.test(value);
+
 function parseQueryParams(searchParams: URLSearchParams): PostConnectionParams {
   const params: PostConnectionParams = {};
 
@@ -64,17 +69,17 @@ function parseQueryParams(searchParams: URLSearchParams): PostConnectionParams {
   }
 
   const cursorParam = searchParams.get("cursor");
-  if (cursorParam) {
+  if (cursorParam && isSafeParam(cursorParam)) {
     params.cursor = cursorParam;
   }
 
   const categoryParam = searchParams.get("category");
-  if (categoryParam) {
+  if (categoryParam && isSafeParam(categoryParam)) {
     params.category = categoryParam;
   }
 
   const excludeCategoryParam = searchParams.get("excludeCategory");
-  if (excludeCategoryParam) {
+  if (excludeCategoryParam && isSafeParam(excludeCategoryParam)) {
     params.excludeCategory = excludeCategoryParam;
   }
 
@@ -118,8 +123,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: "Failed to fetch posts",
-        message:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        message: "The request could not be completed.",
       },
       { status: 500 },
     );

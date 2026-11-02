@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { allow, clientKey } from "@/lib/delivery-vs-payment/server/rateLimit";
+import {
+  crossOriginResponse,
+  isSameOriginRequest,
+} from "@/lib/delivery-vs-payment/server/request-origin";
 
 export const runtime = "nodejs";
 
@@ -86,12 +90,16 @@ async function handleRpc(request: Request, body: string) {
   });
 }
 
+// Preview deployments block POSTs to this path at the firewall, so the demo
+// client falls back to GET there (lib/delivery-vs-payment/solana/rpc.ts).
 export async function GET(request: Request) {
+  if (!isSameOriginRequest(request)) return crossOriginResponse();
   const body = new URL(request.url).searchParams.get("request");
   if (!body) return rpcError(null, -32600, "Missing RPC request", 400);
   return handleRpc(request, body);
 }
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) return crossOriginResponse();
   return handleRpc(request, await request.text());
 }

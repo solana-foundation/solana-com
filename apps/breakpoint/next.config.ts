@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { securityHeadersRoute } from "@workspace/security-headers";
 import { withBotId } from "botid/next/config";
 import { locales } from "@workspace/i18n/config";
 import { createNextIntlPlugin } from "@workspace/i18n/plugin";
@@ -9,6 +10,10 @@ const assetPrefix = "/breakpoint-assets";
 const localeRoutePattern = `:locale(${locales.join("|")})`;
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [securityHeadersRoute()];
+  },
   reactStrictMode: true,
   assetPrefix,
   outputFileTracingIncludes: {

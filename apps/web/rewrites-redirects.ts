@@ -450,12 +450,8 @@ export default {
         destination: `${BREAKPOINT_APP_URL}/breakpoint-assets/:path+`,
         locale: false,
       },
-      // Media app rewrites - new routes
-      {
-        source: "/admin",
-        destination: `${MEDIA_APP_URL}/admin`,
-        locale: false,
-      },
+      // Media app rewrites - new routes. The CMS (/keystatic) is deliberately
+      // not proxied: editor cookies must stay on the media host, not solana.com.
       {
         source: "/news",
         destination: `${MEDIA_APP_URL}/news`,
