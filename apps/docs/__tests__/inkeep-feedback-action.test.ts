@@ -67,11 +67,18 @@ describe("docs feedback server action", () => {
     });
   });
 
+  it("accepts locale-prefixed docs paths from localized pages", async () => {
+    await drain(await onRateAction("/de/docs/core/accounts", valid));
+    await drain(await onRateAction("/ja/developers/guides", valid));
+    expect(mocks.streamText).toHaveBeenCalledTimes(2);
+  });
+
   it("never calls the model for invalid input", async () => {
     await onRateAction("/docs", { opinion: "meh" as never, message: "x" });
     await onRateAction("/docs", { ...valid, message: "x".repeat(5000) });
     await onRateAction("https://evil.example/docs", valid);
     await onRateAction("/not-docs", valid);
+    await onRateAction("/xx/docs", valid);
     await onRateAction("/docs/..\\evil", valid);
     expect(mocks.streamText).not.toHaveBeenCalled();
   });

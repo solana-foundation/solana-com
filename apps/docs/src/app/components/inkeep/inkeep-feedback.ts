@@ -6,6 +6,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText } from "ai";
 import { ReadableStream } from "stream/web";
 import { z } from "zod";
+import { locales } from "@workspace/i18n/config";
 import { RATE_LIMIT_IDS } from "@solana-com/ui-chrome/inkeep-rate-limits";
 import { Feedback } from "@@/src/app/components/rate";
 
@@ -25,12 +26,19 @@ const feedbackSchema = z.object({
   message: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH),
 });
 
+// `usePathname` keeps the locale prefix on localized pages (/de/docs/...), so
+// accept an optional supported locale before the docs or developers segment.
+const LOCALE_PREFIX = `(?:/(?:${locales.join("|")}))?`;
 const urlSchema = z
   .string()
   .max(MAX_URL_LENGTH)
   // Relative docs paths only: no scheme, no backslashes, no control characters.
-  // eslint-disable-next-line no-control-regex
-  .regex(/^\/(?:docs|developers)(?:\/[^\s\\\u0000-\u001f\u007f]*)?$/);
+  .regex(
+    new RegExp(
+      // eslint-disable-next-line no-control-regex
+      `^${LOCALE_PREFIX}/(?:docs|developers)(?:/[^\\s\\\\\\u0000-\\u001f\\u007f]*)?$`,
+    ),
+  );
 
 async function isSameOriginBrowserRequest(): Promise<boolean> {
   const h = await headers();

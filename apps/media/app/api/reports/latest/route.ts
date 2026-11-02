@@ -28,9 +28,10 @@ async function fetchReports(params: ReportConnectionParams) {
   }
 }
 
-// Query values that become cache keys and filters: short, printable, no
+// Query values that become cache keys and filters: bounded, printable, no
 // delimiters, so a caller cannot flood the data cache with unique entries.
-const SAFE_PARAM = /^[A-Za-z0-9_\-=.:]{1,96}$/;
+// Cursors are content slugs, the longest of which exceed 100 characters.
+const SAFE_PARAM = /^[A-Za-z0-9_\-=.:]{1,256}$/;
 const isSafeParam = (value: string) => SAFE_PARAM.test(value);
 
 function parseQueryParams(
