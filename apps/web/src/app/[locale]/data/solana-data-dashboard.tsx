@@ -63,7 +63,9 @@ import {
 } from "./dashboard-query-state";
 import { DataResourceCarousel } from "./dashboard-resources";
 import { ProviderLinkTable } from "./provider-link-table";
+import { scrollBelowStickyControls } from "./dashboard-scroll";
 import { SenderProviderExperience } from "./sender-provider-experience";
+import { StablecoinCoverageTable } from "./stablecoin-coverage";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
 export { applyQueryUpdates } from "./dashboard-query";
@@ -96,6 +98,7 @@ export function SolanaDataDashboard() {
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
   const isSendersTab = activeTab === "senders";
+  const isStablecoinsTab = activeTab === "stablecoins";
   const isLiveInfrastructureTab = isRpcTab || isSendersTab;
   const { data: rpcFilters } = useSWR<RpcLatencyFiltersResponse>(
     isRpcTab ? "/api/rpc/filters" : null,
@@ -356,10 +359,14 @@ export function SolanaDataDashboard() {
                 />
               ) : null}
 
+              {isStablecoinsTab ? (
+                <StablecoinCoverageTable stickyControlsRef={controlsRef} />
+              ) : null}
+
               <ChartGrid
                 activeCharts={activeCharts}
                 activeTab={activeTab}
-                isConnectedToPrevious={hasKpiGrid}
+                isConnectedToPrevious={hasKpiGrid && !isStablecoinsTab}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
                 range={range}
@@ -489,23 +496,7 @@ function useScrollToLinkedChart(
     }
 
     scrolledChartIdRef.current = linkedChartId;
-
-    // Land below the sticky site header and the sticky controls bar, whose
-    // height changes when the controls wrap on small screens.
-    const controls = stickyControlsRef.current;
-    const stickyOffset = controls
-      ? Number.parseFloat(getComputedStyle(controls).top) +
-        controls.offsetHeight
-      : 0;
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-
-    window.scrollTo({
-      behavior: reduceMotion ? "auto" : "smooth",
-      top:
-        target.getBoundingClientRect().top + window.scrollY - stickyOffset - 16,
-    });
+    scrollBelowStickyControls(target, stickyControlsRef.current);
   });
 }
 
