@@ -166,7 +166,7 @@ export const BUILD_STEPS = [
 export const RESOURCES = [
   { id: "paxosDocs", href: "https://docs.paxos.com/guides/stablecoin/pyusd" },
   { id: "contract", href: "https://github.com/paxosglobal/pyusd-contract" },
-  { id: "productionReadiness", href: "/docs/tools/production-readiness" },
+  { id: "productionReadiness", href: "/docs/tools/security#verify-addresses" },
   { id: "deepDive", href: "/news/pyusd-paypal-solana-developer" },
   { id: "launch", href: "/news/paypal-pyusd-on-solana" },
   {
