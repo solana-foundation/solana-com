@@ -12,11 +12,6 @@ const retiredRoutes = [
       "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0182-conditional-cu-metering.md",
   },
   {
-    path: "direct-mapping",
-    destination:
-      "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
-  },
-  {
     path: "reserve-minimal-cus-for-builtins",
     destination:
       "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md",
@@ -76,6 +71,22 @@ describe("Retired feature-gate routes", () => {
       );
     },
   );
+
+  it("redirects direct-mapping to its upgrade article", () => {
+    const source = "/docs/references/feature-gates/direct-mapping";
+    const fallbackSource = "/docs/references/feature-gates/:path*";
+
+    expectPermanentRedirect(source, "/upgrades/direct-mapping");
+    expectPermanentRedirect(
+      `${localePattern}${source}`,
+      "/:locale/upgrades/direct-mapping",
+    );
+    expectRedirectBefore(source, fallbackSource);
+    expectRedirectBefore(
+      `${localePattern}${source}`,
+      `${localePattern}${fallbackSource}`,
+    );
+  });
 
   it("redirects the retired section and unknown slugs to the tracker", () => {
     const source = "/docs/references/feature-gates/:path*";

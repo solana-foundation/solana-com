@@ -1810,8 +1810,7 @@ export default {
     },
     {
       source: "/docs/references/feature-gates/direct-mapping",
-      destination:
-        "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
+      destination: "/upgrades/direct-mapping",
       permanent: true,
     },
     {

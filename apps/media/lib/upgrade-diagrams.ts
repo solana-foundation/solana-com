@@ -31,6 +31,18 @@ export const upgradeDiagramOptions = [
       "The three routes out of a proposed block and the certificate each produces",
   },
   {
+    label: "account data copies vs direct mapping",
+    value: "dm-copy-paths",
+    description:
+      "How account data reaches a program before and after direct mapping",
+  },
+  {
+    label: "account data access before vs after direct mapping",
+    value: "dm-account-access",
+    description:
+      "Which account data accesses used to go unnoticed and now fail",
+  },
+  {
     label: "durable nonce vs offline signer flow",
     value: "dn-signer-flow",
     description:
