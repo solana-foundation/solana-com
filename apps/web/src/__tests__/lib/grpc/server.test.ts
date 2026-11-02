@@ -10,7 +10,9 @@ import {
 import {
   grpcTimeframeOptions,
   isGrpcFiltersResponse,
+  getGrpcRegionLabel,
   getGrpcRegions,
+  parseGrpcRegion,
 } from "@/app/[locale]/data/grpc-config";
 import {
   applyQueryUpdates,
@@ -414,6 +416,25 @@ describe("gRPC benchmark", () => {
     );
     expect(query).toContain(
       "groupArray(tuple(region, cloud_provider, bucket, generation))",
+    );
+  });
+
+  it("keeps inherited object keys as plain region strings", async () => {
+    for (const region of ["__proto__", "constructor", "toString"]) {
+      expect(parseGrpcRegion(region)).toBe(region.toLowerCase());
+      expect(getGrpcRegionLabel(region)).toBe(region.toUpperCase());
+    }
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ data: [] })));
+    vi.stubGlobal("fetch", fetchMock);
+    await getGrpcMetricRows(
+      config,
+      parseGrpcQueryOptions(new URLSearchParams("region=__proto__")),
+      now,
+    );
+    expect(fetchMock.mock.calls[0][0].searchParams.get("param_regions")).toBe(
+      "['__proto__']",
     );
   });
 
