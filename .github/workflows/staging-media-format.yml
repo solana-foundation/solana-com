@@ -112,6 +112,8 @@ jobs:
       - name: Collect formatted files
         id: formatted
         shell: bash
+        # Image optimisation writes a .webp and deletes the original, so
+        # deletions travel as a list and the archive only holds files that exist.
         run: |
           set -euo pipefail
           git add -N apps/media/content apps/media/public/uploads/posts
@@ -119,9 +121,14 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          mkdir -p "$RUNNER_TEMP/formatted"
-          git diff --name-only -- apps/media/content apps/media/public/uploads/posts \
-            | tar -cf "$RUNNER_TEMP/formatted/changes.tar" -T -
+          out="$RUNNER_TEMP/formatted"
+          mkdir -p "$out"
+          git diff --name-only --diff-filter=D -- apps/media/content apps/media/public/uploads/posts > "$out/deleted.txt"
+          git diff --name-only --diff-filter=d -- apps/media/content apps/media/public/uploads/posts > "$out/present.txt"
+          if [ -s "$out/present.txt" ]; then
+            tar -cf "$out/changes.tar" -T "$out/present.txt"
+          fi
+          rm -f "$out/present.txt"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Upload formatted files
@@ -129,7 +136,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: media-format-${{ github.run_id }}
-          path: ${{ runner.temp }}/formatted/changes.tar
+          path: ${{ runner.temp }}/formatted
           retention-days: 1
     outputs:
       changed: ${{ steps.formatted.outputs.changed }}
@@ -145,7 +152,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.ref }}
+          # The exact commit the formatting ran on. If the branch has moved
+          # since, the committing script refuses the stale head and the newer
+          # push's own run formats the newer content.
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -164,14 +174,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # The archive only ever contains media content paths; refuse anything else.
-          tar -tf "$RUNNER_TEMP/formatted/changes.tar" | while IFS= read -r f; do
-            case "$f" in
-              apps/media/content/*|apps/media/public/uploads/posts/*) ;;
-              *) echo "Refusing unexpected path in artifact: $f" >&2; exit 1 ;;
+          in="$RUNNER_TEMP/formatted"
+          allowed() {
+            case "$1" in
+              apps/media/content/*|apps/media/public/uploads/posts/*) return 0 ;;
+              *) echo "Refusing unexpected path in artifact: $1" >&2; return 1 ;;
             esac
-          done
-          tar -xf "$RUNNER_TEMP/formatted/changes.tar" -C "$GITHUB_WORKSPACE"
+          }
+          # Every path, deleted or archived, must stay inside the media content trees.
+          if [ -s "$in/deleted.txt" ]; then
+            while IFS= read -r f; do [ -n "$f" ] && allowed "$f"; done < "$in/deleted.txt"
+          fi
+          if [ -f "$in/changes.tar" ]; then
+            tar -tf "$in/changes.tar" | while IFS= read -r f; do allowed "$f"; done
+          fi
+          if [ -s "$in/deleted.txt" ]; then
+            while IFS= read -r f; do [ -n "$f" ] && rm -f "$GITHUB_WORKSPACE/$f"; done < "$in/deleted.txt"
+          fi
+          if [ -f "$in/changes.tar" ]; then
+            tar -xf "$in/changes.tar" -C "$GITHUB_WORKSPACE"
+          fi
 
       - name: Commit verified formatting changes
         env:

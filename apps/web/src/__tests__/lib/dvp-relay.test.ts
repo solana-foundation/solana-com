@@ -71,6 +71,24 @@ describe("DvP treasury relay", () => {
     data: new Uint8Array([2]),
   };
 
+  it("accepts a settlement that creates destination accounts for non-signing parties", () => {
+    // settle(): only the authority signs; the DvP instruction names the
+    // destination token accounts (not their owners).
+    const authority = stranger;
+    const settlement = transaction(treasury, [
+      ataCreate(party),
+      {
+        programAddress: address(PROGRAM_ID),
+        accounts: [
+          { address: authority, role: 2 },
+          { address: ata, role: 1 },
+        ],
+        data: new Uint8Array([3]),
+      },
+    ]);
+    expect(() => assertRelayable(settlement, treasury)).not.toThrow();
+  });
+
   it("accepts the demo programs, including sponsored ATAs for the step's parties", () => {
     // Owner is a signer (a role wallet signing this step).
     expect(() =>
@@ -127,14 +145,14 @@ describe("DvP treasury relay", () => {
         transaction(treasury, [ataCreate(party), ataCreate(stranger), dvpIx]),
         treasury,
       ),
-    ).toThrow(/owner is not a party/);
+    ).toThrow(/not part of this DvP step/);
     // The treasury itself may not become a token account owner here.
     expect(() =>
       assertRelayable(
         transaction(treasury, [ataCreate(treasury), dvpIx]),
         treasury,
       ),
-    ).toThrow(/owner is not a party/);
+    ).toThrow(/not part of this DvP step/);
     const four = [
       ataCreate(party),
       ataCreate(party),
