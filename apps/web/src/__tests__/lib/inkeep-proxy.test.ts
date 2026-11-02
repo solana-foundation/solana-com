@@ -446,6 +446,32 @@ describe("Inkeep API proxy", () => {
     expect(body).not.toHaveProperty("logit_bias");
   });
 
+  it("sets the token budget when the caller omits max_tokens", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}"));
+    await proxyInkeepRequest(
+      chatRequest({
+        messages: [{ role: "user", content: "hi" }],
+        stream: true,
+      }),
+      { endpoint: "chat" },
+    );
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.max_tokens).toBe(4096);
+    fetchMock.mockClear();
+    await proxyInkeepRequest(
+      chatRequest({
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 0,
+      }),
+      { endpoint: "chat" },
+    );
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).max_tokens,
+    ).toBe(4096);
+  });
+
   it("only forwards analytics bodies in the shapes the widget sends", async () => {
     const fetchMock = vi
       .spyOn(globalThis, "fetch")

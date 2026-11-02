@@ -22,6 +22,26 @@ import { assertRelayable } from "@/lib/delivery-vs-payment/server/solana";
 
 const treasury = address("So11111111111111111111111111111111111111112");
 const party = address("Vote111111111111111111111111111111111111111");
+const stranger = address("Stake11111111111111111111111111111111111111");
+const mint = address("Config1111111111111111111111111111111111111");
+const ata = address("SysvarRent111111111111111111111111111111111");
+const systemProgram = address("11111111111111111111111111111111");
+
+/** Associated Token Program create: payer, ata, owner, mint, system, token. */
+function ataCreate(owner: Address): Instruction {
+  return {
+    programAddress: ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
+    accounts: [
+      { address: treasury, role: 3 },
+      { address: ata, role: 1 },
+      { address: owner, role: 0 },
+      { address: mint, role: 0 },
+      { address: systemProgram, role: 0 },
+      { address: TOKEN_PROGRAM_ADDRESS, role: 0 },
+    ],
+    data: new Uint8Array([1]),
+  };
+}
 
 function transaction(feePayer: Address, instructions: Instruction[]) {
   const message = pipe(
@@ -45,19 +65,30 @@ function transaction(feePayer: Address, instructions: Instruction[]) {
 }
 
 describe("DvP treasury relay", () => {
-  it("accepts the demo programs, including arbitrary sponsored ATAs", () => {
-    const tx = transaction(treasury, [
+  const dvpIx = {
+    programAddress: address(PROGRAM_ID),
+    accounts: [{ address: party, role: 3 }],
+    data: new Uint8Array([2]),
+  };
+
+  it("accepts the demo programs, including sponsored ATAs for the step's parties", () => {
+    // Owner is a signer (a role wallet signing this step).
+    expect(() =>
+      assertRelayable(
+        transaction(treasury, [ataCreate(party), dvpIx]),
+        treasury,
+      ),
+    ).not.toThrow();
+    // Owner is an account the DvP instruction names (the escrow PDA).
+    const escrowOwner = transaction(treasury, [
+      ataCreate(stranger),
       {
-        programAddress: ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
-        accounts: [
-          { address: treasury, role: 3 },
-          { address: party, role: 1 },
-        ],
-        data: new Uint8Array([1]),
+        programAddress: address(PROGRAM_ID),
+        accounts: [{ address: stranger, role: 1 }],
+        data: new Uint8Array([2]),
       },
-      { programAddress: address(PROGRAM_ID), data: new Uint8Array([2]) },
     ]);
-    expect(() => assertRelayable(tx, treasury)).not.toThrow();
+    expect(() => assertRelayable(escrowOwner, treasury)).not.toThrow();
   });
 
   it("rejects other programs and a different fee payer", () => {
@@ -86,44 +117,36 @@ describe("DvP treasury relay", () => {
     );
   });
 
-  it("refuses treasury-paid ATA creates that do not accompany a DvP step", () => {
-    const ataCreate = {
-      programAddress: ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
-      accounts: [
-        { address: treasury, role: 3 },
-        { address: party, role: 1 },
-      ],
-      data: new Uint8Array([1]),
-    };
+  it("refuses treasury-paid ATA creates that are not part of the DvP step", () => {
     expect(() =>
-      assertRelayable(transaction(treasury, [ataCreate]), treasury),
+      assertRelayable(transaction(treasury, [ataCreate(party)]), treasury),
     ).toThrow(/must accompany a DvP instruction/);
-    const dvpIx = {
-      programAddress: address(PROGRAM_ID),
-      data: new Uint8Array([2]),
-    };
+    // An unrelated owner appended to an otherwise valid step.
     expect(() =>
       assertRelayable(
-        transaction(treasury, [
-          ataCreate,
-          ataCreate,
-          ataCreate,
-          ataCreate,
-          dvpIx,
-        ]),
+        transaction(treasury, [ataCreate(party), ataCreate(stranger), dvpIx]),
         treasury,
       ),
+    ).toThrow(/owner is not a party/);
+    // The treasury itself may not become a token account owner here.
+    expect(() =>
+      assertRelayable(
+        transaction(treasury, [ataCreate(treasury), dvpIx]),
+        treasury,
+      ),
+    ).toThrow(/owner is not a party/);
+    const four = [
+      ataCreate(party),
+      ataCreate(party),
+      ataCreate(party),
+      ataCreate(party),
+    ];
+    expect(() =>
+      assertRelayable(transaction(treasury, [...four, dvpIx]), treasury),
     ).not.toThrow();
     expect(() =>
       assertRelayable(
-        transaction(treasury, [
-          ataCreate,
-          ataCreate,
-          ataCreate,
-          ataCreate,
-          ataCreate,
-          dvpIx,
-        ]),
+        transaction(treasury, [...four, ataCreate(party), dvpIx]),
         treasury,
       ),
     ).toThrow(/too many associated token account creates/);

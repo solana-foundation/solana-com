@@ -40,6 +40,28 @@ describe("remarkRejectMdxCode", () => {
     );
   });
 
+  it("rejects HTML-injecting attributes and script-capable elements even with literal values", async () => {
+    await expect(
+      compileGuarded(
+        '<div dangerouslySetInnerHTML={{ __html: "<img src=x onerror=alert(1)>" }} />',
+      ),
+    ).rejects.toThrow(/dangerouslySetInnerHTML/);
+    await expect(compileGuarded("<script>alert(1)</script>")).rejects.toThrow(
+      /<script> elements/,
+    );
+    await expect(
+      compileGuarded('<img src="/x.png" onError="alert(1)" />'),
+    ).rejects.toThrow(/onError/);
+    await expect(
+      compileGuarded('<object data="https://evil.example/x.swf" />'),
+    ).rejects.toThrow(/<object> elements/);
+    await expect(
+      compileGuarded(
+        '<form action="https://evil.example"><button>Go</button></form>',
+      ),
+    ).rejects.toThrow(/"action"/);
+  });
+
   it("keeps literal expressions and plain JSX working", async () => {
     await expect(
       compileGuarded(

@@ -23,6 +23,42 @@ const ESM_NODE = "mdxjsEsm";
 const EXPRESSION_NODES = new Set(["mdxFlowExpression", "mdxTextExpression"]);
 const JSX_NODES = new Set(["mdxJsxFlowElement", "mdxJsxTextElement"]);
 
+/**
+ * Elements React would render as-is that can execute or load code. Lowercase
+ * names that the renderer maps to safe components (`iframe`, `video`) are
+ * handled by those components; these have no safe mapping.
+ */
+const FORBIDDEN_ELEMENTS = new Set([
+  "script",
+  "object",
+  "embed",
+  "base",
+  "meta",
+  "link",
+  "style",
+  "template",
+  "frame",
+  "frameset",
+  "applet",
+  "noscript",
+]);
+
+/** Attributes that inject HTML or code regardless of the value's shape. */
+const FORBIDDEN_ATTRIBUTES = new Set([
+  "dangerouslysetinnerhtml",
+  "srcdoc",
+  "formaction",
+  "action",
+  "xlink:href",
+  "ref",
+  "is",
+]);
+
+function isForbiddenAttributeName(name: string) {
+  const lower = name.toLowerCase();
+  return lower.startsWith("on") || FORBIDDEN_ATTRIBUTES.has(lower);
+}
+
 export class UnsafeMdxError extends Error {
   constructor(
     message: string,
@@ -112,6 +148,13 @@ export function remarkRejectMdxCode() {
         }
       }
       if (JSX_NODES.has(node.type as string)) {
+        const name = typeof node.name === "string" ? node.name : "";
+        if (FORBIDDEN_ELEMENTS.has(name.toLowerCase())) {
+          throw new UnsafeMdxError(
+            `<${name}> elements are not allowed in content`,
+            positionOf(node),
+          );
+        }
         for (const attr of (node.attributes ?? []) as Record<
           string,
           unknown
@@ -119,6 +162,15 @@ export function remarkRejectMdxCode() {
           if (attr.type === "mdxJsxExpressionAttribute") {
             throw new UnsafeMdxError(
               "Spread attributes are not allowed in content",
+              positionOf(node),
+            );
+          }
+          if (
+            typeof attr.name === "string" &&
+            isForbiddenAttributeName(attr.name)
+          ) {
+            throw new UnsafeMdxError(
+              `Attribute "${attr.name}" is not allowed in content`,
               positionOf(node),
             );
           }

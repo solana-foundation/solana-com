@@ -412,6 +412,8 @@ function pickChatFields(value: Record<string, unknown>) {
   if (typeof value.top_p === "number" && value.top_p > 0) {
     body.top_p = Math.min(value.top_p, 1);
   }
+  // The budget is always set here; callers may only lower it.
+  body.max_tokens = MAX_CHAT_MAX_TOKENS;
   if (typeof value.max_tokens === "number" && value.max_tokens > 0) {
     body.max_tokens = Math.min(
       Math.floor(value.max_tokens),

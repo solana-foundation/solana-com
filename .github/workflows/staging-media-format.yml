@@ -10,8 +10,11 @@ on:
       - ".oxfmtrc.json"
 
 # This workflow runs branch-controlled code (the lockfile's install scripts
-# and apps/media/scripts) on every non-main branch push, so the write-capable
-# token is only exposed to the single step that commits through the REST API.
+# and apps/media/scripts) on every non-main branch push. That code must never
+# see a write-capable token: the formatting job runs with read-only
+# permissions and hands its output to a second job on a fresh runner, which
+# commits through the REST API using the committing script from `main`, not
+# from the branch.
 permissions:
   contents: read
 
@@ -21,7 +24,7 @@ jobs:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
 
     steps:
       - name: Checkout repository
@@ -106,11 +109,79 @@ jobs:
       - name: Format media content
         run: pnpm exec oxfmt apps/media/content
 
+      - name: Collect formatted files
+        id: formatted
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add -N apps/media/content apps/media/public/uploads/posts
+          if git diff --quiet -- apps/media/content apps/media/public/uploads/posts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p "$RUNNER_TEMP/formatted"
+          git diff --name-only -- apps/media/content apps/media/public/uploads/posts \
+            | tar -cf "$RUNNER_TEMP/formatted/changes.tar" -T -
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload formatted files
+        if: steps.formatted.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: media-format-${{ github.run_id }}
+          path: ${{ runner.temp }}/formatted/changes.tar
+          retention-days: 1
+    outputs:
+      changed: ${{ steps.formatted.outputs.changed }}
+
+  commit-media-content:
+    name: Commit formatted media content
+    needs: format-media-content
+    if: needs.format-media-content.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+
+      - name: Download formatted files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: media-format-${{ github.run_id }}
+          path: ${{ runner.temp }}/formatted
+
+      - name: Apply formatted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The archive only ever contains media content paths; refuse anything else.
+          tar -tf "$RUNNER_TEMP/formatted/changes.tar" | while IFS= read -r f; do
+            case "$f" in
+              apps/media/content/*|apps/media/public/uploads/posts/*) ;;
+              *) echo "Refusing unexpected path in artifact: $f" >&2; exit 1 ;;
+            esac
+          done
+          tar -xf "$RUNNER_TEMP/formatted/changes.tar" -C "$GITHUB_WORKSPACE"
+
       - name: Commit verified formatting changes
         env:
           GITHUB_TOKEN: ${{ github.token }}
+        # Run the committing script from `main`, never the branch's copy, and no
+        # branch code (install scripts, media scripts) has run on this runner.
         run: |
-          node scripts/github/create-verified-commit.mjs \
+          set -euo pipefail
+          git show origin/main:scripts/github/create-verified-commit.mjs > "$RUNNER_TEMP/create-verified-commit.mjs"
+          node "$RUNNER_TEMP/create-verified-commit.mjs" \
             "chore(media): auto-format media content" \
             apps/media/content \
             apps/media/public/uploads/posts

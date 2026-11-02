@@ -181,6 +181,35 @@ export function assertRelayable(tx: Transaction, treasuryAddr: string): void {
       "Relay refused: token account creates must accompany a DvP instruction",
     );
   }
+  // Each sponsored ATA must belong to a party of this very DvP step: a
+  // transaction signer (a role wallet) or an account the DvP instruction
+  // itself names (the escrow PDA). Appending creates for unrelated owners to
+  // an otherwise valid step would make the treasury pay their rent.
+  const dvpAccountIndices = new Set(
+    msg.instructions
+      .filter((ix) => msg.staticAccounts[ix.programAddressIndex] === PROGRAM_ID)
+      .flatMap((ix) => ix.accountIndices ?? []),
+  );
+  const signerCount = msg.header.numSignerAccounts;
+  for (const ix of msg.instructions) {
+    if (
+      msg.staticAccounts[ix.programAddressIndex] !==
+      ASSOCIATED_TOKEN_PROGRAM_ADDRESS
+    ) {
+      continue;
+    }
+    // Associated Token Program account layout: payer, ata, owner, mint, ...
+    const ownerIndex = ix.accountIndices?.[2];
+    const ownerIsParty =
+      ownerIndex !== undefined &&
+      !treasuryIndices.has(ownerIndex) &&
+      (ownerIndex < signerCount || dvpAccountIndices.has(ownerIndex));
+    if (!ownerIsParty) {
+      throw new Error(
+        "Relay refused: token account owner is not a party to this DvP step",
+      );
+    }
+  }
   for (const ix of msg.instructions) {
     const program = msg.staticAccounts[ix.programAddressIndex];
     if (!program || !RELAY_PROGRAMS.has(program)) {
