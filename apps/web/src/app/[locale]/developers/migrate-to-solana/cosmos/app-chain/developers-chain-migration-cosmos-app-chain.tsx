@@ -6,12 +6,16 @@ import {
 } from "@/app/components/docs-code-snippet";
 import {
   NAV_BUTTONS,
-  RESOURCE_CARD_DECK,
-  RUNBOOK_HIGHLIGHTS,
+  RESOURCE_CARD_URLS,
   RUNBOOK_SECTIONS,
 } from "@/data/developers/evm-to-svm/cosmos-app-chain";
 import { useTranslations } from "next-intl";
-import { MigrationDocsLayout } from "../../components/migration-docs-layout";
+import {
+  assembleGuideHtml,
+  MigrationDocsLayout,
+} from "../../components/migration-docs-layout";
+
+const HIGHLIGHT_NUMBERS = ["01", "02", "03"] as const;
 
 const SUPPORTED_CODE_LANGUAGES = new Set<DocsCodeSnippetProps["language"]>([
   "bash",
@@ -104,31 +108,34 @@ function renderRunbookSegment(segment: RunbookSegment, key: number) {
 }
 
 function Highlights() {
+  const t = useTranslations("developers-chain-migration-cosmos-app-chain");
   return (
     <div className="mb-12 grid gap-4 md:grid-cols-3">
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-5 md:col-span-3">
         <div className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[#14f195]">
-          {RUNBOOK_HIGHLIGHTS.banner.eyebrow}
+          {t("highlights.banner.eyebrow")}
         </div>
         <div className="mb-2 text-lg font-semibold leading-[1.4] text-white">
-          {RUNBOOK_HIGHLIGHTS.banner.title}
+          {t("highlights.banner.title")}
         </div>
         <div className="text-[0.9375rem] leading-[1.7] text-white/60">
-          {RUNBOOK_HIGHLIGHTS.banner.body}
+          {t("highlights.banner.body")}
         </div>
       </div>
-      {RUNBOOK_HIGHLIGHTS.cards.map((card) => (
+      {HIGHLIGHT_NUMBERS.map((number, index) => (
         <div
-          key={card.number}
+          key={number}
           className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5"
         >
           <div className="mb-3 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-white/30">
-            {card.number}
+            {number}
           </div>
           <div className="mb-2 text-[0.9375rem] font-semibold leading-[1.45] text-white">
-            {card.title}
+            {t(`highlights.cards.${index}.title`)}
           </div>
-          <div className="text-sm leading-[1.7] text-white/55">{card.body}</div>
+          <div className="text-sm leading-[1.7] text-white/55">
+            {t(`highlights.cards.${index}.body`)}
+          </div>
         </div>
       ))}
     </div>
@@ -154,16 +161,16 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
       tocHeadline={t("contentEditor.tocHeadline")}
       toc={RUNBOOK_SECTIONS.map((section) => ({
         id: section.id,
-        title: section.navLabel,
+        title: t(`sections.${section.id}.navLabel`),
       }))}
       resourceEyebrow={t("resourceHeading.eyebrow")}
       resourceHeadline={t("resourceHeading.headline")}
       resourceBody={t("resourceHeading.body")}
-      resourceCards={RESOURCE_CARD_DECK.cards.map((card) => ({
-        heading: card.heading,
-        body: card.body,
-        url: card.callToAction.url,
-        ctaLabel: card.callToAction.label,
+      resourceCards={RESOURCE_CARD_URLS.map((url, index) => ({
+        heading: t(`resourceCards.${index}.heading`),
+        body: t(`resourceCards.${index}.body`),
+        url,
+        ctaLabel: t(`resourceCards.${index}.label`),
       }))}
     >
       <Highlights />
@@ -174,9 +181,12 @@ export function DevelopersChainMigrationCosmosAppChainPage() {
           className="mb-10 scroll-mt-20 border-b border-white/[0.07] pb-10 last:mb-0 last:border-b-0"
         >
           <div className="flex flex-col gap-5">
-            {parseRunbookSegments(section.html).map((segment, i) =>
-              renderRunbookSegment(segment, i),
-            )}
+            {parseRunbookSegments(
+              assembleGuideHtml(
+                section.blocks,
+                t.raw(`sections.${section.id}.prose`) as string[],
+              ),
+            ).map((segment, i) => renderRunbookSegment(segment, i))}
           </div>
         </section>
       ))}
