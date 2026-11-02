@@ -10,6 +10,10 @@ import Carousel, {
   CarouselHandle,
 } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import {
+  MetricSourceNote,
+  type MetricSourceNoteProps,
+} from "@/component-library/metric-source-note";
 
 const NAV_BUTTON_CLASSNAME =
   "backdrop-blur-xs !bg-black/80 [&&&]:!shadow-[0_2px_4px_1px_rgba(0,0,0,0.17),0_-4px_12px_0_rgba(255,255,255,0.08)_inset,0_1px_0_0_rgba(255,255,255,0.20)_inset,0_-1px_0_0_rgba(255,255,255,0.12)_inset]";
@@ -22,6 +26,8 @@ export type Project = {
   statValue?: string;
   statSource?: string;
   statSourceNote?: string;
+  /** Registry source; replaces statSource and statSourceNote when set. */
+  source?: Omit<MetricSourceNoteProps, "className">;
 };
 
 type EcoProjectsProps = {
@@ -199,21 +205,28 @@ export const Projects = ({
                             <div className="text-base md:text-lg xl:text-xl  tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.375] md:leading-[1.33] xl:leading-[1.4]">
                               {t(`${base}.statLabel`)}
                             </div>
-                            {project.statSource && (
-                              <div className="mt-3 text-xs text-white/50">
-                                <a
-                                  href={project.statSource}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="underline underline-offset-4 decoration-white/30 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                                  aria-label={`${t(`${translationBase}.sourceLabel`)}: ${t(`${base}.name`)}`}
-                                >
-                                  {t(`${translationBase}.sourceLabel`)} ↗
-                                </a>
-                                {project.statSourceNote && (
-                                  <span> · {project.statSourceNote}</span>
-                                )}
-                              </div>
+                            {project.source ? (
+                              <MetricSourceNote
+                                {...project.source}
+                                className="mt-3"
+                              />
+                            ) : (
+                              project.statSource && (
+                                <div className="mt-3 text-xs text-white/50">
+                                  <a
+                                    href={project.statSource}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline underline-offset-4 decoration-white/30 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                                    aria-label={`${t(`${translationBase}.sourceLabel`)}: ${t(`${base}.name`)}`}
+                                  >
+                                    {t(`${translationBase}.sourceLabel`)} ↗
+                                  </a>
+                                  {project.statSourceNote && (
+                                    <span> · {project.statSourceNote}</span>
+                                  )}
+                                </div>
+                              )
                             )}
                           </>
                         )}

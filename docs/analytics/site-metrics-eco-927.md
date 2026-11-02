@@ -57,25 +57,26 @@ returning the same structure without changing page components.
 
 ## Published metrics by page
 
-| Page                                            | Key                                   | Source / period             | Value at audit | Previously on site                     |
-| ----------------------------------------------- | ------------------------------------- | --------------------------- | -------------- | -------------------------------------- |
-| Home                                            | `network.daily-active-signers`        | Solana Data, 30-day average | 2.9M           | 50M "monthly active addresses"         |
-| Home, Enterprise                                | `network.successful-transactions-30d` | Solana Data, 30 days        | 3.32B          | 3.5B "monthly transactions"            |
-| Home, DeFi                                      | `defi.dex-volume-12m`                 | Solana Data, 52 weeks       | $1.54T         | $3.3T "trading volume"; DeFi $2T       |
-| Home                                            | `apps.revenue-12m`                    | Solana Data, 52 weeks       | $1.46B         | $3.4B "app revenue"                    |
-| Stablecoins, Institutional payments             | `stablecoins.circulating-supply`      | Solana Data, latest day     | $15B           | $10B                                   |
-| Stablecoins, Institutional payments             | `stablecoins.transfer-volume-30d`     | Solana Data, 30 days        | $392B          | $200B "monthly"                        |
-| Stablecoins, Institutional payments, Enterprise | `network.average-fee-30d`             | Solana Data, 30 days        | $0.0048        | $0.0013 "median fee"; $0.00025         |
-| Enterprise                                      | `network.slot-time`                   | /200ms, SIMD-0525           | 200ms          | 400ms "block time"                     |
-| Real-world assets                               | `rwa.distributed-value`               | RWA.xyz, live               | $5.31B         | $13B live (see below); $3.4B fallback  |
-| Real-world assets                               | `rwa.asset-count`                     | RWA.xyz, live               | 3,499          | 3,499 live; 692 fallback               |
-| Real-world assets                               | `rwa.holders`                         | RWA.xyz, live               | 850K           | $2B "24h volume" live; $205M fallback  |
-| DeFi                                            | `defi.tvl`                            | DefiLlama snapshot          | $5.38B         | $10B                                   |
-| DeFi                                            | `defi.lending-deposits`               | Solana Data, latest day     | $4.55B         | $3B "lending TVL"                      |
-| DeFi                                            | `defi.perps-volume-30d`               | Solana Data, 30 days        | $31.7B         | 8.5B "quarterly transactions"          |
-| DeFi                                            | `defi.protocol-tvl.*`                 | DefiLlama snapshots         | see registry   | Jupiter $2T volume, Kamino $2.8B, etc. |
-| Validators                                      | `network.validator-count`             | Mainnet RPC live; fallback  | 665            | Live RPC, no fallback                  |
-| Validators                                      | `network.nakamoto-coefficient`        | Mainnet RPC live; fallback  | 18             | Live RPC, spinner on failure           |
+| Page                                            | Key                                   | Source / period             | Value at audit | Previously on site                    |
+| ----------------------------------------------- | ------------------------------------- | --------------------------- | -------------- | ------------------------------------- |
+| Home                                            | `network.daily-active-signers`        | Solana Data, 30-day average | 2.9M           | 50M "monthly active addresses"        |
+| Home, Enterprise                                | `network.successful-transactions-30d` | Solana Data, 30 days        | 3.3B           | 3.5B "monthly transactions"           |
+| DeFi                                            | `network.successful-transactions-90d` | Solana Data, 90 days        | 9.4B           | 8.5B "quarterly transactions"         |
+| Home, DeFi                                      | `defi.dex-volume-12m`                 | Solana Data, 52 weeks       | $1.5T          | $3.3T "trading volume"; DeFi $2T      |
+| Home                                            | `apps.revenue-12m`                    | Solana Data, 52 weeks       | $1.5B          | $3.4B "app revenue"                   |
+| Stablecoins, Institutional payments             | `stablecoins.circulating-supply`      | Solana Data, latest day     | $15B           | $10B                                  |
+| Stablecoins, Institutional payments             | `stablecoins.transfer-volume-30d`     | Solana Data, 30 days        | $392B          | $200B "monthly"                       |
+| Stablecoins, Institutional payments, Enterprise | `network.average-fee-30d`             | Solana Data, 30 days        | $0.005         | $0.0013 "median fee"; $0.00025        |
+| Enterprise                                      | `network.slot-time`                   | /200ms, SIMD-0525           | 200ms          | 400ms "block time"                    |
+| Real-world assets                               | `rwa.distributed-value`               | RWA.xyz, live               | $5.3B          | $13B live (see below); $3.4B fallback |
+| Real-world assets                               | `rwa.asset-count`                     | RWA.xyz, live               | 3,499          | 3,499 live; 692 fallback              |
+| Real-world assets                               | `rwa.holders`                         | RWA.xyz, live               | 850K           | $2B "24h volume" live; $205M fallback |
+| DeFi                                            | `defi.tvl`                            | DefiLlama snapshot          | $5.4B          | $10B                                  |
+| DeFi                                            | `defi.lending-deposits`               | Solana Data, latest day     | $4.6B          | $3B "lending TVL"                     |
+| DeFi                                            | `defi.protocol-volume.jupiter`        | DefiLlama snapshot          | $1.3T          | $2T "lifetime volume"                 |
+| DeFi                                            | `defi.protocol-tvl.*`                 | DefiLlama snapshots         | see registry   | Kamino $2.8B, Raydium $2.3B, etc.     |
+| Validators                                      | `network.validator-count`             | Mainnet RPC live; fallback  | 665            | Live RPC, no fallback                 |
+| Validators                                      | `network.nakamoto-coefficient`        | Mainnet RPC live; fallback  | 18             | Live RPC, spinner on failure          |
 
 Notes on changed measures:
 
@@ -93,6 +94,9 @@ Notes on changed measures:
   (distributed) asset value, which matches RWA.xyz's published figure.
 - **RWA 24h volume** summed `daily_transfer_volume_dollar` to about $2B/day,
   inconsistent with RWA.xyz's ~$11.8B 30-day volume. It is replaced by holders.
+- **Jupiter lifetime volume** ($2T) is now the DefiLlama all-time aggregator
+  volume ($1.3T). The card keeps its original "Lifetime volume" measure; Raydium
+  keeps "Liquidity pools" (its pool TVL).
 - **Drift** was removed from the DeFi project cards. Its trading TVL is under
   $1M after the April 2026 exploit, and the "$4B weekly perps volume" claim is
   unsupported. Editorial should confirm the removal.
@@ -125,7 +129,7 @@ homepage, stablecoin, and DeFi figures use the same data-api series and provider
 medians as the overview, stablecoins, and defi tabs. One deliberate difference:
 dashboard KPIs show the newest day any provider has reported, while the registry
 waits until half of a metric's providers have reported that day, so a registry
-figure can trail the dashboard by a day (e.g. $15.0B vs $15.2B circulating
+figure can trail the dashboard by a day (e.g. $15B vs $15.2B circulating
 supply). Both show their dates.
 
 ## /epoch1000
@@ -140,10 +144,8 @@ past-tense, translatable copy. The wallet checker and shared cards still work.
 - **Owners and sign-off.** Every registry entry lists Ecosystem Engineering as
   maintenance owner. Data and editorial sign-off contacts, approved values, and
   the pre-Breakpoint deadline are unassigned.
-- **Live data-api verification.** Local development has no `DATA_API_*`
-  credentials, so live data-api values were verified by recomputing the
-  production `/api/databricks/data` payload (generated 2026-10-30 01:16 UTC)
-  with the loader's method; the preview deployment exercises the live path.
+- **Live data-api verification.** Done: every data-api metric resolved `live` on
+  the PR preview deployment.
 - **Drift removal** and the homepage subtitle rewrite need editorial approval.
 
 ## Remaining metrics and migration gaps

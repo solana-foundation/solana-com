@@ -5,7 +5,7 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/jupiter.svg",
     key: "jupiter",
-    metric: "defi.protocol-tvl.jupiter",
+    metric: "defi.protocol-volume.jupiter",
   },
   {
     src: "/src/img/logos-eco/kamino.svg",
@@ -100,8 +100,8 @@ export const VIDEOS = (
 
 /** Registry keys for the hero stats, in display order. */
 export const HERO_METRICS = [
+  "network.successful-transactions-90d",
   "defi.dex-volume-12m",
   "defi.tvl",
   "defi.lending-deposits",
-  "defi.perps-volume-30d",
 ] as const;

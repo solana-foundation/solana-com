@@ -102,8 +102,7 @@ export function SolutionsDefiPage({
             key: project.key,
             src: project.src,
             statValue: projectMetrics[index].value,
-            statSource: projectMetrics[index].source.href,
-            statSourceNote: `${projectMetrics[index].source.name} · ${projectMetrics[index].source.period}`,
+            source: projectMetrics[index].source,
           }))}
           translationBase="defi.projects"
           logos={LOGOS}
