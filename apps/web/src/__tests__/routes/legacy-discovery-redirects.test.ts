@@ -37,7 +37,7 @@ describe("legacy discovery URLs", () => {
     ["/developers/guides/getstarted/actions", "/docs/tools/actions"],
     [
       "/developers/guides/advanced/security-best-practices",
-      "/docs/tools/security#key-management",
+      "/docs/tools/security",
     ],
   ])("breaks the redirect loop for %s", (source, destination) => {
     const markdownDestination = destination.replace(/(#|$)/, ".md$1");

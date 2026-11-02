@@ -143,7 +143,7 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/developers/guides/advanced/security-best-practices",
-    destination: "/docs/tools/security#key-management",
+    destination: "/docs/tools/security",
   },
   {
     source: "/developers/guides/advanced/confirmation",
