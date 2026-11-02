@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import ts from "typescript";
@@ -473,6 +473,12 @@ export function validateFinancialProjectStats(projects, claims, messages) {
 
 const metricUnits = new Set(["usd", "count", "ms"]);
 const metricRollups = new Set(["sum", "avg", "last"]);
+const defiLlamaQueries = new Set([
+  "chain-tvl",
+  "protocol-tvl",
+  "aggregator-volume",
+]);
+const solanaRpcQueries = new Set(["nakamoto-coefficient"]);
 const rwaXyzFields = new Set([
   "distributedValueUSD",
   "assetCount",
@@ -488,7 +494,34 @@ function isIsoDate(value) {
 }
 
 /**
- * Checks src/data/metrics/registry.json: every published metric needs a
+ * Reads every src/data/metrics/*.json file into one registry. Each file holds
+ * the keys for its prefix (defi.json holds defi.*), so a key has one home.
+ */
+export function readMetricRegistry(directory) {
+  const registry = {};
+  const errors = [];
+  for (const file of readdirSync(directory).filter((name) =>
+    name.endsWith(".json"),
+  )) {
+    const prefix = file.replace(/\.json$/, "");
+    const entries = JSON.parse(
+      readFileSync(path.join(directory, file), "utf8"),
+    );
+    for (const [key, metric] of Object.entries(entries)) {
+      if (key.split(".")[0] !== prefix)
+        errors.push(
+          `metrics registry:${key}: belongs in ${key.split(".")[0]}.json, not ${file}`,
+        );
+      if (key in registry)
+        errors.push(`metrics registry:${key}: defined more than once`);
+      registry[key] = metric;
+    }
+  }
+  return { registry, errors };
+}
+
+/**
+ * Checks the src/data/metrics/*.json registry: every published metric needs a
  * definition, HTTPS source, period, owner, dated snapshot (the published value
  * or the live fallback), verification date, and an unexpired review deadline.
  */
@@ -559,6 +592,12 @@ export function validateMetricRegistry(
     } else if (live?.provider === "rwa-xyz") {
       if (!rwaXyzFields.has(live.field))
         errors.push(`${location}: unknown RWA.xyz field ${live.field}`);
+    } else if (live?.provider === "defillama") {
+      if (!defiLlamaQueries.has(live.query) || !live.slug?.trim())
+        errors.push(`${location}: defillama spec needs a known query and slug`);
+    } else if (live?.provider === "solana-rpc") {
+      if (!solanaRpcQueries.has(live.query))
+        errors.push(`${location}: unknown solana-rpc query ${live.query}`);
     } else if (live !== undefined) {
       errors.push(`${location}: unknown live provider`);
     }
@@ -603,10 +642,10 @@ if (
       "utf8",
     ),
   );
-  const metricRegistry = JSON.parse(
-    readFileSync(path.join(webRoot, "src/data/metrics/registry.json"), "utf8"),
-  );
+  const { registry: metricRegistry, errors: registryFileErrors } =
+    readMetricRegistry(path.join(webRoot, "src/data/metrics"));
   const errors = [
+    ...registryFileErrors,
     ...auditedFiles.flatMap(validateFile),
     ...validateClaims(claims, messages),
     ...validateMetricRegistry(metricRegistry),

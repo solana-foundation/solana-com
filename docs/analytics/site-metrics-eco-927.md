@@ -10,8 +10,9 @@ approved values.
 
 ## Registry and loader
 
-`apps/web/src/data/metrics/registry.json` is the single map of site metrics.
-Each entry has a stable dotted key and records:
+`apps/web/src/data/metrics/` is the single map of site metrics: one JSON file
+per key prefix, with a README for maintainers. Each entry has a stable dotted
+key and records:
 
 | Field                   | Meaning                                                                                       |
 | ----------------------- | --------------------------------------------------------------------------------------------- |
@@ -20,7 +21,7 @@ Each entry has a stable dotted key and records:
 | `period`                | `point` (a level on a date) or `trailing` N days                                              |
 | `source`                | Reader-facing source name and HTTPS link                                                      |
 | `owner`                 | Maintenance owner                                                                             |
-| `live` (optional)       | `data-api` window spec, or an `rwa-xyz` field; absent for curated snapshots                   |
+| `live` (optional)       | `data-api` window, `rwa-xyz` field, `defillama` query, or `solana-rpc` query                  |
 | `snapshot`              | Dated value: published as-is for snapshot metrics, and the explicit fallback for live metrics |
 | `verifiedAt`/`reviewBy` | Last verification and the next review deadline                                                |
 
@@ -42,8 +43,8 @@ returning the same structure without changing page components.
   fewer or older days. Annual figures use 52 weeks (364 days) because the /data
   payload holds 364 complete days.
 - **Refresh.** data-api payloads are cached for 5 minutes server-side and the
-  upstream pipeline publishes every 12 hours. RWA.xyz totals are cached for 1
-  hour. Pages revalidate every 60 seconds.
+  upstream pipeline publishes every 12 hours. RWA.xyz, DefiLlama, and RPC values
+  are cached for 1 hour. Pages revalidate every 60 seconds.
 - **Statuses.** `live` (fresh), `stale` (live, but the window ends more than 3
   days ago), `fallback` (source failed or returned nothing; the dated snapshot
   is shown), `snapshot` (curated, no live source). Every rendered metric shows
@@ -71,12 +72,12 @@ returning the same structure without changing page components.
 | Real-world assets                               | `rwa.distributed-value`               | RWA.xyz, live               | $5.3B          | $13B live (see below); $3.4B fallback |
 | Real-world assets                               | `rwa.asset-count`                     | RWA.xyz, live               | 3,499          | 3,499 live; 692 fallback              |
 | Real-world assets                               | `rwa.holders`                         | RWA.xyz, live               | 850K           | $2B "24h volume" live; $205M fallback |
-| DeFi                                            | `defi.tvl`                            | DefiLlama snapshot          | $5.4B          | $10B                                  |
+| DeFi                                            | `defi.tvl`                            | DefiLlama, live             | $5.4B          | $10B                                  |
 | DeFi                                            | `defi.lending-deposits`               | Solana Data, latest day     | $4.6B          | $3B "lending TVL"                     |
-| DeFi                                            | `defi.protocol-volume.jupiter`        | DefiLlama snapshot          | $1.3T          | $2T "lifetime volume"                 |
-| DeFi                                            | `defi.protocol-tvl.*`                 | DefiLlama snapshots         | see registry   | Kamino $2.8B, Raydium $2.3B, etc.     |
+| DeFi                                            | `defi.protocol-volume.jupiter`        | DefiLlama, live             | $1.3T          | $2T "lifetime volume"                 |
+| DeFi                                            | `defi.protocol-tvl.*`                 | DefiLlama, live             | see registry   | Kamino $2.8B, Raydium $2.3B, etc.     |
 | Validators                                      | `network.validator-count`             | Mainnet RPC live; fallback  | 665            | Live RPC, no fallback                 |
-| Validators                                      | `network.nakamoto-coefficient`        | Mainnet RPC live; fallback  | 18             | Live RPC, spinner on failure          |
+| Validators                                      | `network.nakamoto-coefficient`        | Mainnet RPC, live           | 17             | Live RPC, spinner on failure          |
 
 Notes on changed measures:
 
@@ -97,9 +98,12 @@ Notes on changed measures:
 - **Jupiter lifetime volume** ($2T) is now the DefiLlama all-time aggregator
   volume ($1.3T). The card keeps its original "Lifetime volume" measure; Raydium
   keeps "Liquidity pools" (its pool TVL).
-- **Drift** was removed from the DeFi project cards. Its trading TVL is under
-  $1M after the April 2026 exploit, and the "$4B weekly perps volume" claim is
-  unsupported. Editorial should confirm the removal.
+- **Drift** is removed from the site (DeFi cards, BTCfi logos, /possible
+  ecosystem grid, video caption, and partner descriptions). It is no longer an
+  active project. Only the /200ms validator map keeps a validator operator named
+  "Drift", which is its onchain identity.
+- **Lending** is labelled "Lending deposits": the measure is total deposits, not
+  deposits net of borrows (TVL).
 
 ## Terminology and transaction-cost standard
 
@@ -146,7 +150,7 @@ past-tense, translatable copy. The wallet checker and shared cards still work.
   the pre-Breakpoint deadline are unassigned.
 - **Live data-api verification.** Done: every data-api metric resolved `live` on
   the PR preview deployment.
-- **Drift removal** and the homepage subtitle rewrite need editorial approval.
+- The homepage subtitle rewrite needs editorial approval.
 
 ## Remaining metrics and migration gaps
 

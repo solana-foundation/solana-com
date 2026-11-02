@@ -79,10 +79,6 @@ export const LOGOS = [
     alt: "Kamino",
   },
   {
-    src: "/src/img/logos-eco/drift.svg",
-    alt: "Drift",
-  },
-  {
     src: "/src/img/logos-eco/orca.svg",
     alt: "Orca",
   },

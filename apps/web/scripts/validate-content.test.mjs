@@ -1,9 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   validateClaims,
   validateFinancialProjectStats,
   validateLinks,
+  readMetricRegistry,
   validateMetricRegistry,
   validatePageStats,
   validateSource,
@@ -368,4 +372,26 @@ test("claim deadlines include their review day and reject stale or missing sourc
     ).join("\n"),
     /claim text is absent/,
   );
+});
+
+test("each registry key lives in the file named for its prefix, once", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "metrics-registry-"));
+  writeFileSync(
+    path.join(directory, "defi.json"),
+    JSON.stringify({ "defi.tvl": {}, "network.slot-time": {} }),
+  );
+  writeFileSync(
+    path.join(directory, "network.json"),
+    JSON.stringify({ "network.slot-time": {} }),
+  );
+  const { registry, errors } = readMetricRegistry(directory);
+  assert.deepEqual(Object.keys(registry).sort(), [
+    "defi.tvl",
+    "network.slot-time",
+  ]);
+  assert.match(
+    errors.join("\n"),
+    /network\.slot-time: belongs in network\.json/,
+  );
+  assert.match(errors.join("\n"), /network\.slot-time: defined more than once/);
 });

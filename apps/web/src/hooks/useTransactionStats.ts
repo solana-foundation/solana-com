@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { makeRPCCall } from "../utils/rpcUtils";
+import { computeNakamotoCoefficient } from "@/lib/metrics/nakamoto";
 
 // Constants for performance and sample history
 export const PERF_UPDATE_SEC = 5; // Performance update interval in seconds
@@ -45,33 +46,13 @@ export const fetchSuperminority = async (): Promise<number | null> => {
       rpcNodeURL: rpcNodeURL!,
     })) as VoteAccountsResult;
 
-    // Sort validators by stake in ascending order
-    const sortedValidators = voteAccounts.result.current.sort((a, b) => {
-      const diff = BigInt(b.activatedStake) - BigInt(a.activatedStake);
-      if (diff > 0) return 1;
-      else if (diff < 0) return -1;
-      else return 0;
-    });
-
-    // Calculate total stake from sorted validators
-    const totalStake = sortedValidators.reduce(
-      (sum, validator) => sum + BigInt(validator.activatedStake),
-      BigInt(0),
+    return (
+      computeNakamotoCoefficient(
+        voteAccounts.result.current.map(
+          (validator) => validator.activatedStake,
+        ),
+      ) ?? null
     );
-
-    // Calculate one-third of the total stake
-    const oneThirdStake = totalStake / BigInt(3);
-    let cumulativeStake = BigInt(0);
-    let superminorityCount = 0;
-
-    // Count superminority
-    for (const validator of sortedValidators) {
-      if (cumulativeStake > oneThirdStake) break;
-      cumulativeStake += BigInt(validator.activatedStake);
-      superminorityCount++;
-    }
-
-    return superminorityCount;
   } catch (error) {
     console.warn("Error fetching superminority:", error);
     return null;

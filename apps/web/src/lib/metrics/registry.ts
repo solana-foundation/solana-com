@@ -1,4 +1,14 @@
-import registryJson from "@/data/metrics/registry.json";
+import apps from "@/data/metrics/apps.json";
+import defi from "@/data/metrics/defi.json";
+import network from "@/data/metrics/network.json";
+import rwa from "@/data/metrics/rwa.json";
+import stablecoins from "@/data/metrics/stablecoins.json";
+
+/**
+ * One file per key prefix in src/data/metrics/ (see its README). Add a new
+ * file here when a new prefix is introduced.
+ */
+const registryFiles = { apps, defi, network, rwa, stablecoins };
 
 export type MetricUnit = "usd" | "count" | "ms";
 
@@ -24,6 +34,19 @@ export type RwaXyzLiveSpec = {
   field: "distributedValueUSD" | "assetCount" | "holderCount";
 };
 
+/** DefiLlama public API: chain TVL (slug = chain name), protocol Solana TVL, or all-time aggregator volume. */
+export type DefiLlamaLiveSpec = {
+  provider: "defillama";
+  query: "chain-tvl" | "protocol-tvl" | "aggregator-volume";
+  slug: string;
+};
+
+/** Computed from mainnet getVoteAccounts. */
+export type SolanaRpcLiveSpec = {
+  provider: "solana-rpc";
+  query: "nakamoto-coefficient";
+};
+
 export type MetricDefinition = {
   unit: MetricUnit;
   definition: string;
@@ -31,7 +54,11 @@ export type MetricDefinition = {
   source: { name: string; url: string };
   owner: string;
   /** Absent for curated snapshots. */
-  live?: DataApiLiveSpec | RwaXyzLiveSpec;
+  live?:
+    | DataApiLiveSpec
+    | RwaXyzLiveSpec
+    | DefiLlamaLiveSpec
+    | SolanaRpcLiveSpec;
   /**
    * Curated value: published as-is for snapshot metrics, and the explicit
    * fallback for live metrics when their source fails or returns nothing.
@@ -41,12 +68,16 @@ export type MetricDefinition = {
   reviewBy: string;
 };
 
-export type MetricKey = keyof typeof registryJson;
+type RegistryFiles = typeof registryFiles;
+export type MetricKey = {
+  [File in keyof RegistryFiles]: keyof RegistryFiles[File];
+}[keyof RegistryFiles] &
+  string;
 
-export const metricRegistry = registryJson as unknown as Record<
-  MetricKey,
-  MetricDefinition
->;
+export const metricRegistry = Object.assign(
+  {},
+  ...Object.values(registryFiles),
+) as Record<MetricKey, MetricDefinition>;
 
 export function getMetricDefinition(key: MetricKey): MetricDefinition {
   return metricRegistry[key];
