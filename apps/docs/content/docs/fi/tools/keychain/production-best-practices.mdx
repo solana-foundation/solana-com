@@ -1,7 +1,7 @@
 ---
 title: Tuotannon parhaat käytännöt
 description:
-  Käytä Keychain-allekirjoitustaustajärjestelmiä turvallisesti tuotannossa — tehtävien eriyttäminen, avainten kierto, vähimmäisoikeuksien periaate, saatavuus, siirtoturvallisuus, valvonta ja tarkastus.
+  "Käytä Keychain-allekirjoitustaustajärjestelmiä turvallisesti tuotannossa: tehtävien eriyttäminen, avainten kierto, vähimmäisoikeuksien periaate, saatavuus, siirtoturvallisuus, valvonta ja tarkastus."
 related:
   - /docs/tools/keychain/choosing-a-backend
   - /docs/tools/production-readiness
@@ -30,20 +30,42 @@ mainnetissä.
 ## Myönnä vähimmäisoikeudet
 
 Rajaa kunkin taustajärjestelmän tunnistetiedot minimiin, joka tarvitaan allekirjoittamiseen. AWS KMS:lle
-se tarkoittaa `kms:Sign`- ja `kms:DescribeKey`-oikeuksia tietylle avaimelle; suosi IAM-rooleja
+se tarkoittaa `kms:Sign`-, `kms:DescribeKey`- ja `kms:GetPublicKey`-oikeuksia tietylle avaimelle
+(saatavuustarkistus käyttää kahta jälkimmäistä); suosi IAM-rooleja
 staattisten tunnistetietojen sijaan. Sovella samaa periaatetta Vault-käytäntöihin ja hallittuihin
 lompakko-API-avaimiin.
 
 ## Varaudu saatavuuteen
 
-Etätaustajärjestelmät riippuvat verkkopalvelusta. Kutsu `isAvailable()`-funktiota ennen allekirjoittajaan
-luottamista, käytä uudelleenyrityksiä viivästyksellä ohimenevissä virheissä ja määritä
-varapolku katkoksille. Keychain pakottaa HTTPS:n etätaustajärjestelmille ja
-soveltaa oletuspyyntöaikakatkaisua.
+Etätaustajärjestelmät riippuvat verkkopalvelusta. Tarkista saatavuus ennen allekirjoittajaan
+luottamista (`isAvailable()` TypeScriptissä, `is_available()` Rustissa ja Pythonissa,
+`IsAvailable(ctx)` Gossa), yritä pelkästään allekirjoittavien taustajärjestelmien virheitä uudelleen viivästyksellä ja määritä
+varapolku katkoksille. Älä yritä sokeasti uudelleen lähettävää taustajärjestelmää
+(Crossmint, Fordefin natiivi automaattitila): katso
+[Käsittele vahvistamattomat lähetykset](#handle-unconfirmed-broadcasts). Keychain
+pakottaa HTTPS:n määritetyille perus-URL-osoitteille, hylkää uudelleenohjaukset ja soveltaa oletuspyyntöaikakatkaisua.
+
+## Käsittele vahvistamattomat lähetykset
+
+Crossmint ja Fordefin natiivi automaattitila allekirjoittavat ja lähettävät tapahtuman palvelinpuolella, joten
+epäonnistunut kutsu ei tarkoita, ettei mitään mennyt perille. Kun palveluntarjoaja on saattanut
+hyväksyä tapahtuman, Keychain ilmoittaa `BROADCAST_UNCONFIRMED`
+(`SignerError::BroadcastUnconfirmed` Rustissa). Virhe sisältää palveluntarjoajan
+tapahtumatunnuksen, jos luonti hyväksyttiin, ja aina myös idempotenssiavaimen,
+jolla luontipyyntö lähetettiin ja joka johdetaan viestistä.
+
+- Täsmäytä tilanne palveluntarjoajan kanssa tapahtumatunnuksen avulla ennen kuin teet mitään
+  muuta.
+- Täsmälleen samanlaisen tapahtuman lähettäminen uudelleen on turvallista: idempotenssiavain
+  estää kaksoiskäsittelyn.
+- Tapahtuman uudelleenrakentaminen (esimerkiksi uudella blockhashilla) tuottaa uuden avaimen
+  ja siten uuden siirron.
 
 ## Suojaa salaisuudet ja siirto
 
-- Kaikki etätaustajärjestelmät kommunikoivat HTTPS:n kautta; ei-HTTPS-päätepisteet hylätään.
+- Etätaustajärjestelmät pakottavat HTTPS:n määritetyille perus-URL-osoitteille ja hylkäävät uudelleenohjaukset.
+  Ainoa poikkeus on Vault, joka sallii tavallisen HTTP:n loopback-osoitteessa, jotta paikallinen
+  `vault server -dev` toimii.
 - Toimita API-avaimet, tokenit ja tunnistetiedot salaisuudenhallintajärjestelmästä tai ympäristömuuttujista —
   älä koskaan kovakoodaa niitä tai tallenna niitä versionhallintaan.
 - Keychain puhdistaa virhevastauksista salaisuudet, jotta ne eivät vuoda lokeihin; pidä
@@ -56,3 +78,22 @@ katso mittarit kohdasta
 [Tuotantovalmius](/docs/tools/production-readiness#monitoring). Ota käyttöön
 palveluntarjoajan puolen tarkastuslokit (KMS, Vault tai säilyttäjä) ja sovita ne yhteen
 sovelluksesi lähettämien tapahtumien kanssa.
+
+## Tiedä, mitä Keychain tarkistaa
+
+- Keychain validoi allekirjoitusvaiheen, ei tapahtumaasi: simulointia,
+  tapahtuman sisällön tarkistusta tai käytäntömoottoria ei ole. Toteuta nämä
+  sovelluksessasi tai palveluntarjoajan käytäntöhallinnoissa.
+- Fordefin natiivi manuaalitila kirjoittaa tapahtuman uudelleen (blockhash, Compute Budget
+  -maksuohjeet) ennen sen allekirjoittamista. Jatka sen palauttamasta tapahtumasta,
+  älä koskaan lähettämästäsi, ja suorita se ennen muita allekirjoittajia.
+- Rust nollaa avainten väliaikaispuskurit; Python ja Go eivät pysty siihen. Kun käytät Memory-
+  taustajärjestelmää näillä kielillä, käsittele koko prosessin muistia arkaluonteisena.
+- Ledgerin kanssa laitteen näyttö on ainoa luotettava kuvaus siitä, mitä
+  allekirjoitetaan. Älä ota tuotannossa käyttöön `unsafe-debug`-ominaisuutta tai `TRACE`-lokitusta
+  `solana_remote_wallet`-moduulille, koska molemmat kirjaavat laitteen ja tapahtuman
+  tietoja.
+
+Katso
+[tietoturvamalli](https://github.com/solana-foundation/solana-keychain/blob/main/docs/SECURITY_MODEL.md)
+kokonaiskuvan saamiseksi.

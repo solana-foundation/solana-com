@@ -1,36 +1,43 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   campaignMessage,
+  defaultVotingWindow,
   getAwardsCampaignStatus,
+  getAwardsVotingStatus,
 } from "@/lib/awards-campaign";
-
-const originalEnvironment = { ...process.env };
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  process.env = { ...originalEnvironment };
 });
 
 describe("awards campaign", () => {
-  it("is open when no campaign window is configured", () => {
-    expect(getAwardsCampaignStatus(new Date("2026-09-10T00:00:00Z"))).toBe(
-      "open",
-    );
+  it("keeps nominations open until voting begins", () => {
+    const opening = new Date(defaultVotingWindow.opensAt);
+    const beforeOpening = new Date(opening.getTime() - 1);
+
+    expect(getAwardsCampaignStatus(beforeOpening)).toBe("open");
+    expect(getAwardsVotingStatus(beforeOpening)).toBe("not_started");
+    expect(getAwardsCampaignStatus(opening)).toBe("closed");
+    expect(getAwardsVotingStatus(opening)).toBe("open");
   });
 
-  it("enforces the configured opening and closing times", () => {
-    vi.stubEnv("AWARDS_NOMINATIONS_OPENS_AT", "2026-09-11T00:00:00Z");
-    vi.stubEnv("AWARDS_NOMINATIONS_CLOSES_AT", "2026-09-12T00:00:00Z");
+  it("closes voting at the configured end", () => {
+    const closing = new Date(defaultVotingWindow.closesAt);
+    const beforeClosing = new Date(closing.getTime() - 1);
 
-    expect(getAwardsCampaignStatus(new Date("2026-09-10T23:59:59Z"))).toBe(
-      "not_started",
-    );
-    expect(getAwardsCampaignStatus(new Date("2026-09-11T12:00:00Z"))).toBe(
-      "open",
-    );
-    expect(getAwardsCampaignStatus(new Date("2026-09-12T00:00:00Z"))).toBe(
-      "closed",
-    );
+    expect(getAwardsVotingStatus(beforeClosing)).toBe("open");
+    expect(getAwardsVotingStatus(closing)).toBe("closed");
+  });
+
+  it("ignores legacy date environment variables", () => {
+    vi.stubEnv("AWARDS_NOMINATIONS_OPENS_AT", "2027-01-01T00:00:00Z");
+    vi.stubEnv("AWARDS_NOMINATIONS_CLOSES_AT", "2027-01-02T00:00:00Z");
+    vi.stubEnv("AWARDS_VOTING_OPENS_AT", "2027-01-03T00:00:00Z");
+    vi.stubEnv("AWARDS_VOTING_CLOSES_AT", "2027-01-04T00:00:00Z");
+
+    const opening = new Date(defaultVotingWindow.opensAt);
+    expect(getAwardsCampaignStatus(opening)).toBe("closed");
+    expect(getAwardsVotingStatus(opening)).toBe("open");
   });
 
   it("provides a clear closed message", () => {

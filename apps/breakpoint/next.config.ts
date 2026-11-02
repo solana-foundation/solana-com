@@ -11,6 +11,15 @@ const localeRoutePattern = `:locale(${locales.join("|")})`;
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   assetPrefix,
+  outputFileTracingIncludes: {
+    "/api/here-for/card": [
+      "./public/fonts/abc-favorit/*.woff",
+      "./public/fonts/abc-favorit-mono/*.woff",
+      "./public/img/here-for/card-band-*.jpg",
+      "./public/assets/pixel-edge.svg",
+      "./public/assets/nav-bp26.svg",
+    ],
+  },
   env: {
     NEXT_PUBLIC_APP_NAME: "breakpoint",
   },

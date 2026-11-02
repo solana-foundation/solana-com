@@ -12,11 +12,7 @@ export const PAYMENT_PATHS = [
 ] as const;
 
 export const BUILD_OPTIONS = [
-  {
-    id: "commerceKit",
-    href: "/docs/tools/commerce-kit/quickstart/payment-button",
-  },
-  { id: "solanaPay", href: "/docs/payments/accept-payments/solana-pay" },
+  { id: "solanaPay", href: "/docs/tools/solana-pay" },
   { id: "paySh", href: "/docs/payments/pay-sh" },
   { id: "custom", href: "/docs/payments/interacting-with-solana" },
 ] as const;

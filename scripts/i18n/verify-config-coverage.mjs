@@ -29,8 +29,8 @@ const sourcePatterns = [
   "packages/i18n/messages/*/en/*.json",
   "apps/docs/content/docs/en/**/*.mdx",
   "apps/docs/content/docs/en/**/meta.json",
-  "apps/docs/content/learn/en/**/*.mdx",
-  "apps/docs/content/learn/en/**/meta.json",
+  "apps/web/content/learn/en/**/*.mdx",
+  "apps/web/content/learn/en/**/meta.json",
   "apps/docs/content/developers-learn/en/**/*.mdx",
   "apps/docs/content/developers-learn/en/**/meta.json",
 ];

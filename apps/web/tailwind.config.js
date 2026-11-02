@@ -5,6 +5,7 @@ export default {
   darkMode: ["class"],
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    "./content/**/*.{js,ts,jsx,tsx,mdx}",
     "../../packages/ui/src/**/*.{js,ts,jsx,tsx}",
     "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
     "../../packages/templates/src/**/*.{js,ts,jsx,tsx}",
@@ -14,13 +15,22 @@ export default {
   blocklist: ["collapse"], // Block the collapse class from being generated
   theme: {
     extend: {
+      transitionDuration: { 180: "180ms" },
+      transitionTimingFunction: {
+        wsop: "cubic-bezier(0.22, 1, 0.36, 1)",
+        "wsop-standard": "ease",
+      },
       keyframes: {
+        "wsop-marquee": {
+          to: { transform: "translateX(-100%)" },
+        },
         "scholars-rise": {
           from: { opacity: "0", transform: "translateY(14px)" },
           to: { opacity: "1", transform: "none" },
         },
       },
       animation: {
+        "wsop-marquee": "wsop-marquee 42s linear infinite",
         "scholars-rise":
           "scholars-rise 760ms cubic-bezier(0.16, 0.84, 0.34, 1) backwards",
       },

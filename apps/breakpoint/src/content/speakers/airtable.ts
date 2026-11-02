@@ -11,7 +11,8 @@ import type { BreakpointSpeaker } from "@/content/speakers/types";
 
 const SPEAKER_FIELDS = [
   "Publish To Web",
-  "Name",
+  "First Name",
+  "Last Name",
   "Role or Title",
   "Company",
   "Twitter",
@@ -43,11 +44,9 @@ function normalizeSpeakerRecord(
   const fields = record.fields ?? {};
   if (!isPublished(fields, { requirePublishFlag: true })) return null;
 
-  const name = getField(
-    fields,
-    ["Name", "Full Name", "Speaker", "Speaker Name"],
-    asString,
-  );
+  const firstName = getField(fields, ["First Name"], asString);
+  const lastName = getField(fields, ["Last Name"], asString);
+  const name = [firstName, lastName].filter(Boolean).join(" ");
   if (!name) return null;
 
   const sortOrder =
@@ -87,11 +86,7 @@ function normalizeSpeakerRecord(
     ),
     id: record.id,
     name,
-    role: getField(
-      fields,
-      ["Role", "Role or Title", "Title", "Job Title", "Position"],
-      asString,
-    ),
+    role: getField(fields, ["Role or Title"], asString),
     slug,
     sortOrder,
     xUrl: formatXUrl(

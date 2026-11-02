@@ -16,7 +16,7 @@ function secret() {
   );
 }
 
-function signature(ballotId: string) {
+export function signAwardsValue(ballotId: string) {
   return createHmac("sha256", secret()).update(ballotId).digest("base64url");
 }
 
@@ -28,7 +28,7 @@ export function readAwardsBallot(request: NextRequest) {
   if (!ballotId || !receivedSignature || !UUID_PATTERN.test(ballotId))
     return null;
 
-  const expectedSignature = signature(ballotId);
+  const expectedSignature = signAwardsValue(ballotId);
   const received = Buffer.from(receivedSignature);
   const expected = Buffer.from(expectedSignature);
   if (
@@ -42,7 +42,7 @@ export function readAwardsBallot(request: NextRequest) {
 
 export function newAwardsBallot() {
   const ballotId = randomUUID();
-  return { ballotId, value: `${ballotId}.${signature(ballotId)}` };
+  return { ballotId, value: `${ballotId}.${signAwardsValue(ballotId)}` };
 }
 
 export const awardsBallotCookie = {

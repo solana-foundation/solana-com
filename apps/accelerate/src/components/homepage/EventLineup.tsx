@@ -6,33 +6,11 @@ import { EventCard } from "./EventCard";
 import { CarouselArrow } from "./CarouselArrow";
 import { useHorizontalCarousel } from "./useHorizontalCarousel";
 import { getImagePath } from "@/config";
-import { chinaStops } from "@/data/china-stops";
 import { useTranslations } from "@workspace/i18n/client";
 
-interface EventLineupProps {
-  futureOnly?: boolean;
-}
-
-export function EventLineup({ futureOnly = false }: EventLineupProps) {
+export function EventLineup() {
   const t = useTranslations("accelerate.homepage");
-  const chinaEvents = chinaStops.map((stop) => {
-    const eventCopy = t.raw(
-      `eventLineup.events.${stop.city.toLowerCase()}`,
-    ) as { subtitle: string; dateLocation: string };
-
-    return {
-      image: getImagePath(stop.image),
-      city: t(`eventLineup.events.${stop.city.toLowerCase()}.city`),
-      subtitle: eventCopy.subtitle,
-      dateLocation: eventCopy.dateLocation,
-      href:
-        stop.city === "Shanghai" ? "/accelerate/china" : stop.registrationUrl,
-      external: stop.city !== "Shanghai",
-      active: true,
-    };
-  });
   const events = [
-    ...chinaEvents,
     {
       image: getImagePath("/images/homepage/miami-card-photo.jpg"),
       city: t("eventLineup.events.miami.city"),
@@ -61,7 +39,6 @@ export function EventLineup({ futureOnly = false }: EventLineupProps) {
       active: false,
     },
   ];
-  const displayEvents = futureOnly ? events.filter((e) => e.active) : events;
   const { scrollRef, canScrollLeft, canScrollRight, scroll } =
     useHorizontalCarousel();
 
@@ -114,7 +91,7 @@ export function EventLineup({ futureOnly = false }: EventLineupProps) {
             id="accelerate-lineup-carousel"
             className="scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4"
           >
-            {displayEvents.map((event) => (
+            {events.map((event) => (
               <motion.div
                 key={event.city}
                 initial={{ opacity: 0, y: 30 }}

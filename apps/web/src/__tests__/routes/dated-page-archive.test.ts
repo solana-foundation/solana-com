@@ -9,6 +9,9 @@ import { generateMetadata as epoch1000CardMetadata } from "@/app/[locale]/epoch1
 vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
+vi.mock("@workspace/i18n/server", () => ({
+  getTranslations: async () => (key: string) => key,
+}));
 vi.mock("@/app/[locale]/2023outlook/outlook-2023", () => ({
   Outlook2023Page: () => null,
 }));
@@ -64,7 +67,6 @@ describe("dated page archive", () => {
       "/privacyhack",
       "/graveyard-hack",
       "/prediction-markets-hack",
-      "/wsop",
       "/nftshowdown",
       "/playgg",
     ];
@@ -74,6 +76,8 @@ describe("dated page archive", () => {
       expect(urls).not.toContain(path);
       expect(urls).not.toContain(`/fr${path}`);
     }
+    expect(urls).toContain("/wsop");
+    expect(urls).toContain("/fr/wsop");
   });
 
   it("sets self-canonical and noindex metadata on retained pages", async () => {

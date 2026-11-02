@@ -1,9 +1,7 @@
 "use client";
 
-import { Columns } from "@/component-library/columns";
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import { CardDeck, Heading, Hero, Section } from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
+import { MigrationDocsLayout } from "../components/migration-docs-layout";
 import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
@@ -67,8 +65,6 @@ export function DevelopersEvmToSvmAccountsPage() {
   };
   const summary = t.raw("summary") as { title: string; items: string[] };
 
-  const tableCellStyle = { padding: "8px 10px", border: "1px solid #414141" };
-  const tableHeaderStyle = { ...tableCellStyle, fontWeight: 600 };
   const renderInlineCode = (text: string) => {
     return text.split(/`([^`]+)`/g).map((part, index) => {
       return index % 2 === 1 ? (
@@ -94,356 +90,243 @@ export function DevelopersEvmToSvmAccountsPage() {
   }));
 
   return (
-    <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
-        eyebrow={t("hero.eyebrow")}
-        headline={t("hero.headline")}
-        body={t.raw("hero.body")}
-      />
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/accounts"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body")}
+      buttons={navButtons.map((button) => ({
+        url: button.url,
+        label: button.label,
+      }))}
+      tocHeadline={tableOfContents.title}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceCards={resourceCards.map((card) => ({
+        heading: card.heading,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      <p>{t("intro")}</p>
 
-      <Section>
-        <Columns space={30} stackColumnsAt="tablet">
-          <ResponsiveBox
-            responsiveStyles={{
-              large: {
-                paddingTop: "20px",
-                paddingLeft: "20px",
-                paddingBottom: "20px",
-                paddingRight: "20px",
-                backgroundColor: "rgba(21, 21, 21, 1)",
-                borderRadius: "20px",
-              },
-            }}
-          >
-            <p>
-              <strong>{tableOfContents.title}</strong>
-            </p>
-            {tableOfContents.items.map((item, index) => {
-              const anchors = [
-                "#account-ethereum",
-                "#account-solana",
-                "#account-abstraction",
-                "#account-abstraction-solana",
-                "#summary",
-              ];
-              const href = anchors[index] ?? "#";
-              return (
-                <p key={item} style={{ textIndent: "2em" }}>
-                  <a href={href} rel="noopener noreferrer">
-                    {item}
-                  </a>
-                </p>
-              );
-            })}
-          </ResponsiveBox>
-          <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-            <div className="min-w-0 max-w-full overflow-x-auto">
-              <p>{t("intro")}</p>
-            </div>
-          </ResponsiveBox>
-        </Columns>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="account-ethereum">
-            <div className="min-w-0 max-w-full overflow-x-auto">
-              <h3>
-                <strong>{accountEthereum.title}</strong>
-              </h3>
-              <p>{accountEthereum.intro}</p>
-              <ul>
-                {accountEthereum.list.map((item) => (
-                  <li key={item.label}>
-                    <strong>{item.label}: </strong>
-                    {item.body}
-                  </li>
-                ))}
-              </ul>
-              {accountEthereum.notes.map((note) => (
-                <p key={note}>{note}</p>
-              ))}
-            </div>
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
+      <div>
+        <div id="account-ethereum">
           <div className="min-w-0 max-w-full overflow-x-auto">
-            <table style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  {ethereumTable.headers.map((header) => (
-                    <td key={header} style={tableHeaderStyle}>
-                      {renderInlineCode(header)}
-                    </td>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ethereumTable.rows.map((row, index) => (
-                  <tr key={`${row.cells[0]}-${index}`}>
-                    {row.cells.map((cell, cellIndex) => (
-                      <td key={cellIndex} style={tableCellStyle}>
-                        {renderInlineCode(cell)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {contractAccount.paragraphs.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
+            <h3>
+              <strong>{accountEthereum.title}</strong>
+            </h3>
+            <p>{accountEthereum.intro}</p>
             <ul>
-              {contractAccount.relationships.map((relationship) => (
-                <li key={relationship}>{relationship}</li>
-              ))}
-            </ul>
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="account-solana">
-            <div className="min-w-0 max-w-full overflow-x-auto">
-              <h3>
-                <strong>{accountSolana.title}</strong>
-              </h3>
-              {accountSolana.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
-              ))}
-            </div>
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            <table style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  {solanaTable.headers.map((header) => (
-                    <td key={header} style={tableHeaderStyle}>
-                      {renderInlineCode(header)}
-                    </td>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {solanaTable.rows.map((row, index) => (
-                  <tr key={`${row.cells[0]}-${index}`}>
-                    {row.cells.map((cell, cellIndex) => (
-                      <td key={cellIndex} style={tableCellStyle}>
-                        {renderInlineCode(cell)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            {solanaAccountsNote.paragraphs.map((paragraph) => (
-              <p key={paragraph}>{paragraph}</p>
-            ))}
-            <ul>
-              {solanaAccountsNote.list.map((item) => (
+              {accountEthereum.list.map((item) => (
                 <li key={item.label}>
                   <strong>{item.label}: </strong>
                   {item.body}
                 </li>
               ))}
             </ul>
-            {solanaAccountsNote.notes.map((note) => (
+            {accountEthereum.notes.map((note) => (
               <p key={note}>{note}</p>
             ))}
           </div>
-        </ResponsiveBox>
+        </div>
+      </div>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            <table style={{ width: "100%" }}>
-              <thead>
-                <tr>
-                  {comparisonTable.headers.map((header) => (
-                    <td key={header} style={tableHeaderStyle}>
-                      {renderInlineCode(header)}
-                    </td>
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                {ethereumTable.headers.map((header) => (
+                  <td key={header}>{renderInlineCode(header)}</td>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {ethereumTable.rows.map((row, index) => (
+                <tr key={`${row.cells[0]}-${index}`}>
+                  {row.cells.map((cell, cellIndex) => (
+                    <td key={cellIndex}>{renderInlineCode(cell)}</td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {comparisonTable.rows.map((row, index) => (
-                  <tr key={`${row.cells[0]}-${index}`}>
-                    {row.cells.map((cell, cellIndex) => (
-                      <td key={cellIndex} style={tableCellStyle}>
-                        {renderInlineCode(cell)}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </ResponsiveBox>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: { display: "none" },
-            medium: { display: "none" },
-            small: { display: "flex" },
-          }}
-        >
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {contractAccount.paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+          <ul>
+            {contractAccount.relationships.map((relationship) => (
+              <li key={relationship}>{relationship}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      <div>
+        <div id="account-solana">
           <div className="min-w-0 max-w-full overflow-x-auto">
-            {accountMappingSmall.sections.map((section) => (
-              <div key={section.title}>
-                <p>
-                  <strong>{section.title}</strong>
-                </p>
-                <ul>
-                  {section.items.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
+            <h3>
+              <strong>{accountSolana.title}</strong>
+            </h3>
+            {accountSolana.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
             ))}
           </div>
-        </ResponsiveBox>
+        </div>
+      </div>
 
-        <ResponsiveBox
-          responsiveStyles={{
-            large: {
-              display: "flex",
-              paddingRight: "50px",
-              paddingLeft: "50px",
-              paddingTop: "20px",
-            },
-            medium: { display: "flex" },
-            small: { display: "none" },
-          }}
-        >
-          <div className="min-w-0 max-w-full overflow-x-auto">
-            <table style={{ width: "100%" }}>
-              <tbody>
-                {accountMappingTable.rows.map((row, index) => (
-                  <tr key={`${row.cells[0]}-${index}`}>
-                    {row.cells.map((cell, cellIndex) => (
-                      <td key={cellIndex} style={tableCellStyle}>
-                        {cell}
-                      </td>
-                    ))}
-                  </tr>
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                {solanaTable.headers.map((header) => (
+                  <td key={header}>{renderInlineCode(header)}</td>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="account-abstraction">
-            <div className="min-w-0 max-w-full overflow-x-auto">
-              <h2>
-                <strong>{accountAbstraction.title}</strong>
-              </h2>
-              <p>{accountAbstraction.intro}</p>
-              <p>{accountAbstraction.chartIntro}</p>
-              <ul>
-                {accountAbstraction.chart.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-              {accountAbstraction.paragraphs.map((paragraph) => (
-                <p key={paragraph}>{paragraph}</p>
+              </tr>
+            </thead>
+            <tbody>
+              {solanaTable.rows.map((row, index) => (
+                <tr key={`${row.cells[0]}-${index}`}>
+                  {row.cells.map((cell, cellIndex) => (
+                    <td key={cellIndex}>{renderInlineCode(cell)}</td>
+                  ))}
+                </tr>
               ))}
-              <p>{accountAbstraction.benefitsIntro}</p>
-              <ul>
-                {accountAbstraction.benefits.map((benefit) => (
-                  <li key={benefit}>{benefit}</li>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {solanaAccountsNote.paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+          <ul>
+            {solanaAccountsNote.list.map((item) => (
+              <li key={item.label}>
+                <strong>{item.label}: </strong>
+                {item.body}
+              </li>
+            ))}
+          </ul>
+          {solanaAccountsNote.notes.map((note) => (
+            <p key={note}>{note}</p>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          <table>
+            <thead>
+              <tr>
+                {comparisonTable.headers.map((header) => (
+                  <td key={header}>{renderInlineCode(header)}</td>
                 ))}
-              </ul>
-            </div>
-          </div>
-        </ResponsiveBox>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonTable.rows.map((row, index) => (
+                <tr key={`${row.cells[0]}-${index}`}>
+                  {row.cells.map((cell, cellIndex) => (
+                    <td key={cellIndex}>{renderInlineCode(cell)}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="account-abstraction-solana">
-            <div className="min-w-0 max-w-full overflow-x-auto">
-              <h3>
-                <strong>{accountAbstractionSolana.title}</strong>
-              </h3>
-              <p>{accountAbstractionSolana.paragraph}</p>
-            </div>
-          </div>
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={{ large: { paddingTop: "20px" } }}>
-          <div id="summary">
-            <div className="min-w-0 max-w-full overflow-x-auto">
-              <h3>{summary.title}</h3>
+      <div className="md:hidden">
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          {accountMappingSmall.sections.map((section) => (
+            <div key={section.title}>
+              <p>
+                <strong>{section.title}</strong>
+              </p>
               <ul>
-                {summary.items.map((item) => (
+                {section.items.map((item) => (
                   <li key={item}>{item}</li>
                 ))}
               </ul>
             </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="hidden md:block">
+        <div className="min-w-0 max-w-full overflow-x-auto">
+          <table>
+            <tbody>
+              {accountMappingTable.rows.map((row, index) => (
+                <tr key={`${row.cells[0]}-${index}`}>
+                  {row.cells.map((cell, cellIndex) => (
+                    <td key={cellIndex}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div id="account-abstraction">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <h2>
+              <strong>{accountAbstraction.title}</strong>
+            </h2>
+            <p>{accountAbstraction.intro}</p>
+            <p>{accountAbstraction.chartIntro}</p>
+            <ul>
+              {accountAbstraction.chart.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+            {accountAbstraction.paragraphs.map((paragraph) => (
+              <p key={paragraph}>{paragraph}</p>
+            ))}
+            <p>{accountAbstraction.benefitsIntro}</p>
+            <ul>
+              {accountAbstraction.benefits.map((benefit) => (
+                <li key={benefit}>{benefit}</li>
+              ))}
+            </ul>
           </div>
-        </ResponsiveBox>
+        </div>
+      </div>
 
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
+      <div>
+        <div id="account-abstraction-solana">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <h3>
+              <strong>{accountAbstractionSolana.title}</strong>
+            </h3>
+            <p>{accountAbstractionSolana.paragraph}</p>
+          </div>
+        </div>
+      </div>
 
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <CardDeck
-          cards={
-            resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-          }
-          numCols={
-            RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-              typeof CardDeck
-            >["numCols"]
-          }
-          featured={RESOURCE_CARD_DECK.featured}
-        />
-      </Section>
-    </>
+      <div>
+        <div id="summary">
+          <div className="min-w-0 max-w-full overflow-x-auto">
+            <h3>{summary.title}</h3>
+            <ul>
+              {summary.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </MigrationDocsLayout>
   );
 }

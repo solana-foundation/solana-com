@@ -1,9 +1,48 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { hasSameOrigin } from "@/lib/awards-abuse";
+import { enforceVotingRateLimit, hasSameOrigin } from "@/lib/awards-abuse";
+
+const { checkRateLimit } = vi.hoisted(() => ({ checkRateLimit: vi.fn() }));
+
+vi.mock("@vercel/firewall", () => ({ checkRateLimit }));
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.clearAllMocks();
+});
+
+describe("awards voting rate limits", () => {
+  it("limits bursts by ballot and sustained traffic by network", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    checkRateLimit.mockResolvedValue({ rateLimited: false });
+    const request = new NextRequest(
+      "https://example.com/breakpoint/api/votes",
+      {
+        headers: { "x-real-ip": "203.0.113.1" },
+      },
+    );
+
+    expect(await enforceVotingRateLimit(request, "first-ballot")).toBe(false);
+    expect(await enforceVotingRateLimit(request, "second-ballot")).toBe(false);
+    expect(checkRateLimit).toHaveBeenCalledTimes(4);
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "breakpoint-awards-vote-burst",
+      { request, rateLimitKey: "first-ballot" },
+    );
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "breakpoint-awards-vote-burst",
+      { request, rateLimitKey: "second-ballot" },
+    );
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      "breakpoint-awards-vote-hourly",
+      { request, rateLimitKey: undefined },
+    );
+    expect(
+      checkRateLimit.mock.calls.filter(
+        ([id]) => id === "breakpoint-awards-vote-hourly",
+      ),
+    ).toHaveLength(2);
+  });
 });
 
 describe("awards nomination origin check", () => {

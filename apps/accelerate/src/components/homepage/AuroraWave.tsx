@@ -18,7 +18,7 @@ export function HeroWaveWrapper({ children }: { children: React.ReactNode }) {
 
       {/* Wave lines SVG overlay — Figma component: 2219x978px.
           Positioned so the visible wave content starts in the lower
-          portion of the 1000px hero and extends into the spacer below. */}
+          portion of the desktop hero and extends into the spacer below. */}
       <div className="pointer-events-none absolute left-[-181px] top-[500px] z-[20] hidden h-[978px] w-[2219px] lg:block">
         <Image
           src={getImagePath("/images/wave-lines.svg")}

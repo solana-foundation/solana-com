@@ -13,6 +13,7 @@ import {
   getDataApiConfig,
   isProduction,
 } from "@/lib/databricks/server";
+import { getEdgeMaxAgeSeconds } from "@/lib/databricks/cache-control";
 import {
   metricNames,
   normalizeProviderName,
@@ -20,19 +21,25 @@ import {
   type DataApiResponse,
   type MetricRow,
 } from "@/app/[locale]/data/data-config";
+import {
+  getRangeDates,
+  getRangeDayCount,
+  getUtcToday,
+  isDateInRange,
+  parseDashboardRange,
+  type DashboardRange,
+} from "@/app/[locale]/data/date-range";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DATA_API_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
+const DATA_API_CACHE_REVALIDATE_SECONDS = 5 * 60;
 const EDGE_STALE_SECONDS = 24 * 60 * 60;
-const DEFAULT_RANGE_DAYS = 90;
 const MAX_RANGE_DAYS = Math.max(...rangeOptions.map((option) => option.value));
 const DATA_API_CACHE_KEY_VERSION = "solana-data-data-api-metric-rows-v1";
 const IS_PRODUCTION = isProduction();
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DATA_UNAVAILABLE_ERROR =
   "Solana data is unavailable right now. Try again in a moment.";
 
@@ -57,7 +64,6 @@ type PackedDataApiMetricsData = {
 };
 
 const metricNameSet = new Set<string>(metricNames);
-const rangeValues = new Set<number>(rangeOptions.map((option) => option.value));
 
 export async function GET(request: NextRequest) {
   const configResult = getDataApiConfig();
@@ -70,15 +76,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const rangeDays = parseRangeDays(request.nextUrl.searchParams.get("days"));
+  const range = parseDashboardRange(
+    request.nextUrl.searchParams,
+    getUtcToday(),
+  );
 
   try {
     const result = await getMetricsData(configResult.config);
 
     return json<DataApiResponse>(
-      buildDataResponse(result, rangeDays),
+      buildDataResponse(result, range),
       200,
-      getSuccessCacheControl(),
+      getSuccessCacheControl(result.generatedAt),
     );
   } catch (error) {
     console.error("Failed to load Solana data from data-api", error);
@@ -93,23 +102,21 @@ export async function GET(request: NextRequest) {
 
 function buildDataResponse(
   result: DataApiMetricsData,
-  rangeDays: number,
+  range: DashboardRange,
 ): DataApiResponse {
   return {
     generatedAt: result.generatedAt,
-    rangeDays,
+    rangeDays: getRangeDayCount(range),
     truncated: result.truncated,
-    rows: filterRowsByRange(result.rows, rangeDays),
+    rows: filterRowsByRange(result.rows, range),
   };
 }
 
-function filterRowsByRange(rows: MetricRow[], rangeDays: number) {
-  const cutoffDate = new Date(Date.now() - rangeDays * DAY_IN_MS)
-    .toISOString()
-    .slice(0, 10);
+function filterRowsByRange(rows: MetricRow[], range: DashboardRange) {
+  const dates = getRangeDates(range, getUtcToday());
 
   return rows.flatMap((row) => {
-    if (!metricNameSet.has(row.metricName) || row.date < cutoffDate) {
+    if (!metricNameSet.has(row.metricName) || !isDateInRange(row.date, dates)) {
       return [];
     }
 
@@ -213,7 +220,7 @@ function getMetricsCacheKey(config: DataApiConfig) {
   return [config.baseUrl, MAX_RANGE_DAYS, metricNames.join(",")].join("|");
 }
 
-function getSuccessCacheControl() {
+function getSuccessCacheControl(generatedAt: string) {
   if (!IS_PRODUCTION) {
     return NO_STORE_CACHE_CONTROL;
   }
@@ -221,7 +228,7 @@ function getSuccessCacheControl() {
   return [
     "public",
     "max-age=0",
-    `s-maxage=${DATA_API_CACHE_REVALIDATE_SECONDS}`,
+    `s-maxage=${getEdgeMaxAgeSeconds(generatedAt)}`,
     `stale-while-revalidate=${EDGE_STALE_SECONDS}`,
   ].join(", ");
 }
@@ -249,16 +256,6 @@ function getDataErrorResponse(error: unknown): ErrorResponse {
 
 function devOnly<T extends Record<string, unknown>>(value: T) {
   return IS_PRODUCTION ? {} : value;
-}
-
-function parseRangeDays(value: string | null) {
-  if (!value) {
-    return DEFAULT_RANGE_DAYS;
-  }
-
-  const parsed = Number(value);
-
-  return rangeValues.has(parsed) ? parsed : DEFAULT_RANGE_DAYS;
 }
 
 function json<T>(body: T, status: number, cacheControl: string) {

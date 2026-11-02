@@ -1,0 +1,224 @@
+---
+title: Anchor Olayları
+description:
+  Anchor olaylarını tanımlayın, yayınlayın, çözümleyin, bunlara abone olun, sürümlendirin ve test edin; ayrıca log kesilmesi ve CPI olayları için rehberlik edinin.
+url: /docs/programs/anchor-events
+type: guide
+prerequisites:
+  - /docs/programs
+  - /docs/programs/idls
+related:
+  - /docs/core/transactions/transaction-introspection
+---
+
+Anchor olayları, bir programın IDL'sine dahil edilen, tür belirtilmiş ve Borsh ile serileştirilmiş kayıtlardır.
+İstemcilerin, insan tarafından okunabilir log mesajlarını ayrıştırmadan program etkinliğini yorumlamasını sağlarlar.
+
+Olaylar indeksleme ve bildirimler için kullanışlıdır, ancak program
+durumu değildir. Programın tekrar okuması gereken her değeri bir hesapta saklayın ve
+olayları başarılı bir işlemden türetilen bir kayıt olarak değerlendirin.
+
+## Bir olay tanımlama ve yayınlama
+
+Bir struct'a `#[event]` ekleyin ve durum değişikliği başarılı olduktan sonra `emit!` çağırın.
+
+```rust title="lib.rs"
+use anchor_lang::prelude::*;
+
+#[program]
+pub mod payments {
+    use super::*;
+
+    pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+        emit!(PaymentRecorded {
+            authority: ctx.accounts.authority.key(),
+            amount,
+        });
+        Ok(())
+    }
+}
+
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+
+#[event]
+pub struct PaymentRecorded {
+    pub authority: Pubkey,
+    pub amount: u64,
+}
+```
+
+`emit!`, olay baytlarını Solana'nın `sol_log_data` syscall'ı ile yazar. İşlem
+logları sonucu `Program data: <base64>` olarak gösterir. Kodlanmış değer,
+olay discriminator'ı ile başlar ve ardından Borsh ile serileştirilmiş alanları içerir.
+
+Olayları odaklı tutun. Büyük string'ler ve vektörler hesaplama kaynağı tüketir, işlem
+metaverisini artırır ve log kesilmesinden etkilenme olasılıkları daha yüksektir.
+
+## Log ve CPI olayları arasında seçim yapma
+
+Anchor iki yayınlama yolunu destekler:
+
+| Yol        | Depolama konumu                  | Ödünleşim                                               |
+| ----------- | --------------------------------- | ------------------------------------------------------ |
+| `emit!`     | Program data logları                 | Daha basit ve daha ucuzdur, ancak loglar kesilebilir         |
+| `emit_cpi!` | Bir CPI'dan gelen inner instruction data | Daha kalıcı metaveri; ek hesaplar ve hesaplama gerektirir |
+
+CPI olaylarını kullanmak için Anchor'ın `event-cpi` özelliğini etkinleştirin:
+
+```toml title="Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["event-cpi"] }
+```
+
+Ardından talimatın hesaplar struct'ını `#[event_cpi]` ile işaretleyin ve bağlam değişkeninin adı `ctx` olan bir işleyiciden yayınlayın:
+
+```rust title="lib.rs"
+pub fn record_payment(ctx: Context<RecordPayment>, amount: u64) -> Result<()> {
+    emit_cpi!(PaymentRecorded {
+        authority: ctx.accounts.authority.key(),
+        amount,
+    });
+    Ok(())
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct RecordPayment<'info> {
+    pub authority: Signer<'info>,
+}
+```
+
+`#[event_cpi]`, imzalı self-CPI için gereken olay yetkilisi (event authority) ve mevcut program hesaplarını ekler. CPI olayları Anchor'ın log olay
+aboneliği üzerinden tüketilemez; bunun yerine işlemi getirin ve eşleşen inner
+instruction'ı çözümleyin.
+
+<Callout type="info" title="Kaynak olarak defteri (ledger) kullanın">
+  RPC sağlayıcıları program loglarını kesebilir. Bir olayın kaçırılması
+  bakiyeleri, izinleri veya doğruluk açısından kritik başka bir iş akışını etkileyecekse,
+  sonucu program hesaplarından veya işlem talimat verilerinden türetin. Olayları
+  indekslemeyi verimli kılmak için kullanın; durumun tek kaydı olarak kullanmayın.
+</Callout>
+
+## TypeScript'ten abone olma
+
+Güncel Anchor TypeScript istemcisi `@anchor-lang/core`'dur. Program IDL'sinden oluşturulan bir `Program`
+örneği, eşleşen log olaylarını çözümleyebilir ve bunları RPC log aboneliği üzerinden iletebilir:
+
+```ts
+const listenerId = program.addEventListener(
+  "PaymentRecorded",
+  (event, slot, signature) => {
+    console.log({ event, slot, signature });
+  },
+  "confirmed"
+);
+
+// Remove the websocket subscription when it is no longer needed.
+await program.removeEventListener(listenerId);
+```
+
+Geri çağırma (callback) çözümlenmiş olay verisini, slot'u ve işlem
+imzasını alır. Abonelikler yalnızca bağlantı etkinken iletilen logları kapsar. Tüketicinin tam geçmişe ihtiyacı varsa, işlenen imzaları kalıcı olarak saklayın ve bağlantı
+kesildikten sonra kaçırılan işlemleri geriye dönük olarak doldurun.
+
+## Getirilen işlem loglarını çözümleme
+
+Geriye dönük doldurma ve tek seferlik inceleme için bir işlemi getirin ve her
+`Program data:` yükünü olay kodlayıcısına (event coder) iletin:
+
+```ts
+const transaction = await connection.getTransaction(signature, {
+  commitment: "confirmed",
+  maxSupportedTransactionVersion: 0
+});
+
+if (!transaction?.meta || transaction.meta.err) {
+  throw new Error("Transaction was not found or did not succeed");
+}
+
+for (const log of transaction.meta.logMessages ?? []) {
+  const prefix = "Program data: ";
+  if (!log.startsWith(prefix)) continue;
+
+  const decoded = program.coder.events.decode(log.slice(prefix.length));
+  if (decoded) console.log(decoded.name, decoded.data);
+}
+```
+
+Bir işlem birkaç programı çağırabilir. Üretim ortamındaki bir ayrıştırıcı için,
+`Program <address> invoke` ve `success` log sınırlarını izleyin veya Anchor'ın olay
+ayrıştırıcısını kullanın; böylece başka bir programın `Program data:` girdisi sizinkiymiş gibi çözümlenmez.
+Başarısız işlemler, hatadan önce tamamlanan işlerin loglarını ve inner instruction'larını koruyabilir; bu nedenle her iki olay biçimini de indekslemeden önce `err` değeri null olmayan işlem metaverisini daima reddedin. Anchor'ın log aboneliği, bir olay geri çağırmasını iletmeden önce bu kontrolü yapar.
+
+Bir `emit_cpi!` olayı için, `meta.innerInstructions` içindeki self-CPI'ı bulun,
+program ID'sinin sizin programınız olduğunu doğrulayın ve instruction data'sını base58 ile çözün. Herhangi bir baytı ayıklamadan önce Anchor'ın
+[`EVENT_IX_TAG_LE`](https://github.com/solana-foundation/anchor/blob/v1.1.2/lang/src/event.rs#L1-L3) etiketini doğrulayın:
+
+```ts
+import bs58 from "bs58";
+
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+const instructionData = Buffer.from(bs58.decode(innerInstruction.data));
+
+if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+  // This is an ordinary self-CPI, not an emit_cpi! event.
+  continue;
+}
+
+const eventData = instructionData.subarray(8).toString("base64");
+const decoded = program.coder.events.decode(eventData);
+```
+
+Hem program ID'sini hem de etiketi kontrol etmek, sıradan bir self-CPI'ın
+olay sanılmasını önler.
+
+## Olay şemalarını sürümlendirme
+
+Varsayılan olarak Anchor, olay adından 8 baytlık bir olay discriminator'ı türetir.
+Anchor ayrıca `#[event(discriminator = ...)]` ile açık bir discriminator'ı da destekler. Discriminator'lar program içinde benzersiz kalmalı ve olayı çözümleyen her istemci için sabit olmalıdır.
+
+Yayınlanan bir struct'ın alanlarını değiştirmek, Borsh düzenini değiştirir. Uyumsuzluk yaratan bir
+şema değişikliği için `PaymentRecorded` olayını sessizce değiştirmek yerine `PaymentRecordedV2` gibi yeni bir olay tanımlayın. Mevcut indeksleyiciler hâlâ eski olaya bağımlıysa, geçiş süresi boyunca eski olayı yayınlamaya devam edin.
+
+Evrilebilir veriler için, sabit genişlikli alanları ve bir indeksleyicinin daha zengin hesap verilerini ayrıca getirmesine olanak tanıyan tanımlayıcıları tercih edin. Tüketicilerin yeni olayı hemen çözümleyebilmesi için güncellenmiş IDL'yi program yükseltmesinden önce veya onunla birlikte yayınlayın.
+
+## Olayları test etme
+
+Base64 string'ini değil, çözümlenmiş sözleşmeyi test edin. Dinleyiciyi talimatı göndermeden önce kaydedin,
+çözümlenmiş alanları ve işlem imzasını doğrulayın
+ve dinleyiciyi her zaman kaldırın:
+
+```ts
+let listenerId = 0;
+const received = new Promise<{
+  event: { authority: PublicKey; amount: BN };
+  signature: string;
+}>((resolve) => {
+  listenerId = program.addEventListener(
+    "PaymentRecorded",
+    (event, _slot, signature) => resolve({ event, signature }),
+    "confirmed"
+  );
+});
+
+try {
+  const signature = await program.methods.recordPayment(new BN(500)).rpc();
+  const result = await received;
+
+  assert.equal(result.signature, signature);
+  assert.equal(result.event.amount.toString(), "500");
+} finally {
+  await program.removeEventListener(listenerId);
+}
+```
+
+Ayrıca indeksleyicinin başarısız işlem metaverisinde kalan olay baytlarını yok saydığını test edin ve desteklenen her olay sürümü için bir fixture ekleyin. `emit_cpi!` kullanıyorsanız, log dinleyicileri bu olayları doğrudan almadığından `innerInstructions` içinden çözümlemeyi test edin.
+
+## Daha fazla bilgi
+
+- [Anchor olay dokümantasyonu](https://www.anchor-lang.com/docs/features/events)
+- [Anchor TypeScript istemcisi](https://www.anchor-lang.com/docs/clients/typescript)
+- [Anchor olay makrosu kaynak kodu](https://github.com/solana-foundation/anchor/blob/master/lang/attribute/event/src/lib.rs)

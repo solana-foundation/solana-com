@@ -167,7 +167,11 @@ const nextConfig: NextConfig = {
     const movedRoutes = [
       {
         source: "/docs/payments/accept-payments/payment-button",
-        destination: "/docs/tools/commerce-kit/quickstart/payment-button",
+        destination: "/docs/tools/solana-pay",
+      },
+      {
+        source: "/docs/payments/accept-payments/solana-pay",
+        destination: "/docs/tools/solana-pay",
       },
       {
         source: "/docs/payments/accept-payments/pay-sh",
@@ -236,6 +240,7 @@ const nextConfig: NextConfig = {
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
       "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.go",
       "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
@@ -243,6 +248,7 @@ const nextConfig: NextConfig = {
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
       "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.go",
       "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],

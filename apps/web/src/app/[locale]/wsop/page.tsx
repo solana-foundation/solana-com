@@ -1,72 +1,34 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@/config";
-import { fetchLatestLinks } from "@/lib/media/link";
-import type { LinkItem } from "@/types/media";
 import { WsopPage } from "./wsop-page";
-
-type Props = {
-  params: Promise<{ locale: string }>;
-};
+import { fetchSolutionNews } from "@/lib/media/solution-news";
+import type { NewsItem } from "@/components/solutions/latest-news.v2";
 
 const WSOP_PATH = "/wsop";
 const WSOP_LOCALE = "en";
-const WSOP_SOCIAL_IMAGE = "/src/img/wsop/solana-wsop.jpg";
+const WSOP_SOCIAL_IMAGE = "/src/img/wsop/paradise/paradise-social.jpg";
+// Protected media previews cannot be fetched from the web preview server.
+// Keep the WSOP post visible until the tagged posts API responds.
+const WSOP_POST_FALLBACK: NewsItem = {
+  id: "wsop-announcement",
+  title: "World Series of Poker, Dealt by Solana",
+  date: "2026-06-10T12:50:00.000Z",
+  link: "/news/world-series-of-poker",
+  image: WSOP_SOCIAL_IMAGE,
+  imageAspectRatio: "1200 / 630",
+};
 
-type WsopContentMode = "preview" | "live";
+export const revalidate = 60;
 
-// Change this one value to switch between project-owner preview content and
-// published WSOP stories from apps/media/content/links.
-const WSOP_CONTENT_MODE: WsopContentMode = "live";
-
-export const revalidate = 300;
-
-export default async function Page({ params }: Props) {
-  const { locale } = await params;
-  const t = await getTranslations({
-    locale,
-    namespace: "wsop.previewStories",
+export default async function Page() {
+  const news = await fetchSolutionNews({
+    tags: ["wsop"],
+    limit: 4,
+    includeLinks: false,
   });
-  const previewStories: LinkItem[] = [
-    {
-      id: "preview-feature-table",
-      title: t("featureTable.title"),
-      url: "https://x.com/solana",
-      date: t("date"),
-      source: t("featureTable.source"),
-      linkType: "video",
-      thumbnailImage: "/src/img/wsop/feature-table.webp",
-    },
-    {
-      id: "preview-player-stories",
-      title: t("playerStories.title"),
-      url: "https://x.com/solana",
-      date: t("date"),
-      source: t("playerStories.source"),
-      linkType: "video",
-      thumbnailImage: "/src/img/wsop/solana-wsop.jpg",
-    },
-    {
-      id: "preview-highlights",
-      title: t("highlights.title"),
-      url: "https://x.com/solana",
-      date: t("date"),
-      source: t("highlights.source"),
-      linkType: "video",
-      thumbnailImage: "/src/img/wsop/feature-table.webp",
-    },
-  ];
-  const stories =
-    WSOP_CONTENT_MODE === "preview"
-      ? previewStories
-      : (
-          await fetchLatestLinks({
-            limit: 8,
-            tag: "wsop",
-          })
-        ).links;
 
-  return <WsopPage stories={stories} />;
+  return <WsopPage news={news.length > 0 ? news : [WSOP_POST_FALLBACK]} />;
 }
 
 export async function generateMetadata(): Promise<Metadata> {

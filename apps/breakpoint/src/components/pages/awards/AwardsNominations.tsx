@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
 import Button, { useButtonScramble } from "@/components/Button";
-import { publicAssetPath } from "@/config";
+import { config, publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
 // import { resolveSponsorLogo } from "@/lib/sponsors";
 
@@ -213,6 +213,7 @@ export default function AwardsNominations() {
   const nomination = nominations[activeCategory.id];
   const share = () => {
     const text = t("nominations.shareText", {
+      eventHandle: config.event.twitterHandle,
       handle: nomination?.handle ?? "",
       category: activeCategoryCopy.name,
     });
@@ -227,6 +228,7 @@ export default function AwardsNominations() {
     <section
       className="bg-black pb-3xl pt-2xl md:pb-4xl md:pt-3xl"
       aria-labelledby="nominations-title"
+      id="nominations"
     >
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <header className="grid gap-m border-t border-stroke-primary pt-m md:grid-cols-bp-desktop md:gap-x-s md:pt-l">

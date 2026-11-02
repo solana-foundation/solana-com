@@ -24,20 +24,20 @@ dijelaskan di bawah dengan tiga bagian yang sama: cara byte ditata dalam transmi
 cara akun direferensikan, dan dari mana batas sumber dayanya berasal.
 
 <Callout type="warn" title="Status aktivasi v1">
-  [Format v1](https://solana.com/upgrades/larger-transaction-sizes) belum
-  aktif di cluster mana pun. Aktivasi ditargetkan pada Agave v4.2.
-  `solana-test-validator` 4.2+ memungkinkan Anda menguji transaksi v1 secara lokal.
-  Aplikasi yang sudah ada sebaiknya meninjau [persiapan untuk v1](#preparing-for-v1).
+  [Format v1](https://solana.com/upgrades/larger-transaction-sizes) sudah
+  aktif di mainnet, devnet, dan testnet. Membaca transaksi merupakan perubahan
+  yang bersifat breaking: klien yang tidak ikut serta (opt in) akan gagal pada transaksi v1. Aplikasi yang sudah ada
+  sebaiknya meninjau [persiapan untuk v1](#preparing-for-v1).
 </Callout>
 
 ## Perbandingan format
 
-| Batas                 | legacy                     | v0                         | v1                 |
-| --------------------- | -------------------------- | -------------------------- | ------------------ |
-| Ukuran transaksi maksimal  | 1.232 byte                | 1.232 byte                | **4.096 byte**    |
-| Alamat akun     | ~32, dibatasi ukuran            | 64, melalui lookup table      | **64, inline**     |
-| Address lookup table | tidak didukung              | didukung                  | **tidak didukung**  |
-| Batas sumber daya       | Instruksi ComputeBudget | Instruksi ComputeBudget | **konfigurasi pesan** |
+| Batas                 | legacy                     | v0                         | v1                                                                                 |
+| --------------------- | -------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| Ukuran transaksi maksimal  | 1.232 byte                | 1.232 byte                | **4.096 byte**                                                                    |
+| Alamat akun     | ~32, dibatasi ukuran            | 64, melalui lookup table      | **64, inline** (96 dengan [SIMD-0596](https://solana.com/upgrades/v1-account-limit)) |
+| Address lookup table | tidak didukung              | didukung                  | **tidak didukung**                                                                  |
+| Batas sumber daya       | Instruksi ComputeBudget | Instruksi ComputeBudget | **konfigurasi pesan**                                                                 |
 
 Langsung ke: [Legacy](#legacy-format) · [v0](#v0-format) · [v1](#v1-format)
 
@@ -135,6 +135,20 @@ read-only.
   signer.
 </Callout>
 
+### Membuat dan menggunakan address lookup table
+
+Contoh ini membuat lookup table, menambahkan sebuah alamat, lalu menggunakan tabel tersebut untuk
+mengompilasi dan mengirim transaksi v0.
+
+```ts !! title="Versioned transaction with an ALT" file=packages/docs-examples/cookbook/transactions/versioned-transaction-alt/legacy.ts#region=versioned-transaction-alt
+
+```
+
+Hanya akun non-penanda tangan yang dapat dimuat dari lookup table. Pembayar biaya dan
+setiap penanda tangan yang diperlukan tetap berada di daftar akun statis pesan. Sebuah alamat
+juga tidak dapat dicari di slot yang sama dengan saat alamat tersebut ditambahkan, sehingga contoh ini
+menunggu slot terkonfirmasi berikutnya sebelum mengompilasi pesan v0.
+
 ### Batas sumber daya dalam v0
 
 Tidak berubah dari legacy: instruksi ComputeBudget, dengan default yang sama ketika
@@ -150,14 +164,14 @@ memindai dan mendeserialisasi daftar instruksinya.
 
 ### Tata letak wire v1
 
-| Field                  | Ukuran         | Deskripsi                                                                        |
+| Field                  | Size         | Description                                                                        |
 | ---------------------- | ------------ | ---------------------------------------------------------------------------------- |
 | `0x81`                 | 1 byte       | Byte prefiks versi — byte pertama dari transaksi                            |
-| `header`               | 3 byte      | MessageHeader (sama seperti legacy)                                                     |
+| `header`               | 3 byte      | MessageHeader (sama dengan legacy)                                                     |
 | `config_mask`          | 4 byte      | Bitmask `u32` LE yang menandai nilai konfigurasi mana yang ada                           |
 | `recent_blockhash`     | 32 byte     | Penentu masa berlaku                                                                 |
 | `num_instructions`     | 1 byte       | Hitungan lebar tetap, maksimal 64                                                          |
-| `num_addresses`        | 1 byte       | Hitungan lebar tetap, maksimal 64                                                          |
+| `num_addresses`        | 1 byte       | Hitungan lebar tetap, maksimal 64 (96 dengan SIMD-0596)                                      |
 | `addresses`            | N x 32 byte | Alamat akun, semua inline — tanpa referensi lookup table                         |
 | `config_values`        | 0–20 byte   | Satu nilai per bit mask yang disetel, dalam urutan bit (lihat di bawah)                               |
 | `instruction_headers`  | N x 4 byte  | Per instruksi: `program_id_index` (u8), `num_accounts` (u8), `data_len` (u16 LE) |
@@ -171,10 +185,12 @@ payload dengan panjang variabel, alih-alih setiap instruksi bersifat berurutan.
 
 ### Akun dalam v1: tanpa address lookup table
 
-v1 menghapus dukungan ALT secara sengaja. 64 alamat mentah adalah 2.048 byte,
-masih nyaman di dalam batas 4.096 byte, sehingga setiap alamat bersifat inline seperti dalam
+v1 sengaja menghapus dukungan ALT. 64 alamat mentah berukuran 2.048 byte, dan 96
+alamat yang diizinkan setelah
+[SIMD-0596](https://solana.com/upgrades/v1-account-limit) berukuran 3.072 byte, keduanya
+jauh di dalam batas 4.096 byte, sehingga setiap alamat berada inline seperti pada
 legacy. Jika aplikasi Anda bergantung pada lookup table, beralih ke v1 berarti
-menginline alamat-alamat tersebut.
+menyertakan alamat-alamat tersebut secara inline.
 
 ### Batas sumber daya dalam v1: konfigurasi transaksi
 
@@ -226,11 +242,45 @@ membulatkan ukuran data ke atas ke halaman 32 KiB berikutnya untuk cadangan (mod
 menghitung dalam halaman 32 KiB, sehingga cadangan di bawah batas halaman berikutnya
 gratis).
 
+### Membangun transaksi v1
+
+Pesan v1 dirakit melalui pipeline yang sama seperti pesan legacy atau v0. Perbedaannya
+adalah `setTransactionMessageConfig`: batas sumber daya merupakan properti
+dari pesan, sehingga daftar instruksi hanya berisi instruksi program.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=build
+
+```
+
+</CodeTabs>
+
+Kit juga menyediakan setter untuk setiap field konfigurasi —
+`setTransactionMessagePriorityFeeLamports`,
+`setTransactionMessageComputeUnitLimit`,
+`setTransactionMessageLoadedAccountsDataSizeLimit`, dan
+`setTransactionMessageHeapSize` — untuk mengaturnya satu per satu.
+
+### Menentukan ukuran batas melalui simulasi
+
+Daripada menebak dua batas wajib tersebut, ukurlah. Simulasi berjalan
+dengan kedua batas dinaikkan ke maksimum runtime, sehingga tidak mungkin gagal karena kekurangan
+sumber daya yang sedang diukur. Angka yang dikembalikan adalah biaya persis dari satu
+kali simulasi, jadi tambahkan margin sebelum mengandalkannya.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/estimate-kit.ts#region=estimate
+
+```
+
+</CodeTabs>
+
 ## Persiapan untuk v1
 
-v1 mengubah cara **membaca** transaksi, bukan hanya mengirimnya. Ketika v1 diaktifkan,
-setiap klien yang memanggil `getTransaction` atau `getBlock` tanpa mengaktifkan dukungannya akan
-mulai gagal pada transaksi v1:
+v1 mengubah cara **membaca** transaksi, bukan hanya mengirimkannya. Klien mana pun yang
+memanggil `getTransaction` atau `getBlock` tanpa ikut serta (opt in) akan gagal pada transaksi v1:
 
 - Berikan `maxSupportedTransactionVersion: 1` — **integer** JSON `1`, bukan
   string `"1"` — ke [`getTransaction`](/docs/rpc/http/gettransaction) dan
@@ -245,10 +295,10 @@ mulai gagal pada transaksi v1:
   akan tertinggal sejak slot v1 pertama dan seterusnya.
 - `getSignaturesForAddress` tidak pernah memeriksa isi transaksi, sehingga tanda tangan v1
   terdaftar seperti biasa.
-- Respons yang sudah diaktifkan menyertakan objek `transactionConfig` dalam pesan untuk transaksi v1
-  (tidak ada sama sekali untuk legacy dan v0). Pipeline yang menurunkan
+- Respons yang ikut serta (opt-in) menyertakan objek `transactionConfig` dalam pesan untuk transaksi
+  v1 (sama sekali tidak ada untuk legacy dan v0). Pipeline yang menurunkan
   biaya prioritas atau batas komputasi dengan memindai instruksi ComputeBudget
-  akan melaporkan **nol** secara diam-diam untuk setiap transaksi v1.
+  akan secara diam-diam melaporkan **nol** untuk setiap transaksi v1.
 - Gunakan `encoding: 'base64'` saat mendekode transaksi di sisi klien, dan untuk
   `sendTransaction`/`simulateTransaction` dengan transaksi di atas 1.232 byte —
   encoding base58 tetap dibatasi pada ukuran lama.
@@ -256,6 +306,22 @@ mulai gagal pada transaksi v1:
   generasi Agave 4.2.x, atau web3.js v3. web3.js v1 membaca v1 mulai dari 1.99.0
   ke atas, tetapi tidak dapat membangun atau mengirimnya.
 
-Untuk panduan migrasi lengkap — termasuk dukungan library klien, deteksi versi streaming
-(Geyser/gRPC), dan perilaku simulasi — lihat
-[halaman upgrade Format Transaksi v1](https://solana.com/upgrades/larger-transaction-sizes).
+### Membaca transaksi v1
+
+Untuk ikut serta (opt in), gunakan bilangan bulat JSON `1`. Mendekode byte yang dikembalikan akan menghasilkan
+versi dan konfigurasi, yang menjadi tempat batas sumber daya berada — memindai
+daftar instruksi untuk mencari instruksi ComputeBudget tidak akan menemukan apa pun.
+
+<CodeTabs storage="cookbook" flags="r">
+
+```ts !! title="Kit" file=packages/docs-examples/cookbook/transactions/v1-transactions/kit.ts#region=read
+
+```
+
+</CodeTabs>
+
+Untuk panduan migrasi lengkap — termasuk dukungan pustaka klien, deteksi versi
+streaming (Geyser/gRPC), dan perilaku simulasi — lihat
+[halaman upgrade Transaction Format v1](https://solana.com/upgrades/larger-transaction-sizes).
+Contoh yang dapat dijalankan dalam TypeScript, Rust, Python, dan Go tersedia di
+[solana-foundation/transaction-v1-examples](https://github.com/solana-foundation/transaction-v1-examples).

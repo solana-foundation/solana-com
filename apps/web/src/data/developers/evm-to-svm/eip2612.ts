@@ -1,31 +1,3 @@
-const CONTENT_BLOCK_STYLE_KEYS = {
-  spacing: "spacing",
-  spacingWithMargins: "spacingWithMargins",
-  spacingNoBottom: "spacingNoBottom",
-  smallOnly: "smallOnly",
-  cardDeckWrapper: "cardDeckWrapper",
-} as const;
-
-export const BLOCK_STYLES = {
-  [CONTENT_BLOCK_STYLE_KEYS.spacing]: {
-    large: { paddingTop: "20px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.spacingWithMargins]: {
-    large: { paddingTop: "20px", marginTop: "auto", marginBottom: "auto" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.spacingNoBottom]: {
-    large: { paddingTop: "20px", paddingBottom: "0px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.smallOnly]: {
-    large: { display: "none" },
-    medium: { display: "none" },
-    small: { display: "flex" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
-    large: { paddingTop: "0px", marginTop: "-3px" },
-  },
-} as const;
-
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2Fb9c4b6c6ccaf45b5a3f9c03db4708ecc.png",

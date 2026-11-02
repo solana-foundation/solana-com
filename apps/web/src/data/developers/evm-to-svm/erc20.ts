@@ -1,36 +1,3 @@
-const CONTENT_BLOCK_STYLE_KEYS = {
-  spacing: "spacing",
-  spacingWithMargins: "spacingWithMargins",
-  tableWrapper: "tableWrapper",
-  smallOnly: "smallOnly",
-  cardDeckWrapper: "cardDeckWrapper",
-} as const;
-
-export const BLOCK_STYLES = {
-  [CONTENT_BLOCK_STYLE_KEYS.spacing]: {
-    large: { paddingTop: "20px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.spacingWithMargins]: {
-    large: { paddingTop: "20px", marginTop: "auto", marginBottom: "auto" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.tableWrapper]: {
-    large: {
-      paddingRight: "50px",
-      paddingLeft: "50px",
-      paddingTop: "20px",
-    },
-    small: { paddingRight: "0px", paddingLeft: "0px" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.smallOnly]: {
-    large: { display: "none" },
-    medium: { display: "none" },
-    small: { display: "flex" },
-  },
-  [CONTENT_BLOCK_STYLE_KEYS.cardDeckWrapper]: {
-    large: { paddingTop: "0px", marginTop: "-3px" },
-  },
-} as const;
-
 export const META = {
   seoImage:
     "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F002f07f3d6134176a2168e7209972e98.png",

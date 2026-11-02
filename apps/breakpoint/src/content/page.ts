@@ -228,6 +228,35 @@ export type BreakpointMessages = {
         save: string;
       };
     };
+    voting: {
+      metadataDescription: string;
+      heroCta: string;
+      viewAwards: string;
+      heroDescription: string;
+      eyebrow: string;
+      headline: string;
+      description: string;
+      status: {
+        finalistsPending: string;
+        notStarted: string;
+        open: string;
+        closed: string;
+      };
+      progress: string;
+      voted: string;
+      submitted: string;
+      finalVote: string;
+      share: string;
+      chooseFinalist: string;
+      submit: string;
+      submitting: string;
+      shareText: string;
+      errors: {
+        load: string;
+        save: string;
+        alreadyVoted: string;
+      };
+    };
     categories: Record<
       string,
       {

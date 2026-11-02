@@ -1,55 +1,34 @@
 # #region transfer
-#!/usr/bin/env python3
-"""
-Solana Cookbook - How to Send SOL
-"""
-
-import asyncio
-from solana.rpc.async_api import AsyncClient
+from solana.rpc.api import Client
+from solana.rpc.commitment import Confirmed
 from solders.keypair import Keypair
-from solders.system_program import transfer, TransferParams
-from solders.transaction import VersionedTransaction
-from solders.message import MessageV0
-# from solders.address_lookup_table import AddressLookupTableAccount
+from solders.message import Message
+from solders.system_program import TransferParams, transfer
+from solders.transaction import Transaction
 
-async def main():
-    rpc = AsyncClient("http://localhost:8899")
+LAMPORTS_PER_SOL = 1_000_000_000
 
-    sender = Keypair()
-    recipient = Keypair()
+client = Client("http://localhost:8899", commitment=Confirmed)
 
-    LAMPORTS_PER_SOL = 1_000_000_000
-    transfer_amount = LAMPORTS_PER_SOL // 100  # 0.01 SOL
+sender = Keypair()
+recipient = Keypair()
 
-    async with rpc:
-        # Get latest blockhash
-        latest_blockhash = await rpc.get_latest_blockhash()
+airdrop = client.request_airdrop(sender.pubkey(), LAMPORTS_PER_SOL)
+client.confirm_transaction(airdrop.value)
 
-        # Create transfer instruction
-        transfer_instruction = transfer(
-            TransferParams(
-                from_pubkey=sender.pubkey(),
-                to_pubkey=recipient.pubkey(),
-                lamports=transfer_amount
-            )
-        )
+transfer_instruction = transfer(
+    TransferParams(
+        from_pubkey=sender.pubkey(),
+        to_pubkey=recipient.pubkey(),
+        lamports=LAMPORTS_PER_SOL // 100,  # 0.01 SOL
+    )
+)
 
-        # Create message
-        message = MessageV0.try_compile(
-            payer=sender.pubkey(),
-            instructions=[transfer_instruction],
-            address_lookup_table_accounts=[],
-            recent_blockhash=latest_blockhash.value.blockhash
-        )
+blockhash = client.get_latest_blockhash().value.blockhash
+transaction = Transaction(
+    [sender], Message([transfer_instruction], sender.pubkey()), blockhash
+)
 
-        # Create transaction
-        transaction = VersionedTransaction(message, [sender])
-
-        print(f"Sender: {sender.pubkey()}")
-        print(f"Recipient: {recipient.pubkey()}")
-        print(f"Transfer Amount: {transfer_amount / LAMPORTS_PER_SOL} SOL")
-        print(f"Transaction created successfully")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+signature = client.send_transaction(transaction).value
+print("Transaction Signature:", signature)
 # #endregion transfer

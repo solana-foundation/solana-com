@@ -107,4 +107,4 @@ or merchant that accepts Solana Pay!
 
 If you’re a merchant who wants to start accepting Solana Pay, you’ll need the
 help of a developer, but it’s very easy — and free — to set up.
-[Learn more here.](https://solanapay.com/)
+[Learn more here.](/docs/tools/solana-pay)

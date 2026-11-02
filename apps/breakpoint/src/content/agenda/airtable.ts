@@ -171,7 +171,7 @@ function fieldList(
 function parseSpeakerText(
   value: string,
 ): Pick<AgendaSpeaker, "company" | "name"> {
-  const cleanValue = value.replace(/^[^A-Za-z0-9]+/, "").trim();
+  const cleanValue = value.replace(/^[^\p{L}\p{N}]+/u, "").trim();
   const parenMatch = cleanValue.match(/^(.+?)\s*\((.+)\)$/);
   if (parenMatch?.[1] && parenMatch[2]) {
     return {
@@ -400,6 +400,17 @@ function normalizeAgendaRecord(
       asDisplayString,
     ),
     duration,
+    format: getField(
+      fields,
+      [
+        "Format_Cleaned",
+        "Format Cleaned",
+        "Format",
+        "Session Format",
+        "Session Type",
+      ],
+      asDisplayString,
+    ),
     id: record.id,
     location: getField(
       fields,
@@ -407,6 +418,10 @@ function normalizeAgendaRecord(
       asDisplayString,
     ),
     sortOrder,
+    speakerIds: [
+      ...fieldList(fields, ["Onboarded Speakers"]),
+      ...fieldList(fields, ["Moderator"]),
+    ].filter(isLinkedRecordId),
     speakers: buildSpeakers(fields),
     tag,
     time: time ?? "TBD",

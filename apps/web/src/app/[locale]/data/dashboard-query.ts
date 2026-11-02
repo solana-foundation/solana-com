@@ -1,5 +1,6 @@
 import {
-  rangeOptions,
+  chartDefinitions,
+  type ChartDefinition,
   type DashboardTab,
   type ProviderName,
   type RpcLatencyInfra,
@@ -7,7 +8,7 @@ import {
   type RpcLatencyRegion,
   type RpcTimeframe,
 } from "./data-config";
-import { defaultRangeDays } from "./dashboard-constants";
+import { type DashboardRange } from "./date-range";
 import { getProviderScope, updateProvidersParam } from "./dashboard-providers";
 import type { QueryUpdates } from "./dashboard-types";
 
@@ -28,6 +29,14 @@ export function applyQueryUpdates(
 
   if (updates.days) {
     params.set("days", String(updates.days));
+    params.delete("from");
+    params.delete("to");
+  }
+
+  if (updates.range) {
+    params.set("from", updates.range.from);
+    params.set("to", updates.range.to);
+    params.delete("days");
   }
 
   if (updates.infra) {
@@ -57,23 +66,78 @@ export function getDashboardUrl(pathname: string, params: URLSearchParams) {
   return queryString ? `${pathname}?${queryString}` : pathname;
 }
 
+/**
+ * Chart links cover the warehouse-data tabs only; the RPC and Tx Senders tabs
+ * are live infrastructure views with their own filters and data sources.
+ */
+export function canLinkToChart(chart: ChartDefinition) {
+  return getProviderScope(chart.tab) === "warehouse";
+}
+
+/** The chart a `#chart-id` link points at, if the hash names a linkable chart. */
+export function getLinkedChart(hash: string): ChartDefinition | undefined {
+  // Chart IDs are plain a-z, 0-9, and "-", so the hash is compared as-is.
+  // Decoding it would throw on malformed input like "#%E0%A4%A".
+  const chartId = hash.replace(/^#/, "");
+
+  return chartId
+    ? (chartDefinitions as readonly ChartDefinition[]).find(
+        (chart) => chart.id === chartId && canLinkToChart(chart),
+      )
+    : undefined;
+}
+
+// Dashboard settings a shared chart link carries over from the sender's URL.
+// Anything else in the URL (e.g. utm_* campaign tags) is left out.
+const sharedLinkParams = ["days", "from", "to", "providers"] as const;
+
+/**
+ * The shareable link for one chart: its tab, the sender's current range and
+ * providers, plus a `#chart-id` anchor.
+ */
+export function getChartLinkUrl(
+  chart: ChartDefinition,
+  origin: string,
+  pathname: string,
+  search: string,
+) {
+  const current = new URLSearchParams(search);
+  const params = new URLSearchParams({ tab: chart.tab });
+
+  for (const key of sharedLinkParams) {
+    const value = current.get(key);
+
+    if (value !== null) {
+      params.set(key, value);
+    }
+  }
+
+  return `${origin}${pathname}?${params.toString()}#${chart.id}`;
+}
+
 export function getDashboardDataUrl({
   activeTab,
+  range,
   rpcInfra,
-  rangeDays,
   rpcMethod,
   rpcRegion,
   rpcTimeframe,
 }: {
   activeTab: DashboardTab;
+  range: DashboardRange;
   rpcInfra: RpcLatencyInfra;
-  rangeDays: number;
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
   rpcTimeframe: RpcTimeframe;
 }) {
   if (activeTab !== "rpc" && activeTab !== "senders") {
-    return `/api/databricks/data?days=${rangeDays}`;
+    const params = new URLSearchParams(
+      range.kind === "custom"
+        ? { from: range.from, to: range.to }
+        : { days: String(range.days) },
+    );
+
+    return `/api/databricks/data?${params.toString()}`;
   }
 
   if (activeTab === "senders") {
@@ -99,15 +163,9 @@ export function parseTab(value: string | null): DashboardTab {
     value === "stablecoins" ||
     value === "defi" ||
     value === "lending" ||
+    value === "perps" ||
     value === "rpc" ||
     value === "senders"
     ? value
     : "overview";
-}
-
-export function parseRangeDays(value: string | null) {
-  const parsed = value ? Number(value) : defaultRangeDays;
-  return rangeOptions.some((option) => option.value === parsed)
-    ? parsed
-    : defaultRangeDays;
 }

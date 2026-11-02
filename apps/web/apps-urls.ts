@@ -63,8 +63,15 @@ export const BREAKPOINT_APP_URL =
     ? vercelBreakpointUrl
     : developmentBreakpointUrl);
 
+// Breakpoint badge site (BP26 badges): a Bun server on Google Cloud Run, not a
+// Vercel project. It serves its site and API under /breakpoint/badge itself.
+export const BREAKPOINT_BADGE_URL =
+  process.env.NEXT_PUBLIC_BREAKPOINT_BADGE_URL ||
+  "https://bp26-badges-122982327899.us-central1.run.app";
+
 console.log("MEDIA_APP_URL", MEDIA_APP_URL);
 console.log("DOCS_APP_URL", DOCS_APP_URL);
 console.log("templatesAppUrl", templatesAppUrl);
 console.log("ACCELERATE_APP_URL", ACCELERATE_APP_URL);
 console.log("BREAKPOINT_APP_URL", BREAKPOINT_APP_URL);
+console.log("BREAKPOINT_BADGE_URL", BREAKPOINT_BADGE_URL);
