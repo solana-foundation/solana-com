@@ -11,7 +11,7 @@ import Carousel, {
 } from "@/component-library/carousel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
-  MetricSourceNote,
+  MetricSourcesFootnote,
   type MetricSourceNoteProps,
 } from "@/component-library/metric-source-note";
 
@@ -26,8 +26,8 @@ export type Project = {
   statValue?: string;
   statSource?: string;
   statSourceNote?: string;
-  /** Registry source; replaces statSource and statSourceNote when set. */
-  source?: Omit<MetricSourceNoteProps, "className">;
+  /** Registry source, listed in the section's Sources footnote. */
+  source?: MetricSourceNoteProps;
 };
 
 type EcoProjectsProps = {
@@ -205,28 +205,21 @@ export const Projects = ({
                             <div className="text-base md:text-lg xl:text-xl  tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.375] md:leading-[1.33] xl:leading-[1.4]">
                               {t(`${base}.statLabel`)}
                             </div>
-                            {project.source ? (
-                              <MetricSourceNote
-                                {...project.source}
-                                className="mt-3"
-                              />
-                            ) : (
-                              project.statSource && (
-                                <div className="mt-3 text-xs text-white/50">
-                                  <a
-                                    href={project.statSource}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="underline underline-offset-4 decoration-white/30 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                                    aria-label={`${t(`${translationBase}.sourceLabel`)}: ${t(`${base}.name`)}`}
-                                  >
-                                    {t(`${translationBase}.sourceLabel`)} ↗
-                                  </a>
-                                  {project.statSourceNote && (
-                                    <span> · {project.statSourceNote}</span>
-                                  )}
-                                </div>
-                              )
+                            {project.statSource && (
+                              <div className="mt-3 text-xs text-white/50">
+                                <a
+                                  href={project.statSource}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline underline-offset-4 decoration-white/30 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                                  aria-label={`${t(`${translationBase}.sourceLabel`)}: ${t(`${base}.name`)}`}
+                                >
+                                  {t(`${translationBase}.sourceLabel`)} ↗
+                                </a>
+                                {project.statSourceNote && (
+                                  <span> · {project.statSourceNote}</span>
+                                )}
+                              </div>
                             )}
                           </>
                         )}
@@ -236,6 +229,21 @@ export const Projects = ({
                 );
               })}
             </Carousel>
+            {!hideStats && (
+              <MetricSourcesFootnote
+                className="mt-4"
+                items={projects.flatMap((project) =>
+                  project.source
+                    ? [
+                        {
+                          label: `${t(`${translationBase}.${project.key}.name`)}: ${t(`${translationBase}.${project.key}.statLabel`)}`,
+                          source: project.source,
+                        },
+                      ]
+                    : [],
+                )}
+              />
+            )}
           </div>
           {logos && logos.length > 0 && (
             <div className="mt-[32px] xl:mt-[64px]">

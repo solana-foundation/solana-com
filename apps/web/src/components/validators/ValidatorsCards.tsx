@@ -6,7 +6,7 @@ import {
   SAMPLE_HISTORY_HOURS,
   useTransactionStats,
 } from "../../hooks/useTransactionStats";
-import { MetricSourceNote } from "@/component-library/metric-source-note";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
 import type { DisplayMetric } from "@/lib/metrics/present";
 
 const RPC_SOURCE = {
@@ -66,16 +66,20 @@ const ValidatorsCards = ({ visible, fallback }: ValidatorsCardsProps) => {
                   )}
                 </div>
                 <p className="text-black m-0">{card.label}</p>
-                <MetricSourceNote
-                  className="text-black"
-                  {...(card.live !== null
-                    ? { ...RPC_SOURCE, period: liveLabel, status: "live" }
-                    : card.fallback.source)}
-                />
               </RoundedDepthCard>
             </div>
           ))}
         </div>
+        <MetricSourcesFootnote
+          className="relative z-[1] mt-10 text-white"
+          items={cards.map((card) => ({
+            label: card.label,
+            source:
+              card.live !== null
+                ? { ...RPC_SOURCE, period: liveLabel, status: "live" }
+                : card.fallback.source,
+          }))}
+        />
       </div>
     </section>
   );

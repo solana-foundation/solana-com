@@ -11,44 +11,74 @@ export type MetricSourceNoteProps = {
   period: string;
   /** Registry resolution status, exposed for QA (live, stale, fallback, snapshot). */
   status?: string;
-  className?: string;
+};
+
+export type MetricSourcesFootnoteItem = {
+  /** The stat label the source belongs to. */
+  label: string;
+  source: MetricSourceNoteProps;
 };
 
 const SITE_ORIGIN = "https://solana.com";
 
-/**
- * One-line "Source" control beneath a published metric. The popover holds the
- * reporting period and a link to the source.
- */
-export function MetricSourceNote({
+const LINK_CLASS_NAME =
+  "!text-zinc-50 underline decoration-current/40 underline-offset-2 hover:decoration-current";
+
+function SourceLink({
   name,
   href,
-  period,
-  status,
-  className,
-}: MetricSourceNoteProps) {
-  const t = useTranslations("metrics");
+}: Pick<MetricSourceNoteProps, "name" | "href">) {
   const internalHref = href.startsWith(`${SITE_ORIGIN}/`)
     ? href.slice(SITE_ORIGIN.length)
     : href.startsWith("/")
       ? href
       : undefined;
-  const linkClassName =
-    "font-medium !text-zinc-50 underline decoration-current/40 underline-offset-2 hover:decoration-current";
+
+  if (internalHref) {
+    return (
+      <Link href={internalHref} className={LINK_CLASS_NAME}>
+        {name}
+      </Link>
+    );
+  }
+  return (
+    <a
+      href={href}
+      className={LINK_CLASS_NAME}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {name}
+      <span aria-hidden="true"> ↗</span>
+    </a>
+  );
+}
+
+/**
+ * One "Sources" footnote for a group of stats. The popover lists each stat's
+ * source link and reporting period.
+ */
+export function MetricSourcesFootnote({
+  items,
+  className,
+}: {
+  items: MetricSourcesFootnoteItem[];
+  className?: string;
+}) {
+  const t = useTranslations("metrics");
+  if (items.length === 0) return null;
 
   return (
     <Popover.Root>
       <Popover.Trigger
-        data-metric-status={status}
-        aria-label={`${t("source")}: ${name}, ${period}`}
         className={cn(
-          "mt-2 inline-flex items-center gap-1 p-0 border-0 bg-transparent text-inherit cursor-pointer",
+          "inline-flex items-center gap-1 p-0 border-0 bg-transparent text-inherit cursor-pointer",
           "text-[12px] md:text-[13px] leading-[1.4] font-normal normal-case opacity-60",
           "hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100",
           className,
         )}
       >
-        {t("source")}
+        {t("sources")}
         <svg
           aria-hidden="true"
           viewBox="0 0 16 16"
@@ -63,30 +93,24 @@ export function MetricSourceNote({
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          side="bottom"
+          side="top"
           align="start"
           sideOffset={6}
           collisionPadding={16}
-          className="z-50 max-w-[calc(100vw-32px)] rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-[13px] leading-[1.4] text-zinc-50 shadow-md"
+          className="z-50 w-[320px] max-w-[calc(100vw-32px)] rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3 text-[13px] leading-[1.4] text-zinc-50 shadow-md"
         >
-          <p className="m-0">
-            {internalHref ? (
-              <Link href={internalHref} className={linkClassName}>
-                {name}
-              </Link>
-            ) : (
-              <a
-                href={href}
-                className={linkClassName}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {name}
-                <span aria-hidden="true"> ↗</span>
-              </a>
-            )}
-          </p>
-          <p className="m-0 mt-0.5 text-zinc-400">{period}</p>
+          <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
+            {items.map(({ label, source }) => (
+              <li key={label} data-metric-status={source.status}>
+                <p className="m-0 font-medium">{label}</p>
+                <p className="m-0 text-zinc-400">
+                  <SourceLink name={source.name} href={source.href} />
+                  <span aria-hidden="true"> · </span>
+                  {source.period}
+                </p>
+              </li>
+            ))}
+          </ul>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
