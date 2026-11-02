@@ -20,7 +20,7 @@ export function handleFromInput(value: string): HereForHandle | null {
   return normalizeHandle(text);
 }
 
-/** One to three different handles: a first pick saves, the rest can follow. */
+/** One to ten different handles: a first pick saves, the rest can follow. */
 export function validateAdds(handle: HereForHandle, values: unknown) {
   if (
     !Array.isArray(values) ||
