@@ -1,4 +1,8 @@
-import { rpcTimeframeOptions } from "./data-config";
+import {
+  normalizeRpcRegionParam,
+  rpcRegionOptions,
+  rpcTimeframeOptions,
+} from "./data-config";
 
 export const grpcTimeframeOptions = rpcTimeframeOptions.filter(
   (option) => option.durationSeconds <= 30 * 24 * 60 * 60,
@@ -86,13 +90,47 @@ export function isGrpcFiltersResponse(
   );
 }
 
-export function getGrpcCloudProviders(
+/** Regions the selected cloud provider runs in; every region for "all". */
+export function getGrpcRegions(
   filters: GrpcFiltersResponse | undefined,
-  region: string,
+  cloudProvider: string,
 ): string[] {
   if (!filters) return [];
-  if (region === "all") return filters.cloudProviders;
-  return Object.hasOwn(filters.cloudProvidersByRegion, region)
-    ? filters.cloudProvidersByRegion[region]
-    : [];
+  if (cloudProvider === "all") return filters.regions;
+  return filters.regions.filter(
+    (region) =>
+      Object.hasOwn(filters.cloudProvidersByRegion, region) &&
+      filters.cloudProvidersByRegion[region].includes(cloudProvider),
+  );
+}
+
+// Benchmark hosts name the same metro differently (e.g. Latitude "ams", TSW
+// "ams3"), so the region filter uses the RPC tab's canonical colos.
+export function normalizeGrpcRegion(value: string) {
+  const region = value.toLowerCase();
+  return normalizeRpcRegionParam(region) ?? region;
+}
+
+export function parseGrpcRegion(value: string | null | undefined) {
+  const region = value?.trim().slice(0, 128);
+  return region && region !== "all" ? normalizeGrpcRegion(region) : "all";
+}
+
+export function getGrpcRegionLabel(value: string) {
+  return (
+    rpcRegionOptions.find((option) => option.value === value)?.label ??
+    value.toUpperCase()
+  );
+}
+
+/** Canonical colos in the RPC tab's geographic order, unknown regions last. */
+export function sortGrpcRegions(regions: Iterable<string>) {
+  const order = new Map<string, number>(
+    rpcRegionOptions.map(({ value }, index) => [value, index]),
+  );
+  return [...new Set(regions)].sort(
+    (a, b) =>
+      (order.get(a) ?? order.size) - (order.get(b) ?? order.size) ||
+      a.localeCompare(b),
+  );
 }

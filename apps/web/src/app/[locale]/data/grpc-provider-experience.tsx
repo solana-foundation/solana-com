@@ -25,7 +25,8 @@ import { FilterSelect } from "./dashboard-controls";
 import { getProviderColor, toggleProvider } from "./dashboard-providers";
 import {
   grpcChartMetrics,
-  getGrpcCloudProviders,
+  getGrpcRegionLabel,
+  getGrpcRegions,
   grpcStreamOptions,
   grpcCommitmentOptions,
   type GrpcFiltersResponse,
@@ -89,7 +90,13 @@ export function GrpcProviderExperience({
   const [direction, setDirection] = useState<"ascending" | "descending">(
     "ascending",
   );
-  const regions = filters?.regions ?? (region === "all" ? [] : [region]);
+  const regions = filters
+    ? getGrpcRegions(filters, cloudProvider)
+    : region === "all"
+      ? []
+      : [region];
+  const cloudProviders =
+    filters?.cloudProviders ?? (cloudProvider === "all" ? [] : [cloudProvider]);
   const stepSeconds = getRpcTimeframeOption(timeframe).stepSeconds;
   const items = useMemo(
     () =>
@@ -227,27 +234,30 @@ export function GrpcProviderExperience({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-nd-border-light px-4 py-4 md:px-6 xl:px-8">
           <div className="flex flex-wrap items-center gap-3">
             <FilterSelect
-              ariaLabel={t("controls.grpcRegionAriaLabel")}
-              label={t("controls.rpcRegionLabel")}
-              options={[
-                { label: t("controls.grpcAllRegions"), value: "all" },
-                ...regions.map((value) => ({ label: value, value })),
-              ]}
-              value={region}
-              onChange={onRegionChange}
-            />
-            <FilterSelect
               ariaLabel={t("controls.grpcCloudProviderAriaLabel")}
               label={t("controls.grpcCloudProviderLabel")}
               options={[
                 { label: t("controls.grpcAllCloudProviders"), value: "all" },
-                ...getGrpcCloudProviders(filters, region).map((value) => ({
+                ...cloudProviders.map((value) => ({
                   label: value,
                   value,
                 })),
               ]}
               value={cloudProvider}
               onChange={onCloudProviderChange}
+            />
+            <FilterSelect
+              ariaLabel={t("controls.grpcRegionAriaLabel")}
+              label={t("controls.rpcRegionLabel")}
+              options={[
+                { label: t("controls.grpcAllRegions"), value: "all" },
+                ...regions.map((value) => ({
+                  label: getGrpcRegionLabel(value),
+                  value,
+                })),
+              ]}
+              value={region}
+              onChange={onRegionChange}
             />
             <FilterSelect
               ariaLabel={t("controls.grpcStreamAriaLabel")}
@@ -553,7 +563,13 @@ export function GrpcProviderExperience({
                 ariaLabel={
                   percentile === "Missed Updates"
                     ? t("grpcExperience.missedUpdatesChartTitle")
-                    : t("grpcExperience.chartAriaLabel", { percentile, region })
+                    : t("grpcExperience.chartAriaLabel", {
+                        percentile,
+                        region:
+                          region === "all"
+                            ? t("controls.grpcAllRegions")
+                            : getGrpcRegionLabel(region),
+                      })
                 }
                 height={360}
                 interactiveLegend={false}

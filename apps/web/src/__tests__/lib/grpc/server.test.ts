@@ -10,7 +10,7 @@ import {
 import {
   grpcTimeframeOptions,
   isGrpcFiltersResponse,
-  getGrpcCloudProviders,
+  getGrpcRegions,
 } from "@/app/[locale]/data/grpc-config";
 import {
   applyQueryUpdates,
@@ -132,7 +132,9 @@ describe("gRPC benchmark", () => {
     expect(url.searchParams.get("param_end")).toBe(
       String(Date.parse("2026-10-26T17:30:00Z") / 1000),
     );
-    expect(url.searchParams.get("param_region")).toBe("FRA");
+    expect(url.searchParams.get("param_regions")).toBe(
+      "['eu-central-1','europe-west3','fra','fra2']",
+    );
     expect(url.toString()).not.toContain(config.password);
     expect(init.body).toContain("GROUP BY GROUPING SETS");
     expect(init.body).toContain("quantilesTDigestIfMerge");
@@ -403,8 +405,8 @@ describe("gRPC benchmark", () => {
       now,
     );
     const [url, init] = fetchMock.mock.calls[0];
-    expect(url.searchParams.get("param_region")).toBe(region);
-    expect(init.body).not.toContain(region);
+    expect(url.searchParams.get("param_regions")).toBe("['ewr\\' or 1=1 --']");
+    expect(init.body).not.toContain("1=1");
     const query = buildGrpcDataQuery();
     expect(query).toContain("argMax(commits.revision, commits.generation)");
     expect(query).toContain(
@@ -436,6 +438,13 @@ describe("gRPC benchmark", () => {
                 data_type: "transaction",
                 commitment: "processed",
               },
+              {
+                region: "fra2",
+                cloud_provider: "Teraswitch",
+                provider: "helius",
+                data_type: "transaction",
+                commitment: "processed",
+              },
             ],
           }),
         ),
@@ -443,9 +452,12 @@ describe("gRPC benchmark", () => {
     );
     const filters = await getGrpcFilters(config);
     expect(filters).toEqual({
-      regions: ["EWR", "FRA"],
+      regions: ["ewr", "fra"],
       cloudProviders: ["AWS", "Teraswitch"],
-      cloudProvidersByRegion: { EWR: ["Teraswitch"], FRA: ["AWS"] },
+      cloudProvidersByRegion: {
+        ewr: ["Teraswitch"],
+        fra: ["AWS", "Teraswitch"],
+      },
       providers: ["Alchemy", "Helius"],
       streams: ["slot", "transaction"],
       commitments: ["finalized", "processed"],
@@ -458,13 +470,16 @@ describe("gRPC benchmark", () => {
         cloudProvidersByRegion: { EWR: [42] },
       }),
     ).toBe(false);
-    expect(getGrpcCloudProviders(filters, "EWR")).toEqual(["Teraswitch"]);
-    expect(getGrpcCloudProviders(filters, "all")).toEqual([
-      "AWS",
-      "Teraswitch",
-    ]);
-    expect(getGrpcCloudProviders(filters, "missing")).toEqual([]);
-    expect(getGrpcCloudProviders(filters, "__proto__")).toEqual([]);
+    expect(getGrpcRegions(filters, "Teraswitch")).toEqual(["ewr", "fra"]);
+    expect(getGrpcRegions(filters, "AWS")).toEqual(["fra"]);
+    expect(getGrpcRegions(filters, "all")).toEqual(["ewr", "fra"]);
+    expect(getGrpcRegions(filters, "missing")).toEqual([]);
+    expect(
+      getGrpcRegions(
+        { ...filters, regions: ["__proto__"], cloudProvidersByRegion: {} },
+        "AWS",
+      ),
+    ).toEqual([]);
   });
 
   it("applies the cloud parameter to latency and connection metrics", async () => {

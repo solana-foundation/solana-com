@@ -71,7 +71,7 @@ import {
   type GrpcFiltersResponse,
   grpcCommitmentOptions,
   grpcStreamOptions,
-  getGrpcCloudProviders,
+  getGrpcRegions,
   grpcMetricNames,
 } from "./grpc-config";
 import type { QueryUpdates } from "./dashboard-types";
@@ -201,20 +201,20 @@ export function SolanaDataDashboard() {
     if (!isGrpcTab || !grpcFilters) return;
     const updates: QueryUpdates = {};
     if (
-      grpcRegion !== "all" &&
-      !grpcFilters.regions.includes(grpcRegion) &&
-      grpcFilters.regions.length
-    ) {
-      updates.grpcRegion = "all";
-    }
-    if (
       grpcCloudProvider !== "all" &&
-      !getGrpcCloudProviders(
-        grpcFilters,
-        updates.grpcRegion ?? grpcRegion,
-      ).includes(grpcCloudProvider)
+      !grpcFilters.cloudProviders.includes(grpcCloudProvider) &&
+      grpcFilters.cloudProviders.length
     ) {
       updates.grpcCloudProvider = "all";
+    }
+    if (
+      grpcRegion !== "all" &&
+      !getGrpcRegions(
+        grpcFilters,
+        updates.grpcCloudProvider ?? grpcCloudProvider,
+      ).includes(grpcRegion)
+    ) {
+      updates.grpcRegion = "all";
     }
     if (grpcStream !== "all" && !grpcFilters.streams.includes(grpcStream)) {
       updates.grpcStream =
@@ -439,7 +439,17 @@ export function SolanaDataDashboard() {
               isRefreshing={isRefreshing}
               onRegionChange={(region) => updateQuery({ grpcRegion: region })}
               onCloudProviderChange={(cloudProvider) =>
-                updateQuery({ grpcCloudProvider: cloudProvider })
+                updateQuery({
+                  grpcCloudProvider: cloudProvider,
+                  // Drop a region the newly selected cloud provider doesn't run in.
+                  ...(grpcRegion !== "all" &&
+                  grpcFilters &&
+                  !getGrpcRegions(grpcFilters, cloudProvider).includes(
+                    grpcRegion,
+                  )
+                    ? { grpcRegion: "all" }
+                    : {}),
+                })
               }
               onStreamChange={(stream) => updateQuery({ grpcStream: stream })}
               onCommitmentChange={(commitment) =>

@@ -259,6 +259,18 @@ export function normalizeRpcInfraParam(value: string | null | undefined) {
   return value ? (rpcInfraParamAliases[value] ?? value) : value;
 }
 
+/** Every raw region label any infra emits for a canonical colo, plus the colo itself. */
+export function getRegionSourceValues(value: string) {
+  const values = new Set([value]);
+  for (const sourceValues of Object.values(rpcRegionSourceValuesByInfra)) {
+    for (const sourceValue of sourceValues[value as RpcLatencyRegion] ?? [])
+      values.add(sourceValue);
+  }
+  for (const [alias, region] of Object.entries(rpcRegionParamAliases))
+    if (region === value) values.add(alias);
+  return [...values].sort();
+}
+
 export function getRpcRegionSourceValue(
   infra: RpcLatencyInfra,
   value: RpcLatencyRegion,

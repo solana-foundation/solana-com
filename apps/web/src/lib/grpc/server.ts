@@ -1,14 +1,18 @@
 import "server-only";
 
 import {
+  getRegionSourceValues,
   getRpcTimeframeOption,
   normalizeProviderName,
   type DataApiResponse,
   type MetricRow,
 } from "@/app/[locale]/data/data-config";
 import {
+  normalizeGrpcRegion,
   parseGrpcCommitment,
+  parseGrpcRegion,
   parseGrpcStream,
+  sortGrpcRegions,
   parseGrpcTimeframe,
   type GrpcFiltersResponse,
 } from "@/app/[locale]/data/grpc-config";
@@ -43,7 +47,7 @@ export function getGrpcConfig(): GrpcConfig | undefined {
 
 export function parseGrpcQueryOptions(params: URLSearchParams) {
   return {
-    region: params.get("region")?.trim().slice(0, 128) || "all",
+    region: parseGrpcRegion(params.get("region")),
     cloudProvider: params.get("cloud")?.trim().slice(0, 128) || "all",
     stream: parseGrpcStream(params.get("stream")),
     commitment: parseGrpcCommitment(params.get("commitment")),
@@ -72,6 +76,20 @@ export function committedGrpcMinutes(
     WHERE c.revision >= d.revision AND d.revision >= d.expected AND d.incomplete = 0`;
 }
 
+// A canonical colo matches every raw label the benchmark hosts emit for it.
+const grpcRegionFilter =
+  "(empty({regions:Array(String)}) OR has({regions:Array(String)}, lower(region)))";
+
+function quoteClickHouseString(value: string) {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+}
+
+export function getGrpcRegionParam(region: string) {
+  const values =
+    region === "all" ? [] : getRegionSourceValues(normalizeGrpcRegion(region));
+  return `[${values.map(quoteClickHouseString).join(",")}]`;
+}
+
 const grpcCloudFilter =
   "({cloudProvider:String} = 'all' OR cloud_provider = {cloudProvider:String})";
 
@@ -84,7 +102,7 @@ const grpcCommitmentFilter =
 export function buildGrpcDataQuery() {
   const timeFilter =
     "bucket >= toDateTime({start:UInt32}, 'UTC') AND bucket < toDateTime({end:UInt32}, 'UTC')";
-  const locationFilter = `({region:String} = 'all' OR region = {region:String}) AND ${grpcCloudFilter}`;
+  const locationFilter = `${grpcRegionFilter} AND ${grpcCloudFilter}`;
   return `WITH
     (SELECT groupArray(tuple(region, cloud_provider, bucket, generation))
      FROM (${committedGrpcMinutes(timeFilter, locationFilter)})) AS committed,
@@ -145,7 +163,7 @@ export async function getGrpcMetricRows(
       start: end - timeframe.durationSeconds,
       end,
       step: timeframe.stepSeconds,
-      region: options.region,
+      regions: getGrpcRegionParam(options.region),
       cloudProvider: options.cloudProvider,
       stream: options.stream,
       commitment: options.commitment,
@@ -288,7 +306,7 @@ export function buildGrpcConnectionQuery() {
   const keys =
     "region, cloud_provider, data_type, commitment, subscription_id, provider";
   const local = "('arrival queue full', 'control queue full')";
-  const filters = `({region:String} = 'all' OR region = {region:String})
+  const filters = `${grpcRegionFilter}
         AND ${grpcCloudFilter}
         AND ({stream:String} = 'all' OR data_type = {stream:String})
         AND ${grpcCommitmentFilter}`;
@@ -374,7 +392,7 @@ async function getGrpcConnectionMetrics(
     start: end - getRpcTimeframeOption(options.timeframe).durationSeconds,
     end,
     step: getRpcTimeframeOption(options.timeframe).stepSeconds,
-    region: options.region,
+    regions: getGrpcRegionParam(options.region),
     cloudProvider: options.cloudProvider,
     stream: options.stream,
     commitment: options.commitment,
@@ -421,19 +439,21 @@ export async function getGrpcFilters(
   );
   const unique = (key: keyof (typeof rows)[number]) =>
     [...new Set(rows.map((row) => row[key]))].sort();
+  const cloudProvidersByRegion = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const region = normalizeGrpcRegion(row.region);
+    const cloudProviders = cloudProvidersByRegion.get(region) ?? new Set();
+    cloudProviders.add(row.cloud_provider);
+    cloudProvidersByRegion.set(region, cloudProviders);
+  }
+  const regions = sortGrpcRegions(cloudProvidersByRegion.keys());
   return {
-    regions: unique("region"),
+    regions,
     cloudProviders: unique("cloud_provider"),
     cloudProvidersByRegion: Object.fromEntries(
-      unique("region").map((region) => [
+      regions.map((region) => [
         region,
-        [
-          ...new Set(
-            rows
-              .filter((row) => row.region === region)
-              .map((row) => row.cloud_provider),
-          ),
-        ].sort(),
+        [...cloudProvidersByRegion.get(region)!].sort(),
       ]),
     ),
     providers: unique("provider").map(normalizeProviderName),

@@ -18,6 +18,7 @@ import {
 import { getUtcToday, parseDashboardRange } from "./date-range";
 import type { QueryUpdates } from "./dashboard-types";
 import {
+  parseGrpcRegion,
   parseGrpcStream,
   parseGrpcCommitment,
   parseGrpcTimeframe,
@@ -66,7 +67,7 @@ export function useDashboardQueryParams() {
       parseTab(searchParams.get("tab")) === "grpc"
         ? parseGrpcTimeframe(searchParams.get("timeframe"))
         : parseRpcTimeframe(searchParams.get("timeframe")),
-    grpcRegion: searchParams.get("region") || "all",
+    grpcRegion: parseGrpcRegion(searchParams.get("region")),
     grpcCloudProvider: searchParams.get("cloud") || "all",
     grpcStream: parseGrpcStream(searchParams.get("stream")),
     grpcCommitment: parseGrpcCommitment(searchParams.get("commitment")),
