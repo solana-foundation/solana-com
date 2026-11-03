@@ -20,20 +20,21 @@ export const TransactionsStat: React.FC<TransactionsStatProps> = ({
     triggerOnce: true,
   });
 
-  const { avgTps, totalTransactionCount, availableStats } = useTransactionStats(
-    {
+  const { avgTps, totalTransactionCount, availableStats, unavailable } =
+    useTransactionStats({
       visible: statsInView,
       performanceUpdateSeconds: PERF_UPDATE_SEC,
       sampleHistoryHours: SAMPLE_HISTORY_HOURS,
       getLiveTransactionCount: true,
-    },
-  );
+    });
 
   if (variant === "per-sec") {
     return (
       <span ref={statsRef}>
         {availableStats ? (
           <FormattedNumber value={avgTps} />
+        ) : unavailable ? (
+          <span>—</span>
         ) : (
           <Loader className="animate-spin" aria-hidden="true" />
         )}
@@ -48,6 +49,8 @@ export const TransactionsStat: React.FC<TransactionsStatProps> = ({
           info={{ avgTPS: avgTps, totalTransactionCount }}
           perfUpdateSec={PERF_UPDATE_SEC}
         />
+      ) : unavailable ? (
+        <span>—</span>
       ) : (
         <Loader className="animate-spin" aria-hidden="true" />
       )}

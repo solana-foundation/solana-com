@@ -43,6 +43,14 @@ export const PROJECTS = [
   },
 ];
 
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "btcfi.btc-supply",
+  "btcfi.wrapper-count",
+  "btcfi.defi-integrations",
+  "btcfi.btc-volume-share",
+] as const;
+
 export const PERFORMANCE = [
   {
     key: "0",

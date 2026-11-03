@@ -1,14 +1,34 @@
 import apps from "@/data/metrics/apps.json";
+import btcfi from "@/data/metrics/btcfi.json";
+import consumer from "@/data/metrics/consumer.json";
 import defi from "@/data/metrics/defi.json";
+import depin from "@/data/metrics/depin.json";
+import desci from "@/data/metrics/desci.json";
+import gaming from "@/data/metrics/gaming.json";
+import institutions from "@/data/metrics/institutions.json";
 import network from "@/data/metrics/network.json";
 import rwa from "@/data/metrics/rwa.json";
 import stablecoins from "@/data/metrics/stablecoins.json";
+import tokenization from "@/data/metrics/tokenization.json";
 
 /**
  * One file per key prefix in src/data/metrics/ (see its README). Add a new
  * file here when a new prefix is introduced.
  */
-const registryFiles = { apps, defi, network, rwa, stablecoins };
+const registryFiles = {
+  apps,
+  btcfi,
+  consumer,
+  defi,
+  depin,
+  desci,
+  gaming,
+  institutions,
+  network,
+  rwa,
+  stablecoins,
+  tokenization,
+};
 
 /**
  * usd ($1.5B), count (2.9M), ms (200ms), percent (value 37 → 37%), sol

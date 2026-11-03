@@ -42,7 +42,7 @@ export async function getDisplayMetrics<const K extends MetricKey>(
         key,
         {
           key,
-          value: `${display?.prefix ?? ""}${formatMetricValue(metric.value, unit, locale)}${display?.suffix ?? ""}`,
+          value: `${display?.prefix ?? ""}${formatMetricValue(metric.value, unit, locale, display?.suffix === "+")}${display?.suffix ?? ""}`,
           status: metric.status,
           source: source && {
             name: source.name,

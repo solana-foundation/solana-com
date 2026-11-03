@@ -27,13 +27,17 @@ export const useTransactionStats = ({
   getLiveTransactionCount?: boolean;
   getCurrentValidatorNodes?: boolean;
 }): {
+  /** True once a read has succeeded; values are zero until then. */
   availableStats: boolean;
+  /** True when reads keep failing and polling has stopped. */
+  unavailable: boolean;
   avgTps: number;
   totalTransactionCount: number;
   validators: number;
   superminority: number | null;
 } => {
   const [availableStats, setAvailableStats] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   const [avgTps, setAvgTps] = useState(0);
   const [totalTransactionCount, setTotalTransactionCount] = useState(0);
   const [validators, setValidators] = useState(0);
@@ -59,6 +63,7 @@ export const useTransactionStats = ({
           (Date.now() - Date.parse(pulse.fetchedAt)) / 1000,
         );
         failures = 0;
+        setUnavailable(false);
         setAvgTps(pulse.avgTps);
         setTotalTransactionCount(
           pulse.totalTransactionCount +
@@ -72,7 +77,8 @@ export const useTransactionStats = ({
         if (++failures >= MAX_CONSECUTIVE_FAILURES) {
           console.warn("Network stats unavailable; stopped polling.", error);
           clearInterval(interval);
-          setAvailableStats(true);
+          // Never present the initial zeros as real figures.
+          setUnavailable(true);
         }
       }
     };
@@ -88,6 +94,7 @@ export const useTransactionStats = ({
 
   return {
     availableStats,
+    unavailable,
     avgTps,
     totalTransactionCount,
     validators,

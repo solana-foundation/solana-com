@@ -103,13 +103,18 @@ type PossibleStatsProps = {
 };
 
 const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
-  const { avgTps, validators, totalTransactionCount, availableStats } =
-    useTransactionStats({
-      visible,
-      performanceUpdateSeconds: PERF_UPDATE_SEC,
-      sampleHistoryHours: SAMPLE_HISTORY_HOURS,
-      getLiveTransactionCount: true,
-    });
+  const {
+    avgTps,
+    validators,
+    totalTransactionCount,
+    availableStats,
+    unavailable,
+  } = useTransactionStats({
+    visible,
+    performanceUpdateSeconds: PERF_UPDATE_SEC,
+    sampleHistoryHours: SAMPLE_HISTORY_HOURS,
+    getLiveTransactionCount: true,
+  });
 
   const t = useTranslations();
 
@@ -187,6 +192,8 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                 value={
                   availableStats ? (
                     <FormattedNumber value={avgTps} />
+                  ) : unavailable ? (
+                    <span>—</span>
                   ) : (
                     <Loader className="animate-spin" aria-hidden="true" />
                   )
@@ -202,6 +209,8 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                 value={
                   availableStats ? (
                     <FormattedNumber value={validators} />
+                  ) : unavailable ? (
+                    <span>—</span>
                   ) : (
                     <Loader className="animate-spin" aria-hidden="true" />
                   )
@@ -219,6 +228,8 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                       info={{ avgTPS: avgTps, totalTransactionCount }}
                       perfUpdateSec={PERF_UPDATE_SEC}
                     />
+                  ) : unavailable ? (
+                    <span>—</span>
                   ) : (
                     <Loader className="animate-spin" aria-hidden="true" />
                   )

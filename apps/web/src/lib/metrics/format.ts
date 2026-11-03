@@ -38,9 +38,16 @@ export function formatMetricValue(
   value: number,
   unit: MetricUnit,
   locale: string,
+  /** Round down, for "at least" figures shown with "+" (11.5M+ → 11M+). */
+  roundDown = false,
 ): string {
+  const rounding: Intl.NumberFormatOptions = roundDown
+    ? { roundingMode: "floor" }
+    : {};
+
   if (unit === "ms") {
     return new Intl.NumberFormat(locale, {
+      ...rounding,
       style: "unit",
       unit: "millisecond",
       unitDisplay: "narrow",
@@ -50,6 +57,7 @@ export function formatMetricValue(
 
   if (unit === "percent") {
     return new Intl.NumberFormat(locale, {
+      ...rounding,
       style: "percent",
       maximumFractionDigits: Math.abs(value) < 10 ? 1 : 0,
     }).format(value / 100);
@@ -57,6 +65,7 @@ export function formatMetricValue(
 
   if (unit === "bytes") {
     return new Intl.NumberFormat(locale, {
+      ...rounding,
       style: "unit",
       unit: "byte",
       unitDisplay: "long",
@@ -67,6 +76,7 @@ export function formatMetricValue(
   if (unit === "sol" || unit === "wh") {
     // Small per-action amounts: two significant digits (0.009 SOL, 0.0083 Wh).
     const amount = new Intl.NumberFormat(locale, {
+      ...rounding,
       maximumSignificantDigits: 2,
     }).format(value);
     return `${amount} ${unit === "sol" ? "SOL" : "Wh"}`;
@@ -79,7 +89,10 @@ export function formatMetricValue(
         : value >= 1e3
           ? [value / 1e3, "MWh"]
           : [value, "kWh"];
-    return `${new Intl.NumberFormat(locale, { maximumFractionDigits: scaled < 10 ? 1 : 0 }).format(scaled)} ${symbol}`;
+    return `${new Intl.NumberFormat(locale, {
+      ...rounding,
+      maximumFractionDigits: scaled < 10 ? 1 : 0,
+    }).format(scaled)} ${symbol}`;
   }
 
   if (unit === "usd") {
@@ -87,17 +100,19 @@ export function formatMetricValue(
     // Sub-dollar values (per-transaction fees) keep one significant digit.
     if (Math.abs(value) < 1) {
       return new Intl.NumberFormat(locale, {
+        ...rounding,
         ...currency,
         maximumSignificantDigits: 1,
       }).format(value);
     }
-    return formatCompact(value, locale, currency);
+    return formatCompact(value, locale, { ...rounding, ...currency });
   }
 
   if (Math.abs(value) < 10_000) {
-    return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(
-      value,
-    );
+    return new Intl.NumberFormat(locale, {
+      ...rounding,
+      maximumFractionDigits: 0,
+    }).format(value);
   }
-  return formatCompact(value, locale, {});
+  return formatCompact(value, locale, rounding);
 }

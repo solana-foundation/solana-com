@@ -17,6 +17,11 @@ export type SolutionHeroStat = {
   value: string;
   label: string;
   source?: MetricSourceNoteProps;
+  /**
+   * The value comes locale-formatted from the metrics registry, so it is not
+   * uppercased. Implied by `source`; set it for unverified registry figures.
+   */
+  localized?: boolean;
   Icon?:
     | string
     | ComponentType<{
@@ -255,7 +260,7 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
                             "text-[20px] xl:text-[40px] leading-none font-light",
                             // Registry values arrive locale-formatted (e.g. "200ms",
                             // "15 Mrd. $"); only uppercase hand-written values.
-                            !stat.source && "uppercase",
+                            !stat.source && !stat.localized && "uppercase",
                           )}
                         >
                           {stat.value}

@@ -3,13 +3,20 @@
 Every figure that solana.com shows as a stat is defined here, one JSON file per
 key prefix:
 
-| File               | Keys            | Covers                                              |
-| ------------------ | --------------- | --------------------------------------------------- |
-| `network.json`     | `network.*`     | Activity, transactions, fees, validators, slot time |
-| `apps.json`        | `apps.*`        | Application revenue                                 |
-| `defi.json`        | `defi.*`        | DEX volume, TVL, lending, and per-protocol figures  |
-| `stablecoins.json` | `stablecoins.*` | Stablecoin supply and transfer volume               |
-| `rwa.json`         | `rwa.*`         | Tokenized real-world assets                         |
+| File                | Keys             | Covers                                              |
+| ------------------- | ---------------- | --------------------------------------------------- |
+| `network.json`      | `network.*`      | Activity, transactions, fees, validators, slot time |
+| `apps.json`         | `apps.*`         | Application revenue                                 |
+| `defi.json`         | `defi.*`         | DEX volume, TVL, lending, and per-protocol figures  |
+| `stablecoins.json`  | `stablecoins.*`  | Stablecoin supply and transfer volume               |
+| `rwa.json`          | `rwa.*`          | Tokenized real-world assets                         |
+| `btcfi.json`        | `btcfi.*`        | BTC on Solana and BTCfi figures                     |
+| `consumer.json`     | `consumer.*`     | Token launches and consumer app figures             |
+| `depin.json`        | `depin.*`        | DePIN network and project figures                   |
+| `desci.json`        | `desci.*`        | DeSci project figures                               |
+| `gaming.json`       | `gaming.*`       | Games and mint costs                                |
+| `institutions.json` | `institutions.*` | Institutional partner figures                       |
+| `tokenization.json` | `tokenization.*` | Tokenization project figures                        |
 
 `claims/prose.json` covers numbers written inside sentences (see
 [Numbers in prose](#numbers-in-prose)).

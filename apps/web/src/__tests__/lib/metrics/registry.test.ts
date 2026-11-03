@@ -35,6 +35,8 @@ describe("formatMetricValue", () => {
     expect(formatMetricValue(3499, "count", "en")).toBe("3,499");
     expect(formatMetricValue(200, "ms", "en")).toBe("200ms");
     expect(formatMetricValue(37, "percent", "en")).toBe("37%");
+    expect(formatMetricValue(11_500_000, "count", "en", true)).toBe("11M");
+    expect(formatMetricValue(11_500_000, "count", "en")).toBe("12M");
     expect(formatMetricValue(20.7, "percent", "en")).toBe("21%");
     expect(formatMetricValue(4096, "bytes", "en")).toBe("4,096 bytes");
     expect(formatMetricValue(0.009, "sol", "en")).toBe("0.009 SOL");

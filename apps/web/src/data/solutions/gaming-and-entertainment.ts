@@ -30,3 +30,10 @@ export const SWITCHBACK_IMAGES = [
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F073ec297175a47de8de27a54e2d1721b.png",
   "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F8883371d952e41149af4d693e07217ff.png",
 ];
+
+/** Registry keys for the stats row, in display order. */
+export const STATS_METRICS = [
+  "gaming.live-games",
+  "gaming.asset-mint-cost",
+  "gaming.cnft-1m-mint-cost",
+] as const;
