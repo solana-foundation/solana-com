@@ -155,23 +155,33 @@ past-tense, translatable copy. The wallet checker and shared cards still work.
   the PR preview deployment.
 - The homepage subtitle rewrite needs editorial approval.
 
-## Remaining metrics and migration gaps
+## Full-site migration
 
-Not yet on the registry (follow-up; full-site migration does not block this
-refresh):
+Every published stat on apps/web landing and solution pages now renders from
+`apps/web/src/data/metrics/` (98 entries). Values are live where a provider
+exists (data-api, RWA.xyz, DefiLlama, Solana RPC, x402scan, Solana Climate
+Dashboard), dated snapshots where a citable source exists, and
+`"verification": "unverified"` entries with a maintainer note otherwise.
+Unverified entries keep their published value and show no source; they are the
+data team's review queue
+(`grep -l unverified apps/web/src/data/metrics/*.json`).
 
-- `/solutions/financial-institutions` project stats (sourced and dated through
-  `claims.json`; Morgan Stanley's figure may move to the Q2 2026 filing).
-- Homepage project cards (Western Union, Visa, Franklin Templeton, R3, Bullish)
-  have no sources.
-- `/solutions/tokenization`, `/solutions/depin`, `/solutions/btcfi`,
-  `/solutions/gaming-and-entertainment`, `/solutions/actions` hero and card
-  stats.
-- `/privacy` at-a-glance stats (static; fee, slot time, and finality now follow
-  the standard above; the RWA growth figure is stale).
-- `/possible` hardcoded KPIs (11.5M accounts, 21.9M NFTs, $0.00025) in a CSS
-  Module component; migrating it requires moving its styles to Tailwind.
-- `/x402` "500K+ weekly transactions" and `/developers/dao` dated 2022 stats.
-- `/research` evidence snapshot (250 ms slot target is labelled as a published
-  snapshot).
-- `/alpenglow` still describes Alpenglow as upcoming.
+Figures replaced because a current sourced value for the same measure exists
+include x402's Solana share (76%/70% → about 21%/22%), x402 weekly transactions
+(500K+ → removed from metadata), BTC on Solana (6,500+ → 5,754), BUIDL on Solana
+($550M → $865M), Bullish daily volume ($2.5B → $1.37B), R3 ($10B → $17B), Morgan
+Stanley IM AUM ($1.9T → $2.0T), State Street AUC/A ($50T+ → $59T), Boba Guys
+users (23,000 → 15,000 in the first 80 days), the research slot target (250ms →
+200ms), and the Learn page's "over 1,000 validators" (now "hundreds of
+validators").
+
+Not migrated:
+
+- `/solutions/artists-creators` stats are inline HTML in one message, and its
+  "6000M+ NFTs minted" conflicts with `nfts.total-minted` (110M+). Pick the
+  reconciled value, then split the HTML into registry stats.
+- Learn `what-is-solana.mdx` in ar, el, fi, pl, ru, tr, uk still says "over
+  1,000 validators"; grammar made an automatic swap unsafe.
+- `/upgrades/alpenglow` visuals, `/solanaramp` prose, Learn staking APY, and the
+  archived outlook pages keep their figures; prose numbers are tracked in
+  `claims/prose.json`.

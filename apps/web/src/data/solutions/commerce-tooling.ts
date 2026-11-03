@@ -36,17 +36,9 @@ export const TRUSTBAR_LOGOS = [
   },
 ];
 
-export const STATS = [
-  {
-    stat: "Hundreds",
-    value: { statType: "static", staticValue: "$1M+" },
-  },
-  {
-    stat: "$600k",
-    value: { statType: "static", staticValue: "23,000" },
-  },
-  {
-    stat: "<$0.01",
-    value: { statType: "static", staticValue: "<$0.01" },
-  },
-];
+/** Registry keys for the stats, in display order (labels: `stats.<index>`). */
+export const STATS_METRICS = [
+  "payments.solana-mobile-card-fees-saved",
+  "payments.boba-guys-passport-users",
+  "network.average-fee-30d",
+] as const;

@@ -33,11 +33,14 @@ import type { DisplayMetric } from "@/lib/metrics/present";
 type SolutionsRealWorldAssetsPageProps = {
   news: NewsItem[];
   heroMetrics: DisplayMetric[];
+  /** Registry figures for PROJECTS, in the same order. */
+  projectMetrics: { stat?: DisplayMetric; description?: DisplayMetric }[];
 };
 
 export function SolutionsRealWorldAssetsPage({
   news,
   heroMetrics,
+  projectMetrics,
 }: SolutionsRealWorldAssetsPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -129,7 +132,17 @@ export function SolutionsRealWorldAssetsPage({
             light: (chunks) => <span className="font-light">{chunks}</span>,
             br: () => <br />,
           })}
-          projects={PROJECTS}
+          projects={PROJECTS.map((project, index) => {
+            const { stat, description } = projectMetrics[index];
+            return {
+              ...project,
+              statValue: stat?.value,
+              descriptionValues: description && {
+                buidlValue: description.value,
+              },
+              source: stat?.source ?? description?.source,
+            };
+          })}
           translationBase="real-world-assets-solution.projects"
           logos={LOGOS}
           controlsAlign="right"

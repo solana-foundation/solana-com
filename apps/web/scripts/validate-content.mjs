@@ -48,11 +48,8 @@ const requiredExports = {
   "src/data/solutions/financial-institutions.ts": ["PROJECTS"],
 };
 const requiredClaimPaths = [
-  "financial-institutions-solution.projects.morganStanley.stat",
-  "financial-institutions-solution.projects.jpmorgan.stat",
   "financial-institutions-solution.projects.citi.stat",
   "financial-institutions-solution.projects.societeGenerale.stat",
-  "financial-institutions-solution.projects.stateStreet.stat",
   "financial-institutions-solution.projects.stateStreet.description",
   "pyusd.hero.body",
   "pyusd.stats.items.backing.value",
@@ -440,12 +437,37 @@ export function validateClaims(
   return errors;
 }
 
-export function validateFinancialProjectStats(projects, claims, messages) {
+// A card with `metric` shows that registry key, so it must not also carry a
+// message value or a hardcoded stat. A card without one shows a qualitative
+// claim that must match its audited English claim, source, and date.
+export function validateFinancialProjectStats(
+  projects,
+  claims,
+  messages,
+  registry,
+) {
   if (!Array.isArray(projects))
     return ["financial institutions: PROJECTS must be a static array"];
   const errors = [];
   for (const project of projects) {
     const path = `financial-institutions-solution.projects.${project.key}.stat`;
+    if (project.metric !== undefined) {
+      if (!(project.metric in registry))
+        errors.push(`${path}: unknown registry metric ${project.metric}`);
+      if (messageAtPath(messages, path) !== undefined)
+        errors.push(`${path}: registry stats must not keep a message value`);
+      if (
+        project.statValue !== undefined ||
+        project.statSource !== undefined ||
+        project.statSourceNote !== undefined
+      )
+        errors.push(
+          `${path}: registry stats must not hardcode a value, source, or date`,
+        );
+      if (claims.some((entry) => entry.path === path))
+        errors.push(`${path}: registry stats must not keep a prose claim`);
+      continue;
+    }
     const claim = claims.find((entry) => entry.path === path);
     const message = messageAtPath(messages, path);
     if (
@@ -751,6 +773,7 @@ if (
       ),
       claims,
       messages,
+      metricRegistry,
     ),
     ...statPages.flatMap(({ namespace, file }) =>
       validatePageStats(

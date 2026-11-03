@@ -26,6 +26,8 @@ export type Project = {
   statValue?: string;
   statSource?: string;
   statSourceNote?: string;
+  /** Values for ICU placeholders in the card description, e.g. registry figures. */
+  descriptionValues?: Record<string, string>;
   /** Registry source, listed in the section's Sources footnote. */
   source?: MetricSourceNoteProps;
 };
@@ -166,7 +168,7 @@ export const Projects = ({
                         <hr className="border-white/10 border-t opacity-100" />
                       </div>
                       <p className="text-white opacity-[0.64] text-base md:text-lg xl:text-xl tracking-[-0.16px] md:tracking-[-0.18px] xl:tracking-[-0.2px] leading-[1.375] md:leading-[1.33] xl:leading-[1.4]">
-                        {t(`${base}.description`)}
+                        {t(`${base}.description`, project.descriptionValues)}
                         {project.href && (
                           <a
                             href={project.href}

@@ -5,8 +5,16 @@ import { fetchSolutionNews } from "@/lib/media/solution-news";
 import {
   HERO_METRICS,
   LATEST_NEWS_QUERY,
+  PROJECTS,
 } from "@/data/solutions/real-world-assets";
 import { getDisplayMetrics } from "@/lib/metrics/present";
+import type { MetricKey } from "@/lib/metrics/registry";
+
+const PROJECT_METRICS = PROJECTS.flatMap((project) =>
+  [project.metric, project.descriptionMetric].filter(
+    (key): key is MetricKey => key !== undefined,
+  ),
+);
 
 type Props = { params: Promise<{ locale: string }> };
 
@@ -15,13 +23,19 @@ export const revalidate = 60;
 export default async function Page(_props: Props) {
   const [news, metrics] = await Promise.all([
     fetchSolutionNews(LATEST_NEWS_QUERY),
-    getDisplayMetrics(HERO_METRICS),
+    getDisplayMetrics([...HERO_METRICS, ...PROJECT_METRICS]),
   ]);
 
   return (
     <SolutionsRealWorldAssetsPage
       news={news}
       heroMetrics={HERO_METRICS.map((key) => metrics[key])}
+      projectMetrics={PROJECTS.map((project) => ({
+        stat: project.metric ? metrics[project.metric] : undefined,
+        description: project.descriptionMetric
+          ? metrics[project.descriptionMetric]
+          : undefined,
+      }))}
     />
   );
 }

@@ -35,37 +35,39 @@ test("rejects blank actionable URLs but permits cards without a link", () => {
 });
 
 test("financial project cards display their audited figures and sources", () => {
-  const path = "financial-institutions-solution.projects.morganStanley.stat";
+  const path = "financial-institutions-solution.projects.citi.stat";
   const projects = [
     {
-      key: "morganStanley",
-      statValue: "$1.9T",
+      key: "citi",
+      statValue: "~24/7",
       statSource: "https://example.com/report",
-      statSourceNote: "2025-12-31",
+      statSourceNote: "2026-02-20",
     },
   ];
   const claims = [
     {
       path,
-      claim: "$1.9T",
+      claim: "~24/7",
       sourceUrl: "https://example.com/report",
-      asOf: "2025-12-31",
+      asOf: "2026-02-20",
     },
   ];
   const messages = {
     "financial-institutions-solution": {
-      projects: { morganStanley: { stat: "$1.9T" } },
+      projects: { citi: { stat: "~24/7" } },
     },
   };
+  const registry = { "institutions.example": {} };
   assert.deepEqual(
-    validateFinancialProjectStats(projects, claims, messages),
+    validateFinancialProjectStats(projects, claims, messages, registry),
     [],
   );
   assert.match(
     validateFinancialProjectStats(
-      [{ ...projects[0], statValue: "$2T" }],
+      [{ ...projects[0], statValue: "24/7" }],
       claims,
       messages,
+      registry,
     ).join("\n"),
     /displayed stat must match/,
   );
@@ -74,6 +76,7 @@ test("financial project cards display their audited figures and sources", () => 
       [{ ...projects[0], statSource: "https://example.com/other" }],
       claims,
       messages,
+      registry,
     ).join("\n"),
     /displayed source must match/,
   );
@@ -82,8 +85,49 @@ test("financial project cards display their audited figures and sources", () => 
       [{ ...projects[0], statSourceNote: undefined }],
       claims,
       messages,
+      registry,
     ).join("\n"),
     /displayed date must match/,
+  );
+});
+
+test("financial project cards with a registry metric carry no audited copy", () => {
+  const metricCard = { key: "morganStanley", metric: "institutions.example" };
+  const registry = { "institutions.example": {} };
+  assert.deepEqual(
+    validateFinancialProjectStats([metricCard], [], {}, registry),
+    [],
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...metricCard, metric: "institutions.missing" }],
+      [],
+      {},
+      registry,
+    ).join("\n"),
+    /unknown registry metric/,
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [metricCard],
+      [],
+      {
+        "financial-institutions-solution": {
+          projects: { morganStanley: { stat: "$1.9T" } },
+        },
+      },
+      registry,
+    ).join("\n"),
+    /must not keep a message value/,
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...metricCard, statValue: "$1.9T" }],
+      [],
+      {},
+      registry,
+    ).join("\n"),
+    /must not hardcode/,
   );
 });
 
@@ -303,12 +347,11 @@ test("audited source files cannot hide empty URLs behind satisfies or spreads", 
 });
 
 test("claim deadlines include their review day and reject stale or missing sources", () => {
+  // Morgan Stanley, JPMorgan and State Street stats render from the registry;
+  // only the qualitative card claims remain audited prose.
   const statValues = {
-    morganStanley: "$1.9T",
-    jpmorgan: "$50M",
     citi: "~24/7",
     societeGenerale: "1:1",
-    stateStreet: "$50T+",
   };
   const defiStatValues = {
     dexVolume: "$76B",
@@ -376,7 +419,6 @@ test("claim deadlines include their review day and reject stale or missing sourc
           ]),
         ),
         stateStreet: {
-          stat: statValues.stateStreet,
           description: "With $50 trillion in assets",
         },
       },

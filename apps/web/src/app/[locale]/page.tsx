@@ -13,6 +13,7 @@ import uniqBy from "lodash/uniqBy";
 import { PROJECTS, LINKS, GET_STARTED_LINKS } from "@/data/index/data";
 import { getActiveCampaignId } from "@/components/index/campaigns/config";
 import { getDisplayMetrics } from "@/lib/metrics/present";
+import type { MetricKey } from "@/lib/metrics/registry";
 
 const PERFORMANCE_METRICS = [
   "network.daily-active-signers",
@@ -69,7 +70,13 @@ export default async function Page(_props: Props) {
     console.error(error);
   }
 
-  const performanceMetrics = await getDisplayMetrics(PERFORMANCE_METRICS);
+  const projectMetricKeys = PROJECTS.flatMap((item) =>
+    item.metric ? [item.metric] : [],
+  ) as MetricKey[];
+  const [performanceMetrics, projectMetrics] = await Promise.all([
+    getDisplayMetrics(PERFORMANCE_METRICS),
+    getDisplayMetrics(projectMetricKeys),
+  ]);
 
   // --- Translations ---
   const lightFormatter = {
@@ -137,11 +144,16 @@ export default async function Page(_props: Props) {
       ),
     }),
     projectsCta: t("index.projects.cta"),
-    projectsTranslations: PROJECTS.map((item) => ({
-      name: t(`index.projects.${item.key}.name`),
-      stat: t(`index.projects.${item.key}.stat`),
-      statLabel: t(`index.projects.${item.key}.statLabel`),
-    })),
+    projectsTranslations: PROJECTS.map((item) => {
+      const metric = item.metric ? projectMetrics[item.metric] : undefined;
+      return {
+        name: t(`index.projects.${item.key}.name`),
+        stat: metric ? metric.value : t(`index.projects.${item.key}.stat`),
+        statLabel: t(`index.projects.${item.key}.statLabel`),
+        source: metric?.source,
+        isMetric: Boolean(metric),
+      };
+    }),
 
     // News
     newsTitle: t.rich("index.news.title", lightFormatter),

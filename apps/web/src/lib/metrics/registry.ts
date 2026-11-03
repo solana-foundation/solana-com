@@ -10,6 +10,7 @@ import gaming from "@/data/metrics/gaming.json";
 import institutions from "@/data/metrics/institutions.json";
 import network from "@/data/metrics/network.json";
 import nfts from "@/data/metrics/nfts.json";
+import payments from "@/data/metrics/payments.json";
 import privacy from "@/data/metrics/privacy.json";
 import pyusd from "@/data/metrics/pyusd.json";
 import research from "@/data/metrics/research.json";
@@ -35,6 +36,7 @@ const registryFiles = {
   institutions,
   network,
   nfts,
+  payments,
   privacy,
   pyusd,
   research,
