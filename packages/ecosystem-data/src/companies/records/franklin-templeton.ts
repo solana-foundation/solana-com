@@ -17,7 +17,7 @@ export const franklinTempleton = {
       website: "https://www.franklintempleton.com",
     },
     socials: {
-      x: "https://x.com/FTI_US",
+      x: "https://x.com/FranklnTempletn",
       linkedin: "https://www.linkedin.com/company/franklin-templeton",
     },
   },

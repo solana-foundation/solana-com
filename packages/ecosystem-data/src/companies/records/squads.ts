@@ -17,7 +17,7 @@ export const squads = {
       website: "https://squads.xyz/",
     },
     socials: {
-      x: "https://x.com/SquadsProtocol",
+      x: "https://x.com/multisig",
       linkedin: "https://www.linkedin.com/company/squads-labs",
       github: "https://github.com/Squads-Protocol",
     },
