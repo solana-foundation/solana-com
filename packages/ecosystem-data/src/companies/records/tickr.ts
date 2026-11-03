@@ -1,6 +1,7 @@
 import type { CompanyRecord } from "../../types";
 import tickrLogoWhite from "../../../assets/companies/tickr/logo-white.svg";
 import tickrLogoColorDark from "../../../assets/companies/tickr/logo-color-dark.png";
+import tickrMarkTallColorDark from "../../../assets/companies/tickr/mark-tall-color-dark.png";
 import tickrMarkColorDark from "../../../assets/companies/tickr/mark-color-dark.png";
 import tickrMarkOnLight from "../../../assets/companies/tickr/mark-on-light.png";
 import tickrMarkWhiteOnDark from "../../../assets/companies/tickr/mark-white-on-dark.png";
@@ -24,6 +25,17 @@ export const tickr = {
   },
   defaultLogoId: "logo-color-dark",
   logos: [
+    {
+      id: "mark-tall-color-dark",
+      fileName: "mark-tall-color-dark.png",
+      format: "png",
+      source: tickrMarkTallColorDark,
+      width: 1172,
+      height: 1084,
+      kind: "mark",
+      theme: "dark",
+      background: "transparent",
+    },
     {
       id: "logo-white",
       fileName: "logo-white.svg",
