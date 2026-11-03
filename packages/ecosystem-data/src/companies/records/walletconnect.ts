@@ -15,7 +15,7 @@ export const walletconnect = {
       website: "https://walletconnect.network/",
     },
     socials: {
-      x: "https://x.com/wcthub",
+      x: "https://x.com/WalletConnect",
       discord: "https://discord.com/invite/walletconnectnetwork",
       telegram: "https://t.me/walletconnect",
     },

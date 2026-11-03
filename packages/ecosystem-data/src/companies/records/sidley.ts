@@ -20,7 +20,7 @@ export const sidley = {
     },
     socials: {
       x: "https://x.com/SidleyLaw",
-      linkedin: "https://www.linkedin.com/company/sidley-austin-llp",
+      linkedin: "https://www.linkedin.com/company/sidley-austin",
     },
   },
   defaultLogoId: "logo-slate-blue",

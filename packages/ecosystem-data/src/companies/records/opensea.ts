@@ -19,7 +19,7 @@ export const opensea = {
     },
     socials: {
       x: "https://x.com/opensea",
-      linkedin: "https://www.linkedin.com/company/opensea/",
+      linkedin: "https://www.linkedin.com/company/opensea-io/",
     },
   },
   defaultLogoId: "logo-light",

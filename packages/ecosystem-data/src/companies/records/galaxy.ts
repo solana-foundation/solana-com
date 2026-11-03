@@ -25,7 +25,6 @@ export const galaxy = {
     socials: {
       x: "https://x.com/galaxyhq",
       linkedin: "https://www.linkedin.com/company/galaxyhq",
-      github: "https://github.com/galaxy-digital",
     },
   },
   defaultLogoId: "logo-light",

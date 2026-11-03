@@ -17,7 +17,6 @@ export const raiku = {
     type: "Protocol",
     links: {
       website: "https://raiku.com",
-      docs: "https://docs.raiku.com/",
     },
     socials: {
       x: "https://x.com/raikucom",
