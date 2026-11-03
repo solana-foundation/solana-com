@@ -15,10 +15,10 @@ export const sunrise = {
     sector: "Tokenization",
     type: "Platform",
     links: {
-      website: "https://www.sunrisedefi.com/",
+      website: "https://sunrise.xyz/",
     },
     socials: {
-      x: "https://x.com/Sunrise_DeFi",
+      x: "https://x.com/sunrise",
     },
   },
   defaultLogoId: "logo",
