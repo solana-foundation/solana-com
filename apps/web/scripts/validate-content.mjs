@@ -55,13 +55,6 @@ const requiredClaimPaths = [
   "financial-institutions-solution.projects.stateStreet.stat",
   "financial-institutions-solution.projects.stateStreet.description",
   "pyusd.hero.body",
-  "developers-defi.stats.items.dexVolume.value",
-  "developers-defi.stats.items.stablecoins.value",
-  "developers-defi.stats.items.computeUnits.value",
-  "developers-defi.stats.items.txSize.value",
-  "pyusd.stats.items.solanaSupply.value",
-  "pyusd.stats.items.reserves.value",
-  "pyusd.stats.items.solanaShare.value",
   "pyusd.stats.items.backing.value",
   "pyusd.trust.items.issuer.body",
   "pyusd.mint.extensions.transferFee.body",
@@ -495,6 +488,7 @@ const x402scanQueries = new Set([
   "volume-usd",
   "buyers",
   "sellers",
+  "buyers-and-sellers",
   "transaction-share",
   "volume-share",
 ]);
@@ -557,7 +551,7 @@ export function validateMetricRegistry(
   const errors = [];
   for (const [key, metric] of Object.entries(registry)) {
     const location = `metrics registry:${key}`;
-    if (!/^[a-z]+(\.[a-z0-9-]+)+$/.test(key))
+    if (!/^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/.test(key))
       errors.push(`${location}: key must be dotted kebab-case`);
     if (!metricUnits.has(metric.unit))
       errors.push(`${location}: unit must be one of ${[...metricUnits]}`);
@@ -673,19 +667,43 @@ export function validateMetricRegistry(
   return errors;
 }
 
-// Pages whose STATS export renders `<namespace>.stats.items.<id>.value`
-// beside a link to `statSource`.
+// Pages whose STATS export renders `<namespace>.stats.items.<id>`. A stat
+// with `metric` shows that registry key, so its number must not also live in
+// the messages. A stat without one shows its English value, which must be an
+// audited claim with a matching `statSource` and `statAsOf`.
 const statPages = [
   { namespace: "developers-defi", file: "src/data/developers/defi.ts" },
   { namespace: "pyusd", file: "src/data/pyusd.ts" },
 ];
 
-export function validatePageStats(namespace, stats, claims, messages) {
+export function validatePageStats(
+  namespace,
+  stats,
+  claims,
+  messages,
+  registry,
+) {
   if (!Array.isArray(stats))
     return [`${namespace}: STATS must be a static array`];
   const errors = [];
   for (const stat of stats) {
     const path = `${namespace}.stats.items.${stat.id}.value`;
+    if (
+      typeof messageAtPath(
+        messages,
+        `${namespace}.stats.items.${stat.id}.label`,
+      ) !== "string"
+    )
+      errors.push(
+        `${namespace}.stats.items.${stat.id}.label: label is missing`,
+      );
+    if (stat.metric !== undefined) {
+      if (!(stat.metric in registry))
+        errors.push(`${path}: unknown registry metric ${stat.metric}`);
+      if (messageAtPath(messages, path) !== undefined)
+        errors.push(`${path}: registry stats must not keep a message value`);
+      continue;
+    }
     const claim = claims.find((entry) => entry.path === path);
     if (!claim || messageAtPath(messages, path) !== claim.claim)
       errors.push(
@@ -693,6 +711,8 @@ export function validatePageStats(namespace, stats, claims, messages) {
       );
     if (!stat.statSource || stat.statSource !== claim?.sourceUrl)
       errors.push(`${path}: displayed source must match the audited source`);
+    if (!stat.statAsOf || stat.statAsOf !== claim?.asOf)
+      errors.push(`${path}: displayed date must match the audited asOf`);
   }
   return errors;
 }
@@ -742,6 +762,7 @@ if (
         ),
         claims,
         messages,
+        metricRegistry,
       ),
     ),
   ];

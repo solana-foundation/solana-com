@@ -109,9 +109,10 @@ export function formatMetricValue(
   }
 
   if (Math.abs(value) < 10_000) {
+    // Single-digit counts keep one decimal (2.5+ years); larger ones none.
     return new Intl.NumberFormat(locale, {
       ...rounding,
-      maximumFractionDigits: 0,
+      maximumFractionDigits: Math.abs(value) < 10 ? 1 : 0,
     }).format(value);
   }
   return formatCompact(value, locale, rounding);

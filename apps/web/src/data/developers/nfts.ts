@@ -17,6 +17,13 @@ export const STATS_CONFIG = {
   contained: true,
 } as const;
 
+/** Registry keys for the stats row, in display order. */
+export const STATS_METRICS = [
+  "nfts.wallets-ever-held",
+  "nfts.compressed-mint-cost",
+  "nfts.total-minted",
+] as const;
+
 export const CARD_DECK_PRIMARY_COLUMNS = 2;
 
 export const CARD_DECK_PRIMARY_CARDS = [

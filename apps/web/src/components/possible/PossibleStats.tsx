@@ -1,6 +1,5 @@
 import { useTranslations } from "next-intl";
 import { clsx as classNames } from "clsx";
-import styles from "./PossibleStats.module.scss";
 import Link from "../../utils/Link";
 import Image from "next/image";
 import GlowLines from "../../../public/src/img/index/glow-lines.jpg";
@@ -13,32 +12,12 @@ import {
 } from "../../hooks/useTransactionStats";
 import { FormattedNumber } from "../SolFormattedMessage";
 import AnimatedTransactionCountup from "../shared/AnimatedTransactionCountup";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
-type StatsNoProps = {
-  value: React.ReactNode;
-  description: string;
-  className?: string;
-};
-
-const StatsNo = ({ value, description, className }: StatsNoProps) => {
-  return (
-    <>
-      <div
-        className={classNames("m-0", styles["index-stats__color"], className)}
-      >
-        {value}
-      </div>
-      <div
-        className={classNames(
-          "smaller uppercase subdued",
-          styles["index-stats__ff-mono"],
-        )}
-      >
-        {description}
-      </div>
-    </>
-  );
-};
+/** Small dot before live figures. */
+const liveDotClass =
+  "relative !leading-none pl-[10px] before:absolute before:left-0 before:top-0 before:h-[5px] before:w-[5px] before:rounded-full before:bg-[#1fcff1] before:content-['']";
 
 type StatsCardProps = {
   title: string;
@@ -46,6 +25,8 @@ type StatsCardProps = {
   value: React.ReactNode;
   valueName: string;
   border: string;
+  /** Real-time counter: marked with the live dot. */
+  live: boolean;
   className?: string;
 };
 
@@ -55,40 +36,29 @@ const StatsCard = ({
   value,
   valueName,
   border,
+  live,
   className,
 }: StatsCardProps) => {
   return (
-    <div className={`col-span-12 md:col-span-6 mb-2 ${className}`}>
-      <div className={classNames("p-8", styles["index-stats__card"])}>
+    <div className={`col-span-12 md:col-span-6 mb-2 ${className ?? ""}`}>
+      <div className="rounded-[24px] border border-solid border-[#19161c] bg-black/40 p-8 backdrop-blur-[20px] md:border-0 md:bg-black/[0.28]">
         <h3
-          className={classNames("h5 mb-4", styles["index-stats__card__title"])}
+          className="h5 mb-4 border-0 border-l-2 border-solid pl-[15px]"
           style={{ borderColor: border }}
         >
           {title}
         </h3>
         <p className="small subdued">{description}</p>
         <div className="mt-8">
-          {/* Check for the static 0% value of the carbon impact section */}
-          {parseInt(value as string) !== 0 ? (
-            <div
-              className={classNames(
-                "h5 font-normal",
-                styles["index-stats__live"],
-              )}
-            >
-              {value}
-            </div>
-          ) : (
-            <div className="h5 font-normal" style={{ lineHeight: 1 }}>
-              {value}
-            </div>
-          )}
           <div
             className={classNames(
-              "smaller uppercase subdued",
-              styles["index-stats__ff-mono"],
+              "h5 font-normal",
+              live ? liveDotClass : "leading-none",
             )}
           >
+            {value}
+          </div>
+          <div className="smaller uppercase subdued font-brand-mono">
             {valueName}
           </div>
         </div>
@@ -99,10 +69,11 @@ const StatsCard = ({
 
 type PossibleStatsProps = {
   visible: boolean;
-  showKPIs?: boolean;
+  /** Registry figure for the net carbon impact card. */
+  carbonMetric: DisplayMetric;
 };
 
-const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
+const PossibleStats = ({ visible, carbonMetric }: PossibleStatsProps) => {
   const {
     avgTps,
     validators,
@@ -119,65 +90,21 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
   const t = useTranslations();
 
   return (
-    <div className={styles["index-stats"]}>
-      <div className={styles["index-stats__glow-lines"]}>
-        <Image src={GlowLines} alt="" fill />
+    <div className="relative overflow-hidden py-[125px] after:absolute after:left-0 after:top-0 after:h-[125px] after:w-full after:bg-[linear-gradient(black,rgba(0,0,0,0)_80%)] after:content-['']">
+      <div className="absolute -z-10 h-full w-full min-[1400px]:top-0">
+        <Image src={GlowLines} alt="" fill className="object-cover" />
       </div>
       <div className="container">
-        {showKPIs && (
-          <div className="grid grid-cols-12 gap-5 md:gap-10 pb-20">
-            <div className="col-span-12 lg:col-span-6">
-              <h2
-                className={classNames(
-                  "h4 lg:w-3/4 mt-0 lg:mt-20 mb-12 lg:mb-0",
-                  styles["index-stats__heading"],
-                )}
-              >
-                {t("possible.stats.headline")}
-              </h2>
-            </div>
-            <div className="col-span-12 lg:col-span-6">
-              <div className="mb-12">
-                <StatsNo
-                  value="11.5M+"
-                  description={t("possible.stats.accounts")}
-                  className={styles["index-stats__color--purple"]}
-                />
-              </div>
-              <div className="mb-12">
-                <StatsNo
-                  value="21.9M"
-                  description={t("possible.stats.nfts")}
-                  className={styles["index-stats__color--blue"]}
-                />
-              </div>
-              <div>
-                <StatsNo
-                  value="$0.00025"
-                  description={t("possible.stats.cost")}
-                  className={styles["index-stats__color--green"]}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="grid grid-cols-12 gap-5 md:gap-10 pt-16 mt-16">
           <div className="col-span-12 lg:col-span-4">
             <div className="mb-12 lg:mb-0">
-              <h2
-                className={classNames(
-                  "h4 mb-4",
-                  styles["index-stats__heading"],
-                )}
-              >
+              <h2 className="h4 mb-4 text-balance">
                 {t("possible.stats.headline-secondary")}
               </h2>
               <div
                 className={classNames(
-                  "smaller uppercase subdued",
-                  styles["index-stats__live"],
-                  styles["index-stats__ff-mono"],
+                  "smaller uppercase subdued font-brand-mono",
+                  liveDotClass,
                 )}
               >
                 {t("possible.stats.live")}
@@ -200,6 +127,7 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                 }
                 valueName={t("possible.stats.transactions")}
                 border="#1FCFF1"
+                live
               />
               <StatsCard
                 title={t("possible.stats.adoption.decentralized.title")}
@@ -217,6 +145,7 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                 }
                 valueName={t("possible.stats.validators")}
                 border="#FFD512"
+                live
                 className="lg:-mt-20"
               />
               <StatsCard
@@ -236,6 +165,7 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                 }
                 valueName={t("possible.stats.totaltransactions")}
                 border="#9945FF"
+                live
               />
               <StatsCard
                 title={t("possible.stats.adoption.energy.title")}
@@ -247,12 +177,22 @@ const PossibleStats = ({ visible, showKPIs = true }: PossibleStatsProps) => {
                     ),
                   },
                 )}
-                value="0%"
+                value={carbonMetric.value}
                 valueName={t("possible.stats.carbon")}
                 border="#19FB9B"
+                live={false}
                 className="lg:-mt-12"
               />
             </div>
+            <MetricSourcesFootnote
+              className="mt-4"
+              items={[
+                {
+                  label: t("possible.stats.carbon"),
+                  source: carbonMetric.source,
+                },
+              ]}
+            />
           </div>
         </div>
       </div>

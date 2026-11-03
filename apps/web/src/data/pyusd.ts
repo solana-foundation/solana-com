@@ -26,26 +26,24 @@ export const HERO_BUTTONS = [
   },
 ] as const;
 
-// Values and labels are dated in the English messages and recorded in
-// src/data/metrics/claims/prose.json; `statSource` must match the claim's source.
+// Metric stats render their registry value (src/data/metrics). `backing` is
+// an issuer commitment, not a metric: its English value is a dated claim in
+// src/data/metrics/claims/prose.json, and `statSource` and `statAsOf` must
+// match that claim.
 export const STATS = [
-  {
-    id: "solanaSupply",
-    statSource: "https://defillama.com/stablecoin/paypal-usd",
-  },
-  {
-    id: "reserves",
-    statSource: "https://www.paxos.com/pyusd-transparency",
-  },
-  {
-    id: "solanaShare",
-    statSource: "https://www.paxos.com/pyusd-transparency",
-  },
+  { id: "solanaSupply", metric: "pyusd.solana-supply" },
+  { id: "reserves", metric: "pyusd.reserves" },
+  { id: "solanaShare", metric: "pyusd.solana-share" },
   {
     id: "backing",
     statSource: "https://www.paxos.com/pyusd",
+    statAsOf: "2026-10-08",
   },
 ] as const;
+
+export const STATS_METRICS = STATS.flatMap((stat) =>
+  "metric" in stat ? [stat.metric] : [],
+);
 
 export const STATS_LIVE_LINK = {
   id: "liveData",

@@ -1,33 +1,47 @@
+import agents from "@/data/metrics/agents.json";
 import apps from "@/data/metrics/apps.json";
 import btcfi from "@/data/metrics/btcfi.json";
 import consumer from "@/data/metrics/consumer.json";
+import dao from "@/data/metrics/dao.json";
 import defi from "@/data/metrics/defi.json";
 import depin from "@/data/metrics/depin.json";
 import desci from "@/data/metrics/desci.json";
 import gaming from "@/data/metrics/gaming.json";
 import institutions from "@/data/metrics/institutions.json";
 import network from "@/data/metrics/network.json";
+import nfts from "@/data/metrics/nfts.json";
+import privacy from "@/data/metrics/privacy.json";
+import pyusd from "@/data/metrics/pyusd.json";
+import research from "@/data/metrics/research.json";
 import rwa from "@/data/metrics/rwa.json";
 import stablecoins from "@/data/metrics/stablecoins.json";
 import tokenization from "@/data/metrics/tokenization.json";
+import x402 from "@/data/metrics/x402.json";
 
 /**
  * One file per key prefix in src/data/metrics/ (see its README). Add a new
  * file here when a new prefix is introduced.
  */
 const registryFiles = {
+  agents,
   apps,
   btcfi,
   consumer,
+  dao,
   defi,
   depin,
   desci,
   gaming,
   institutions,
   network,
+  nfts,
+  privacy,
+  pyusd,
+  research,
   rwa,
   stablecoins,
   tokenization,
+  x402,
 };
 
 /**
@@ -108,6 +122,7 @@ export type X402scanLiveSpec = {
     | "volume-usd"
     | "buyers"
     | "sellers"
+    | "buyers-and-sellers"
     | "transaction-share"
     | "volume-share";
   timeframe: 0 | 7 | 30;

@@ -182,6 +182,12 @@ export function extractX402Value(
       return solana.unique_buyers;
     case "sellers":
       return solana.unique_sellers;
+    case "buyers-and-sellers":
+      // An address can be both, so this is an upper bound on participants.
+      return solana.unique_buyers !== undefined &&
+        solana.unique_sellers !== undefined
+        ? solana.unique_buyers + solana.unique_sellers
+        : undefined;
     case "transaction-share":
       return share(solana.total_transactions, allChains?.total_transactions);
     case "volume-share":

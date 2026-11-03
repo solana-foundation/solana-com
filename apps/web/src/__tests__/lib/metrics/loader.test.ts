@@ -167,7 +167,9 @@ describe("loadMetrics", () => {
     });
     const externalKeys = Object.values(metricRegistry).filter(
       ({ live }) =>
-        live?.provider === "defillama" || live?.provider === "solana-rpc",
+        live !== undefined &&
+        live.provider !== "data-api" &&
+        live.provider !== "rwa-xyz",
     );
 
     expect(Object.keys(stream.metrics).sort()).toEqual(

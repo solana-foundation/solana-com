@@ -3,20 +3,27 @@
 Every figure that solana.com shows as a stat is defined here, one JSON file per
 key prefix:
 
-| File                | Keys             | Covers                                              |
-| ------------------- | ---------------- | --------------------------------------------------- |
-| `network.json`      | `network.*`      | Activity, transactions, fees, validators, slot time |
-| `apps.json`         | `apps.*`         | Application revenue                                 |
-| `defi.json`         | `defi.*`         | DEX volume, TVL, lending, and per-protocol figures  |
-| `stablecoins.json`  | `stablecoins.*`  | Stablecoin supply and transfer volume               |
-| `rwa.json`          | `rwa.*`          | Tokenized real-world assets                         |
-| `btcfi.json`        | `btcfi.*`        | BTC on Solana and BTCfi figures                     |
-| `consumer.json`     | `consumer.*`     | Token launches and consumer app figures             |
-| `depin.json`        | `depin.*`        | DePIN network and project figures                   |
-| `desci.json`        | `desci.*`        | DeSci project figures                               |
-| `gaming.json`       | `gaming.*`       | Games and mint costs                                |
-| `institutions.json` | `institutions.*` | Institutional partner figures                       |
-| `tokenization.json` | `tokenization.*` | Tokenization project figures                        |
+| File                | Keys             | Covers                                                                               |
+| ------------------- | ---------------- | ------------------------------------------------------------------------------------ |
+| `network.json`      | `network.*`      | Activity, transactions, fees, validators, slot time, protocol limits, uptime, energy |
+| `apps.json`         | `apps.*`         | Application revenue                                                                  |
+| `defi.json`         | `defi.*`         | DEX volume, TVL, lending, and per-protocol figures                                   |
+| `stablecoins.json`  | `stablecoins.*`  | Stablecoin supply and transfer volume                                                |
+| `rwa.json`          | `rwa.*`          | Tokenized real-world assets                                                          |
+| `btcfi.json`        | `btcfi.*`        | BTC on Solana and BTCfi figures                                                      |
+| `consumer.json`     | `consumer.*`     | Token launches and consumer app figures                                              |
+| `depin.json`        | `depin.*`        | DePIN network and project figures                                                    |
+| `desci.json`        | `desci.*`        | DeSci project figures                                                                |
+| `gaming.json`       | `gaming.*`       | Games and mint costs                                                                 |
+| `institutions.json` | `institutions.*` | Institutional partner figures                                                        |
+| `tokenization.json` | `tokenization.*` | Tokenization project figures                                                         |
+| `privacy.json`      | `privacy.*`      | Privacy page figures (spot rank, audits, G-SIBs)                                     |
+| `x402.json`         | `x402.*`         | x402 activity on Solana (x402scan)                                                   |
+| `pyusd.json`        | `pyusd.*`        | PYUSD supply, reserves, and Solana share                                             |
+| `nfts.json`         | `nfts.*`         | NFT mints, holders, and mint costs                                                   |
+| `dao.json`          | `dao.*`          | DAO counts and treasuries                                                            |
+| `research.json`     | `research.*`     | Network Health Report snapshots                                                      |
+| `agents.json`       | `agents.*`       | Agent Registry action costs                                                          |
 
 `claims/prose.json` covers numbers written inside sentences (see
 [Numbers in prose](#numbers-in-prose)).

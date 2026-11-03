@@ -194,34 +194,91 @@ test("rejects impossible local destinations and accepts known cross-app content"
 });
 
 test("page stats display their audited figures and sources", () => {
-  const path = "developers-defi.stats.items.dexVolume.value";
-  const stats = [{ id: "dexVolume", statSource: "https://example.com/dex" }];
+  const path = "pyusd.stats.items.backing.value";
+  const stats = [
+    {
+      id: "backing",
+      statSource: "https://example.com/backing",
+      statAsOf: "2026-10-08",
+    },
+  ];
   const claims = [
-    { path, claim: "$76B", sourceUrl: "https://example.com/dex" },
+    {
+      path,
+      claim: "1:1",
+      sourceUrl: "https://example.com/backing",
+      asOf: "2026-10-08",
+    },
   ];
   const messages = {
-    "developers-defi": { stats: { items: { dexVolume: { value: "$76B" } } } },
+    pyusd: {
+      stats: { items: { backing: { value: "1:1", label: "Backing" } } },
+    },
   };
-  assert.deepEqual(
-    validatePageStats("developers-defi", stats, claims, messages),
-    [],
-  );
+  assert.deepEqual(validatePageStats("pyusd", stats, claims, messages, {}), []);
   assert.match(
-    validatePageStats("developers-defi", stats, claims, {
-      "developers-defi": {
-        stats: { items: { dexVolume: { value: "$80B" } } },
+    validatePageStats(
+      "pyusd",
+      stats,
+      claims,
+      {
+        pyusd: { stats: { items: { backing: { value: "2:1", label: "B" } } } },
       },
-    }).join("\n"),
+      {},
+    ).join("\n"),
     /displayed stat must match/,
   );
   assert.match(
     validatePageStats(
-      "developers-defi",
+      "pyusd",
       [{ ...stats[0], statSource: "https://example.com/other" }],
       claims,
       messages,
+      {},
     ).join("\n"),
     /displayed source must match/,
+  );
+  assert.match(
+    validatePageStats(
+      "pyusd",
+      [{ ...stats[0], statAsOf: "2026-10-09" }],
+      claims,
+      messages,
+      {},
+    ).join("\n"),
+    /displayed date must match/,
+  );
+});
+
+test("registry page stats name a known metric and keep no message value", () => {
+  const stats = [{ id: "dexVolume", metric: "defi.dex-volume-30d" }];
+  const registry = { "defi.dex-volume-30d": {} };
+  const messages = {
+    "developers-defi": {
+      stats: { items: { dexVolume: { label: "DEX volume" } } },
+    },
+  };
+  assert.deepEqual(
+    validatePageStats("developers-defi", stats, [], messages, registry),
+    [],
+  );
+  assert.match(
+    validatePageStats("developers-defi", stats, [], messages, {}).join("\n"),
+    /unknown registry metric/,
+  );
+  assert.match(
+    validatePageStats(
+      "developers-defi",
+      stats,
+      [],
+      {
+        "developers-defi": {
+          stats: { items: { dexVolume: { label: "DEX", value: "$76B" } } },
+        },
+      },
+      registry,
+    ).join("\n"),
+    /must not keep a message value/,
   );
 });
 
