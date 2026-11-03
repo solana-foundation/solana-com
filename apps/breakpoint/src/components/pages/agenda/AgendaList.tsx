@@ -272,7 +272,9 @@ function SpeakerBlock({
         )}
       </div>
       {association && (
-        <p className={`${EYEBROW_TEXT_CLASS} text-text-secondary`}>
+        <p
+          className={`${EYEBROW_TEXT_CLASS} text-[length:var(--text-button)]! tracking-[var(--text-button--letter-spacing)]! text-text-secondary`}
+        >
           {speaker.isModerator && (
             <span className="text-white">{t("moderator")} · </span>
           )}
@@ -772,6 +774,9 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           value={query}
           onChange={setQuery}
         />
+        <p className="type-eyebrow text-neutral-500 md:ml-auto md:pb-xs">
+          {t("timezoneNote")}
+        </p>
       </div>
 
       <div

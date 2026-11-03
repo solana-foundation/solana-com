@@ -221,6 +221,25 @@ describe("Breakpoint agenda records", () => {
     ).toBe("Day 2");
   });
 
+  it("renders clock times in London time, not UTC or the server zone", () => {
+    // 1 July is British Summer Time, so London is an hour ahead of UTC.
+    const item = normalizeAgendaRecord(
+      {
+        id: "bst",
+        fields: {
+          Session: "Summer side session",
+          "Start Time": "2026-07-01T11:15:00.000Z",
+          "End Time": "2026-07-01T11:30:00.000Z",
+          "Web Publishing Status": ["Time", "Title"],
+        },
+      },
+      0,
+    );
+
+    expect(item?.time).toBe("12:15");
+    expect(item?.duration).toBe("15 min.");
+  });
+
   it("keeps breaks as static rows and drops internal asset tags", () => {
     const lunch = normalizeAgendaRecord(
       {
