@@ -140,6 +140,7 @@ import { syndica } from "./records/syndica";
 import { tala } from "./records/tala";
 import { tether } from "./records/tether";
 import { theGraph } from "./records/the-graph";
+import { tickr } from "./records/tickr";
 import { titan } from "./records/titan";
 import { triton } from "./records/triton";
 import { trojan } from "./records/trojan";
@@ -301,6 +302,7 @@ export const companies = [
   tala,
   tether,
   theGraph,
+  tickr,
   titan,
   triton,
   trojan,

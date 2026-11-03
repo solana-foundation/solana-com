@@ -125,9 +125,9 @@ const goldSponsors = [
     height: 950,
   },
   {
-    companyId: "vybe-network",
-    width: 2400,
-    height: 368,
+    companyId: "tickr",
+    width: 826.58,
+    height: 180.78,
   },
   {
     companyId: "alchemy",
@@ -250,8 +250,8 @@ const goldSponsors = [
   },
   {
     companyId: "soilonic",
-    width: 1693,
-    height: 929,
+    width: 178.1,
+    height: 151.99,
   },
   {
     companyId: "triton",
