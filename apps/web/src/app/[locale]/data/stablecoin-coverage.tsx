@@ -16,7 +16,6 @@ import { useTranslations } from "@workspace/i18n/client";
 import {
   stablecoinCoverageProviders,
   stablecoinCoverageRows,
-  type StablecoinCoverageProvider,
   type StablecoinCoverageRow,
 } from "./stablecoin-coverage-data";
 
@@ -36,7 +35,7 @@ export function StablecoinCoverageTable({
   const [query, setQuery] = useState("");
 
   const filteredRows = useMemo(() => filterRows(rows, query), [rows, query]);
-  const providerCounts = useMemo(() => getProviderCounts(rows), [rows]);
+  const rowNumbers = useMemo(() => getRowNumbers(rows), [rows]);
   const tableMaxHeight = useFirstItemsHeight(
     tableScrollRef,
     "thead",
@@ -105,7 +104,14 @@ export function StablecoinCoverageTable({
           <thead>
             <tr className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
               <th
-                className="sticky left-0 top-0 z-20 border-b border-r border-nd-border-light bg-nd-inverse px-4 py-3 text-left xl:px-6"
+                aria-label={t("stablecoinCoverage.rowNumber")}
+                className="sticky left-0 top-0 z-20 w-14 min-w-14 border-b border-nd-border-light bg-nd-inverse py-3 pl-4 text-left xl:pl-6"
+                scope="col"
+              >
+                #
+              </th>
+              <th
+                className="sticky left-14 top-0 z-20 border-b border-r border-nd-border-light bg-nd-inverse px-4 py-3 text-left"
                 scope="col"
               >
                 {t("stablecoinCoverage.token")}
@@ -122,13 +128,7 @@ export function StablecoinCoverageTable({
                   key={provider}
                   scope="col"
                 >
-                  <span className="block">{provider}</span>
-                  <span className="block text-[10px] text-nd-mid-em-text/60">
-                    {t("stablecoinCoverage.providerCount", {
-                      count: providerCounts[provider],
-                      total: rows.length,
-                    })}
-                  </span>
+                  {provider}
                 </th>
               ))}
             </tr>
@@ -139,8 +139,11 @@ export function StablecoinCoverageTable({
                 className="font-brand-mono text-[12px] leading-[1.42] font-bold text-nd-high-em-text"
                 key={row.mintAddress}
               >
+                <td className="sticky left-0 z-10 w-14 min-w-14 border-t border-nd-border-light bg-nd-inverse py-3 pl-4 text-left text-[10px] text-nd-mid-em-text/60 tabular-nums xl:pl-6">
+                  {formatRowNumber(rowNumbers.get(row.mintAddress))}
+                </td>
                 <th
-                  className="sticky left-0 z-10 border-r border-t border-nd-border-light bg-nd-inverse px-4 py-3 text-left uppercase xl:px-6"
+                  className="sticky left-14 z-10 border-r border-t border-nd-border-light bg-nd-inverse px-4 py-3 text-left uppercase"
                   scope="row"
                 >
                   {row.token}
@@ -172,7 +175,10 @@ export function StablecoinCoverageTable({
       >
         {filteredRows.map((row) => (
           <article className="px-4 py-4" key={row.mintAddress}>
-            <h3 className="m-0 font-brand-mono text-[12px] font-bold uppercase text-nd-high-em-text">
+            <h3 className="m-0 flex items-baseline gap-2 font-brand-mono text-[12px] font-bold uppercase text-nd-high-em-text">
+              <span className="text-[10px] text-nd-mid-em-text/60 tabular-nums">
+                {formatRowNumber(rowNumbers.get(row.mintAddress))}
+              </span>
               {row.token}
             </h3>
             <div className="mt-1">
@@ -302,11 +308,11 @@ export function filterRows(rows: StablecoinCoverageRow[], query: string) {
   );
 }
 
-export function getProviderCounts(rows: StablecoinCoverageRow[]) {
-  return Object.fromEntries(
-    stablecoinCoverageProviders.map((provider) => [
-      provider,
-      rows.filter((row) => row.coverage[provider]).length,
-    ]),
-  ) as Record<StablecoinCoverageProvider, number>;
+// 1-based position of each stablecoin in the list as given (the API's order)
+export function getRowNumbers(rows: StablecoinCoverageRow[]) {
+  return new Map(rows.map((row, index) => [row.mintAddress, index + 1]));
+}
+
+export function formatRowNumber(rowNumber: number | undefined) {
+  return rowNumber === undefined ? "" : String(rowNumber).padStart(2, "0");
 }

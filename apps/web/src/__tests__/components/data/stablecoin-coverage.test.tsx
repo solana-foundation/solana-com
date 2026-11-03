@@ -6,7 +6,8 @@ import { loadMergedMessages } from "@workspace/i18n/messages";
 
 import {
   filterRows,
-  getProviderCounts,
+  formatRowNumber,
+  getRowNumbers,
   shortenAddress,
   StablecoinCoverageTable,
 } from "@/app/[locale]/data/stablecoin-coverage";
@@ -66,7 +67,7 @@ describe("StablecoinCoverageTable", () => {
     // header row + all 25 stablecoins; the scroll box limits what's visible
     expect(within(table).getAllByRole("row")).toHaveLength(26);
     expect(
-      within(table).getByRole("columnheader", { name: "DeFiLlama 5 of 25" }),
+      within(table).getByRole("columnheader", { name: "DeFiLlama" }),
     ).toBeInTheDocument();
 
     const scrollBox = getScrollBox(table);
@@ -115,7 +116,7 @@ describe("StablecoinCoverageTable", () => {
     renderTable();
 
     const table = screen.getByRole("table", { name: tableName });
-    const firstRow = within(table).getByRole("row", { name: /^TOKEN0 / });
+    const firstRow = within(table).getByRole("row", { name: /TOKEN0 / });
     expect(within(firstRow).getAllByText("Covered")).toHaveLength(3);
     expect(within(firstRow).getAllByText("Not covered")).toHaveLength(2);
   });
@@ -135,11 +136,14 @@ describe("StablecoinCoverageTable", () => {
     ).toHaveLength(12);
 
     fireEvent.change(search, { target: { value: "mint07" } });
+    const table = screen.getByRole("table", { name: tableName });
+    expect(within(table).getAllByRole("row")).toHaveLength(2);
+    // TOKEN7 keeps its position in the full list, not "01"
     expect(
-      within(screen.getByRole("table", { name: tableName })).getAllByRole(
-        "row",
+      within(within(table).getByRole("row", { name: /TOKEN7/ })).getByText(
+        "08",
       ),
-    ).toHaveLength(2);
+    ).toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "nothing-matches" } });
     expect(
@@ -161,14 +165,13 @@ describe("stablecoin coverage helpers", () => {
     expect(filterRows(rows, "")).toHaveLength(25);
   });
 
-  it("counts covered stablecoins per provider", () => {
-    expect(getProviderCounts(rows)).toEqual({
-      Allium: 25,
-      DeFiLlama: 5,
-      Dune: 0,
-      RWA: 5,
-      "Top Ledger": 0,
-    });
+  it("numbers rows by their position in the full list", () => {
+    const numbers = getRowNumbers(rows);
+    expect(numbers.get(rows[0].mintAddress)).toBe(1);
+    expect(numbers.get(rows[24].mintAddress)).toBe(25);
+    expect(formatRowNumber(1)).toBe("01");
+    expect(formatRowNumber(101)).toBe("101");
+    expect(formatRowNumber(undefined)).toBe("");
   });
 });
 
