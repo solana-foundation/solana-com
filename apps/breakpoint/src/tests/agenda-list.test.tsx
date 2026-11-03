@@ -1,8 +1,18 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "@workspace/i18n/client";
 import AgendaList from "@/components/pages/agenda/AgendaList";
 import { attachSpeakerProfiles } from "@/content/agenda/speaker-links";
 import type { AgendaItem } from "@/content/agenda/types";
+import messages from "../../../../packages/i18n/messages/breakpoint/en/breakpoint.json";
+
+function renderList(list: AgendaItem[]) {
+  return render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <AgendaList items={list} />
+    </NextIntlClientProvider>,
+  );
+}
 
 afterEach(() => {
   cleanup();
@@ -102,7 +112,7 @@ function titles() {
 
 describe("AgendaList", () => {
   it("shows Day 1 Main Stage with speaker roles, asset pills and breaks", () => {
-    render(<AgendaList items={items} />);
+    renderList(items);
 
     expect(titles()).toEqual([
       "MoneyGram Ramps",
@@ -122,7 +132,7 @@ describe("AgendaList", () => {
   });
 
   it("switches stages and days without mixing sessions", () => {
-    render(<AgendaList items={items} />);
+    renderList(items);
 
     fireEvent.click(screen.getByRole("tab", { name: "Royal Exchange" }));
     expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
@@ -138,7 +148,7 @@ describe("AgendaList", () => {
   });
 
   it("filters by asset class and searches speakers, sessions and asset classes", () => {
-    render(<AgendaList items={items} />);
+    renderList(items);
 
     fireEvent.change(screen.getByLabelText("Asset class"), {
       target: { value: "Credit & Collateral" },
@@ -177,7 +187,7 @@ describe("AgendaList", () => {
         xUrl: "https://x.com/soohoo",
       },
     ]);
-    render(<AgendaList items={withProfiles} />);
+    renderList(withProfiles);
 
     expect(
       screen.queryByRole("link", { name: "Anthony Soohoo on X" }),
@@ -198,5 +208,34 @@ describe("AgendaList", () => {
       screen.getByRole("button", { name: "Collapse MoneyGram Ramps" }),
     );
     expect(screen.queryByText("Keynote")).not.toBeInTheDocument();
+  });
+
+  it("moves between tabs with the arrow keys and keeps one tab focusable", () => {
+    renderList(items);
+
+    const day1 = screen.getByRole("tab", { name: /Day 1/ });
+    const day2 = screen.getByRole("tab", { name: /Day 2/ });
+    expect(day1).toHaveAttribute("tabindex", "0");
+    expect(day2).toHaveAttribute("tabindex", "-1");
+
+    day1.focus();
+    fireEvent.keyDown(day1, { key: "ArrowRight" });
+    expect(titles()).toEqual(["The Machine Economy"]);
+    expect(screen.getByRole("tab", { name: /Day 2/ })).toHaveFocus();
+
+    fireEvent.keyDown(screen.getByRole("tab", { name: /Day 2/ }), {
+      key: "Home",
+    });
+    expect(titles()).toEqual([
+      "MoneyGram Ramps",
+      "Unlocking Private Markets",
+      "Lunch",
+    ]);
+
+    const main = screen.getByRole("tab", { name: "Main Stage" });
+    main.focus();
+    fireEvent.keyDown(main, { key: "ArrowLeft" });
+    expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
+    expect(screen.getByRole("tab", { name: "Royal Exchange" })).toHaveFocus();
   });
 });

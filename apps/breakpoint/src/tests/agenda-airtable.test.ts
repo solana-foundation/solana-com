@@ -338,6 +338,40 @@ describe("Breakpoint agenda records", () => {
     expect(agendaUrl).toContain("fields%5B%5D=Web+Publishing+Status");
   });
 
+  it("hides a session whose status link cannot be resolved", () => {
+    expect(
+      readPublishingFlags(
+        { "Web Publishing Status": ["recTitle", "recMystery0000001"] },
+        { recTitle: "Title" },
+      )?.doNotPublish,
+    ).toBe(true);
+  });
+
+  it("keeps the built-in Do not publish id when the status view omits it", async () => {
+    stubAirtable(
+      [
+        {
+          id: "blocked",
+          fields: {
+            Session: "Fireside: Barclays",
+            "Web Publishing Status": ["recOn6L12BmGHDOno", "recqpel3kBGWP6Xkx"],
+          },
+        },
+        {
+          id: "shown",
+          fields: {
+            Session: "Keynote: Zelle",
+            "Web Publishing Status": ["recOn6L12BmGHDOno"],
+          },
+        },
+      ],
+      [{ id: "recOn6L12BmGHDOno", fields: { "Web Status": "Title" } }],
+    );
+
+    const agenda = await getAirtableAgenda();
+    expect(agenda?.map((item) => item.id)).toEqual(["shown"]);
+  });
+
   it("falls back to the built-in status ids when the status table is empty", async () => {
     stubAirtable(
       [

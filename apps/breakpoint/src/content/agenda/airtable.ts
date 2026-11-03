@@ -415,6 +415,11 @@ export function readPublishingFlags(
   ]);
   if (raw.length === 0) return null;
 
+  // A linked status we cannot name might be "Do not publish", so treat the
+  // row as unreviewed rather than guess.
+  const unresolved = raw.some(
+    (value) => isLinkedRecordId(value) && !(value in statusNames),
+  );
   const names = raw.map((value) =>
     (statusNames[value] ?? value).trim().toLowerCase(),
   );
@@ -422,7 +427,7 @@ export function readPublishingFlags(
 
   return {
     description: has("description"),
-    doNotPublish: has("do not publish") || has("unpublish"),
+    doNotPublish: unresolved || has("do not publish") || has("unpublish"),
     speakers: has("speaker"),
     time: has("time"),
     title: has("title"),
@@ -597,9 +602,8 @@ async function fetchPublishingStatusNames(): Promise<StatusNames> {
     if (name) names[record.id] = name;
   }
 
-  return Object.keys(names).length > 0
-    ? names
-    : DEFAULT_PUBLISHING_STATUS_NAMES;
+  // Known ids stay as a floor so a trimmed view cannot drop "Do not publish".
+  return { ...DEFAULT_PUBLISHING_STATUS_NAMES, ...names };
 }
 
 async function fetchAirtableAgenda(): Promise<AgendaItem[] | null> {

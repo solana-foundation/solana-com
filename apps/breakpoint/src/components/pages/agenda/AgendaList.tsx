@@ -1,7 +1,8 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "@workspace/i18n/client";
 import { accordionButtonClassName } from "@/components/AccordionButton";
 import DisclosureIcon from "@/components/DisclosureIcon";
 import {
@@ -32,6 +33,8 @@ const ASSET_CLASS_ACCENTS: Record<string, string> = {
   "the ai stack": "border-pink text-pink",
   "tokenized equities": "border-purple text-purple",
 };
+
+type Translate = ReturnType<typeof useTranslations>;
 
 function normalizeDay(day: string) {
   return day.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -111,6 +114,48 @@ function assetAccentClass(assetClass: string) {
 
 function speakerAssociation(speaker: AgendaSpeaker) {
   return [speaker.title, speaker.company].filter(Boolean).join(", ");
+}
+
+/**
+ * WAI-ARIA tabs: arrow keys move between tabs and select them, Home and End
+ * jump to the ends, and only the selected tab sits in the page's tab order.
+ */
+function handleTabListKeyDown(
+  event: KeyboardEvent<HTMLDivElement>,
+  keys: string[],
+  current: string,
+  select: (_key: string) => void,
+) {
+  const currentIndex = Math.max(0, keys.indexOf(current));
+  let nextIndex: number | null = null;
+
+  switch (event.key) {
+    case "ArrowRight":
+    case "ArrowDown":
+      nextIndex = (currentIndex + 1) % keys.length;
+      break;
+    case "ArrowLeft":
+    case "ArrowUp":
+      nextIndex = (currentIndex - 1 + keys.length) % keys.length;
+      break;
+    case "Home":
+      nextIndex = 0;
+      break;
+    case "End":
+      nextIndex = keys.length - 1;
+      break;
+    default:
+      return;
+  }
+
+  event.preventDefault();
+  const nextKey = keys[nextIndex];
+  if (nextKey === undefined) return;
+
+  select(nextKey);
+  const tabs =
+    event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+  tabs[nextIndex]?.focus();
 }
 
 function XIcon() {
@@ -201,9 +246,11 @@ function SessionMeta({ item }: { item: AgendaItem }) {
 function SpeakerBlock({
   showLinks,
   speaker,
+  t,
 }: {
   showLinks: boolean;
   speaker: AgendaSpeaker;
+  t: Translate;
 }) {
   const association = speakerAssociation(speaker);
 
@@ -216,7 +263,7 @@ function SpeakerBlock({
             href={speaker.xUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label={`${speaker.name} on X`}
+            aria-label={t("onX", { name: speaker.name })}
             className="flex size-6 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             onClick={(event) => event.stopPropagation()}
           >
@@ -227,7 +274,7 @@ function SpeakerBlock({
       {association && (
         <p className={`${EYEBROW_TEXT_CLASS} text-text-secondary`}>
           {speaker.isModerator && (
-            <span className="text-white">Moderator · </span>
+            <span className="text-white">{t("moderator")} · </span>
           )}
           {association}
         </p>
@@ -240,10 +287,12 @@ function SessionRow({
   item,
   onToggle,
   open,
+  t,
 }: {
   item: AgendaItem;
   onToggle: () => void;
   open: boolean;
+  t: Translate;
 }) {
   const hasLinks = item.speakers.some((speaker) => speaker.xUrl);
   const hasDetails = Boolean(item.description || item.format || hasLinks);
@@ -283,6 +332,7 @@ function SessionRow({
                     key={`${item.id}-${speaker.name}-${speaker.company ?? ""}`}
                     showLinks={open}
                     speaker={speaker}
+                    t={t}
                   />
                 ))}
               </div>
@@ -314,7 +364,7 @@ function SessionRow({
           type="button"
           aria-expanded={open}
           aria-controls={open ? detailsId : undefined}
-          aria-label={`${open ? "Collapse" : "Expand"} ${item.title}`}
+          aria-label={t(open ? "collapse" : "expand", { title: item.title })}
           onClick={(event) => {
             event.stopPropagation();
             onToggle();
@@ -335,7 +385,7 @@ function StaticRow({ item }: { item: AgendaItem }) {
       data-agenda-static
     >
       <div className="flex min-w-0 flex-1 flex-col gap-m uppercase md:flex-row md:items-center md:gap-3xl">
-        <div className="flex w-[108px] shrink-0 flex-col items-start justify-center gap-3xs">
+        <div className="flex w-[140px] shrink-0 flex-col items-start justify-center gap-3xs">
           <p className={`${EYEBROW_TEXT_CLASS} w-full`}>{item.time}</p>
           {item.duration && (
             <p className={`${EYEBROW_TEXT_CLASS} w-full`}>{item.duration}</p>
@@ -383,11 +433,15 @@ function SelectControl({
 
 function SearchControl({
   id,
+  label,
   onChange,
+  placeholder,
   value,
 }: {
   id: string;
+  label: string;
   onChange: (_value: string) => void;
+  placeholder: string;
   value: string;
 }) {
   return (
@@ -395,7 +449,7 @@ function SearchControl({
       htmlFor={id}
       className="flex w-full min-w-0 flex-col justify-center gap-2xs md:w-auto md:flex-1"
     >
-      <span className="type-button text-text-secondary">Search</span>
+      <span className="type-button text-text-secondary">{label}</span>
       <span className="relative block w-full md:max-w-[480px]">
         <SearchIcon />
         <input
@@ -403,7 +457,7 @@ function SearchControl({
           type="search"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="Speaker, session, or asset class"
+          placeholder={placeholder}
           autoComplete="off"
           className="font-mono text-button-small h-10 w-full border border-neutral-700 bg-black pl-10 pr-4 uppercase tracking-[0.07rem] text-white outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-text-secondary focus:border-white"
         />
@@ -413,6 +467,7 @@ function SearchControl({
 }
 
 export default function AgendaList({ items }: { items: AgendaItem[] }) {
+  const t = useTranslations("breakpoint.pages.schedule.list");
   const listRef = useRef<HTMLDivElement>(null);
   const pendingDayScrollRef = useRef(false);
   const tabsRef = useRef<HTMLDivElement>(null);
@@ -580,21 +635,37 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     "--agenda-accent": dayAccent(activeDay),
   } as CSSProperties;
 
-  const stageLabel = activeStage ? ` on the ${activeStage}` : "";
+  const emptyMessage = (() => {
+    if (filtering) {
+      return activeStage
+        ? t("noMatches", { day: activeDay, stage: activeStage })
+        : t("noMatchesAnyStage", { day: activeDay });
+    }
+    return activeStage
+      ? t("comingSoon", { day: activeDay, stage: activeStage })
+      : t("comingSoonAnyStage", { day: activeDay });
+  })();
 
   return (
     <section
-      aria-label="Breakpoint agenda"
+      aria-label={t("sectionLabel")}
       className="bg-black"
       style={accentStyle}
     >
+      {/*
+        Sticks below the floating site navigation (12px offset + 48px tall)
+        and sits beneath it in the stacking order so both stay usable.
+      */}
       <div
         ref={tabsRef}
-        className="sticky top-0 z-40 flex w-full flex-col bg-black pt-m"
+        className="sticky top-0 z-30 flex w-full flex-col bg-black pt-[72px]"
       >
         <div
           role="tablist"
-          aria-label="Agenda day"
+          aria-label={t("dayTabs")}
+          onKeyDown={(event) =>
+            handleTabListKeyDown(event, allDays, activeDay, selectDay)
+          }
           className="flex w-full items-end justify-start overflow-x-auto md:justify-center"
         >
           <div className="h-px w-xs shrink-0 bg-neutral-700 md:hidden" />
@@ -608,6 +679,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                   type="button"
                   role="tab"
                   aria-selected={active}
+                  tabIndex={active ? 0 : -1}
                   onClick={() => selectDay(day)}
                   className={`flex flex-col items-start gap-3xs border-b px-xs pb-2xs normal-case transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:items-center md:px-m ${
                     active
@@ -631,7 +703,15 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
         {allStages.length > 1 && (
           <div
             role="tablist"
-            aria-label="Stage"
+            aria-label={t("stageTabs")}
+            onKeyDown={(event) =>
+              handleTabListKeyDown(
+                event,
+                allStages,
+                activeStage ?? "",
+                selectStage,
+              )
+            }
             className="container mx-auto flex w-full items-center gap-3xs overflow-x-auto pb-xs pt-xs"
           >
             {allStages.map((stage) => {
@@ -643,6 +723,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                   type="button"
                   role="tab"
                   aria-selected={active}
+                  tabIndex={active ? 0 : -1}
                   onClick={() => selectStage(stage)}
                   className={`type-button flex h-10 shrink-0 items-center gap-2xs border px-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
                     active
@@ -668,23 +749,29 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
       </div>
 
       <div
-        aria-label="Agenda filters"
+        aria-label={t("filters")}
         className="container mx-auto flex w-full flex-col gap-s pt-m md:flex-row md:items-end md:gap-m"
       >
         <SelectControl
           id="agenda-asset-class"
-          label="Asset class"
+          label={t("assetClass")}
           value={assetClass}
           onChange={setAssetClass}
         >
-          <option value={ALL_ASSET_CLASSES}>All asset classes</option>
+          <option value={ALL_ASSET_CLASSES}>{t("allAssetClasses")}</option>
           {assetClassOptions.map((option) => (
             <option key={option} value={option}>
               {option}
             </option>
           ))}
         </SelectControl>
-        <SearchControl id="agenda-search" value={query} onChange={setQuery} />
+        <SearchControl
+          id="agenda-search"
+          label={t("search")}
+          placeholder={t("searchPlaceholder")}
+          value={query}
+          onChange={setQuery}
+        />
       </div>
 
       <div
@@ -700,6 +787,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                 key={item.id}
                 item={item}
                 open={openItemId === item.id}
+                t={t}
                 onToggle={() =>
                   setOpenItemId((current) =>
                     current === item.id ? null : item.id,
@@ -711,16 +799,11 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
         ) : (
           <div className="w-full border border-neutral-700 px-s py-l text-center">
             <p className="type-button-relaxed text-text-secondary">
-              {filtering
-                ? `No sessions match${stageLabel} for ${activeDay}.`
-                : `${activeDay} sessions${stageLabel} are coming soon.`}
+              {emptyMessage}
             </p>
             {matchesElsewhere > 0 && (
               <p className="type-paragraph mt-2xs text-text-secondary">
-                {matchesElsewhere === 1
-                  ? "1 session matches"
-                  : `${matchesElsewhere} sessions match`}{" "}
-                on another day or stage.
+                {t("matchesElsewhere", { count: matchesElsewhere })}
               </p>
             )}
           </div>
