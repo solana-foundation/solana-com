@@ -52,11 +52,21 @@ export default function FindMutuals({ locale }: { locale: string }) {
   const shown = filtered.slice(start, start + PAGE_SIZE);
   const nextUp = suggestions.slice(0, 3);
   const next = joinHandles(nextUp.map((s) => s.handle));
+  const mutuals = data
+    ? [
+        joinHandles(data.mutuals.slice(0, 3)),
+        data.mutuals.length > 3
+          ? t("panel.more", { count: data.mutuals.length - 3 })
+          : "",
+      ]
+        .filter(Boolean)
+        .join(" ")
+    : "";
   // Mutuals have added theirs by definition, so only "next up" can be asked.
   const mutualsPost = data
     ? withAsk(
         data.mutuals.length
-          ? t("share.mutuals", { mutuals: joinHandles(data.mutuals), next })
+          ? t("share.mutuals", { mutuals, next })
           : t("share.mutualsNone", { next }),
         t("share.ask"),
         nextUp.some((s) => !s.claimed),

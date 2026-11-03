@@ -111,7 +111,7 @@ export default function AddYour3({ locale }: { locale: string }) {
       setAdds(
         start.length < HERE_FOR_MAX_ADDS
           ? [...start, requested]
-          : [...start.slice(0, 2), requested],
+          : [...start.slice(0, HERE_FOR_MAX_ADDS - 1), requested],
       );
     } else {
       setAdds(start);
@@ -312,43 +312,51 @@ export default function AddYour3({ locale }: { locale: string }) {
               <div className="flex flex-col gap-xs p-s md:px-l md:pt-l">
                 <SectionLabel index={1}>{t("add.picksLabel")}</SectionLabel>
                 <ol className="unstyled-list grid gap-2xs md:grid-cols-3">
-                  {Array.from({ length: HERE_FOR_MAX_ADDS }, (_, i) => {
-                    const value = adds[i];
-                    return (
-                      <li
-                        key={i}
-                        className={`relative flex min-h-11 items-center gap-xs py-3xs pl-xs pr-xl [container-type:inline-size] md:min-h-[120px] md:flex-col md:justify-center md:p-xs md:text-center ${
-                          value
-                            ? "border border-core-purple bg-black text-white"
-                            : "border border-dashed border-stroke-secondary text-neutral-500"
-                        }`}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`${hereForType.caption} md:absolute md:left-2xs md:top-2xs ${value ? "text-core-purple" : ""}`}
+                  {Array.from(
+                    {
+                      length: Math.min(
+                        HERE_FOR_MAX_ADDS,
+                        Math.max(3, adds.length + 1),
+                      ),
+                    },
+                    (_, i) => {
+                      const value = adds[i];
+                      return (
+                        <li
+                          key={i}
+                          className={`relative flex min-h-11 items-center gap-xs py-3xs pl-xs pr-xl [container-type:inline-size] md:min-h-[120px] md:flex-col md:justify-center md:p-xs md:text-center ${
+                            value
+                              ? "border border-core-purple bg-black text-white"
+                              : "border border-dashed border-stroke-secondary text-neutral-500"
+                          }`}
                         >
-                          0{i + 1}
-                        </span>
-                        <span
-                          className={`min-w-0 break-all font-sans text-lg leading-tight md:text-[clamp(0.875rem,9cqi,1.5rem)] ${value ? "font-bold" : "font-normal"}`}
-                        >
-                          {value ?? t("add.empty")}
-                        </span>
-                        {value && !closed && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setAdds(adds.filter((h) => h !== value))
-                            }
-                            aria-label={t("add.remove", { handle: value })}
-                            className="absolute right-3xs top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-2xl leading-none text-text-secondary transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-core-purple md:top-3xs md:size-8 md:translate-y-0"
+                          <span
+                            aria-hidden="true"
+                            className={`${hereForType.caption} md:absolute md:left-2xs md:top-2xs ${value ? "text-core-purple" : ""}`}
                           >
-                            ×
-                          </button>
-                        )}
-                      </li>
-                    );
-                  })}
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <span
+                            className={`min-w-0 break-all font-sans text-lg leading-tight md:text-[clamp(0.875rem,9cqi,1.5rem)] ${value ? "font-bold" : "font-normal"}`}
+                          >
+                            {value ?? t("add.empty")}
+                          </span>
+                          {value && !closed && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setAdds(adds.filter((h) => h !== value))
+                              }
+                              aria-label={t("add.remove", { handle: value })}
+                              className="absolute right-3xs top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-2xl leading-none text-text-secondary transition-colors hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-core-purple md:top-3xs md:size-8 md:translate-y-0"
+                            >
+                              ×
+                            </button>
+                          )}
+                        </li>
+                      );
+                    },
+                  )}
                 </ol>
                 {!closed && adds.length > 0 && remaining > 0 && (
                   <p className={`${hereForType.small} text-text-secondary`}>
