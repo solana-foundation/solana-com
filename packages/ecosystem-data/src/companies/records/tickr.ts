@@ -12,17 +12,7 @@ export const tickr = {
   id: "tickr",
   slug: "tickr",
   name: "Tickr",
-  profile: {
-    tagline: "Global financial markets, onchain.",
-    summary:
-      "Tickr is developing an onchain platform for trading global financial markets.",
-    description:
-      "Tickr is building an onchain trading venue for real-world financial assets. Its planned markets use perpetual contracts to provide access to global financial markets around the clock.",
-    sector: "DeFi",
-    type: "Platform",
-    links: { website: "https://tickr.co/" },
-    socials: { x: "https://x.com/Tickr_co", telegram: "https://t.me/tickr_co" },
-  },
+  profile: null,
   defaultLogoId: "logo-color-dark",
   logos: [
     {
