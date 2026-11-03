@@ -48,56 +48,67 @@ function renderTable(tableRows = rows) {
   );
 }
 
+// The scroll box wrapping the desktop table (the outer <section> is also a
+// region with the same name, so look it up from the table instead).
+function getScrollBox(table: HTMLElement) {
+  const scrollBox = table.closest<HTMLElement>('[role="region"]');
+  if (!scrollBox) {
+    throw new Error("table is not inside a scroll region");
+  }
+  return scrollBox;
+}
+
 describe("StablecoinCoverageTable", () => {
-  it("shows the first four stablecoins with per-provider counts", () => {
+  it("renders every stablecoin inside a keyboard-scrollable region", () => {
     renderTable();
 
     const table = screen.getByRole("table", { name: tableName });
-    // header row + 4 stablecoins
-    expect(within(table).getAllByRole("row")).toHaveLength(5);
+    // header row + all 25 stablecoins; the scroll box limits what's visible
+    expect(within(table).getAllByRole("row")).toHaveLength(26);
     expect(
       within(table).getByRole("columnheader", { name: "DeFiLlama 5 of 25" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Show all 25" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
+
+    const scrollBox = getScrollBox(table);
+    expect(scrollBox).toHaveAccessibleName("Stablecoin coverage by provider");
+    expect(scrollBox).toHaveAttribute("tabindex", "0");
   });
 
-  it("expands to every stablecoin", () => {
+  it("caps the scroll box at the header plus six rows", () => {
+    // jsdom has no layout, so give every row and the header a fixed height
+    const offsetHeight = vi
+      .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+      .mockImplementation(function (this: HTMLElement) {
+        return this.matches("thead, tbody > tr") ? 40 : 0;
+      });
     renderTable();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show all 25" }));
-
-    const table = screen.getByRole("table", { name: tableName });
-    expect(within(table).getAllByRole("row")).toHaveLength(26);
-    expect(screen.getByRole("button", { name: "Show fewer" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
+    const scrollBox = getScrollBox(
+      screen.getByRole("table", { name: tableName }),
     );
+    expect(scrollBox).toHaveStyle({ maxHeight: `${40 * 7}px` });
+
+    offsetHeight.mockRestore();
   });
 
-  it("scrolls back to the table when collapsing, not when expanding", () => {
-    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn(() => ({ matches: false }) as unknown as MediaQueryList),
-    );
+  it("drops the cap when six or fewer stablecoins match", () => {
+    const offsetHeight = vi
+      .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+      .mockImplementation(function (this: HTMLElement) {
+        return this.matches("thead, tbody > tr") ? 40 : 0;
+      });
     renderTable();
 
-    fireEvent.click(screen.getByRole("button", { name: "Show all 25" }));
-    expect(scrollTo).not.toHaveBeenCalled();
+    fireEvent.change(
+      screen.getByRole("searchbox", { name: "Search stablecoins" }),
+      { target: { value: "mint07" } },
+    );
+    const scrollBox = getScrollBox(
+      screen.getByRole("table", { name: tableName }),
+    );
+    expect(scrollBox.style.maxHeight).toBe("");
 
-    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
-    expect(scrollTo).toHaveBeenCalledOnce();
-    expect(
-      within(screen.getByRole("table", { name: tableName })).getAllByRole(
-        "row",
-      ),
-    ).toHaveLength(5);
-
-    scrollTo.mockRestore();
-    vi.unstubAllGlobals();
+    offsetHeight.mockRestore();
   });
 
   it("marks covered and uncovered providers for screen readers", () => {
@@ -116,15 +127,12 @@ describe("StablecoinCoverageTable", () => {
       name: "Search stablecoins",
     });
     fireEvent.change(search, { target: { value: "token1" } });
-    // TOKEN1 and TOKEN10-19 match; the first four are shown
+    // header row + TOKEN1 and TOKEN10-19
     expect(
       within(screen.getByRole("table", { name: tableName })).getAllByRole(
         "row",
       ),
-    ).toHaveLength(5);
-    expect(
-      screen.getByRole("button", { name: "Show all 11" }),
-    ).toBeInTheDocument();
+    ).toHaveLength(12);
 
     fireEvent.change(search, { target: { value: "mint07" } });
     expect(

@@ -2,11 +2,15 @@
 
 import { ArrowOutUpRightSquare as ExternalLink } from "@boxicons/react/ArrowOutUpRightSquare";
 import { Check } from "@boxicons/react/Check";
-import { ChevronDown } from "@boxicons/react/ChevronDown";
-import { ChevronUp } from "@boxicons/react/ChevronUp";
 import { Search } from "@boxicons/react/Search";
 import { X } from "@boxicons/react/X";
-import { useMemo, useRef, useState, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import { useTranslations } from "@workspace/i18n/client";
 
 import {
@@ -15,47 +19,41 @@ import {
   type StablecoinCoverageProvider,
   type StablecoinCoverageRow,
 } from "./stablecoin-coverage-data";
-import { scrollBelowStickyControls } from "./dashboard-scroll";
 
-const defaultVisibleTokenCount = 4;
+// The scroll box is sized to show this many stablecoins; the rest scroll.
+const visibleTokenCount = 6;
 
 type StablecoinCoverageTableProps = {
   rows?: StablecoinCoverageRow[];
-  stickyControlsRef?: RefObject<HTMLElement | null>;
 };
 
 export function StablecoinCoverageTable({
   rows = stablecoinCoverageRows,
-  stickyControlsRef,
 }: StablecoinCoverageTableProps) {
   const t = useTranslations("dataDashboard");
-  const sectionRef = useRef<HTMLElement>(null);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const cardScrollRef = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState("");
-  const [showAll, setShowAll] = useState(false);
-
-  function toggleShowAll() {
-    if (showAll && sectionRef.current) {
-      // Collapsing removes most of the list, so bring the table's title back
-      // into view instead of leaving the reader far below it.
-      scrollBelowStickyControls(
-        sectionRef.current,
-        stickyControlsRef?.current ?? null,
-      );
-    }
-    setShowAll(!showAll);
-  }
 
   const filteredRows = useMemo(() => filterRows(rows, query), [rows, query]);
-  const visibleRows = showAll
-    ? filteredRows
-    : filteredRows.slice(0, defaultVisibleTokenCount);
   const providerCounts = useMemo(() => getProviderCounts(rows), [rows]);
+  const tableMaxHeight = useFirstItemsHeight(
+    tableScrollRef,
+    "thead",
+    "tbody > tr",
+    filteredRows,
+  );
+  const cardMaxHeight = useFirstItemsHeight(
+    cardScrollRef,
+    null,
+    ":scope > article",
+    filteredRows,
+  );
 
   return (
     <section
       aria-labelledby="stablecoin-coverage-title"
       className="mt-10 border border-nd-border-light xl:mt-14"
-      ref={sectionRef}
     >
       <div className="flex flex-col gap-5 border-b border-nd-border-light px-4 py-5 md:px-6 xl:px-8">
         <h2
@@ -73,10 +71,7 @@ export function StablecoinCoverageTable({
           />
           <input
             className="h-10 w-full rounded-none border border-nd-border-prominent bg-transparent pl-9 pr-9 font-brand-mono text-[12px] text-nd-high-em-text outline-none placeholder:text-nd-mid-em-text/60 focus:border-nd-primary [&::-webkit-search-cancel-button]:appearance-none"
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setShowAll(false);
-            }}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder={t("stablecoinCoverage.searchPlaceholder")}
             type="search"
             value={query}
@@ -94,22 +89,36 @@ export function StablecoinCoverageTable({
         </label>
       </div>
 
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[960px] border-collapse">
+      <div
+        aria-labelledby="stablecoin-coverage-title"
+        className="hidden overflow-auto md:block"
+        ref={tableScrollRef}
+        role="region"
+        style={{ maxHeight: tableMaxHeight }}
+        tabIndex={0}
+      >
+        {/* border-separate: sticky cells lose their borders under border-collapse */}
+        <table className="w-full min-w-[960px] border-separate border-spacing-0">
           <caption className="sr-only">
             {t("stablecoinCoverage.tableCaption")}
           </caption>
           <thead>
             <tr className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text">
-              <th className="px-4 py-3 text-left xl:px-6" scope="col">
+              <th
+                className="sticky left-0 top-0 z-20 border-b border-r border-nd-border-light bg-nd-inverse px-4 py-3 text-left xl:px-6"
+                scope="col"
+              >
                 {t("stablecoinCoverage.token")}
               </th>
-              <th className="px-4 py-3 text-left" scope="col">
+              <th
+                className="sticky top-0 z-10 border-b border-nd-border-light bg-nd-inverse px-4 py-3 text-left"
+                scope="col"
+              >
                 {t("stablecoinCoverage.mintAddress")}
               </th>
               {stablecoinCoverageProviders.map((provider) => (
                 <th
-                  className="px-3 py-3 text-center"
+                  className="sticky top-0 z-10 border-b border-nd-border-light bg-nd-inverse px-3 py-3 text-center"
                   key={provider}
                   scope="col"
                 >
@@ -124,23 +133,26 @@ export function StablecoinCoverageTable({
               ))}
             </tr>
           </thead>
-          <tbody>
-            {visibleRows.map((row) => (
+          <tbody className="[&>tr:first-child>*]:border-t-0">
+            {filteredRows.map((row) => (
               <tr
-                className="border-t border-nd-border-light font-brand-mono text-[12px] leading-[1.42] font-bold text-nd-high-em-text"
+                className="font-brand-mono text-[12px] leading-[1.42] font-bold text-nd-high-em-text"
                 key={row.mintAddress}
               >
                 <th
-                  className="border-r border-nd-border-light px-4 py-3 text-left uppercase xl:px-6"
+                  className="sticky left-0 z-10 border-r border-t border-nd-border-light bg-nd-inverse px-4 py-3 text-left uppercase xl:px-6"
                   scope="row"
                 >
                   {row.token}
                 </th>
-                <td className="px-4 py-3">
+                <td className="border-t border-nd-border-light px-4 py-3">
                   <MintAddressLink mintAddress={row.mintAddress} />
                 </td>
                 {stablecoinCoverageProviders.map((provider) => (
-                  <td className="px-3 py-3 text-center" key={provider}>
+                  <td
+                    className="border-t border-nd-border-light px-3 py-3 text-center"
+                    key={provider}
+                  >
                     <CoverageMark value={row.coverage[provider]} />
                   </td>
                 ))}
@@ -150,8 +162,15 @@ export function StablecoinCoverageTable({
         </table>
       </div>
 
-      <div className="divide-y divide-nd-border-light md:hidden">
-        {visibleRows.map((row) => (
+      <div
+        aria-labelledby="stablecoin-coverage-title"
+        className="divide-y divide-nd-border-light overflow-y-auto md:hidden"
+        ref={cardScrollRef}
+        role="region"
+        style={{ maxHeight: cardMaxHeight }}
+        tabIndex={0}
+      >
+        {filteredRows.map((row) => (
           <article className="px-4 py-4" key={row.mintAddress}>
             <h3 className="m-0 font-brand-mono text-[12px] font-bold uppercase text-nd-high-em-text">
               {row.token}
@@ -180,39 +199,58 @@ export function StablecoinCoverageTable({
           {t("stablecoinCoverage.noSearchResults")}
         </div>
       ) : null}
-
-      {filteredRows.length > defaultVisibleTokenCount ? (
-        <div className="flex flex-col gap-3 border-t border-nd-border-light px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-6 xl:px-8">
-          <span
-            aria-live="polite"
-            className="font-brand-mono text-[11px] font-bold uppercase text-nd-mid-em-text"
-          >
-            {t("stablecoinCoverage.showingTokens", {
-              count: visibleRows.length,
-              total: filteredRows.length,
-            })}
-          </span>
-          <button
-            aria-expanded={showAll}
-            className="inline-flex min-h-10 items-center justify-center gap-2 border border-nd-border-prominent px-3 font-brand-mono text-[11px] font-bold uppercase text-nd-high-em-text transition-colors hover:bg-white/[0.06]"
-            onClick={toggleShowAll}
-            type="button"
-          >
-            {showAll
-              ? t("stablecoinCoverage.showFewer")
-              : t("stablecoinCoverage.showAll", {
-                  count: filteredRows.length,
-                })}
-            {showAll ? (
-              <ChevronUp aria-hidden="true" className="h-4 w-4" />
-            ) : (
-              <ChevronDown aria-hidden="true" className="h-4 w-4" />
-            )}
-          </button>
-        </div>
-      ) : null}
     </section>
   );
+}
+
+/**
+ * Max height for a scroll box that shows its header plus the first
+ * `visibleTokenCount` items, measured from the rendered DOM so it follows
+ * font and padding changes. Undefined (no cap) when nothing needs scrolling,
+ * or while the box is hidden at this breakpoint and measures 0.
+ */
+function useFirstItemsHeight(
+  containerRef: RefObject<HTMLElement | null>,
+  headerSelector: string | null,
+  itemSelector: string,
+  items: readonly unknown[],
+) {
+  const [maxHeight, setMaxHeight] = useState<number>();
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    const measure = () => {
+      const header = headerSelector
+        ? container.querySelector<HTMLElement>(headerSelector)
+        : null;
+      const firstItems = Array.from(
+        container.querySelectorAll<HTMLElement>(itemSelector),
+      ).slice(0, visibleTokenCount);
+      const height =
+        (header?.offsetHeight ?? 0) +
+        firstItems.reduce((total, item) => total + item.offsetHeight, 0);
+
+      setMaxHeight(
+        items.length > visibleTokenCount && height > 0 ? height : undefined,
+      );
+    };
+
+    measure();
+
+    // Re-measure when the box appears at another breakpoint or fonts load.
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [containerRef, headerSelector, itemSelector, items]);
+
+  return maxHeight;
 }
 
 function CoverageMark({ value }: { value: boolean }) {
