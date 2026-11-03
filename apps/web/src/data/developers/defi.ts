@@ -250,7 +250,7 @@ export const SECURITY_ITEMS = [
 
 export const SECURITY_CHECKLIST_LINK = {
   id: "productionReadiness",
-  href: "/docs/tools/production-readiness",
+  href: "/docs/tools/security#key-management",
 } as const;
 
 export const READING = [

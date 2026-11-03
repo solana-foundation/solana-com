@@ -183,22 +183,24 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/docs/payments/production-readiness",
-        destination: "/docs/tools/production-readiness",
+        destination: "/docs/tools/transaction-landing#transaction-landing",
       },
     ];
 
-    return movedRoutes.flatMap(({ source, destination }) =>
-      [
+    return movedRoutes.flatMap(({ source, destination }) => {
+      const markdownDestination = destination.replace(/(#|$)/, ".md$1");
+
+      return [
         [source, destination],
-        [`${source}.md`, `${destination}.md`],
+        [`${source}.md`, markdownDestination],
         [`/:locale${source}`, `/:locale${destination}`],
-        [`/:locale${source}.md`, `/:locale${destination}.md`],
+        [`/:locale${source}.md`, `/:locale${markdownDestination}`],
       ].map(([source, destination]) => ({
         source,
         destination,
         permanent: true,
-      })),
-    );
+      }));
+    });
   },
 
   async rewrites() {

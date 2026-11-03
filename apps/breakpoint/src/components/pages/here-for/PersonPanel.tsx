@@ -125,7 +125,16 @@ export default function PersonPanel({
     >
       <div className="flex flex-col gap-2xs p-s">
         <p className={`${hereForType.label} text-core-purple`}>{kind}</p>
-        <h2 className="type-h5 break-all">{handle}</h2>
+        <h2 className="type-h5 break-all">
+          <a
+            href={`https://x.com/${handleSlug(handle)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-core-purple focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-core-purple"
+          >
+            {handle} <span aria-hidden="true">↗</span>
+          </a>
+        </h2>
         <dl className="mt-2xs grid grid-cols-3 border border-stroke-primary">
           <Stat label={t("panel.added")} value={outs.length} />
           <Stat label={t("panel.addedBy")} value={ins.length} />

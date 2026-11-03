@@ -225,6 +225,17 @@ describe("here-for X auth", () => {
     ).toBe("/breakpoint/mutuals/add?picks=alice&save=1");
   });
 
+  it("carries ten full-length handles and the save marker through X sign-in", () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    const picks = Array.from(
+      { length: 10 },
+      (_, i) => `person${String(i).padStart(9, "0")}`,
+    ).join(",");
+    const returnTo = `/ja/breakpoint/mutuals/add?picks=${encodeURIComponent(picks)}&save=1`;
+    const state = new URL(startXSignIn(returnTo)).searchParams.get("state");
+    expect(state!.length).toBeLessThanOrEqual(1024);
+    expect(openXState(state)?.returnTo).toBe(returnTo);
+  });
   it("revalidates return paths stored in OAuth state", () => {
     expect(openXState(sealXState("verifier", "/\t/evil.test"))).toBeNull();
   });

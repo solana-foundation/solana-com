@@ -97,7 +97,7 @@ export function openXState(state: string | null) {
 }
 
 // Keeps the encrypted state well under the length the callback accepts.
-const MAX_RETURN_LENGTH = 200;
+const MAX_RETURN_LENGTH = 400;
 
 /** A long return path keeps its route, picks and save marker, dropping other params. */
 export function compactReturnPath(returnTo: string) {
