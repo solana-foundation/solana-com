@@ -34,6 +34,12 @@ describe("formatMetricValue", () => {
     expect(formatMetricValue(2_904_000, "count", "en")).toBe("2.9M");
     expect(formatMetricValue(3499, "count", "en")).toBe("3,499");
     expect(formatMetricValue(200, "ms", "en")).toBe("200ms");
+    expect(formatMetricValue(37, "percent", "en")).toBe("37%");
+    expect(formatMetricValue(20.7, "percent", "en")).toBe("21%");
+    expect(formatMetricValue(4096, "bytes", "en")).toBe("4,096 bytes");
+    expect(formatMetricValue(0.009, "sol", "en")).toBe("0.009 SOL");
+    expect(formatMetricValue(0.0082536, "wh", "en")).toBe("0.0083 Wh");
+    expect(formatMetricValue(7_290_323, "kwh", "en")).toBe("7.3 GWh");
   });
 
   it("localizes separators and compact suffixes", () => {

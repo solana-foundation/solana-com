@@ -11,7 +11,7 @@ export const HERO_BUTTONS = [
 ] as const;
 
 // Values and labels are dated in the English messages and recorded in
-// content-audit/claims.json; `statSource` must match the claim's source.
+// src/data/metrics/claims/prose.json; `statSource` must match the claim's source.
 export const STATS = [
   {
     id: "dexVolume",

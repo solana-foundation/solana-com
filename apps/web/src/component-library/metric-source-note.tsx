@@ -16,7 +16,8 @@ export type MetricSourceNoteProps = {
 export type MetricSourcesFootnoteItem = {
   /** The stat label the source belongs to. */
   label: string;
-  source: MetricSourceNoteProps;
+  /** Items without a source (unverified figures) are left out. */
+  source?: MetricSourceNoteProps;
 };
 
 const SITE_ORIGIN = "https://solana.com";
@@ -66,7 +67,10 @@ export function MetricSourcesFootnote({
   className?: string;
 }) {
   const t = useTranslations("metrics");
-  if (items.length === 0) return null;
+  const sourced = items.flatMap(({ label, source }) =>
+    source ? [{ label, source }] : [],
+  );
+  if (sourced.length === 0) return null;
 
   return (
     <Popover.Root>
@@ -100,7 +104,7 @@ export function MetricSourcesFootnote({
           className="z-50 w-[320px] max-w-[calc(100vw-32px)] rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3 text-[13px] leading-[1.4] text-zinc-50 shadow-md"
         >
           <ul className="m-0 p-0 list-none flex flex-col gap-2.5">
-            {items.map(({ label, source }) => (
+            {sourced.map(({ label, source }) => (
               <li key={label} data-metric-status={source.status}>
                 <p className="m-0 font-medium">{label}</p>
                 <p className="m-0 text-zinc-400">

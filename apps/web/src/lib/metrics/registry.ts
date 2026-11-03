@@ -10,7 +10,19 @@ import stablecoins from "@/data/metrics/stablecoins.json";
  */
 const registryFiles = { apps, defi, network, rwa, stablecoins };
 
-export type MetricUnit = "usd" | "count" | "ms";
+/**
+ * usd ($1.5B), count (2.9M), ms (200ms), percent (value 37 → 37%), sol
+ * (0.009 SOL), bytes (4,096 bytes), wh (0.0083 Wh), kwh (7.3 GWh).
+ */
+export type MetricUnit =
+  | "usd"
+  | "count"
+  | "ms"
+  | "percent"
+  | "sol"
+  | "bytes"
+  | "wh"
+  | "kwh";
 
 export type MetricPeriod =
   | { kind: "point" }
@@ -35,30 +47,82 @@ export type RwaXyzLiveSpec = {
 };
 
 /** DefiLlama public API: chain TVL (slug = chain name), protocol Solana TVL, or all-time aggregator volume. */
-export type DefiLlamaLiveSpec = {
-  provider: "defillama";
-  query: "chain-tvl" | "protocol-tvl" | "aggregator-volume";
-  slug: string;
+export type DefiLlamaLiveSpec =
+  | {
+      provider: "defillama";
+      /**
+       * chain-tvl: slug = chain name. protocol-tvl: Solana TVL of a protocol.
+       * aggregator-volume: all-time volume. chain-dex-volume-30d: slug =
+       * chain slug.
+       */
+      query:
+        | "chain-tvl"
+        | "protocol-tvl"
+        | "aggregator-volume"
+        | "chain-dex-volume-30d";
+      slug: string;
+    }
+  | {
+      provider: "defillama";
+      /** Circulating supply of one stablecoin (slug = DefiLlama id) on a chain, latest complete day. */
+      query: "stablecoin-chain-supply";
+      slug: string;
+      chain: string;
+    };
+
+/** Read from mainnet RPC on the server. */
+export type SolanaRpcLiveSpec =
+  | { provider: "solana-rpc"; query: "nakamoto-coefficient" }
+  | {
+      provider: "solana-rpc";
+      /** Sum of getTokenSupply (UI amount) across mints. */
+      query: "token-supply-sum";
+      mints: string[];
+    };
+
+/** x402scan public stats; timeframe in days (0 = all time). Shares are Solana's percent of all chains. */
+export type X402scanLiveSpec = {
+  provider: "x402scan";
+  query:
+    | "transactions"
+    | "volume-usd"
+    | "buyers"
+    | "sellers"
+    | "transaction-share"
+    | "volume-share";
+  timeframe: 0 | 7 | 30;
 };
 
-/** Computed from mainnet getVoteAccounts. */
-export type SolanaRpcLiveSpec = {
-  provider: "solana-rpc";
-  query: "nakamoto-coefficient";
+/** Solana Climate Dashboard KPIs (climate.solana.com/api/kpis). */
+export type ClimateLiveSpec = {
+  provider: "climate";
+  field: "electricityTx" | "electricity365" | "emissionsTx" | "emissions365";
 };
 
 export type MetricDefinition = {
   unit: MetricUnit;
   definition: string;
   period: MetricPeriod;
-  source: { name: string; url: string };
+  /** Reader-facing source. Omitted only for `verification: "unverified"`. */
+  source?: { name: string; url: string };
+  /**
+   * "unverified": a figure kept as published because no citable source was
+   * found. It renders without a source; `note` records what was checked.
+   */
+  verification?: "unverified";
+  /** Maintainer note, e.g. why a figure is unverified. Not shown to readers. */
+  note?: string;
   owner: string;
   /** Absent for curated snapshots. */
   live?:
     | DataApiLiveSpec
     | RwaXyzLiveSpec
     | DefiLlamaLiveSpec
-    | SolanaRpcLiveSpec;
+    | SolanaRpcLiveSpec
+    | X402scanLiveSpec
+    | ClimateLiveSpec;
+  /** Characters around the formatted value, e.g. "+" for "100M+", "~", "#", "x". */
+  display?: { prefix?: string; suffix?: string };
   /**
    * Curated value: published as-is for snapshot metrics, and the explicit
    * fallback for live metrics when their source fails or returns nothing.

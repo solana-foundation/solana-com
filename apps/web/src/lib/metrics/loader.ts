@@ -160,7 +160,7 @@ export async function resolveMetrics<const K extends MetricKey>(
             id,
             await settle(
               () => sources.external(spec),
-              `${spec.provider} ${spec.query}`,
+              `${spec.provider} ${JSON.stringify(spec)}`,
             ),
           ] as const,
       ),
@@ -247,7 +247,11 @@ function resolveMetric(
 function isExternalSpec(
   live: MetricDefinition["live"],
 ): live is ExternalLiveSpec {
-  return live?.provider === "defillama" || live?.provider === "solana-rpc";
+  return (
+    live !== undefined &&
+    live.provider !== "data-api" &&
+    live.provider !== "rwa-xyz"
+  );
 }
 
 async function settle<T>(load: () => Promise<T>, label: string) {

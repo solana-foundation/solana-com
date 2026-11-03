@@ -11,6 +11,9 @@ key prefix:
 | `stablecoins.json` | `stablecoins.*` | Stablecoin supply and transfer volume               |
 | `rwa.json`         | `rwa.*`         | Tokenized real-world assets                         |
 
+`claims/prose.json` covers numbers written inside sentences (see
+[Numbers in prose](#numbers-in-prose)).
+
 Pages never hardcode these numbers. They ask for a key and render the value, its
 source link, and its date. One edit here updates every page that uses the key.
 
@@ -90,3 +93,37 @@ loader in `apps/web/src/lib/metrics/` and a rule in
 Statuses shown to QA (`data-metric-status` in the Sources popover): `live`,
 `stale` (live, but the data is more than 3 days old), `fallback` (the source
 failed; snapshot shown), and `snapshot` (no live source).
+
+## Figures that can't be verified
+
+A figure with no citable source stays on the page as published, marked for
+review:
+
+```json
+"depin.transactions-30d": {
+  "unit": "count",
+  "definition": "Monthly transactions by Solana DePIN programs.",
+  "period": { "kind": "trailing", "days": 30 },
+  "owner": "Ecosystem Engineering",
+  "verification": "unverified",
+  "note": "No public dated source found; /data has no DePIN breakdown.",
+  "display": { "suffix": "+" },
+  "snapshot": { "value": 2000000, "asOf": "2026-11-02" },
+  "verifiedAt": "2026-11-02",
+  "reviewBy": "2027-01-30"
+}
+```
+
+It has no `source` and is left out of the Sources popover. Replace it with a
+sourced entry, or remove it from the page, when the note is resolved.
+
+## Numbers in prose
+
+`claims/prose.json` records numbers inside copy (for example "fees under a
+cent") that can't render from a key. Each entry has the English message path,
+the exact claim text, an owner, a source URL, the date the source measures
+(`asOf`), and a review deadline (`reviewBy`). Validation fails when metadata is
+missing, the claim no longer appears in the English message, or the review
+deadline has passed. Financial-institutions project stats also carry a
+`statSource` link in their page data, and validation checks that it matches the
+claim. Review localized messages with the English source during the same update.

@@ -125,7 +125,7 @@ Notes on changed measures:
   distinct measure that is left as labelled. No $0.18 or $0.013 claim exists.
 
 Prose claims using these standards are registered in
-`apps/web/content-audit/claims.json`.
+`apps/web/src/data/metrics/claims/prose.json`.
 
 ## /data validation
 

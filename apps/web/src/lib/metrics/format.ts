@@ -48,6 +48,40 @@ export function formatMetricValue(
     }).format(value);
   }
 
+  if (unit === "percent") {
+    return new Intl.NumberFormat(locale, {
+      style: "percent",
+      maximumFractionDigits: Math.abs(value) < 10 ? 1 : 0,
+    }).format(value / 100);
+  }
+
+  if (unit === "bytes") {
+    return new Intl.NumberFormat(locale, {
+      style: "unit",
+      unit: "byte",
+      unitDisplay: "long",
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
+
+  if (unit === "sol" || unit === "wh") {
+    // Small per-action amounts: two significant digits (0.009 SOL, 0.0083 Wh).
+    const amount = new Intl.NumberFormat(locale, {
+      maximumSignificantDigits: 2,
+    }).format(value);
+    return `${amount} ${unit === "sol" ? "SOL" : "Wh"}`;
+  }
+
+  if (unit === "kwh") {
+    const [scaled, symbol] =
+      value >= 1e6
+        ? [value / 1e6, "GWh"]
+        : value >= 1e3
+          ? [value / 1e3, "MWh"]
+          : [value, "kWh"];
+    return `${new Intl.NumberFormat(locale, { maximumFractionDigits: scaled < 10 ? 1 : 0 }).format(scaled)} ${symbol}`;
+  }
+
   if (unit === "usd") {
     const currency = { style: "currency", currency: "USD" } as const;
     // Sub-dollar values (per-transaction fees) keep one significant digit.

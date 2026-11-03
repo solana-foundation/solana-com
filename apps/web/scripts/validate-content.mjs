@@ -407,11 +407,11 @@ export function validateClaims(
   const errors = [];
   for (const requiredPath of requiredClaimPaths) {
     if (!claims.some((entry) => entry.path === requiredPath)) {
-      errors.push(`claims.json: missing required claim ${requiredPath}`);
+      errors.push(`claims/prose.json: missing required claim ${requiredPath}`);
     }
   }
   for (const entry of claims) {
-    const location = `claims.json:${entry.path}`;
+    const location = `claims/prose.json:${entry.path}`;
     const copy = messageAtPath(messages, entry.path);
     if (
       !entry.claim ||
@@ -471,14 +471,39 @@ export function validateFinancialProjectStats(projects, claims, messages) {
   return errors;
 }
 
-const metricUnits = new Set(["usd", "count", "ms"]);
+const metricUnits = new Set([
+  "usd",
+  "count",
+  "ms",
+  "percent",
+  "sol",
+  "bytes",
+  "wh",
+  "kwh",
+]);
 const metricRollups = new Set(["sum", "avg", "last"]);
 const defiLlamaQueries = new Set([
   "chain-tvl",
   "protocol-tvl",
   "aggregator-volume",
+  "chain-dex-volume-30d",
+  "stablecoin-chain-supply",
 ]);
-const solanaRpcQueries = new Set(["nakamoto-coefficient"]);
+const solanaRpcQueries = new Set(["nakamoto-coefficient", "token-supply-sum"]);
+const x402scanQueries = new Set([
+  "transactions",
+  "volume-usd",
+  "buyers",
+  "sellers",
+  "transaction-share",
+  "volume-share",
+]);
+const climateFields = new Set([
+  "electricityTx",
+  "electricity365",
+  "emissionsTx",
+  "emissions365",
+]);
 const rwaXyzFields = new Set([
   "distributedValueUSD",
   "assetCount",
@@ -539,14 +564,24 @@ export function validateMetricRegistry(
     if (!metric.definition?.trim())
       errors.push(`${location}: definition is required`);
     if (!metric.owner?.trim()) errors.push(`${location}: owner is required`);
-    if (!metric.source?.name?.trim())
-      errors.push(`${location}: source name is required`);
-    try {
-      const sourceUrl = new URL(metric.source?.url);
-      if (sourceUrl.protocol !== "https:")
+    if (metric.verification === "unverified") {
+      if (!metric.note?.trim())
+        errors.push(`${location}: unverified figures need a note`);
+      if (metric.live)
+        errors.push(`${location}: unverified figures cannot be live`);
+    } else if (metric.verification !== undefined) {
+      errors.push(`${location}: verification must be "unverified" or absent`);
+    }
+    if (metric.source !== undefined || metric.verification !== "unverified") {
+      if (!metric.source?.name?.trim())
+        errors.push(`${location}: source name is required`);
+      try {
+        const sourceUrl = new URL(metric.source?.url);
+        if (sourceUrl.protocol !== "https:")
+          errors.push(`${location}: valid HTTPS source is required`);
+      } catch {
         errors.push(`${location}: valid HTTPS source is required`);
-    } catch {
-      errors.push(`${location}: valid HTTPS source is required`);
+      }
     }
     const period = metric.period;
     if (
@@ -574,6 +609,17 @@ export function validateMetricRegistry(
       errors.push(`${location}: snapshot is newer than its verification`);
     if (metric.reviewBy < today)
       errors.push(`${location}: review deadline has passed`);
+    if (
+      metric.display !== undefined &&
+      (typeof metric.display !== "object" ||
+        Object.keys(metric.display).some(
+          (field) =>
+            !["prefix", "suffix"].includes(field) ||
+            typeof metric.display[field] !== "string" ||
+            metric.display[field].length > 3,
+        ))
+    )
+      errors.push(`${location}: display allows a short prefix and suffix only`);
     const live = metric.live;
     if (live?.provider === "data-api") {
       if (
@@ -595,9 +641,31 @@ export function validateMetricRegistry(
     } else if (live?.provider === "defillama") {
       if (!defiLlamaQueries.has(live.query) || !live.slug?.trim())
         errors.push(`${location}: defillama spec needs a known query and slug`);
+      if (live.query === "stablecoin-chain-supply" && !live.chain?.trim())
+        errors.push(`${location}: stablecoin-chain-supply needs a chain`);
     } else if (live?.provider === "solana-rpc") {
       if (!solanaRpcQueries.has(live.query))
         errors.push(`${location}: unknown solana-rpc query ${live.query}`);
+      if (
+        live.query === "token-supply-sum" &&
+        !(Array.isArray(live.mints) && live.mints.length > 0)
+      )
+        errors.push(`${location}: token-supply-sum needs mints`);
+    } else if (live?.provider === "x402scan") {
+      if (
+        !x402scanQueries.has(live.query) ||
+        ![0, 7, 30].includes(live.timeframe)
+      )
+        errors.push(
+          `${location}: x402scan spec needs a known query and timeframe 0, 7, or 30`,
+        );
+      if (period?.kind === "trailing" && period.days !== live.timeframe)
+        errors.push(
+          `${location}: trailing period must match the x402scan timeframe`,
+        );
+    } else if (live?.provider === "climate") {
+      if (!climateFields.has(live.field))
+        errors.push(`${location}: unknown climate field ${live.field}`);
     } else if (live !== undefined) {
       errors.push(`${location}: unknown live provider`);
     }
@@ -634,7 +702,10 @@ if (
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   const claims = JSON.parse(
-    readFileSync(path.join(webRoot, "content-audit/claims.json"), "utf8"),
+    readFileSync(
+      path.join(webRoot, "src/data/metrics/claims/prose.json"),
+      "utf8",
+    ),
   );
   const messages = JSON.parse(
     readFileSync(

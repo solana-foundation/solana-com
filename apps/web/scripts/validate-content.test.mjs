@@ -395,3 +395,31 @@ test("each registry key lives in the file named for its prefix, once", () => {
   );
   assert.match(errors.join("\n"), /network\.slot-time: defined more than once/);
 });
+
+test("unverified figures publish without a source but need a note", () => {
+  const metric = {
+    unit: "count",
+    definition: "Accounts created on Solana.",
+    period: { kind: "point" },
+    owner: "Ecosystem Engineering",
+    verification: "unverified",
+    note: "No public source reports this total.",
+    snapshot: { value: 11.5e6, asOf: "2026-10-30" },
+    verifiedAt: "2026-10-30",
+    reviewBy: "2027-01-30",
+  };
+  const today = "2026-10-30";
+  assert.deepEqual(
+    validateMetricRegistry({ "possible.accounts": metric }, today),
+    [],
+  );
+  const errors = validateMetricRegistry(
+    {
+      "possible.accounts": { ...metric, note: "" },
+      "possible.nfts": { ...metric, verification: undefined },
+    },
+    today,
+  ).join("\n");
+  assert.match(errors, /possible\.accounts: unverified figures need a note/);
+  assert.match(errors, /possible\.nfts: source name is required/);
+});

@@ -10,7 +10,8 @@ export type DisplayMetric = {
   key: MetricKey;
   value: string;
   status: MetricStatus;
-  source: {
+  /** Absent for unverified figures, which publish without a source. */
+  source?: {
     name: string;
     href: string;
     /** Localized reporting period, e.g. "30 days to Oct 29, 2026". */
@@ -31,7 +32,7 @@ export async function getDisplayMetrics<const K extends MetricKey>(
   return Object.fromEntries(
     keys.map((key) => {
       const metric = metrics[key];
-      const { period, source, unit } = metric.definition;
+      const { period, source, unit, display } = metric.definition;
       const date = new Intl.DateTimeFormat(locale, {
         dateStyle: "medium",
         timeZone: "UTC",
@@ -41,9 +42,9 @@ export async function getDisplayMetrics<const K extends MetricKey>(
         key,
         {
           key,
-          value: formatMetricValue(metric.value, unit, locale),
+          value: `${display?.prefix ?? ""}${formatMetricValue(metric.value, unit, locale)}${display?.suffix ?? ""}`,
           status: metric.status,
-          source: {
+          source: source && {
             name: source.name,
             href: source.url,
             status: metric.status,
