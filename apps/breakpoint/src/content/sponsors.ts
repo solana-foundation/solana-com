@@ -365,7 +365,7 @@ const goldSponsors = [
   { companyId: "kamino", width: 216.6, height: 50 },
   { companyId: "raydium", width: 847, height: 231 },
   { companyId: "zan", displayName: "ZAN", width: 1593, height: 324 },
-  { companyId: "western-union", width: 300, height: 70 },
+  { companyId: "stablecard", width: 1863, height: 560 },
   { companyId: "jupiter", width: 780, height: 210 },
   {
     companyId: "checkout",
@@ -433,6 +433,15 @@ const goldSponsors = [
     width: 680,
     height: 254,
   },
+  {
+    companyId: "truther",
+    displayName: "Truther (by Rezolve)",
+    width: 800,
+    height: 240,
+  },
+  { companyId: "doublezero", width: 659, height: 105 },
+  { companyId: "openledger", width: 3080, height: 1168 },
+  { companyId: "greed-academy", width: 1051, height: 222 },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
