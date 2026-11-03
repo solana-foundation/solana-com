@@ -1,5 +1,7 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
+
 import type { MetricRow } from "@/app/[locale]/data/data-config";
 import { getDataApiConfig } from "@/lib/databricks/server";
 import { getMetricsData } from "@/lib/databricks/metrics-data";
@@ -12,6 +14,7 @@ import {
 } from "./external";
 import {
   getMetricDefinition,
+  metricRegistry,
   type MetricDefinition,
   type MetricKey,
 } from "./registry";
@@ -44,6 +47,8 @@ type SourceLoaders = {
   today: () => string;
 };
 
+export type { SourceLoaders };
+
 const defaultSources: SourceLoaders = {
   dataApiRows: async () => {
     const config = getDataApiConfig();
@@ -62,11 +67,76 @@ const defaultSources: SourceLoaders = {
 };
 
 /**
- * Resolves registry metrics for a page. Each upstream source is requested at
- * most once per call, and every failure degrades to that metric's dated
- * snapshot rather than an undated or missing number.
+ * How often the shared metrics stream refreshes. Sources publish daily
+ * (data-api, every 12 hours) or move slowly (TVL, RWA totals, stake), so one
+ * refresh an hour keeps figures current without loading upstream APIs.
  */
+export const METRICS_STREAM_REVALIDATE_SECONDS = 60 * 60;
+
+export type MetricsStream = {
+  /** When this snapshot of every live metric was resolved (ISO). */
+  generatedAt: string;
+  metrics: Record<MetricKey, Pick<ResolvedMetric, "value" | "asOf" | "status">>;
+};
+
+/**
+ * The single server-side data stream: every registry metric resolved in one
+ * pass (each upstream source called once), cached and shared by all pages and
+ * /api/metrics until the next refresh.
+ */
+const getMetricsStream = unstable_cache(
+  () => buildMetricsStream(),
+  ["metrics-stream-v1"],
+  { revalidate: METRICS_STREAM_REVALIDATE_SECONDS, tags: ["metrics-stream"] },
+);
+
+export async function buildMetricsStream(
+  sources: SourceLoaders = defaultSources,
+): Promise<MetricsStream> {
+  const keys = Object.keys(metricRegistry) as MetricKey[];
+  const resolved = await resolveMetrics(keys, sources);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    metrics: Object.fromEntries(
+      keys.map((key) => {
+        const { value, asOf, status } = resolved[key];
+        return [key, { value, asOf, status }];
+      }),
+    ) as MetricsStream["metrics"],
+  };
+}
+
+/** Registry metrics for a page, read from the cached stream. */
 export async function loadMetrics<const K extends MetricKey>(
+  keys: readonly K[],
+): Promise<Record<K, ResolvedMetric>> {
+  const stream = await getMetricsStream();
+
+  return Object.fromEntries(
+    keys.map((key) => {
+      const definition = getMetricDefinition(key);
+      // A key added since the cached stream was built resolves at the next
+      // refresh; until then it shows its dated snapshot.
+      const entry: MetricsStream["metrics"][MetricKey] = stream.metrics[
+        key
+      ] ?? {
+        value: definition.snapshot.value,
+        asOf: definition.snapshot.asOf,
+        status: definition.live ? "fallback" : "snapshot",
+      };
+      const metric: ResolvedMetric = { key, ...entry, definition };
+      return [key, metric];
+    }),
+  ) as Record<K, ResolvedMetric>;
+}
+
+/**
+ * Resolves registry metrics from their sources. Each upstream source is
+ * requested at most once per call, and every failure degrades to that
+ * metric's dated snapshot rather than an undated or missing number.
+ */
+export async function resolveMetrics<const K extends MetricKey>(
   keys: readonly K[],
   sources: SourceLoaders = defaultSources,
 ): Promise<Record<K, ResolvedMetric>> {

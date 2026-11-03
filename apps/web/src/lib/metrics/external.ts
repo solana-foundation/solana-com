@@ -1,7 +1,7 @@
 import "server-only";
 
-import { unstable_cache } from "next/cache";
 import { computeNakamotoCoefficient } from "./nakamoto";
+import { callSolanaRpc, type VoteAccounts } from "./solana-rpc";
 import type { DefiLlamaLiveSpec, SolanaRpcLiveSpec } from "./registry";
 
 export type ExternalLiveSpec = DefiLlamaLiveSpec | SolanaRpcLiveSpec;
@@ -13,10 +13,7 @@ export type ExternalValue = {
 };
 
 const REQUEST_TIMEOUT_MS = 10_000;
-/** Levels such as TVL move slowly; keep upstream calls to one an hour. */
-const CACHE_TTL_SECONDS = 60 * 60;
 const DEFILLAMA_API_URL = "https://api.llama.fi";
-const DEFAULT_SOLANA_RPC_URL = "https://api.mainnet-beta.solana.com";
 
 /** The DefiLlama endpoint behind each query. */
 export function defiLlamaUrl(spec: DefiLlamaLiveSpec): string {
@@ -95,22 +92,9 @@ async function resolveExternal(spec: ExternalLiveSpec): Promise<ExternalValue> {
     return { value, fetchedAt };
   }
 
-  const payload = (await fetchJson(
-    process.env.SOLANA_RPC_URL ??
-      process.env.NEXT_PUBLIC_RPC_ENDPOINT ??
-      DEFAULT_SOLANA_RPC_URL,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "getVoteAccounts",
-      }),
-    },
-  )) as { result?: { current?: { activatedStake: number | string }[] } };
+  const voteAccounts = await callSolanaRpc<VoteAccounts>("getVoteAccounts");
   const value = computeNakamotoCoefficient(
-    (payload.result?.current ?? []).map((account) => account.activatedStake),
+    voteAccounts.current.map((account) => account.activatedStake),
   );
   if (value === undefined) {
     throw new Error("getVoteAccounts returned no active stake");
@@ -118,13 +102,9 @@ async function resolveExternal(spec: ExternalLiveSpec): Promise<ExternalValue> {
   return { value, fetchedAt };
 }
 
-/** Cached for an hour per spec, shared across pages and requests. */
+/** Uncached: the shared metrics stream (loader.ts) caches resolved values. */
 export function fetchExternalMetric(
   spec: ExternalLiveSpec,
 ): Promise<ExternalValue> {
-  return unstable_cache(
-    () => resolveExternal(spec),
-    ["metrics-external-v1", JSON.stringify(spec)],
-    { revalidate: CACHE_TTL_SECONDS, tags: ["metrics-external"] },
-  )();
+  return resolveExternal(spec);
 }

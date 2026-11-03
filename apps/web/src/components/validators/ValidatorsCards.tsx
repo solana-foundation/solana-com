@@ -1,45 +1,25 @@
 import RoundedDepthCard from "../shared/RoundedDepthCard";
-import { FormattedNumber } from "../SolFormattedMessage";
 import { useTranslations } from "next-intl";
-import {
-  PERF_UPDATE_SEC,
-  SAMPLE_HISTORY_HOURS,
-  useTransactionStats,
-} from "../../hooks/useTransactionStats";
 import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
 import type { DisplayMetric } from "@/lib/metrics/present";
 
-const RPC_SOURCE = {
-  name: "Solana mainnet RPC",
-  href: "https://solana.com/docs/rpc/http/getvoteaccounts",
-};
-
 export type ValidatorsCardsProps = {
-  visible: boolean;
-  /** Dated registry values shown until, or instead of, the live RPC read. */
-  fallback: {
+  /** Values from the shared server-side metrics stream. */
+  metrics: {
     validatorCount: DisplayMetric;
     nakamotoCoefficient: DisplayMetric;
   };
 };
 
-const ValidatorsCards = ({ visible, fallback }: ValidatorsCardsProps) => {
-  const { validators, superminority } = useTransactionStats({
-    visible,
-    performanceUpdateSeconds: PERF_UPDATE_SEC,
-    sampleHistoryHours: SAMPLE_HISTORY_HOURS,
-  });
+const ValidatorsCards = ({ metrics }: ValidatorsCardsProps) => {
   const t = useTranslations();
-  const liveLabel = t("metrics.period.live");
   const cards = [
     {
-      live: validators > 0 ? validators : null,
-      fallback: fallback.validatorCount,
+      metric: metrics.validatorCount,
       label: t("validators.cards.number-text"),
     },
     {
-      live: superminority && superminority > 0 ? superminority : null,
-      fallback: fallback.nakamotoCoefficient,
+      metric: metrics.nakamotoCoefficient,
       label: t("validators.cards.nakamoto-text"),
     },
   ];
@@ -50,7 +30,7 @@ const ValidatorsCards = ({ visible, fallback }: ValidatorsCardsProps) => {
         <div className="grid grid-cols-12 gap-5 md:gap-10 items-center">
           {cards.map((card, index) => (
             <div
-              key={card.fallback.key}
+              key={card.metric.key}
               className={
                 index === 0
                   ? "col-span-12 lg:col-span-6"
@@ -58,13 +38,7 @@ const ValidatorsCards = ({ visible, fallback }: ValidatorsCardsProps) => {
               }
             >
               <RoundedDepthCard className="px-6 py-12" shadow="bottom">
-                <div className="h1 text-black">
-                  {card.live !== null ? (
-                    <FormattedNumber value={card.live} />
-                  ) : (
-                    card.fallback.value
-                  )}
-                </div>
+                <div className="h1 text-black">{card.metric.value}</div>
                 <p className="text-black m-0">{card.label}</p>
               </RoundedDepthCard>
             </div>
@@ -74,10 +48,7 @@ const ValidatorsCards = ({ visible, fallback }: ValidatorsCardsProps) => {
           className="relative z-[1] mt-10 text-white"
           items={cards.map((card) => ({
             label: card.label,
-            source:
-              card.live !== null
-                ? { ...RPC_SOURCE, period: liveLabel, status: "live" }
-                : card.fallback.source,
+            source: card.metric.source,
           }))}
         />
       </div>

@@ -5,7 +5,10 @@ vi.mock("next/cache", () => ({
 }));
 
 import type { MetricRow } from "@/app/[locale]/data/data-config";
-import { loadMetrics } from "@/lib/metrics/loader";
+import {
+  buildMetricsStream,
+  resolveMetrics as loadMetrics,
+} from "@/lib/metrics/loader";
 import { metricRegistry } from "@/lib/metrics/registry";
 
 const supplyRows = (date: string, value: number): MetricRow[] =>
@@ -145,6 +148,37 @@ describe("loadMetrics", () => {
       value: metricRegistry["defi.protocol-tvl.raydium"].snapshot.value,
       status: "fallback",
     });
+    error.mockRestore();
+  });
+
+  it("builds one stream for every registry metric, calling each source once", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const dataApiRows = vi.fn(async () => supplyRows("2026-10-29", 15e9));
+    const rwa = vi.fn(rwaStats);
+    const fetchExternal = vi.fn(async () => ({
+      value: 1,
+      fetchedAt: "2026-10-30T00:00:00.000Z",
+    }));
+    const stream = await buildMetricsStream({
+      dataApiRows,
+      rwaStats: rwa,
+      external: fetchExternal,
+      today: () => "2026-10-30",
+    });
+    const externalKeys = Object.values(metricRegistry).filter(
+      ({ live }) =>
+        live?.provider === "defillama" || live?.provider === "solana-rpc",
+    );
+
+    expect(Object.keys(stream.metrics).sort()).toEqual(
+      Object.keys(metricRegistry).sort(),
+    );
+    expect(dataApiRows).toHaveBeenCalledTimes(1);
+    expect(rwa).toHaveBeenCalledTimes(1);
+    expect(fetchExternal).toHaveBeenCalledTimes(externalKeys.length);
+    expect(stream.metrics["stablecoins.circulating-supply"].status).toBe(
+      "live",
+    );
     error.mockRestore();
   });
 });

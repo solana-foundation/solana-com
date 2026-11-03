@@ -43,25 +43,40 @@ source link, and its date. One edit here updates every page that uses the key.
 | `verifiedAt` | When someone last checked the entry against its source.                                           |
 | `reviewBy`   | Deadline for the next check. Validation fails once it passes.                                     |
 
+## One cached data stream
+
+The server resolves every live entry in one pass, calling each upstream source
+once, and caches that snapshot for **one hour**. Every page and `/api/metrics`
+read the same snapshot, so traffic never reaches upstream APIs. One hour suits
+the sources: the /data pipeline publishes every 12 hours, and TVL, RWA totals,
+and stake move slowly.
+
+- `GET /api/metrics` returns every entry with its current value, date, status,
+  unit, period, and source. Use it to check what the site is showing.
+- `GET /api/metrics/network` serves real-time counters (TPS, total transactions,
+  validators). It reads mainnet RPC at most once every 30 seconds for all
+  visitors; browsers never call RPC directly.
+- The /data dashboard shares the same data-api payload cache.
+
 ## Making a static figure live
 
-Add a `live` block. Values are fetched on the server and cached, so readers
-never call these sources directly:
+Add a `live` block:
 
-| `provider`   | Spec                                                                                                   | Cache                                 |
-| ------------ | ------------------------------------------------------------------------------------------------------ | ------------------------------------- |
-| `data-api`   | `metrics` (names in /data), `rollup` (`sum`, `avg`, `last`), `days`; optional `multiplyBy`, `divideBy` | 5 min (pipeline publishes every 12 h) |
-| `rwa-xyz`    | `field`: `distributedValueUSD`, `assetCount`, or `holderCount`                                         | 1 h                                   |
-| `defillama`  | `query`: `chain-tvl` (slug = chain name), `protocol-tvl` (slug = protocol), `aggregator-volume` (slug) | 1 h                                   |
-| `solana-rpc` | `query`: `nakamoto-coefficient`                                                                        | 1 h                                   |
+| `provider`   | Spec                                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------ |
+| `data-api`   | `metrics` (names in /data), `rollup` (`sum`, `avg`, `last`), `days`; optional `multiplyBy`, `divideBy` |
+| `rwa-xyz`    | `field`: `distributedValueUSD`, `assetCount`, or `holderCount`                                         |
+| `defillama`  | `query`: `chain-tvl` (slug = chain name), `protocol-tvl` (slug = protocol), `aggregator-volume` (slug) |
+| `solana-rpc` | `query`: `nakamoto-coefficient`                                                                        |
 
 data-api figures use the same calculation as the /data dashboard: the daily
 median across providers, counting a day once at least half of them report.
 Trailing windows must be complete; a gap shows the snapshot instead.
 
-If a source fails, the page shows the snapshot with its date, so keep the
-snapshot reasonably current. A new provider type needs a loader in
-`apps/web/src/lib/metrics/` and a rule in `scripts/validate-content.mjs`.
+If a source fails, the page shows the snapshot with its date until the next
+refresh, so keep the snapshot reasonably current. A new provider type needs a
+loader in `apps/web/src/lib/metrics/` and a rule in
+`scripts/validate-content.mjs`.
 
 ## Adding a figure
 

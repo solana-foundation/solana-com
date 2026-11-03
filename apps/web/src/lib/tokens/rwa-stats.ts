@@ -1,5 +1,3 @@
-import { unstable_cache } from "next/cache";
-
 export type RwaStats = {
   /** Count of unique RWA assets with Solana deployments. */
   assetCount: number;
@@ -20,14 +18,10 @@ export type RwaStatsResult = {
 
 const REQUEST_TIMEOUT_MS = 8_000;
 
-/** RWA totals move throughout the day, but the external API should be called sparingly. */
-const CACHE_TTL_SECONDS = 60 * 60;
-
 const RWA_XYZ_API_URL =
   process.env.RWA_XYZ_API_BASE_URL ?? "https://api.rwa.xyz";
 const RWA_XYZ_PAGE_SIZE = 1000;
 const RWA_XYZ_MAX_PAGES = 25;
-const RWA_XYZ_CACHE_TAG = "rwa-stats";
 
 const SOLANA_NETWORK_SLUG = "solana";
 
@@ -220,11 +214,8 @@ const fetchRwaStatsFromApi = async (): Promise<RwaStatsResult> => {
   return { stats, fetchedAt: new Date().toISOString() };
 };
 
-export const fetchRwaStats = unstable_cache(
-  fetchRwaStatsFromApi,
-  ["rwa-xyz-stats-v2"],
-  {
-    revalidate: CACHE_TTL_SECONDS,
-    tags: [RWA_XYZ_CACHE_TAG],
-  },
-);
+/**
+ * Uncached: RWA.xyz is read once per refresh of the shared metrics stream
+ * (lib/metrics/loader.ts), which caches the resolved totals.
+ */
+export const fetchRwaStats = fetchRwaStatsFromApi;

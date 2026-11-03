@@ -1,84 +1,29 @@
-import { useCallback, useEffect, useState } from "react";
-import { makeRPCCall } from "../utils/rpcUtils";
-import { computeNakamotoCoefficient } from "@/lib/metrics/nakamoto";
-
-// Constants for performance and sample history
-export const PERF_UPDATE_SEC = 5; // Performance update interval in seconds
-export const SAMPLE_HISTORY_HOURS = 6; // Hours to query for historical data
-
-// RPC Node URL
-const rpcNodeURL = process.env.NEXT_PUBLIC_RPC_ENDPOINT;
-if (!rpcNodeURL) {
-  console.warn("Warning: NEXT_PUBLIC_RPC_ENDPOINT is not set.");
-}
-
-// Check for AbortController support
-const isAbortControllerSupported =
-  typeof window !== "undefined" && "AbortController" in window;
-const noOp = (): void => undefined;
-
-// Initializes an AbortController if supported
-const initAbortController = (): {
-  abort: () => void;
-  signal: AbortSignal | undefined;
-} =>
-  isAbortControllerSupported
-    ? new AbortController()
-    : { abort: noOp, signal: undefined };
-
-type VoteAccountsResult = {
-  result: { current: Array<{ activatedStake: string }> };
-};
-type PerformanceSamplesResult = {
-  result: Array<{ numTransactions: number; samplePeriodSecs: number }>;
-};
-type TransactionCountResult = { result: number };
+import { useEffect, useState } from "react";
+import type { NetworkPulse } from "@/lib/metrics/network-pulse";
 
 /**
- * Fetches the superminority count.
- *
- * @returns {Promise<number | null>} The count of superminority validators.
+ * Seconds between reads of /api/metrics/network. The route shares one RPC
+ * read per 30 seconds across all visitors, so polling faster gains nothing;
+ * the counters extrapolate from TPS in between.
  */
-export const fetchSuperminority = async (): Promise<number | null> => {
-  try {
-    const voteAccounts = (await makeRPCCall({
-      method: "getVoteAccounts",
-      rpcNodeURL: rpcNodeURL!,
-    })) as VoteAccountsResult;
+export const PERF_UPDATE_SEC = 30;
+/** Kept for callers; the server reads the latest performance samples. */
+export const SAMPLE_HISTORY_HOURS = 6;
 
-    return (
-      computeNakamotoCoefficient(
-        voteAccounts.result.current.map(
-          (validator) => validator.activatedStake,
-        ),
-      ) ?? null
-    );
-  } catch (error) {
-    console.warn("Error fetching superminority:", error);
-    return null;
-  }
-};
+const NETWORK_PULSE_URL = "/api/metrics/network";
+const MAX_CONSECUTIVE_FAILURES = 10;
 
 /**
- * Hook to return current transaction statistics from the JSON-RPC endpoint.
- *
- * @param {boolean} visible                   Only fire new queries when visible.
- * @param {number} performanceUpdateSeconds   Delay before next query.
- * @param {number} sampleHistoryHours         How many hours (60min.) the query should go back.
- * @param {boolean} getLiveTransactionCount
- * @param {boolean} getCurrentValidatorNodes
- * @returns {{availableStats: boolean, avgTps: number, validators: number, totalTransactionCount: number, superminority: number | null}}
+ * Live network counters from the site's cached /api/metrics/network route.
+ * Browsers never call RPC directly. Polls only while `visible`.
  */
 export const useTransactionStats = ({
   visible,
   performanceUpdateSeconds,
-  sampleHistoryHours,
-  getLiveTransactionCount = true,
-  getCurrentValidatorNodes = true,
 }: {
   visible: boolean;
   performanceUpdateSeconds: number;
-  sampleHistoryHours: number;
+  sampleHistoryHours?: number;
   getLiveTransactionCount?: boolean;
   getCurrentValidatorNodes?: boolean;
 }): {
@@ -94,134 +39,52 @@ export const useTransactionStats = ({
   const [validators, setValidators] = useState(0);
   const [superminority, setSuperminority] = useState<number | null>(null);
 
-  const getRPCData = useCallback(
-    async (
-      getValidatorNodes: boolean,
-      getTransactionCount: boolean,
-      abortSignal: AbortSignal | undefined,
-    ): Promise<boolean> => {
-      try {
-        if (rpcNodeURL) {
-          await Promise.all([
-            (async () => {
-              const recentPerformanceSamples = (await makeRPCCall({
-                abortSignal,
-                method: "getRecentPerformanceSamples",
-                params: [60 * sampleHistoryHours],
-                rpcNodeURL,
-              })) as PerformanceSamplesResult;
-              // Calculate average transactions per second
-              const short = recentPerformanceSamples.result.reduce<number[]>(
-                (shortResults, sample) => {
-                  if (sample.numTransactions !== 0) {
-                    shortResults.push(
-                      sample.numTransactions / sample.samplePeriodSecs,
-                    );
-                  }
-                  return shortResults;
-                },
-                [],
-              );
-              const avgTps = Math.round(short[0]);
-              setAvgTps(avgTps);
-              setAvailableStats(true);
-            })(),
-            (async () => {
-              if (!getValidatorNodes) {
-                return;
-              }
-              const voteAccounts = (await makeRPCCall({
-                abortSignal,
-                method: "getVoteAccounts",
-                rpcNodeURL,
-              })) as VoteAccountsResult;
-              setValidators(voteAccounts.result.current.length);
-              setAvailableStats(true);
-            })(),
-            (async () => {
-              if (!getTransactionCount) {
-                return;
-              }
-              const transactionCount = (await makeRPCCall({
-                abortSignal,
-                method: "getTransactionCount",
-                rpcNodeURL,
-              })) as TransactionCountResult;
-              setTotalTransactionCount(transactionCount.result);
-              setAvailableStats(true);
-            })(),
-          ]);
-
-          return true;
-        }
-        return false;
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          (error.name === "AbortError" || error.name === "TypeError")
-        ) {
-          return false;
-        }
-        console.error("Error fetching RPC data:", error);
-        return false;
-      }
-    },
-    [sampleHistoryHours],
-  );
-
-  // Load statistics only when the component is visible
   useEffect(() => {
-    // If the RPC node URL is not set, don't fetch any data
-    if (!rpcNodeURL) {
-      return;
-    }
+    if (!visible) return;
 
-    const abortController = initAbortController();
+    const controller = new AbortController();
+    let failures = 0;
+    let interval: ReturnType<typeof setInterval> | undefined;
 
-    if (visible) {
-      getRPCData(
-        getCurrentValidatorNodes,
-        getLiveTransactionCount,
-        abortController.signal,
-      );
-
-      // Fetch superminority count
-      const fetchSuperminorityData = async () => {
-        const count = await fetchSuperminority();
-        setSuperminority(count);
-      };
-      fetchSuperminorityData();
-    }
-
-    let intervalFailsLimit = 10;
-    let isPolling = false;
-    const interval = setInterval(async () => {
-      if (isPolling) return;
-      isPolling = true;
-      const success = await getRPCData(
-        false,
-        getLiveTransactionCount,
-        abortController.signal,
-      );
-      isPolling = false;
-      if (!success && --intervalFailsLimit <= 0) {
-        console.warn(`RPC polling failed ${10} times, stopping interval`);
-        clearInterval(interval);
+    const load = async () => {
+      try {
+        const response = await fetch(NETWORK_PULSE_URL, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error(`${response.status}`);
+        const pulse = (await response.json()) as NetworkPulse;
+        // A cached read can be up to a window old; advance the count to now.
+        const elapsedSeconds = Math.max(
+          0,
+          (Date.now() - Date.parse(pulse.fetchedAt)) / 1000,
+        );
+        failures = 0;
+        setAvgTps(pulse.avgTps);
+        setTotalTransactionCount(
+          pulse.totalTransactionCount +
+            Math.round(pulse.avgTps * elapsedSeconds),
+        );
+        setValidators(pulse.validators);
+        setSuperminority(pulse.nakamotoCoefficient);
         setAvailableStats(true);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (++failures >= MAX_CONSECUTIVE_FAILURES) {
+          console.warn("Network stats unavailable; stopped polling.", error);
+          clearInterval(interval);
+          setAvailableStats(true);
+        }
       }
-    }, performanceUpdateSeconds * 1000);
+    };
+
+    load();
+    interval = setInterval(load, performanceUpdateSeconds * 1000);
 
     return () => {
-      abortController.abort();
+      controller.abort();
       clearInterval(interval);
     };
-  }, [
-    visible,
-    getCurrentValidatorNodes,
-    getLiveTransactionCount,
-    performanceUpdateSeconds,
-    getRPCData,
-  ]);
+  }, [visible, performanceUpdateSeconds]);
 
   return {
     availableStats,

@@ -42,9 +42,12 @@ returning the same structure without changing page components.
   history falls back to the dated snapshot instead of publishing a total over
   fewer or older days. Annual figures use 52 weeks (364 days) because the /data
   payload holds 364 complete days.
-- **Refresh.** data-api payloads are cached for 5 minutes server-side and the
-  upstream pipeline publishes every 12 hours. RWA.xyz, DefiLlama, and RPC values
-  are cached for 1 hour. Pages revalidate every 60 seconds.
+- **Refresh.** One server-side stream resolves every live entry in a single pass
+  (each source called once) and is cached for one hour; pages and `/api/metrics`
+  read it. The data-api payload is shared with the /data dashboard cache, and
+  its pipeline publishes every 12 hours. Real-time counters use
+  `/api/metrics/network`, which reads RPC at most every 30 seconds for all
+  visitors.
 - **Statuses.** `live` (fresh), `stale` (live, but the window ends more than 3
   days ago), `fallback` (source failed or returned nothing; the dated snapshot
   is shown), `snapshot` (curated, no live source). Every rendered metric shows
