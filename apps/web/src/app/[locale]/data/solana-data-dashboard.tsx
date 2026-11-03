@@ -63,7 +63,6 @@ import {
 } from "./dashboard-query-state";
 import { DataResourceCarousel } from "./dashboard-resources";
 import { ProviderLinkTable } from "./provider-link-table";
-import { scrollBelowStickyControls } from "./dashboard-scroll";
 import { SenderProviderExperience } from "./sender-provider-experience";
 import { StablecoinCoverageTable } from "./stablecoin-coverage";
 
@@ -359,9 +358,7 @@ export function SolanaDataDashboard() {
                 />
               ) : null}
 
-              {isStablecoinsTab ? (
-                <StablecoinCoverageTable stickyControlsRef={controlsRef} />
-              ) : null}
+              {isStablecoinsTab ? <StablecoinCoverageTable /> : null}
 
               <ChartGrid
                 activeCharts={activeCharts}
@@ -496,7 +493,23 @@ function useScrollToLinkedChart(
     }
 
     scrolledChartIdRef.current = linkedChartId;
-    scrollBelowStickyControls(target, stickyControlsRef.current);
+
+    // Land below the sticky site header and the sticky controls bar, whose
+    // height changes when the controls wrap on small screens.
+    const controls = stickyControlsRef.current;
+    const stickyOffset = controls
+      ? Number.parseFloat(getComputedStyle(controls).top) +
+        controls.offsetHeight
+      : 0;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    window.scrollTo({
+      behavior: reduceMotion ? "auto" : "smooth",
+      top:
+        target.getBoundingClientRect().top + window.scrollY - stickyOffset - 16,
+    });
   });
 }
 
