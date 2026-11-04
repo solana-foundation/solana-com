@@ -33,8 +33,7 @@ export async function GET() {
     return NextResponse.json(
       {
         error: "Failed to fetch developer updates",
-        message:
-          error instanceof Error ? error.message : "Unknown error occurred",
+        message: "The request could not be completed.",
       },
       { status: 500 },
     );

@@ -27,7 +27,7 @@ export const byreal = {
     },
     socials: {
       x: "https://x.com/byreal_io",
-      telegram: "https://t.me/Byreal_Community",
+      telegram: "https://t.me/Byreal_global",
     },
   },
   defaultLogoId: "logo-light",

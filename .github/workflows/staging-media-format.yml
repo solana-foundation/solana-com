@@ -7,41 +7,47 @@ on:
     paths:
       - "apps/media/content/**"
       - "apps/media/public/uploads/posts/**"
-      - "apps/media/scripts/optimize-images.mjs"
       - ".oxfmtrc.json"
-      - "package.json"
-      - "pnpm-lock.yaml"
 
+# This workflow runs branch-controlled code (the lockfile's install scripts
+# and apps/media/scripts) on every non-main branch push. That code must never
+# see a write-capable token: the formatting job runs with read-only
+# permissions and hands its output to a second job on a fresh runner, which
+# commits through the REST API using the committing script from `main`, not
+# from the branch.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   format-media-content:
     name: Auto Format Media Content
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ github.ref }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
         with:
           run_install: false
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .node-version
           cache: "pnpm"
 
       - name: Install Safe Chain
         run: |
-          npm install --global @aikidosec/safe-chain
+          npm install --global @aikidosec/safe-chain@1.5.26
           safe-chain setup-ci
 
       - name: Install dependencies
@@ -103,11 +109,101 @@ jobs:
       - name: Format media content
         run: pnpm exec oxfmt apps/media/content
 
+      - name: Collect formatted files
+        id: formatted
+        shell: bash
+        # Image optimisation writes a .webp and deletes the original, so
+        # deletions travel as a list and the archive only holds files that exist.
+        run: |
+          set -euo pipefail
+          git add -N apps/media/content apps/media/public/uploads/posts
+          if git diff --quiet -- apps/media/content apps/media/public/uploads/posts; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          out="$RUNNER_TEMP/formatted"
+          mkdir -p "$out"
+          git diff --name-only --diff-filter=D -- apps/media/content apps/media/public/uploads/posts > "$out/deleted.txt"
+          git diff --name-only --diff-filter=d -- apps/media/content apps/media/public/uploads/posts > "$out/present.txt"
+          if [ -s "$out/present.txt" ]; then
+            tar -cf "$out/changes.tar" -T "$out/present.txt"
+          fi
+          rm -f "$out/present.txt"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload formatted files
+        if: steps.formatted.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: media-format-${{ github.run_id }}
+          path: ${{ runner.temp }}/formatted
+          retention-days: 1
+    outputs:
+      changed: ${{ steps.formatted.outputs.changed }}
+
+  commit-media-content:
+    name: Commit formatted media content
+    needs: format-media-content
+    if: needs.format-media-content.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The exact commit the formatting ran on. If the branch has moved
+          # since, the committing script refuses the stale head and the newer
+          # push's own run formats the newer content.
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+
+      - name: Download formatted files
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: media-format-${{ github.run_id }}
+          path: ${{ runner.temp }}/formatted
+
+      - name: Apply formatted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          in="$RUNNER_TEMP/formatted"
+          allowed() {
+            case "$1" in
+              apps/media/content/*|apps/media/public/uploads/posts/*) return 0 ;;
+              *) echo "Refusing unexpected path in artifact: $1" >&2; return 1 ;;
+            esac
+          }
+          # Every path, deleted or archived, must stay inside the media content trees.
+          if [ -s "$in/deleted.txt" ]; then
+            while IFS= read -r f; do [ -n "$f" ] && allowed "$f"; done < "$in/deleted.txt"
+          fi
+          if [ -f "$in/changes.tar" ]; then
+            tar -tf "$in/changes.tar" | while IFS= read -r f; do allowed "$f"; done
+          fi
+          if [ -s "$in/deleted.txt" ]; then
+            while IFS= read -r f; do [ -n "$f" ] && rm -f "$GITHUB_WORKSPACE/$f"; done < "$in/deleted.txt"
+          fi
+          if [ -f "$in/changes.tar" ]; then
+            tar -xf "$in/changes.tar" -C "$GITHUB_WORKSPACE"
+          fi
+
       - name: Commit verified formatting changes
         env:
           GITHUB_TOKEN: ${{ github.token }}
+        # Run the committing script from `main`, never the branch's copy, and no
+        # branch code (install scripts, media scripts) has run on this runner.
         run: |
-          node scripts/github/create-verified-commit.mjs \
+          set -euo pipefail
+          git show origin/main:scripts/github/create-verified-commit.mjs > "$RUNNER_TEMP/create-verified-commit.mjs"
+          node "$RUNNER_TEMP/create-verified-commit.mjs" \
             "chore(media): auto-format media content" \
             apps/media/content \
             apps/media/public/uploads/posts

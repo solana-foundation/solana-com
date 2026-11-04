@@ -26,7 +26,7 @@ export const solayer = {
     socials: {
       x: "https://x.com/solayer_labs",
       linkedin: "https://www.linkedin.com/company/solayer-labs",
-      discord: "https://discord.com/invite/solayerlabs",
+      discord: "https://discord.com/invite/solayer-labs",
       telegram: "https://t.me/solayer_discussion",
       github: "https://github.com/solayer-labs",
     },

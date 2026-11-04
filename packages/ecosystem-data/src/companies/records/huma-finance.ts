@@ -18,7 +18,7 @@ export const humaFinance = {
     },
     socials: {
       x: "https://x.com/humafinance",
-      discord: "https://discord.com/invite/huma",
+      discord: "https://discord.com/invite/humafinance",
     },
   },
   defaultLogoId: "breakpoint-2026-white",

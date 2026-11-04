@@ -393,7 +393,7 @@ const walletRecords = {
     ],
     description:
       "Wallet app pairing a custodial trading account with a non-custodial DeFi Wallet, supporting SOL and Solana tokens, card and bank purchases, fiat withdrawals, and in-wallet swaps",
-    website: "https://www.blockchain.com/crypto-wallet",
+    website: "https://www.blockchain.com/wallet",
     icon: blockchainComIcon,
     lastVerified: "2026-09-02",
   },
@@ -2614,7 +2614,7 @@ const walletRecords = {
     features: ["non_custodial", "te", "gas_abstraction", "solana_native"],
     description:
       "Privacy-focused self-custody Solana wallet for iPhone with private transfer flows, sponsored transaction fees, and SPL and Token-2022 asset support",
-    website: "https://app.umbraprivacy.com/",
+    website: "https://v2.umbraprivacy.com/",
     icon: umbraWalletIcon,
     lastVerified: "2026-09-02",
   },

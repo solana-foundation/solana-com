@@ -4,6 +4,7 @@ import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
+import { remarkRejectMdxCode } from "@/lib/mdx-security";
 import { Link } from "@workspace/i18n/routing";
 import ErrorBoundary from "@/components/error-boundary";
 import { JsonLd } from "@/components/seo/json-ld";
@@ -87,7 +88,7 @@ export default async function SolanaSummerSchoolRecapPage({
             components={summerSchoolMdxComponents}
             options={{
               mdxOptions: {
-                remarkPlugins: [remarkGfm],
+                remarkPlugins: [remarkGfm, remarkRejectMdxCode],
                 rehypePlugins: [rehypeSlug],
               },
             }}

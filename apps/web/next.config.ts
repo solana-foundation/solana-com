@@ -6,35 +6,11 @@ import type { NextConfig } from "next";
 import type { Redirect, Rewrite } from "next/dist/lib/load-custom-routes";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
-
-const securityHeaders: Array<{ key: string; value: string }> = [
-  {
-    key: "X-Frame-Options",
-    value: "SAMEORIGIN",
-  },
-  {
-    key: "X-XSS-Protection",
-    value: "1; mode=block",
-  },
-  {
-    key: "X-Content-Type-Options",
-    value: "nosniff",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: "frame-ancestors 'self'",
-  },
-];
-
-if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
-  securityHeaders.push({
-    key: "X-Robots-Tag",
-    value: "noindex",
-  });
-}
+import { securityHeadersRoute } from "@workspace/security-headers";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
   transpilePackages: ["gsap"],
@@ -119,6 +95,9 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    // Every host here is one whose content we control or that is not
+    // user-registrable; multi-tenant hosts carry a pathname so the optimizer
+    // cannot be pointed at arbitrary third-party images.
     remotePatterns: [
       {
         protocol: "https",
@@ -146,11 +125,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "images.unsplash.com",
-      },
-      {
-        protocol: "https",
-        hostname: "placehold.co",
+        hostname: "solana-com-media.vercel.app",
       },
       {
         protocol: "https",
@@ -160,20 +135,11 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
+        pathname: "/resourcefulmind-inc/**",
       },
-      {
-        protocol: "https",
-        hostname: "**.cloudfront.net",
-      },
-      {
-        protocol: "http",
-        hostname: "localhost",
-      },
-      {
-        protocol: "https",
-        hostname: "*.vercel.app",
-        port: "",
-      },
+      ...(process.env.NODE_ENV === "development"
+        ? [{ protocol: "http" as const, hostname: "localhost" }]
+        : []),
     ],
   },
 
@@ -192,10 +158,7 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        source: "/:path*",
-        headers: securityHeaders,
-      },
+      securityHeadersRoute(),
     ];
   },
 

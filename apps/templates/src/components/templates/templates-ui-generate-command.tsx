@@ -32,7 +32,10 @@ export function TemplatesUiGenerateCommand({
   const [selected, setSelected] = useState("npm");
   const [isCopied, setIsCopied] = useState(false);
   const [highlightedHtml, setHighlightedHtml] = useState("");
-  const template = `${source.owner}/${source.repo}/${path}`;
+  // The path comes from the remote templates.json and is pasted into a shell
+  // command, so only plain repo path characters are allowed through.
+  const safePath = /^[A-Za-z0-9._/-]+$/.test(path) ? path : "";
+  const template = `${source.owner}/${source.repo}/${safePath}`;
   const command = getCommand(selected, template);
 
   useEffect(() => {

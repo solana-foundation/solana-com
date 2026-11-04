@@ -19,9 +19,9 @@ export const loopscale = {
       blog: "https://blog.loopscale.com/",
     },
     socials: {
-      x: "https://x.com/LoopscaleLabs",
+      x: "https://x.com/Loopscale",
       discord: "https://discord.gg/loopscale",
-      linkedin: "https://www.linkedin.com/company/loopscale-labs",
+      linkedin: "https://www.linkedin.com/company/loopscalelabs",
     },
   },
   defaultLogoId: "logo-dark",
