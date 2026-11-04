@@ -17,11 +17,10 @@ const LONDON_TIME_ZONE = "Europe/London";
 /**
  * The agenda's "Web Publishing Status" column links to a small status table
  * whose rows are named Time, Title, Speaker, Description and Do not publish.
- * The events team ticks those per session as copy is approved, so the site
- * only shows the time and speakers once they are signed off. A session with
- * any status other than "Do not publish" is considered reviewed, so its
- * description shows whenever one exists. Override the table and view through
- * env vars if the Airtable schema moves.
+ * The events team ticks those per session as copy is approved: Title makes
+ * the session visible, and Time, Speaker and Description each release that
+ * part of it. "Do not publish" (or no status at all) hides the row. Override
+ * the table and view through env vars if the Airtable schema moves.
  */
 const DEFAULT_PUBLISHING_STATUS_TABLE_ID = "tblHvCpfpI5CTlPDx";
 const DEFAULT_PUBLISHING_STATUS_VIEW_ID = "viwqFPlX2sI3F97Gl";
@@ -63,6 +62,7 @@ const AGENDA_FIELDS = [
 const HIDDEN_ASSET_CLASSES = new Set(["anchor", "break", "open"]);
 
 export type PublishingFlags = {
+  description: boolean;
   doNotPublish: boolean;
   speakers: boolean;
   time: boolean;
@@ -380,6 +380,17 @@ const FORMAT_LABELS: Record<string, string> = {
   "open/close": "Remarks",
 };
 
+/**
+ * "Royal Exchange Stage" reads as "Royal Exchange" in the stage tabs and the
+ * meta line, where "Stage" is already implied. One-word names such as
+ * "Main Stage" keep the word.
+ */
+function displayStageName(stage: string | undefined) {
+  if (!stage) return stage;
+  const trimmed = stage.replace(/\s+stage$/i, "").trim();
+  return trimmed.split(/\s+/).length >= 2 ? trimmed : stage;
+}
+
 /** "Royal Exchange Keynote" reads as "Keynote" once the stage is shown beside it. */
 function normalizeFormat(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -427,6 +438,7 @@ export function readPublishingFlags(
   const has = (needle: string) => names.some((name) => name.includes(needle));
 
   return {
+    description: has("description"),
     doNotPublish: unresolved || has("do not publish") || has("unpublish"),
     speakers: has("speaker"),
     time: has("time"),
@@ -540,18 +552,28 @@ export function normalizeAgendaRecord(
   return {
     assetClasses: buildAssetClasses(fields),
     day,
-    description: getField(
-      fields,
-      ["Description", "Session Description", "Abstract", "Details", "Overview"],
-      asDisplayString,
-    ),
+    description: flags.description
+      ? getField(
+          fields,
+          [
+            "Description",
+            "Session Description",
+            "Abstract",
+            "Details",
+            "Overview",
+          ],
+          asDisplayString,
+        )
+      : undefined,
     duration,
     format,
     id: record.id,
-    location: getField(
-      fields,
-      ["Stage", "Location", "Room", "Venue", "Track"],
-      asDisplayString,
+    location: displayStageName(
+      getField(
+        fields,
+        ["Stage", "Location", "Room", "Venue", "Track"],
+        asDisplayString,
+      ),
     ),
     sortOrder,
     speakerIds,

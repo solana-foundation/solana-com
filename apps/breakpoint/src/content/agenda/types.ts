@@ -29,6 +29,16 @@ export const STAGE_FLOORS: Record<string, "groundFloor" | "firstFloor"> = {
   "Royal Exchange": "firstFloor",
 };
 
+/** Floor for a stage name as Airtable spells it, tolerant of case and a trailing "Stage". */
+export function stageFloor(stage: string) {
+  const normalized = stage.trim().toLowerCase();
+  for (const [name, floor] of Object.entries(STAGE_FLOORS)) {
+    const key = name.toLowerCase();
+    if (normalized === key || normalized === `${key} stage`) return floor;
+  }
+  return undefined;
+}
+
 export type AgendaSpeaker = {
   company?: string;
   /** Airtable record id in the Onboarded Speakers table, when linked. */

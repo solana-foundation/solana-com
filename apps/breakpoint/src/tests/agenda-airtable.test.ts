@@ -11,10 +11,11 @@ const STATUS_RECORDS = [
   { id: "recTime", fields: { "Web Status": "Time" } },
   { id: "recTitle", fields: { "Web Status": "Title" } },
   { id: "recSpeaker", fields: { "Web Status": "Speaker" } },
+  { id: "recDescription", fields: { "Web Status": "Description" } },
   { id: "recNo", fields: { "Web Status": "Do not publish" } },
 ];
 
-const FULL_STATUS = ["recTime", "recTitle", "recSpeaker"];
+const FULL_STATUS = ["recTime", "recTitle", "recSpeaker", "recDescription"];
 
 function panelRecord() {
   return {
@@ -88,6 +89,7 @@ describe("Breakpoint agenda publishing flags", () => {
         { recTime: "Time", recTitle: "Title" },
       ),
     ).toEqual({
+      description: false,
       doNotPublish: false,
       speakers: false,
       time: true,
@@ -125,7 +127,7 @@ describe("Breakpoint agenda publishing flags", () => {
     ).toBeNull();
   });
 
-  it("withholds time and speakers until approved but keeps the description", () => {
+  it("withholds time, speakers and description until each is approved", () => {
     const record = panelRecord();
     record.fields["Web Publishing Status"] = ["Title"];
 
@@ -135,10 +137,22 @@ describe("Breakpoint agenda publishing flags", () => {
     expect(item?.time).toBe("TBC");
     expect(item?.speakers).toEqual([]);
     expect(item?.speakerIds).toEqual([]);
-    // The description is approved with the session itself, not a separate flag.
-    expect(item?.description).toBe("Three stablecoin issuers on distribution.");
+    expect(item?.description).toBeUndefined();
     // Still sorts into its real slot so the day order holds once time is published.
     expect(item?.sortOrder).toBe(11 * 60 + 15);
+
+    record.fields["Web Publishing Status"] = ["Title", "Description"];
+    expect(normalizeAgendaRecord(record, 0)?.description).toBe(
+      "Three stablecoin issuers on distribution.",
+    );
+  });
+
+  it("shortens 'Royal Exchange Stage' but keeps 'Main Stage'", () => {
+    const record = panelRecord();
+    record.fields.Stage = "Royal Exchange Stage";
+    expect(normalizeAgendaRecord(record, 0)?.location).toBe("Royal Exchange");
+    record.fields.Stage = "Main Stage";
+    expect(normalizeAgendaRecord(record, 0)?.location).toBe("Main Stage");
   });
 });
 

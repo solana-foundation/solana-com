@@ -8,7 +8,7 @@ import DisclosureIcon from "@/components/DisclosureIcon";
 import {
   AGENDA_DAYS,
   MAIN_STAGE,
-  STAGE_FLOORS,
+  stageFloor,
   type AgendaItem,
   type AgendaSpeaker,
 } from "@/content/agenda/types";
@@ -735,7 +735,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
             <div className="flex w-full min-w-max border border-neutral-700 md:w-auto">
               {allStages.map((stage) => {
                 const active = stage === activeStage;
-                const floor = STAGE_FLOORS[stage];
+                const floor = stageFloor(stage);
                 return (
                   <button
                     key={stage}
