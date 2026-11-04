@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
  * Today's agenda for the live home page. The agenda itself is cached for
  * 30 minutes by the Airtable loader; this response carries the server time
  * so the client can place sessions on the clock without trusting its own.
+ * It must not be cached on the way, or `now` arrives stale and moves the
+ * client's clock backwards.
  */
 export async function GET() {
   const items = await getLiveAgenda();
@@ -15,7 +17,7 @@ export async function GET() {
 
   return NextResponse.json(payload, {
     headers: {
-      "Cache-Control": "public, s-maxage=60, stale-while-revalidate=30",
+      "Cache-Control": "no-store",
     },
   });
 }

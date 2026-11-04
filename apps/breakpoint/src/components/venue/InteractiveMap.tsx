@@ -77,6 +77,16 @@ const ACCENT_CLASSES: Record<
 
 type Size = { width: number; height: number };
 
+type View = { scale: number; positionX: number; positionY: number };
+
+function sameView(a: View, b: View) {
+  return (
+    Math.abs(a.scale - b.scale) < 0.01 &&
+    Math.abs(a.positionX - b.positionX) < 1 &&
+    Math.abs(a.positionY - b.positionY) < 1
+  );
+}
+
 function useElementSize<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [size, setSize] = useState<Size>({ width: 0, height: 0 });
@@ -132,8 +142,11 @@ export default function InteractiveMap({
   const [activeFloorId, setActiveFloorId] = useState<FloorId>(initialFloor);
   const [selection, setSelection] = useState<MapSelection | null>(null);
   const [scale, setScale] = useState(1);
+  // True once the visitor has zoomed or panned away from the opening view.
+  const [viewMoved, setViewMoved] = useState(false);
   const [viewportRef, viewport] = useElementSize<HTMLDivElement>();
   const transformRef = useRef<ReactZoomPanPinchRef>(null);
+  const openingViewRef = useRef<View | null>(null);
 
   const amenityLabels = useMemo(
     () =>
@@ -301,8 +314,16 @@ export default function InteractiveMap({
               limitToBounds
               maxScale={MAX_SCALE}
               minScale={MIN_SCALE}
-              onInit={(instance) => setScale(instance.state.scale)}
-              onTransform={(_, state) => setScale(state.scale)}
+              onInit={(instance) => {
+                openingViewRef.current = { ...instance.state };
+                setScale(instance.state.scale);
+                setViewMoved(false);
+              }}
+              onTransform={(_, state) => {
+                setScale(state.scale);
+                const opening = openingViewRef.current;
+                setViewMoved(!opening || !sameView(state, opening));
+              }}
               panning={{ velocityDisabled: true }}
               wheel={{ disabled: true }}
             >
@@ -405,7 +426,7 @@ export default function InteractiveMap({
             <button
               aria-label={t("zoom.reset")}
               className={controlClass}
-              disabled={Math.abs(scale - initialScale) < 0.01}
+              disabled={!viewMoved}
               onClick={resetView}
               type="button"
             >

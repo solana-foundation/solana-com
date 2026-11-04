@@ -7,7 +7,10 @@ import {
   LIVE_POLL_INTERVAL_MS,
   LIVE_SESSIONS_API,
 } from "@/content/live/streams";
-import { calculateLiveSchedule } from "@/lib/live-sessions";
+import { calculateLiveSchedule, REFRESH_LEAD_MS } from "@/lib/live-sessions";
+
+/** Re-read the clock this long after a boundary so the labels have crossed it. */
+const BOUNDARY_TICK_MARGIN_MS = 250;
 
 /**
  * In development, `?now=2026-11-16T10:05` freezes the clock so the live
@@ -71,9 +74,18 @@ export function useLiveSchedule(
   useEffect(() => {
     if (previewNow !== null) return;
 
-    let boundaryTimer: number | undefined;
-    if (schedule.refreshInMs !== null) {
-      boundaryTimer = window.setTimeout(refresh, schedule.refreshInMs);
+    const timers: number[] = [];
+    if (schedule.boundaryInMs !== null) {
+      // Flip the labels locally once the boundary has passed, whatever the
+      // network does; a fresh fetch shortly before it picks up late edits.
+      timers.push(
+        window.setTimeout(
+          tick,
+          schedule.boundaryInMs + BOUNDARY_TICK_MARGIN_MS,
+        ),
+      );
+      const fetchInMs = schedule.boundaryInMs - REFRESH_LEAD_MS;
+      if (fetchInMs > 0) timers.push(window.setTimeout(refresh, fetchInMs));
     }
     const poll = window.setInterval(refresh, LIVE_POLL_INTERVAL_MS);
     const onVisible = () => {
@@ -82,11 +94,11 @@ export function useLiveSchedule(
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      if (boundaryTimer !== undefined) window.clearTimeout(boundaryTimer);
+      for (const timer of timers) window.clearTimeout(timer);
       window.clearInterval(poll);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [previewNow, refresh, schedule.refreshInMs, tick]);
+  }, [previewNow, refresh, schedule.boundaryInMs, tick]);
 
   return { schedule, now };
 }

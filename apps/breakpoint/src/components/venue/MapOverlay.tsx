@@ -58,6 +58,11 @@ export default function MapOverlay({
   const iconSize = 22 * u;
   const pillHeight = 18 * u;
   const pillPadding = 4 * u;
+  // Shown only on keyboard focus, so pointer users see nothing extra.
+  const focusRingClass =
+    "pointer-events-none opacity-0 group-focus-visible:opacity-100";
+  const focusRingWidth = 1.5 * u;
+  const focusRingGap = 3 * u;
 
   return (
     <svg
@@ -82,7 +87,7 @@ export default function MapOverlay({
             key={sponsor.id}
             aria-label={sponsor.name}
             aria-pressed={selected}
-            className="cursor-pointer focus:outline-none"
+            className="group cursor-pointer outline-none"
             onClick={select}
             onKeyDown={activate(select)}
             role="button"
@@ -109,6 +114,17 @@ export default function MapOverlay({
               x={x + 2 * pillPadding}
               y={y + pillPadding}
             />
+            <rect
+              className={focusRingClass}
+              fill="none"
+              height={pillHeight + 2 * focusRingGap}
+              rx={3 * u}
+              stroke="#fff"
+              strokeWidth={focusRingWidth}
+              width={width + 2 * focusRingGap}
+              x={x - focusRingGap}
+              y={y - focusRingGap}
+            />
           </g>
         );
       })}
@@ -129,7 +145,7 @@ export default function MapOverlay({
             key={amenity.id}
             aria-label={label}
             aria-pressed={selected}
-            className="cursor-pointer focus:outline-none"
+            className="group cursor-pointer outline-none"
             onClick={select}
             onKeyDown={activate(select)}
             role="button"
@@ -163,6 +179,15 @@ export default function MapOverlay({
                 y={y}
               />
             )}
+            <circle
+              className={focusRingClass}
+              cx={amenity.position.x}
+              cy={amenity.position.y}
+              fill="none"
+              r={(pair ? iconSize : iconSize / 2) + focusRingGap}
+              stroke="#fff"
+              strokeWidth={focusRingWidth}
+            />
           </g>
         );
       })}
@@ -192,7 +217,7 @@ export default function MapOverlay({
             <g
               aria-label={zoneLabel(zone)}
               aria-pressed={selected}
-              className="cursor-pointer focus:outline-none"
+              className="group cursor-pointer outline-none"
               onClick={select}
               onKeyDown={activate(select)}
               role="button"
@@ -235,6 +260,16 @@ export default function MapOverlay({
               >
                 {zone.number}
               </text>
+              <rect
+                className={focusRingClass}
+                fill="none"
+                height={markerRadius * 2 + 2 * focusRingGap}
+                stroke="#fff"
+                strokeWidth={focusRingWidth}
+                width={markerRadius * 2 + 2 * focusRingGap}
+                x={marker.x - markerRadius - focusRingGap}
+                y={marker.y - markerRadius - focusRingGap}
+              />
             </g>
           </g>
         );

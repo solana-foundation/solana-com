@@ -101,25 +101,28 @@ describe("calculateLiveSchedule", () => {
     expect(schedule.next?.id).toBe("panel");
   });
 
-  it("refreshes five seconds before the next boundary", () => {
+  it("reports the time to the next boundary", () => {
     const schedule = calculateLiveSchedule(agenda, DAY_ONE("09:40"));
     // Royal Exchange ends at 10:00, twenty minutes away.
-    expect(schedule.refreshInMs).toBe(20 * 60_000 - 5_000);
+    expect(schedule.boundaryInMs).toBe(20 * 60_000);
   });
 
-  it("marks everything upcoming before doors open", () => {
+  it("marks the first upcoming session on each stage as next", () => {
     const schedule = calculateLiveSchedule(agenda, DAY_ONE("08:00"));
     expect(schedule.current).toBeNull();
     expect(schedule.next?.id).toBe("opening");
-    expect(
-      schedule.sessions.filter((s) => s.status === "later").map((s) => s.id),
-    ).toEqual(["keynote", "exchange", "panel"]);
+    expect(schedule.sessions.map((s) => [s.id, s.status])).toEqual([
+      ["opening", "next"],
+      ["keynote", "later"],
+      ["exchange", "next"],
+      ["panel", "later"],
+    ]);
   });
 
   it("has nothing left to refresh once the day is over", () => {
     const schedule = calculateLiveSchedule(agenda, DAY_ONE("18:00"));
     expect(schedule.sessions.every((s) => s.status === "ended")).toBe(true);
-    expect(schedule.refreshInMs).toBeNull();
+    expect(schedule.boundaryInMs).toBeNull();
   });
 
   it("returns an empty day outside the conference dates", () => {
@@ -129,7 +132,7 @@ describe("calculateLiveSchedule", () => {
     );
     expect(schedule.day).toBeNull();
     expect(schedule.sessions).toEqual([]);
-    expect(schedule.refreshInMs).toBeNull();
+    expect(schedule.boundaryInMs).toBeNull();
   });
 
   it("assumes half an hour when a session has no duration", () => {

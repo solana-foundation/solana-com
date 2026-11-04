@@ -15,8 +15,8 @@ export const LIVE_AGENDA_DAYS: ReadonlyArray<{ date: string; key: string }> = [
 
 /** Session length assumed when Airtable gives neither a duration nor an end. */
 const DEFAULT_DURATION_MINUTES = 30;
-/** Refresh this long before a session boundary so the switch feels instant. */
-const REFRESH_LEAD_MS = 5_000;
+/** Fetch fresh data this long before a session boundary so the switch feels instant. */
+export const REFRESH_LEAD_MS = 5_000;
 
 export type SessionStatus = "live" | "next" | "later" | "ended";
 
@@ -34,8 +34,8 @@ export type LiveSchedule = {
   sessions: LiveSession[];
   current: LiveSession | null;
   next: LiveSession | null;
-  /** Milliseconds until the schedule should be recalculated, if anything changes later. */
-  refreshInMs: number | null;
+  /** Milliseconds until the next session starts or ends, if anything changes later. */
+  boundaryInMs: number | null;
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-CA", {
@@ -113,7 +113,9 @@ export function dayKeyForDate(date: string): string | null {
 /**
  * Today's sessions with live / next / later / ended flags, in start order.
  * `items` is the full agenda; sessions without a usable start time are left
- * out because they cannot be placed on the clock.
+ * out because they cannot be placed on the clock. "Next" is assigned per
+ * stage, because the page shows one stage at a time; `next` is the earliest
+ * upcoming session across all stages.
  */
 export function calculateLiveSchedule(
   items: AgendaItem[],
@@ -144,16 +146,17 @@ export function calculateLiveSchedule(
     return a.sortOrder - b.sortOrder;
   });
 
-  let nextAssigned = false;
+  const stagesWithNext = new Set<string>();
   const sessions: LiveSession[] = timed.map((session) => {
+    const stage = session.location ?? "";
     let status: SessionStatus;
     if (minutes >= session.endMinutes) {
       status = "ended";
     } else if (minutes >= session.startMinutes) {
       status = "live";
-    } else if (!nextAssigned) {
+    } else if (!stagesWithNext.has(stage)) {
       status = "next";
-      nextAssigned = true;
+      stagesWithNext.add(stage);
     } else {
       status = "later";
     }
@@ -179,13 +182,10 @@ export function calculateLiveSchedule(
     sessions,
     current,
     next,
-    refreshInMs:
+    boundaryInMs:
       boundary === null
         ? null
-        : Math.max(
-            0,
-            Math.round((boundary - minutes) * 60_000) - REFRESH_LEAD_MS,
-          ),
+        : Math.max(0, Math.round((boundary - minutes) * 60_000)),
   };
 }
 
