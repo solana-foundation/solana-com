@@ -10,44 +10,45 @@ import {
   type DocsCodeSnippetProps,
 } from "@/app/components/docs-code-snippet";
 import { cn } from "@/app/components/utils";
+import { useTranslations } from "next-intl";
 
 const MIGRATE = "/developers/migrate-to-solana";
 
+// Labels live in the `developers-evm-to-svm.docsLayout` catalog keys, looked
+// up by `key`, so the nav stays the single source of URLs.
 export const MIGRATION_NAV = [
   {
-    label: "Ethereum",
+    key: "ethereum",
     url: `${MIGRATE}/ethereum`,
-    eyebrow: "EVM -> Solana",
     guides: [
-      { url: `${MIGRATE}/ethereum`, label: "Overview", isOverview: true },
-      { url: `${MIGRATE}/complete-guide`, label: "Complete Guide" },
-      { url: `${MIGRATE}/erc20`, label: "ERC20" },
-      { url: `${MIGRATE}/erc721`, label: "ERC721" },
-      { url: `${MIGRATE}/erc4337`, label: "ERC4337" },
-      { url: `${MIGRATE}/erc3643`, label: "ERC3643" },
-      { url: `${MIGRATE}/erc4626`, label: "ERC4626" },
-      { url: `${MIGRATE}/eip2612`, label: "EIP-2612" },
-      { url: `${MIGRATE}/consensus`, label: "Consensus" },
-      { url: `${MIGRATE}/accounts`, label: "Accounts" },
-      { url: `${MIGRATE}/smart-contracts`, label: "Smart Contracts" },
-      { url: `${MIGRATE}/client-differences`, label: "Client Differences" },
+      { key: "ethereum", url: `${MIGRATE}/ethereum`, isOverview: true },
+      { key: "complete-guide", url: `${MIGRATE}/complete-guide` },
+      { key: "erc20", url: `${MIGRATE}/erc20` },
+      { key: "erc721", url: `${MIGRATE}/erc721` },
+      { key: "erc4337", url: `${MIGRATE}/erc4337` },
+      { key: "erc3643", url: `${MIGRATE}/erc3643` },
+      { key: "erc4626", url: `${MIGRATE}/erc4626` },
+      { key: "eip2612", url: `${MIGRATE}/eip2612` },
+      { key: "consensus", url: `${MIGRATE}/consensus` },
+      { key: "accounts", url: `${MIGRATE}/accounts` },
+      { key: "smart-contracts", url: `${MIGRATE}/smart-contracts` },
+      { key: "client-differences", url: `${MIGRATE}/client-differences` },
     ],
   },
   {
-    label: "Cosmos",
+    key: "cosmos",
     // No Cosmos overview page: the group lands on its first guide.
     url: `${MIGRATE}/cosmos/cosmwasm`,
-    eyebrow: "Cosmos -> Solana",
     guides: [
       {
+        key: "cosmwasm",
         url: `${MIGRATE}/cosmos/cosmwasm`,
-        label: "CosmWasm",
-        description: "Port CosmWasm contracts",
+        hasDescription: true,
       },
       {
+        key: "app-chain",
         url: `${MIGRATE}/cosmos/app-chain`,
-        label: "App Chain",
-        description: "Migrate a Cosmos app chain",
+        hasDescription: true,
       },
     ],
   },
@@ -62,6 +63,25 @@ function findGuide(activeUrl: MigrationGuideUrl) {
     if (guide) return { group, guide };
   }
   throw new Error(`Unknown migration guide: ${activeUrl}`);
+}
+
+/** A guide section: prose comes from the i18n catalog, code stays in the data file. */
+export type GuideSectionBlock = "prose" | { language: string; code: string };
+
+/** Interleave catalog prose with untranslated code blocks into one HTML string. */
+export function assembleGuideHtml(
+  // The data files are plain JS, so the "prose" marker arrives typed as string.
+  blocks: readonly (GuideSectionBlock | string)[],
+  prose: readonly string[],
+) {
+  let proseIndex = 0;
+  return blocks
+    .map((block) =>
+      typeof block === "string"
+        ? (prose[proseIndex++] ?? "")
+        : `<pre><code class="language-${block.language}">${block.code}</code></pre>`,
+    )
+    .join("\n");
 }
 
 export const DOCS_PROSE = cn(
@@ -186,6 +206,7 @@ function useArticleHeadings(
 }
 
 function LeftSidebar({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
+  const t = useTranslations("developers-evm-to-svm.docsLayout");
   const linkClass =
     "flex items-center gap-1.5 rounded-md px-2 py-[0.3rem] text-sm text-white/50 no-underline transition-colors hover:bg-white/5 hover:text-white/90";
   const activeClass =
@@ -196,22 +217,22 @@ function LeftSidebar({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
   return (
     <nav
       className="sticky top-16 hidden h-[calc(100vh-4rem)] overflow-y-auto border-r border-white/[0.07] py-8 pl-6 pr-4 xl:block"
-      aria-label="Guide navigation"
+      aria-label={t("guideNavigation")}
     >
       <Link href={MIGRATE} className={cn(linkClass, "mb-6")}>
-        ← Migrate to Solana
+        {t("backToHub")}
       </Link>
       {MIGRATION_NAV.map((group) => (
-        <div key={group.label} className="mb-6">
-          <span className={labelClass}>{group.label}</span>
+        <div key={group.key} className="mb-6">
+          <span className={labelClass}>{t(`groups.${group.key}.label`)}</span>
           <ul className="m-0 list-none p-0">
             {group.guides.map((guide) => {
               const content = (
                 <>
-                  {guide.label}
-                  {"description" in guide ? (
+                  {t(`guides.${guide.key}`)}
+                  {"hasDescription" in guide ? (
                     <span className="block text-xs font-normal text-white/35">
-                      {guide.description}
+                      {t(`guideDescriptions.${guide.key}`)}
                     </span>
                   ) : null}
                 </>
@@ -241,6 +262,7 @@ function LeftSidebar({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
 }
 
 function Breadcrumbs({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
+  const t = useTranslations("developers-evm-to-svm.docsLayout");
   const { group, guide } = findGuide(activeUrl);
   const linkClass =
     "text-white/40 no-underline transition-colors hover:text-[#14f195]";
@@ -254,25 +276,25 @@ function Breadcrumbs({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
   return (
     <nav
       className="mb-8 flex flex-wrap items-center gap-1.5 text-sm text-white/40"
-      aria-label="Breadcrumb"
+      aria-label={t("breadcrumb")}
     >
       <Link href="/developers" className={linkClass}>
-        Developers
+        {t("breadcrumbDevelopers")}
       </Link>
       {separator}
       <Link href={MIGRATE} className={linkClass}>
-        Migrate to Solana
+        {t("breadcrumbHub")}
       </Link>
       {separator}
       {group.url === activeUrl ? (
-        <span>{group.label}</span>
+        <span>{t(`groups.${group.key}.label`)}</span>
       ) : (
         <Link href={group.url} className={linkClass}>
-          {group.label}
+          {t(`groups.${group.key}.label`)}
         </Link>
       )}
       {separator}
-      <span className="text-white/80">{guide.label}</span>
+      <span className="text-white/80">{t(`guides.${guide.key}`)}</span>
     </nav>
   );
 }
@@ -327,6 +349,7 @@ export function MigrationDocsLayout({
   resourceCards = [],
   children,
 }: MigrationDocsLayoutProps) {
+  const t = useTranslations("developers-evm-to-svm.docsLayout");
   const articleRef = useRef<HTMLElement>(null);
   const articleHeadings = useArticleHeadings(articleRef, !toc);
   const headings = toc ?? articleHeadings;
@@ -342,7 +365,7 @@ export function MigrationDocsLayout({
 
           <header className="mb-12 border-b border-white/[0.08] pb-12">
             <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-[#14f195]">
-              {eyebrow || group.eyebrow}
+              {eyebrow || t(`groups.${group.key}.eyebrow`)}
             </p>
             <h1 className="mb-5 text-[clamp(2rem,4vw,3rem)] font-bold leading-[1.1] tracking-[-0.02em] text-white">
               {headline}
@@ -433,7 +456,7 @@ export function MigrationDocsLayout({
           {resourceCards.length > 0 ? (
             <div className="mt-4 border-t border-white/[0.08] pt-10">
               <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-[#14f195]">
-                {resourceEyebrow || "Resources"}
+                {resourceEyebrow || t("resources")}
               </p>
               {resourceHeadline ? (
                 <h2 className="mb-2.5 text-[1.75rem] font-bold leading-[1.2] text-white">
@@ -486,7 +509,7 @@ export function MigrationDocsLayout({
 
         <nav
           className="sticky top-16 hidden h-[calc(100vh-4rem)] overflow-y-auto border-l border-white/[0.07] pb-8 pl-4 pr-6 pt-10 xl:block"
-          aria-label="Table of contents"
+          aria-label={t("tableOfContents")}
         >
           <span className="mb-3 block text-[0.7rem] font-semibold uppercase tracking-[0.1em] text-white/30">
             {tocHeadline}

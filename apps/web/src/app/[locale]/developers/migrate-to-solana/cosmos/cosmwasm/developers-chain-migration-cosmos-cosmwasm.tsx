@@ -10,11 +10,14 @@ import { cn } from "@/app/components/utils";
 import {
   GUIDE_SECTIONS,
   NAV_BUTTONS,
-  QUICK_REFERENCE_ROWS,
-  RESOURCE_CARD_DECK,
+  QUICK_REFERENCE_SOURCES,
+  RESOURCE_CARD_URLS,
 } from "@/data/developers/evm-to-svm/cosmos-cosmwasm";
 import { useTranslations } from "next-intl";
-import { MigrationDocsLayout } from "../../components/migration-docs-layout";
+import {
+  assembleGuideHtml,
+  MigrationDocsLayout,
+} from "../../components/migration-docs-layout";
 
 // Each block is its own prose container; drop the outer margins so the
 // section's flex gap controls spacing.
@@ -37,7 +40,13 @@ const SUPPORTED_CODE_LANGUAGES = new Set<DocsCodeSnippetProps["language"]>([
 type GuideToken =
   | { type: "html"; html: string }
   | { type: "code"; code: string; language: string }
-  | { type: "heading"; html: string; level: number; text: string };
+  | {
+      type: "heading";
+      html: string;
+      level: number;
+      text: string;
+      ordinal: number;
+    };
 
 type ComparisonTab = {
   label: string;
@@ -51,17 +60,17 @@ type ComparisonGroup = {
   nextIndex: number;
 };
 
+// Anchors are heading ordinals within the section (0 = the section h2), so the
+// grouping survives translation and renumbering of the heading text.
 type ComparisonGroupConfig =
   | {
       kind: "heading";
-      markers: Array<{ heading: string; label: string }>;
-      ignoredHeadings?: string[];
+      markers: Array<{ headingIndex: number; label: string }>;
+      ignoredHeadingIndexes?: number[];
     }
   | {
       kind: "code-order";
-      // Omit to anchor on the section's own h2, so renumbering sections
-      // doesn't silently drop the tabs.
-      anchorHeading?: string;
+      anchorHeadingIndex?: number;
       labels: string[];
     };
 
@@ -71,37 +80,43 @@ const SECTION_COMPARISON_GROUPS: Partial<
   "project-structure": [
     {
       kind: "heading",
+      // h3 CosmWasm toolchain, h4 Anchor toolchain, h4 Pinocchio toolchain
       markers: [
-        { heading: "CosmWasm toolchain", label: "CosmWasm" },
-        { heading: "Anchor toolchain", label: "Anchor" },
-        { heading: "Pinocchio toolchain", label: "Pinocchio" },
+        { headingIndex: 1, label: "CosmWasm" },
+        { headingIndex: 3, label: "Anchor" },
+        { headingIndex: 4, label: "Pinocchio" },
       ],
-      ignoredHeadings: ["Solana toolchain options"],
+      // h3 Solana toolchain options
+      ignoredHeadingIndexes: [2],
     },
+    // h3 Directory layout comparison
     {
       kind: "code-order",
-      anchorHeading: "Directory layout comparison",
+      anchorHeadingIndex: 5,
       labels: ["CosmWasm", "Anchor / Pinocchio"],
     },
   ],
+  // h4 Compare the entry points:
   "entry-points": [
     {
       kind: "code-order",
-      anchorHeading: "Compare the entry points:",
+      anchorHeadingIndex: 1,
       labels: ["CosmWasm", "Pinocchio", "Anchor"],
     },
   ],
+  // h4 Compare state management:
   "state-management": [
     {
       kind: "code-order",
-      anchorHeading: "Compare state management:",
+      anchorHeadingIndex: 1,
       labels: ["CosmWasm", "Anchor", "Pinocchio"],
     },
   ],
+  // h4 Compare token handling:
   "token-handling": [
     {
       kind: "code-order",
-      anchorHeading: "Compare token handling:",
+      anchorHeadingIndex: 1,
       labels: [
         "CosmWasm",
         "Anchor SOL",
@@ -113,30 +128,12 @@ const SECTION_COMPARISON_GROUPS: Partial<
       ],
     },
   ],
-  "cross-program": [
-    {
-      kind: "code-order",
-      labels: ["CosmWasm", "Solana"],
-    },
-  ],
-  serialization: [
-    {
-      kind: "code-order",
-      labels: ["CosmWasm", "Solana"],
-    },
-  ],
+  "cross-program": [{ kind: "code-order", labels: ["CosmWasm", "Solana"] }],
+  serialization: [{ kind: "code-order", labels: ["CosmWasm", "Solana"] }],
   "error-handling": [
-    {
-      kind: "code-order",
-      labels: ["CosmWasm", "Anchor", "Anchor"],
-    },
+    { kind: "code-order", labels: ["CosmWasm", "Anchor", "Anchor"] },
   ],
-  "time-block": [
-    {
-      kind: "code-order",
-      labels: ["CosmWasm", "Solana"],
-    },
-  ],
+  "time-block": [{ kind: "code-order", labels: ["CosmWasm", "Solana"] }],
   testing: [
     {
       kind: "code-order",
@@ -144,10 +141,7 @@ const SECTION_COMPARISON_GROUPS: Partial<
     },
   ],
   "deployment-upgrades": [
-    {
-      kind: "code-order",
-      labels: ["CosmWasm", "Anchor", "Pinocchio"],
-    },
+    { kind: "code-order", labels: ["CosmWasm", "Anchor", "Pinocchio"] },
   ],
   "counter-example": [
     {
@@ -181,6 +175,7 @@ function parseGuideTokens(html: string): GuideToken[] {
     /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>|<pre><code class="language-([^"]+)">([\s\S]*?)<\/code><\/pre>/g;
   const tokens: GuideToken[] = [];
   let lastIndex = 0;
+  let headingOrdinal = 0;
 
   for (const match of html.matchAll(pattern)) {
     const [fullMatch, rawLevel, rawHeading, rawLanguage, rawCode] = match;
@@ -196,6 +191,7 @@ function parseGuideTokens(html: string): GuideToken[] {
         html: fullMatch,
         level: Number(rawLevel),
         text: decodeHtmlEntities(stripTags(rawHeading)),
+        ordinal: headingOrdinal++,
       });
     } else if (rawLanguage && rawCode) {
       tokens.push({
@@ -282,7 +278,7 @@ function buildHeadingComparisonGroup(
   const startToken = tokens[startIndex];
   if (
     startToken?.type !== "heading" ||
-    startToken.text !== firstMarker.heading
+    startToken.ordinal !== firstMarker.headingIndex
   ) {
     return null;
   }
@@ -305,7 +301,7 @@ function buildHeadingComparisonGroup(
 
     if (
       currentToken?.type !== "heading" ||
-      currentToken.text !== marker.heading
+      currentToken.ordinal !== marker.headingIndex
     ) {
       return null;
     }
@@ -318,11 +314,11 @@ function buildHeadingComparisonGroup(
       const token = tokens[cursor];
 
       if (token.type === "heading") {
-        if (nextMarker && token.text === nextMarker.heading) {
+        if (nextMarker && token.ordinal === nextMarker.headingIndex) {
           break;
         }
 
-        if (config.ignoredHeadings?.includes(token.text)) {
+        if (config.ignoredHeadingIndexes?.includes(token.ordinal)) {
           cursor += 1;
           continue;
         }
@@ -366,9 +362,7 @@ function buildCodeOrderComparisonGroup(
   const startToken = tokens[startIndex];
   if (
     startToken?.type !== "heading" ||
-    (config.anchorHeading
-      ? startToken.text !== config.anchorHeading
-      : startToken.level !== 2)
+    startToken.ordinal !== (config.anchorHeadingIndex ?? 0)
   ) {
     return null;
   }
@@ -563,19 +557,27 @@ function renderSectionTokens(sectionId: string, html: string) {
   return rendered;
 }
 
-function QuickReferenceTable() {
+type QuickReferenceRow = { source: string; destination: string };
+
+function QuickReferenceTable({
+  headings,
+  rows,
+}: {
+  headings: QuickReferenceRow;
+  rows: QuickReferenceRow[];
+}) {
   return (
     <>
       <div className="hidden overflow-hidden rounded-xl md:block">
         <table className="!my-0">
           <thead>
             <tr>
-              <th>CosmWasm</th>
-              <th>Anchor / Solana</th>
+              <th>{headings.source}</th>
+              <th>{headings.destination}</th>
             </tr>
           </thead>
           <tbody>
-            {QUICK_REFERENCE_ROWS.map(([source, destination]) => (
+            {rows.map(({ source, destination }) => (
               <tr key={source}>
                 <td className="font-mono text-sm !text-white/85">{source}</td>
                 <td>{destination}</td>
@@ -586,19 +588,19 @@ function QuickReferenceTable() {
       </div>
 
       <div className="grid gap-3 md:hidden">
-        {QUICK_REFERENCE_ROWS.map(([source, destination]) => (
+        {rows.map(({ source, destination }) => (
           <div
             key={source}
             className="rounded-xl border border-white/[0.09] bg-white/[0.02] p-4"
           >
             <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-white/35">
-              CosmWasm
+              {headings.source}
             </div>
             <div className="mb-3 break-all font-mono text-sm text-white/85">
               {source}
             </div>
             <div className="mb-1 text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-white/35">
-              Anchor / Solana
+              {headings.destination}
             </div>
             <div className="text-sm leading-[1.6] text-white/60">
               {destination}
@@ -612,6 +614,12 @@ function QuickReferenceTable() {
 
 export function DevelopersChainMigrationCosmosCosmwasmPage() {
   const t = useTranslations("developers-chain-migration-cosmos-cosmwasm");
+  const quickReferenceRows = (t.raw("quickReference.rows") as string[]).map(
+    (destination, index) => ({
+      source: QUICK_REFERENCE_SOURCES[index],
+      destination,
+    }),
+  );
 
   return (
     <MigrationDocsLayout
@@ -629,16 +637,16 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
       tocHeadline={t("contentEditor.tocHeadline")}
       toc={GUIDE_SECTIONS.map((section) => ({
         id: section.id,
-        title: section.navLabel,
+        title: t(`sections.${section.id}.navLabel`),
       }))}
       resourceEyebrow={t("resourceHeading.eyebrow")}
       resourceHeadline={t("resourceHeading.headline")}
       resourceBody={t("resourceHeading.body")}
-      resourceCards={RESOURCE_CARD_DECK.cards.map((card) => ({
-        heading: card.heading,
-        body: card.body,
-        url: card.callToAction.url,
-        ctaLabel: card.callToAction.label,
+      resourceCards={RESOURCE_CARD_URLS.map((url, index) => ({
+        heading: t(`resourceCards.${index}.heading`),
+        body: t(`resourceCards.${index}.body`),
+        url,
+        ctaLabel: t(`resourceCards.${index}.label`),
       }))}
     >
       {GUIDE_SECTIONS.map((section) => (
@@ -648,8 +656,22 @@ export function DevelopersChainMigrationCosmosCosmwasmPage() {
           className="mb-10 scroll-mt-20 border-b border-white/[0.07] pb-10 last:mb-0 last:border-b-0"
         >
           <div className="flex flex-col gap-5">
-            {renderSectionTokens(section.id, section.html)}
-            {section.id === "quick-reference" ? <QuickReferenceTable /> : null}
+            {renderSectionTokens(
+              section.id,
+              assembleGuideHtml(
+                section.blocks,
+                t.raw(`sections.${section.id}.prose`) as string[],
+              ),
+            )}
+            {section.id === "quick-reference" ? (
+              <QuickReferenceTable
+                headings={{
+                  source: t("quickReference.sourceHeading"),
+                  destination: t("quickReference.destinationHeading"),
+                }}
+                rows={quickReferenceRows}
+              />
+            ) : null}
           </div>
         </section>
       ))}
