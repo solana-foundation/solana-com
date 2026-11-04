@@ -68,13 +68,19 @@ Returns `{ "token": "<jwt>" }`. Both wrong username and wrong password return
 ### `POST /auth/challenge-wallet`
 
 Request a signing challenge to prove ownership of a Solana wallet. Requires a
-valid JWT.
+valid JWT and a JSON body (`Content-Type: application/json`); a request without
+a body returns `415 Unsupported Media Type`.
 
-Returns a message, nonce, and expiry. The challenge expires in 10 minutes.
+```json
+{ "pubkey": "<base58 pubkey>" }
+```
+
+Returns a message, nonce, and expiry. The challenge expires in 10 minutes. The
+`message` is multi-line text that names the account and wallet:
 
 ```json
 {
-  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
+  "message": "PrivateChannel wallet verification\n\nAccount: alice (id: <uuid>)\nWallet: <pubkey>\n\nOnly sign this if \"alice\" is YOUR PrivateChannel account.\n\nnonce: <uuid>\nexpires: <unix>",
   "nonce": "<uuid>",
   "expires_at": "<iso8601>"
 }
@@ -95,7 +101,7 @@ JWT.
 
 The service reconstructs the challenge message, verifies the Ed25519 signature,
 and stores the wallet. Each nonce can only be consumed once; replays are
-rejected.
+rejected with `400 invalid or expired challenge`.
 
 Returns `{ "pubkey": "<base58>", "created_at": "<iso8601>" }`.
 
@@ -106,11 +112,12 @@ List all verified wallets for the authenticated user. Requires a valid JWT.
 ### `DELETE /auth/wallets/{pubkey}`
 
 Remove a verified wallet from the authenticated user's account. Requires a valid
-JWT.
+JWT. Returns `204` on success, or `400 wallet not associated with this user` if
+the wallet is not attached to the user.
 
 ### `GET /health`
 
-Liveness check. Returns `200 ok`. No authentication required.
+Liveness check. Returns `200` with an empty body. No authentication required.
 
 ## JWT Structure
 
@@ -150,28 +157,37 @@ Default role on registration.
 Elevated role. Must be provisioned directly; there is no self-service path to
 escalate from `user` to `operator`.
 
-**Grant the role**, either via the Admin CLI (`private-channel-auth-admin`):
+**Grant the role** with the Admin CLI (`auth-admin`). Provision by user id, not
+by username. The id is returned by the registration response and is the `sub`
+claim of the user's JWT. The CLI connects as the `private_channel_auth_owner`
+database login and requires `AUTH_ADMIN_ACTOR` (an audit identity). It prompts
+for a typed `yes` unless you pass `--yes`.
 
 ```bash
-private-channel-auth-admin set-role --username alice --role operator
+export AUTH_DATABASE_URL=postgres://private_channel_auth_owner:<password>@<host>/<db>
+export AUTH_ADMIN_ACTOR=you@example.com
+
+auth-admin migrate                                   # apply auth schema migrations
+auth-admin show-user --user-id <uuid>                # inspect a user
+auth-admin set-role --user-id <uuid> --role operator
 ```
 
-or with direct SQL:
+Direct SQL also works, but prefer the CLI because it records the actor:
 
-<Callout type="warning">
+<Warning>
   This is a privileged database operation. Restrict access to the Auth Service
   database accordingly and audit any role changes.
-</Callout>
+</Warning>
 
 ```sql
 UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
 ```
 
-**Register a wallet without the self-verify flow (Admin CLI,
-`private-channel-auth-admin`):**
+**Register a wallet without the self-verify flow (Admin CLI, `auth-admin`,
+same environment variables as above):**
 
 ```bash
-private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+auth-admin attach-wallet --user-id <uuid> --pubkey <base58-pubkey>
 ```
 
 This inserts a verified wallet directly into the `verified_wallets` table,
@@ -186,7 +202,7 @@ interactive challenge/verify flow.
 - Bypasses all wallet ownership checks
 - Full access to all gateway RPC methods, including `getBlock`,
   `getTransaction`, `simulateTransaction`
-- Required for: `ReleaseFunds`, `ResetSmtRoot`
+- Required for: `ReleaseFunds`, `ResetSmtRoot` (`RotateBitmap` on upstream `main`)
 
 ## Full Authentication Flow
 
@@ -213,6 +229,16 @@ sequenceDiagram
 
     Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
 ```
+
+<div className="sol-mermaid" data-fallback="mermaid" data-mermaid="a738ffd1c227">
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/a738ffd1c227-light.svg" alt="Full Authentication Flow diagram" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/a738ffd1c227.svg" alt="Full Authentication Flow diagram" />
+
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/a738ffd1c227-sm-light.svg" alt="Full Authentication Flow diagram" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/a738ffd1c227-sm.svg" alt="Full Authentication Flow diagram" />
+</div>
 
 ## Making Authenticated Requests
 
@@ -243,7 +269,7 @@ These endpoints do not require authentication:
 | `/ready`  | GET    | Deep readiness; probes write + read nodes | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
 
 For the `JWT_SECRET` and gateway environment variable reference, see the
-[Configuration reference](/docs/tools/private-channels/operators/configuration).
+[Configuration reference](/developers/docs/tools/private-channels/operators/configuration).
 
 ## RPC Method Access Matrix
 
@@ -260,6 +286,8 @@ access depends on JWT role:
 | `getTransactionCount`         | Read node  | ✓      | ✓                | ✓          |
 | `getFirstAvailableBlock`      | Read node  | ✓      | ✓                | ✓          |
 | `getBlocks`                   | Read node  | ✓      | ✓                | ✓          |
+| `getBlocksWithLimit`          | Read node  | ✓      | ✓                | ✓          |
+| `getBlockHeight`              | Read node  | ✓      | ✓                | ✓          |
 | `getEpochInfo`                | Read node  | ✓      | ✓                | ✓          |
 | `getEpochSchedule`            | Read node  | ✓      | ✓                | ✓          |
 | `getRecentPerformanceSamples` | Read node  | ✓      | ✓                | ✓          |

@@ -56,7 +56,9 @@ const ValidatorsFAQ = () => {
                       </Link>
                     ),
                     stakinglink: (chunks) => (
-                      <Link href="/docs/references/staking">{chunks}</Link>
+                      <Link href="/developers/docs/references/staking">
+                        {chunks}
+                      </Link>
                     ),
                     programlink: (chunks) => (
                       <Link

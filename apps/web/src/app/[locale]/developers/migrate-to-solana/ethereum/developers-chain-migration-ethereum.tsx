@@ -9,7 +9,7 @@ import { MigrationDocsLayout } from "../components/migration-docs-layout";
 const COURSE_URL = "https://rareskills.io/solana-tutorial";
 
 const RESOURCE_CARD_URLS = [
-  "https://solana.com/docs",
+  "https://solana.com/developers/docs",
   "https://solana.com/skills",
   "https://solana.com/developers/bootcamp",
   "/developers",

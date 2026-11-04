@@ -1,0 +1,240 @@
+---
+title: "Run it from your machine"
+description: "Create the restricted asset from your terminal on Surfpool or devnet, approve holders, and test the blocked transfer, pause, and recovery yourself."
+---
+
+import Stepper from "/snippets/paths/en/issue-asset/stepper-3.mdx";
+import Config from "/snippets/examples/paths/assets/issue-asset/config.mdx";
+import Create from "/snippets/examples/paths/assets/issue-asset/create.mdx";
+import Approve from "/snippets/examples/paths/assets/issue-asset/approve.mdx";
+import Blocked from "/snippets/examples/paths/assets/issue-asset/blocked.mdx";
+import RunScript from "/snippets/examples/paths/assets/issue-asset/run.mdx";
+import Confidential from "/snippets/examples/paths/assets/issue-asset/confidential.mdx";
+import ConfidentialRun from "/snippets/examples/paths/assets/issue-asset/confidential-run.mdx";
+import Rpc from "/snippets/concepts/en/rpc.mdx";
+import Rent from "/snippets/concepts/en/rent.mdx";
+
+<Stepper />
+
+This step puts the code from the first two steps into a project of your own,
+in five files: a connection helper, the asset, holder approval, the transfers
+that test the rules, and a script that runs them in order. An optional
+confidential variant at the end adds two more. The output under each block is
+from a local Surfpool network.
+
+## 1. Create the project and install the packages
+
+You need Node.js 20.18 or later. The scripts use top-level `await` and
+`import.meta.url`, so `package.json` needs `"type": "module"`, which the second
+command sets. The examples are tested with `@solana/kit` 8.4,
+`@solana-program/token-2022` 0.19, and `@solana-program/system` 0.15.
+
+```bash Terminal
+mkdir issue-asset && cd issue-asset
+npm init -y && npm pkg set type=module
+npm install @solana/kit @solana-program/token-2022 @solana-program/system
+npm install --save-dev tsx
+```
+
+## 2. Pick a network
+
+The code reads the network from two environment variables and uses devnet when
+they are unset.
+
+- **Local:** install the [Surfpool CLI](/developers/docs/tools/surfpool/toolchain/getting-started)
+  and run `surfpool start`. Then set `RPC_URL=http://127.0.0.1:8899` and
+  `RPC_SUBSCRIPTIONS_URL=ws://127.0.0.1:8900`. This is where the output on these
+  pages comes from.
+- **Devnet:** leave both unset. Fund your issuer wallet (step 7 creates its key
+  file) with free devnet SOL from the [Solana Faucet](https://faucet.solana.com/)
+  to pay fees and account deposits.
+
+<Rpc />
+
+## 3. Add the connection helper
+
+`send` builds a transaction from a list of instructions, signs it, sends it, and
+waits until it's confirmed. On failure it keeps the signature and message on
+the error, so you can look up the transaction and decode its program error.
+
+<Config />
+
+## 4. Create the asset
+
+Save this as `create-asset.ts`. It's the code from the previous step.
+
+<Create />
+
+Creating the mint costs the network fee plus a refundable deposit for the mint
+account's storage. The fee was 10,000 lamports, for two signatures: the issuer
+and the new mint account.
+
+<Rent />
+
+## 5. Approve holders
+
+Save this as `approve-holder.ts`. `openAccount` creates a holder's token
+account, which starts frozen. `approveHolder` thaws it with the freeze authority
+and, when you pass an amount, mints LSF to it in the same transaction. Amounts
+are in base units: with 6 decimals, `1_000_000_000n` is 1000 LSF.
+
+<Approve />
+
+Call `approveHolder` only after your KYC check passes. To approve addresses from
+an allowlist automatically, use [Token ACL](/developers/docs/tokenization/token-acl). To
+withdraw an approval, freeze the account again with the freeze authority.
+
+## 6. Test the rules
+
+Save this as `blocked-transfer.ts`. It holds the transfers and controls from
+step 1:
+
+- `transfer` sends LSF between holders with `TransferChecked`.
+- `sendToUnapproved` sends to a frozen account with `skipPreflight`, so the
+  failed transaction lands and you can read its error, log, and fee with
+  `failure`. The error holds `bigint` values, which `JSON.stringify` can't
+  print as they are, so it converts them first.
+- `sendToUnapprovedWithPreflight` sends the same transfer normally and decodes
+  the rejection with `isToken2022Error(…, TOKEN_2022_ERROR__ACCOUNT_FROZEN)`.
+- `pause` and `resume` switch every transfer of the asset off and on.
+- `clawBack` uses the permanent delegate to move tokens out of a holder's account
+  into the issuer's.
+
+<Blocked />
+
+## 7. Run it
+
+Save this as `run.ts`. It calls the functions above in order: create the asset,
+give a new holder a little SOL for fees, approve two investors and the issuer's
+own account (so `clawBack` has somewhere to send tokens), then send to an
+approved and an unapproved account (with and without preflight), pause, try a
+transfer, resume, claw back 50 LSF, and print every balance.
+
+<RunScript />
+
+`run.ts` signs as the issuer with a key file: the one named in `ISSUER_KEYPAIR`,
+or the Solana CLI default `~/.config/solana/id.json`. If you don't have one
+yet, save this as `keygen.ts`. It writes a new key file in the same format and
+prints the issuer's address:
+
+```ts keygen.ts
+import { generateKeyPairSync } from "node:crypto";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { createKeyPairSignerFromBytes } from "@solana/kit";
+
+// Writes a new key file in the Solana CLI format (64 bytes as a JSON array).
+const keyPath =
+  process.env.ISSUER_KEYPAIR ?? join(homedir(), ".config", "solana", "id.json");
+if (existsSync(keyPath)) throw new Error(`${keyPath} exists; not overwriting it`);
+const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+const bytes = new Uint8Array([
+  ...privateKey.export({ format: "der", type: "pkcs8" }).subarray(-32),
+  ...publicKey.export({ format: "der", type: "spki" }).subarray(-32),
+]);
+mkdirSync(dirname(keyPath), { recursive: true });
+writeFileSync(keyPath, JSON.stringify([...bytes]), { mode: 0o600 });
+console.log(`Issuer address: ${(await createKeyPairSignerFromBytes(bytes)).address}`);
+```
+
+```bash Terminal
+npx tsx keygen.ts
+```
+
+The key file is the issuer's private key: anyone who has it controls the
+asset. Keep it out of version control. On devnet, fund the printed address from
+the Solana Faucet. On Surfpool, `surfpool start` airdrops SOL to
+`~/.config/solana/id.json` at startup. If you created the key file later, or
+keep it elsewhere, restart with `surfpool start --airdrop <issuer address>`.
+
+Then run the script:
+
+```bash Terminal
+npx tsx run.ts
+```
+
+Expect the states, errors, and balances shown under the script, with your own
+addresses and signatures. The examples package runs the same script in its
+tests.
+
+<Note>
+  The full example is in
+  [`packages/docs-examples/paths/assets/issue-asset`](https://github.com/solana-foundation/solana-com/tree/main/packages/docs-examples/paths/assets/issue-asset).
+</Note>
+
+## Enable confidentiality (optional)
+
+Use this variant only if balances must be hidden from the public. It doesn't
+change the steps above.
+
+Confidential Balances hides token balances and transfer amounts. Addresses stay public, so anyone can still
+see which accounts hold the asset and which accounts trade with each other. If
+you set an auditor key, whoever holds it (you, or a regulator you give it to)
+can decrypt every confidential transfer amount.
+
+You turn it on with the `ConfidentialTransferMint` extension when you create
+the mint. You can't add it to an existing mint, so decide before you issue. Set
+`autoApproveNewAccounts: false`, so you approve each holder for confidential
+use after your KYC check, as you approve them to hold the asset. Set the
+auditor's ElGamal public key too; the auditor derives it from their own wallet
+and sends you only the public key.
+
+The confidential helpers need the ZK SDK, which derives the encryption keys and
+generates the proofs (the example is tested with `@solana/zk-sdk` 0.5):
+
+```bash Terminal
+npm install @solana/zk-sdk
+```
+
+Save this as `create-confidential-asset.ts`:
+
+- `createConfidentialAsset` is `createAsset` with one more extension.
+- `enableConfidentialAccount` is the holder's side. It derives the holder's
+  encryption keys from one wallet signature and sends a proof, generated on the
+  holder's machine, that the key is valid.
+- `approveConfidentialHolder` is your approval. It thaws the account and
+  approves it for confidential use in one transaction.
+
+<Confidential />
+
+Save this as `confidential.ts`. Like `run.ts`, it signs as the issuer with your
+key file. It creates a throwaway auditor key and a new holder, gives the holder
+a little SOL for fees, creates the asset, then enables and approves the
+holder's account.
+
+<ConfidentialRun />
+
+```bash Terminal
+npx tsx confidential.ts
+```
+
+The holder can set up the account while it is still frozen, but can't use it
+until you approve it.
+
+How confidentiality works with the asset's other controls:
+
+- **Approval.** A holder needs both approvals: a thaw from the freeze authority
+  and a confidential approval from the confidential transfer authority. There
+  is no instruction to withdraw a confidential approval. To stop a holder,
+  freeze the account. A frozen account can't deposit, withdraw, or send or
+  receive a confidential transfer.
+- **Pause.** Pausing also stops confidential deposits, transfers, and
+  withdrawals.
+- **Permanent delegate.** It can still move or burn any account's public
+  balance, but not the encrypted balance: confidential transfers, withdrawals,
+  and `ConfidentialMintBurn` burns all need the holder's signature. To recover
+  tokens from an encrypted balance, the holder has to withdraw them first;
+  freezing the account keeps them where they are. Plan your recovery runbook
+  around this.
+- **Auditor.** The confidential transfer authority can change the auditor key
+  later. Transfers made after the change are encrypted to the new key.
+
+Holders also need software, in their wallet or your app, that generates
+zero-knowledge proofs with their keys: setting up the account, transferring,
+and withdrawing need proofs. Depositing needs none, and applying incoming
+amounts needs the holder's keys but no proof. The
+[Confidential Balances guides](/developers/docs/tokens/extensions/confidential-transfer)
+show each step in Rust and TypeScript, and the
+[issuer guide](/developers/docs/tokens/extensions/confidential-transfer/issuer-guide)
+covers the issuer's side.

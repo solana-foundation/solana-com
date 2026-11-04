@@ -1,0 +1,164 @@
+---
+title: "Show a payment QR code"
+sidebarTitle: "Show a payment QR code"
+description: "Show a Solana Pay QR code for the order, confirm the payment onchain, and read the transfer the customer's wallet sends."
+mode: "wide"
+---
+
+import Stepper from "/snippets/paths/en/checkout/stepper-2.mdx";
+import SignatureConcept from "/snippets/concepts/en/signature.mdx";
+import PayExample from "/snippets/examples/paths/payments/checkout/pay.mdx";
+
+<Stepper />
+
+[Solana Pay](/developers/docs/tools/solana-pay) is the standard for payment
+requests on Solana. Your checkout puts the order's recipient, amount, token, and
+a unique reference into a
+[transfer request](/developers/docs/tools/solana-pay/quickstart/transfer-requests)
+URL and shows it as a QR code. The customer scans it, and their
+<span className="sol-chip" data-concept="wallet"><Tooltip headline="Wallets & signatures" tip="A wallet holds a key pair: a public address that anyone can pay, and a private key that signs approvals and never leaves the device." cta="Learn more" href="/developers/docs/core/wallets">wallet</Tooltip><span className="nojs-only"> ([Wallets & signatures](/developers/docs/core/wallets): A wallet holds a key pair: a public address that anyone can pay, and a private key that signs approvals and never leaves the device.)</span></span> builds
+the transfer, asks them to approve it, and sends it. Adding the QR code to your
+own app is optional: the rest of the tutorial runs without it.
+
+## Add the payment QR code
+
+<Danger>
+  `@solana/pay` is currently in beta. APIs may change before the stable
+  release.
+</Danger>
+
+You need Node.js 20.18 or higher, a React or Next.js app (a fresh
+`create-next-app` is fine), and a mobile wallet set to devnet. Fund it with
+devnet USDC from the [Circle faucet](https://faucet.circle.com) and devnet SOL
+from [faucet.solana.com](https://faucet.solana.com) to cover transaction fees.
+Install Solana Pay:
+
+```bash
+npm install @solana/pay@beta @solana/kit@^6.5.0
+```
+
+The component creates a unique reference for the order, encodes it into a
+transfer request URL, and renders the URL as a QR code. It then watches for a
+transaction that includes the reference and validates the recipient, amount,
+and token before marking the order paid. Set `MERCHANT_WALLET` to an address you
+control:
+
+```tsx
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
+}
+```
+
+`amount` is in token units, so `1` requests 1 USDC. Leave out `splToken` to
+request SOL instead.
+
+## Take a payment
+
+Run your app, scan the QR code with your wallet, and approve the payment. Once
+the
+<span className="sol-chip" data-concept="transaction"><Tooltip headline="Transactions" tip="A transaction is a signed request to change the shared ledger. It either fully happens or doesn't happen at all, and once confirmed anyone can look it up." cta="Learn more" href="/developers/docs/core/transactions">transaction</Tooltip><span className="nojs-only"> ([Transactions](/developers/docs/core/transactions): A transaction is a signed request to change the shared ledger. It either fully happens or doesn't happen at all, and once confirmed anyone can look it up.)</span></span> confirms
+and passes validation, the component shows the transaction signature. That signature is your receipt: look it up with
+[getTransaction](/developers/docs/rpc/http/gettransaction) or in any explorer.
+
+<SignatureConcept />
+
+<Warning>
+  **Don't ship orders from a browser check alone.** Validation in the browser
+  is fine for a demo, but anything that runs in the browser can be faked. In
+  the next step your server looks the signature up on the network and checks
+  the amount, the recipient, and the order itself.
+</Warning>
+
+## The transfer the wallet sends
+
+A USDC payment is one `TransferChecked` instruction: move this many base units
+of this mint from the customer's
+<span className="sol-chip" data-concept="token-account"><Tooltip headline="Token accounts" tip="Wallets don't hold tokens directly. Each token (USDC, or your own asset) gets a small account owned by the wallet, and transfers move between these accounts." cta="Learn more" href="/developers/docs/tokens/basics/create-token-account">USDC account</Tooltip><span className="nojs-only"> ([Token accounts](/developers/docs/tokens/basics/create-token-account): Wallets don't hold tokens directly. Each token (USDC, or your own asset) gets a small account owned by the wallet, and transfers move between these accounts.)</span></span> to
+the store's. The wallet that scans the QR code builds it from the URL. Here's
+the same payment with
+[`@solana/kit`](/developers/docs/clients/official/javascript), the code behind step 1.
+Like the wallet, it adds the order's reference as an extra read-only account,
+following the
+[Solana Pay reference](/developers/docs/tools/solana-pay/specification/version1-1#reference)
+convention, so your server can match the payment to its order.
+
+<PayExample />
+
+The rest of the tutorial uses this code. Call `payStore` from your checkout when
+the customer pays from a wallet connected to your app rather than by scanning a
+QR code: it takes the customer's signer and the order, and works in any
+frontend or on a server.
