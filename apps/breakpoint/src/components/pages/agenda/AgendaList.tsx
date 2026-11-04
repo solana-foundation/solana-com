@@ -117,6 +117,7 @@ function searchText(item: AgendaItem) {
       item.description,
       item.format,
       item.location,
+      item.track,
       item.track && `${item.track} track`,
       ...(item.assetClasses ?? []),
       ...item.speakers.flatMap((speaker) => [
@@ -219,11 +220,14 @@ function AssetPill({
   accentClass,
   assetClass,
   onSelect,
+  searchValue = assetClass,
   t,
 }: {
   accentClass?: string;
   assetClass: string;
-  onSelect: (_assetClass: string) => void;
+  onSelect: (_query: string) => void;
+  /** What a tap searches for, when it differs from the displayed label. */
+  searchValue?: string;
   t: Translate;
 }) {
   return (
@@ -232,7 +236,7 @@ function AssetPill({
       aria-label={t("searchAssetClass", { assetClass })}
       onClick={(event) => {
         event.stopPropagation();
-        onSelect(assetClass);
+        onSelect(searchValue);
       }}
       className={`inline-flex h-6 shrink-0 items-center self-start whitespace-nowrap border px-2xs font-mono text-button-small uppercase leading-none tracking-[0.07rem] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${accentClass ?? assetAccentClass(assetClass)}`}
       data-agenda-asset-class
@@ -377,6 +381,7 @@ function SessionRow({
                     }
                     assetClass={trackLabel}
                     onSelect={onSearchAssetClass}
+                    searchValue={item.track}
                     t={t}
                   />
                 )}

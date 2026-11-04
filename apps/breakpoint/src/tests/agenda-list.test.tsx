@@ -201,8 +201,9 @@ describe("AgendaList", () => {
       name: "Search Consumer Track sessions",
     });
     expect(pill).toHaveTextContent("Consumer Track");
+    // Searches the raw track so a translated pill label still matches.
     fireEvent.click(pill);
-    expect(screen.getByLabelText("Search")).toHaveValue("Consumer Track");
+    expect(screen.getByLabelText("Search")).toHaveValue("Consumer");
     expect(titles()).toEqual(["Collector Crypt"]);
   });
 
