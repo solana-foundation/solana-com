@@ -774,7 +774,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           value={query}
           onChange={setQuery}
         />
-        <p className="type-eyebrow text-neutral-500 md:ml-auto md:pb-xs">
+        <p className="type-eyebrow text-[length:var(--text-button)]! tracking-[var(--text-button--letter-spacing)]! text-neutral-500 md:ml-auto md:pb-xs">
           {t("timezoneNote")}
         </p>
       </div>

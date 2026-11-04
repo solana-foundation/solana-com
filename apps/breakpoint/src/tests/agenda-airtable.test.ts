@@ -11,7 +11,6 @@ const STATUS_RECORDS = [
   { id: "recTime", fields: { "Web Status": "Time" } },
   { id: "recTitle", fields: { "Web Status": "Title" } },
   { id: "recSpeaker", fields: { "Web Status": "Speaker" } },
-  { id: "recDescription", fields: { "Web Status": "Description" } },
   { id: "recNo", fields: { "Web Status": "Do not publish" } },
 ];
 
@@ -48,7 +47,7 @@ function panelRecord() {
         "Rowland Berry - Payoneer",
         "Ahmed Zifzaf - Ramp",
       ],
-      "Web Publishing Status": [...FULL_STATUS, "recDescription"],
+      "Web Publishing Status": FULL_STATUS,
     },
   };
 }
@@ -89,7 +88,6 @@ describe("Breakpoint agenda publishing flags", () => {
         { recTime: "Time", recTitle: "Title" },
       ),
     ).toEqual({
-      description: false,
       doNotPublish: false,
       speakers: false,
       time: true,
@@ -127,7 +125,7 @@ describe("Breakpoint agenda publishing flags", () => {
     ).toBeNull();
   });
 
-  it("withholds time, speakers and description until each is approved", () => {
+  it("withholds time and speakers until approved but keeps the description", () => {
     const record = panelRecord();
     record.fields["Web Publishing Status"] = ["Title"];
 
@@ -137,7 +135,8 @@ describe("Breakpoint agenda publishing flags", () => {
     expect(item?.time).toBe("TBC");
     expect(item?.speakers).toEqual([]);
     expect(item?.speakerIds).toEqual([]);
-    expect(item?.description).toBeUndefined();
+    // The description is approved with the session itself, not a separate flag.
+    expect(item?.description).toBe("Three stablecoin issuers on distribution.");
     // Still sorts into its real slot so the day order holds once time is published.
     expect(item?.sortOrder).toBe(11 * 60 + 15);
   });

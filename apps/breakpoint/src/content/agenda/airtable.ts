@@ -18,8 +18,10 @@ const LONDON_TIME_ZONE = "Europe/London";
  * The agenda's "Web Publishing Status" column links to a small status table
  * whose rows are named Time, Title, Speaker, Description and Do not publish.
  * The events team ticks those per session as copy is approved, so the site
- * only shows the parts that have been signed off. Override the table and view
- * through env vars if the Airtable schema moves.
+ * only shows the time and speakers once they are signed off. A session with
+ * any status other than "Do not publish" is considered reviewed, so its
+ * description shows whenever one exists. Override the table and view through
+ * env vars if the Airtable schema moves.
  */
 const DEFAULT_PUBLISHING_STATUS_TABLE_ID = "tblHvCpfpI5CTlPDx";
 const DEFAULT_PUBLISHING_STATUS_VIEW_ID = "viwqFPlX2sI3F97Gl";
@@ -61,7 +63,6 @@ const AGENDA_FIELDS = [
 const HIDDEN_ASSET_CLASSES = new Set(["anchor", "break", "open"]);
 
 export type PublishingFlags = {
-  description: boolean;
   doNotPublish: boolean;
   speakers: boolean;
   time: boolean;
@@ -426,7 +427,6 @@ export function readPublishingFlags(
   const has = (needle: string) => names.some((name) => name.includes(needle));
 
   return {
-    description: has("description"),
     doNotPublish: unresolved || has("do not publish") || has("unpublish"),
     speakers: has("speaker"),
     time: has("time"),
@@ -540,19 +540,11 @@ export function normalizeAgendaRecord(
   return {
     assetClasses: buildAssetClasses(fields),
     day,
-    description: flags.description
-      ? getField(
-          fields,
-          [
-            "Description",
-            "Session Description",
-            "Abstract",
-            "Details",
-            "Overview",
-          ],
-          asDisplayString,
-        )
-      : undefined,
+    description: getField(
+      fields,
+      ["Description", "Session Description", "Abstract", "Details", "Overview"],
+      asDisplayString,
+    ),
     duration,
     format,
     id: record.id,
