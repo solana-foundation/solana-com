@@ -220,7 +220,7 @@ function AssetPill({
         event.stopPropagation();
         onSelect(assetClass);
       }}
-      className={`inline-flex shrink-0 items-center whitespace-nowrap border px-2xs py-4xs font-mono text-button-small uppercase leading-[var(--text-button--line-height)] tracking-[0.07rem] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${assetAccentClass(assetClass)}`}
+      className={`inline-flex h-6 shrink-0 items-center self-start whitespace-nowrap border px-2xs font-mono text-button-small uppercase leading-none tracking-[0.07rem] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${assetAccentClass(assetClass)}`}
       data-agenda-asset-class
     >
       {assetClass}
@@ -353,7 +353,7 @@ function SessionRow({
             )}
 
             {assetClasses.length > 0 && (
-              <div className="flex flex-wrap gap-3xs md:col-start-2 md:row-start-1 md:justify-end">
+              <div className="flex flex-wrap items-start gap-3xs md:col-start-2 md:row-start-1 md:justify-end md:self-start">
                 {assetClasses.map((assetClass) => (
                   <AssetPill
                     key={assetClass}
