@@ -8,7 +8,7 @@ fn main() -> Result<()> {
     println!("is on curve: {}", on_curve_public_key.is_on_curve());
 
     let off_curve_public_key = pubkey!("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e");
-    println!("is off curve: {}", off_curve_public_key.is_on_curve());
+    println!("is on curve: {}", off_curve_public_key.is_on_curve());
     Ok(())
 }
 // #endregion check

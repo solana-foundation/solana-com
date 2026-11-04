@@ -9,20 +9,21 @@ description:
 plugin adds a capability — an RPC connection, a signer, transaction planning —
 and the composed client backs scripts, server routes, and UIs alike.
 
-<Callout type="info">
-  Building a React app? The [React guide](/docs/frontend/react-hooks) wraps this
+<Info>
+  Building a React app? The [React guide](/developers/docs/frontend/react-hooks) wraps this
   same client with `@solana/react` so components read wallet state and RPC data
   through hooks. Start there and drop back here when you need finer control.
-</Callout>
+</Info>
 
 ## Install
 
-```terminal
-$ npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer
+```bash Terminal
+npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/system
 ```
 
 Use any package manager. Kit is v7+ and the `@solana/kit-plugin-*` packages are
-0.13+.
+0.13+. `@solana-program/system` provides the transfer instruction in
+[Send a transaction](#send-a-transaction).
 
 ## Create a client
 
@@ -57,7 +58,8 @@ needs:
 - `identity(x)` — app authority only.
 
 Each has `*FromFile(path)` (Node), `generated*()`, `generated*WithSol(amount)`,
-and `airdrop*()` variants for tests and scripts.
+and `airdrop*()` variants for tests and scripts. The `*WithSol` and `airdrop*`
+variants call `client.airdrop`, so use them on a local validator.
 
 ## Send a transaction
 
@@ -65,19 +67,79 @@ Build instructions with a generated program client, then hand them to
 `client.sendTransaction`. The planner resolves the blockhash, estimates compute,
 signs with the client's payer, and submits.
 
+The payer from [Create a client](#create-a-client) is a new keypair with no SOL,
+so it can't pay the fee or the transfer yet. `client.airdrop` calls the
+network's RPC faucet, which public devnet no longer serves, so fund the payer on
+a local validator or load a devnet keypair you funded yourself:
+
+<Tabs>
+<Tab title="Local validator">
+
+Start a local validator with `surfpool start` (install the
+[Surfpool CLI](/developers/docs/tools/surfpool/toolchain/getting-started)) or
+`solana-test-validator`. This version swaps `solanaDevnetRpc()` for
+`solanaLocalRpc()` and airdrops 1 SOL to the payer before the transfer:
+
 ```ts
+import { address, createClient, generateKeyPairSigner, lamports } from "@solana/kit";
+import { solanaLocalRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
 import { getTransferSolInstruction } from "@solana-program/system";
-import { address, lamports } from "@solana/kit";
+
+const payer = await generateKeyPairSigner();
+
+const client = createClient().use(signer(payer)).use(solanaLocalRpc());
+
+await client.airdrop(payer.address, lamports(1_000_000_000n)); // 1 SOL
 
 const transfer = getTransferSolInstruction({
   source: client.payer,
-  destination: address("Fke...address"),
+  destination: address("GDDMwNyyx8uB6zrqwBFHjLLG3TBYk2F8Az4yrQC5RzMp"), // replace with the recipient
   amount: lamports(10_000_000n) // 0.01 SOL
 });
 
 const { context } = await client.sendTransaction([transfer]);
 console.log("submitted", context.signature);
 ```
+
+</Tab>
+<Tab title="Devnet">
+
+Create a keypair file and print its address:
+
+```bash Terminal
+solana-keygen new --no-bip39-passphrase --outfile payer.json
+solana-keygen pubkey payer.json
+```
+
+Paste the address into the [Solana Faucet](https://faucet.solana.com/) to get
+devnet SOL. This version loads the file with `signerFromFile` instead of
+generating a new signer:
+
+```ts
+import { address, createClient, lamports } from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signerFromFile } from "@solana/kit-plugin-signer";
+import { getTransferSolInstruction } from "@solana-program/system";
+
+const client = await createClient()
+  .use(signerFromFile("payer.json"))
+  .use(solanaDevnetRpc());
+
+const transfer = getTransferSolInstruction({
+  source: client.payer,
+  destination: address("GDDMwNyyx8uB6zrqwBFHjLLG3TBYk2F8Az4yrQC5RzMp"), // replace with the recipient
+  amount: lamports(10_000_000n) // 0.01 SOL
+});
+
+const { context } = await client.sendTransaction([transfer]);
+console.log("submitted", context.signature);
+```
+
+The key file is a private key. Keep it out of version control.
+
+</Tab>
+</Tabs>
 
 `sendTransaction` resolves to a result object; the transaction signature is at
 `result.context.signature`. It asserts the plan fits a single transaction and
@@ -88,10 +150,17 @@ transactions.
 
 `@solana/kit-plugin-rpc` ships cluster presets:
 
-- `solanaDevnetRpc()` — devnet defaults, airdrop enabled (`client.airdrop`).
-- `solanaMainnetRpc()` — mainnet; airdrop is a compile-time error.
-- `solanaLocalRpc()` — `http://127.0.0.1:8899` for a local validator.
+- `solanaDevnetRpc()` — devnet defaults. It adds `client.airdrop`, but the
+  public devnet RPC no longer serves airdrops; get devnet SOL from the
+  [Solana Faucet](https://faucet.solana.com/).
+- `solanaMainnetRpc({ rpcUrl: "https://..." })` — mainnet; `rpcUrl` is
+  required, and airdrop is a compile-time error.
+- `solanaLocalRpc()` — `http://127.0.0.1:8899` for a local validator, with a
+  working `client.airdrop`.
 - `solanaRpc({ rpcUrl })` — any endpoint.
+
+Only the devnet, testnet, and local presets default their URL; the mainnet
+preset throws if you call it without a config.
 
 ```ts
 import { solanaRpc } from "@solana/kit-plugin-rpc";
@@ -145,8 +214,8 @@ const client = createClient()
 
 Running headless in an API route, worker, or script? Sign with a backend
 key-management service instead of a raw keypair. See
-[Keychain](/docs/tools/keychain) and
-[Signing in Production](/docs/core/transactions/signing-in-production).
+[Keychain](/developers/docs/tools/keychain) and
+[Signing in Production](/developers/docs/core/transactions/signing-in-production).
 
 ## Common patterns for Solana devs
 

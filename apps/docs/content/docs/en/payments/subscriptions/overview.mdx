@@ -1,6 +1,8 @@
 ---
 title: Overview
 description: Overview of the Solana subscriptions program.
+anchorAliases:
+  on-chain-events: onchain-events
 ---
 
 The Subscriptions Delegation Program enables developers to let users authorize
@@ -25,10 +27,10 @@ when the authorization expires or resets.
 The Subscription Authority cannot move funds by itself. A transfer only succeeds
 when it matches one of the user's active authorizations.
 
-<Callout type="info">
+<Info>
   To put an HTTP API behind a subscription plan with a command-line gateway, see
-  the [Pay.sh guide](/docs/payments/pay-sh).
-</Callout>
+  the [Pay.sh guide](/developers/docs/payments/pay-sh).
+</Info>
 
 ## Program ID
 
@@ -38,6 +40,119 @@ De1egAFMkMWZSN5rYXRj9CAdheBamobVNubTsi9avR44
 
 The program ID is declared in `program/src/lib.rs`. Local Surfpool workflows
 install the program at this canonical address.
+
+## Set Up A Local Environment
+
+The guides in this section build on a few shared values: a user who pays, a
+delegatee or merchant who collects, a token mint, and funded token accounts.
+This setup creates them on a local network, so you can run every snippet
+without real funds.
+
+Create a project and install the TypeScript SDK with the `@solana/kit`
+versions it supports. `"type": "module"` lets the scripts use top-level
+`await`:
+
+```bash
+npm init -y && npm pkg set type=module
+npm install @solana/subscriptions @solana/kit@^7 @solana/kit-plugin-rpc@^0.15 @solana/kit-plugin-signer@^0.13 @solana-program/token@^0.15
+npm install --save-dev tsx
+```
+
+Install the [Surfpool CLI](/developers/docs/tools/surfpool/toolchain/getting-started)
+and start a local network that forks mainnet, so the Subscriptions program and
+the USDC mint load from mainnet on first use. Leave it running in its own
+terminal:
+
+```bash
+surfpool start --network mainnet
+```
+
+Then create the signers and fund them. Surfpool's `surfnet_setTokenAccount`
+RPC method writes a token account with any balance, so you don't need a faucet
+or a mint authority. Save this as `setup.ts`:
+
+```ts setup.ts
+import { address, generateKeyPairSigner } from '@solana/kit';
+import { findAssociatedTokenPda, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
+
+const RPC_URL = 'http://127.0.0.1:8899';
+
+// Mainnet USDC, which Surfpool clones on first use
+const usdcMint = address('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+
+export const userSigner = await generateKeyPairSigner(); // grants delegations and pays
+export const subscriberSigner = userSigner; // the same user, in the subscription plan guide
+export const delegateeSigner = await generateKeyPairSigner(); // pulls from fixed and recurring delegations
+export const merchantSigner = await generateKeyPairSigner(); // publishes plans and receives payments
+
+async function surfnet(method: string, params: unknown[]) {
+  const response = await fetch(RPC_URL, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+  });
+  const { error } = await response.json();
+  if (error) throw new Error(`${method}: ${error.message}`);
+}
+
+// 1 SOL each for transaction fees and rent
+for (const wallet of [userSigner, delegateeSigner, merchantSigner]) {
+  await surfnet('requestAirdrop', [wallet.address, 1_000_000_000]);
+}
+
+// 100 USDC for the user, and an empty USDC account for the merchant
+await surfnet('surfnet_setTokenAccount', [
+  userSigner.address,
+  usdcMint,
+  { amount: 100_000_000, state: 'initialized' },
+  TOKEN_PROGRAM_ADDRESS,
+]);
+await surfnet('surfnet_setTokenAccount', [
+  merchantSigner.address,
+  usdcMint,
+  { amount: 0, state: 'initialized' },
+  TOKEN_PROGRAM_ADDRESS,
+]);
+
+// The merchant's USDC account, which receives payments
+export const [merchantTokenAccount] = await findAssociatedTokenPda({
+  mint: usdcMint,
+  owner: merchantSigner.address,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS,
+});
+```
+
+Run each guide in its own file next to `setup.ts`, such as `fixed.ts`. Start
+the file with this import. It runs `setup.ts` first, so every run starts with
+new funded wallets:
+
+```ts
+import {
+  delegateeSigner,
+  merchantSigner,
+  merchantTokenAccount,
+  subscriberSigner,
+  userSigner,
+} from './setup';
+```
+
+Paste the guide's TypeScript snippets below it in order. Move their imports to
+the top of the file and import each name once. Then fill in the placeholders:
+
+| In the guide                                                                                                                     | Use                                                   |
+| -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `TOKEN_MINT_ADDRESS_HERE`                                                                                                        | `EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v` (USDC) |
+| `address('DELEGATEE_WALLET_ADDRESS_HERE')`, `address('PULLER_WALLET_ADDRESS_HERE')`, `address('NEW_PULLER_WALLET_ADDRESS_HERE')` | `delegateeSigner.address`                             |
+| `address('RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE')`, `address('MERCHANT_TOKEN_ACCOUNT_ADDRESS_HERE')`                               | `merchantTokenAccount`                                |
+| `merchantOrPullerSigner`                                                                                                         | `merchantSigner`                                      |
+
+Run the file with `npx tsx fixed.ts`. Start with
+[Create Subscription Authority](/developers/docs/payments/subscriptions/create-subscription-authority).
+[Close Subscription Authority](/developers/docs/payments/subscriptions/close-subscription-authority)
+closes an authority that another guide created. Add its snippets to the end of
+that guide's file, drop their `client`, `tokenMint`, and
+`subscriptionAuthorityPda` declarations, which the file already has, and leave
+out `receiver`, because no sponsor funded the authority.
 
 ## Delegation Models
 
@@ -63,9 +178,9 @@ enforced. The SDK resolves them for you:
 - Building manually — call `resolveTransferHookAccounts`, pass
   `transferHookAccounts`.
 
-## On-Chain Events
+## Onchain Events
 
-The program emits on-chain events via self-CPI so indexers and applications can
+The program emits onchain events via self-CPI so indexers and applications can
 track activity. All events are registered in the published IDL, so generated
 clients can decode them. The emitted events are:
 

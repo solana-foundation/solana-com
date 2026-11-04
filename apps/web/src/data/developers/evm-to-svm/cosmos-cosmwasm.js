@@ -834,10 +834,10 @@ export const QUICK_REFERENCE_SOURCES = [
 
 // Card copy is in the catalog (`resourceCards`), index-aligned.
 export const RESOURCE_CARD_URLS = [
-  "https://solana.com/docs",
+  "https://solana.com/developers/docs",
   "https://www.anchor-lang.com/docs",
-  "https://solana.com/docs/core/pda",
-  "https://solana.com/docs/core/cpi",
+  "https://solana.com/developers/docs/core/pda",
+  "https://solana.com/developers/docs/core/cpi",
   "https://rustopian.dev/article/dopple-dex-in-cosmwasm-and-solana",
   "https://github.com/brimigs/cosmos-migration-guide/tree/main/example-escrow-contracts",
 ];

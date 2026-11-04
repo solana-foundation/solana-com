@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/solana-foundation/solana-go/v2"
@@ -66,6 +67,15 @@ func main() {
 		panic(err)
 	}
 	tx.Sign(func(solana.PublicKey) *solana.PrivateKey { return &sender.PrivateKey })
+
+	// Sending through Jito submits a real mainnet transaction, so it is off by
+	// default and the example prints the signed transaction instead. To send it,
+	// sign with a funded mainnet keypair, take the blockhash from a mainnet RPC
+	// node, and set SEND_TO_JITO=1.
+	if os.Getenv("SEND_TO_JITO") != "1" {
+		fmt.Println("Signed transaction (base64):", tx.MustToBase64())
+		return
+	}
 
 	// Send through Jito's block engine, not a regular RPC node.
 	body, _ := json.Marshal(map[string]any{

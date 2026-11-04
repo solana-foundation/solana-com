@@ -1,20 +1,23 @@
 // Static destinations are checked by validate:content.
 export const HERO_LINKS = [
-  { id: "primary", href: "/docs/payments" },
+  { id: "primary", href: "/developers/docs/payments" },
   { id: "secondary", href: "/developers/payments#payment-paths" },
 ] as const;
 
 export const PAYMENT_PATHS = [
-  { id: "accept", href: "/docs/payments/accept-payments" },
-  { id: "send", href: "/docs/payments/send-payments" },
-  { id: "payouts", href: "/docs/payments/send-payments/payment-processing" },
-  { id: "agentic", href: "/docs/payments/agentic-payments" },
+  { id: "accept", href: "/developers/docs/payments/accept-payments" },
+  { id: "send", href: "/developers/docs/payments/send-payments" },
+  {
+    id: "payouts",
+    href: "/developers/docs/payments/send-payments/payment-processing",
+  },
+  { id: "agentic", href: "/developers/docs/payments/agentic-payments" },
 ] as const;
 
 export const BUILD_OPTIONS = [
-  { id: "solanaPay", href: "/docs/tools/solana-pay" },
-  { id: "paySh", href: "/docs/payments/pay-sh" },
-  { id: "custom", href: "/docs/payments/interacting-with-solana" },
+  { id: "solanaPay", href: "/developers/docs/tools/solana-pay" },
+  { id: "paySh", href: "/developers/docs/payments/pay-sh" },
+  { id: "custom", href: "/developers/docs/payments/interacting-with-solana" },
 ] as const;
 
 export const SHOPIFY_LINKS = [
@@ -32,5 +35,5 @@ export const RELATED_LINKS = [
 ] as const;
 
 export const PRODUCTION_LINK = {
-  href: "/docs/tools/transaction-landing#transaction-landing",
+  href: "/developers/docs/tools/transaction-landing#transaction-landing",
 } as const;

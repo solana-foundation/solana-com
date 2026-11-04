@@ -103,10 +103,12 @@ const signed = await signTransactionMessageWithSigners(transactionMessage);
 assertIsTransactionWithBlockhashLifetime(signed);
 const base64Tx = getBase64EncodedWireTransaction(signed);
 
-// Send via Jito block engine (not standard RPC). In tests we just verify the
-// transaction builds + serializes — the actual block-engine submit needs a
-// reachable Jito endpoint.
-try {
+// Sending through Jito submits a real mainnet transaction, so it is off by
+// default and the example prints the signed transaction instead. To send it,
+// sign with a funded mainnet keypair, take the blockhash from a mainnet RPC
+// node, and set SEND_TO_JITO=1.
+if (process.env.SEND_TO_JITO === "1") {
+  // Send via Jito's block engine, not a regular RPC node.
   const response = await fetch(JITO_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -117,9 +119,17 @@ try {
       params: [base64Tx, { encoding: "base64" }],
     }),
   });
-  const { result: signature } = (await response.json()) as { result?: string };
-  console.log(`Sent with dontfront protection: ${signature}`);
-} catch (err) {
-  console.warn("Jito submission failed (expected in offline tests):", err);
+  const body = (await response.json()) as {
+    result?: string;
+    error?: { code: number; message: string };
+  };
+  if (!response.ok || body.error || !body.result) {
+    throw new Error(
+      `Jito rejected the transaction (HTTP ${response.status}): ${JSON.stringify(body.error ?? body)}`,
+    );
+  }
+  console.log("Sent with dontfront protection:", body.result);
+} else {
+  console.log("Signed transaction (base64):", base64Tx);
 }
 // #endregion dontfront

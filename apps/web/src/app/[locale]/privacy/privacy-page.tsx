@@ -189,7 +189,7 @@ function SmartLink({
       </a>
     );
   }
-  if (href.startsWith("/docs")) {
+  if (href.startsWith("/developers/docs")) {
     return (
       <ChromeLink href={href} hrefLang="en" className={className} {...rest}>
         {children}
