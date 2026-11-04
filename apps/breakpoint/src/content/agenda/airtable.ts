@@ -25,6 +25,24 @@ const LONDON_TIME_ZONE = "Europe/London";
 const DEFAULT_PUBLISHING_STATUS_TABLE_ID = "tblHvCpfpI5CTlPDx";
 const DEFAULT_PUBLISHING_STATUS_VIEW_ID = "viwqFPlX2sI3F97Gl";
 
+/**
+ * The agenda's "Event" column (shown as the event tag in Airtable) links to
+ * the Event table. Royal Exchange sessions link to one of its track rows,
+ * named "Royal Exchange: Payments Track" and so on, which the site shows as
+ * a track pill. Main Stage sessions link to the plain "BP26" event.
+ */
+const DEFAULT_EVENT_TABLE_ID = "tblrNPTUikMJRRYsn";
+const DEFAULT_EVENT_VIEW_ID = "viwVdKtYBlP4oVdhC";
+
+/** Known track records, used when the Event table cannot be read. */
+const DEFAULT_EVENT_NAMES: Record<string, string> = {
+  rec1pxUIQz1Mf1pZB: "Royal Exchange: Founders Track",
+  rec2tfVVQVlmi1g9Q: "Royal Exchange: Allocators Track",
+  rec3801iOZbhD11fz: "Royal Exchange: Institutional Track",
+  recFme9smtZ0h7eGd: "Royal Exchange: Payments Track",
+  recOgWixYg0uEoJcS: "Royal Exchange: Consumer Track",
+};
+
 /** Known status records, used when the status table cannot be read. */
 const DEFAULT_PUBLISHING_STATUS_NAMES: Record<string, string> = {
   recEP0WiwY2y8dx22: "Description",
@@ -56,6 +74,7 @@ const AGENDA_FIELDS = [
   "Confirmed Speakers Full Name",
   "Confirmed Moderator Full Name",
   "Web Publishing Status",
+  "Event",
 ] as const;
 
 /** Internal scheduling tags that are not asset classes attendees care about. */
@@ -416,6 +435,32 @@ function normalizeVariant(
   return isBreak ? "static" : "session";
 }
 
+/**
+ * The Royal Exchange track a session belongs to ("Payments", "Consumer"...),
+ * read from its linked Event row. Anything that is not a "Royal Exchange: X
+ * Track" event, such as the Main Stage's "BP26", yields no track.
+ */
+export function readTrack(
+  fields: Record<string, unknown>,
+  linkedNames: StatusNames = DEFAULT_EVENT_NAMES,
+): string | undefined {
+  for (const value of fieldList(fields, ["Event", "Event Tag", "Track"])) {
+    const name = linkedNames[value] ?? DEFAULT_EVENT_NAMES[value] ?? value;
+    const match = name.match(/^royal exchange\s*:\s*(.+?)\s+track$/i);
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
+}
+
+/** "Payments Track: Sphere" reads as "Sphere" once the track pill carries the label. */
+function stripTrackPrefix(title: string, track: string | undefined) {
+  if (!track) return title;
+  const escaped = track.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const prefix = new RegExp(`^\\s*${escaped}\\s+track\\s*[:\\-–—]\\s*`, "i");
+  const stripped = title.replace(prefix, "").trim();
+  return stripped || title;
+}
+
 export function readPublishingFlags(
   fields: Record<string, unknown>,
   statusNames: StatusNames = DEFAULT_PUBLISHING_STATUS_NAMES,
@@ -458,7 +503,8 @@ export function normalizeAgendaRecord(
   const flags = readPublishingFlags(fields, statusNames);
   if (!flags || flags.doNotPublish || !flags.title) return null;
 
-  const title = getField(
+  const track = readTrack(fields, statusNames);
+  const rawTitle = getField(
     fields,
     [
       "Title",
@@ -474,6 +520,7 @@ export function normalizeAgendaRecord(
     ],
     asDisplayString,
   );
+  const title = stripTrackPrefix(rawTitle ?? "", track);
   if (!title) return null;
 
   const day =
@@ -581,6 +628,7 @@ export function normalizeAgendaRecord(
     tag: format,
     time: flags.time ? (startTime ?? "TBC") : "TBC",
     title,
+    track,
     variant: normalizeVariant(fields, title, format),
   };
 }
@@ -620,8 +668,35 @@ async function fetchPublishingStatusNames(): Promise<StatusNames> {
   return { ...DEFAULT_PUBLISHING_STATUS_NAMES, ...names };
 }
 
+/** Names of the linked Event rows, so a session's track can be read. */
+async function fetchEventNames(): Promise<StatusNames> {
+  const records = await getAirtableRecords({
+    baseId: process.env.AIRTABLE_BASE_ID_AGENDA,
+    cacheKey: "breakpoint-agenda-events",
+    cacheTag: "breakpoint-agenda",
+    fields: ["Event Name"],
+    label: "Breakpoint agenda events",
+    tableId:
+      process.env.AIRTABLE_TABLE_ID_AGENDA_EVENTS || DEFAULT_EVENT_TABLE_ID,
+    token: process.env.AIRTABLE_PAT,
+    viewId: process.env.AIRTABLE_VIEW_ID_AGENDA_EVENTS || DEFAULT_EVENT_VIEW_ID,
+  });
+
+  const names: StatusNames = {};
+  for (const record of records ?? []) {
+    const name = getField(
+      record.fields ?? {},
+      ["Event Name", "Name"],
+      asString,
+    );
+    if (name) names[record.id] = name;
+  }
+
+  return { ...DEFAULT_EVENT_NAMES, ...names };
+}
+
 async function fetchAirtableAgenda(): Promise<AgendaItem[] | null> {
-  const [records, statusNames] = await Promise.all([
+  const [records, statusNames, eventNames] = await Promise.all([
     getAirtableRecords({
       baseId: process.env.AIRTABLE_BASE_ID_AGENDA,
       cacheKey: "breakpoint-agenda",
@@ -633,13 +708,16 @@ async function fetchAirtableAgenda(): Promise<AgendaItem[] | null> {
       viewId: process.env.AIRTABLE_VIEW_ID_AGENDA,
     }),
     fetchPublishingStatusNames(),
+    fetchEventNames(),
   ]);
 
   if (!records) return null;
 
+  // One lookup covers both linked tables; Airtable record ids never collide.
+  const linkedNames = { ...eventNames, ...statusNames };
   const agenda: AgendaItem[] = [];
   for (const [recordIndex, record] of records.entries()) {
-    const item = normalizeAgendaRecord(record, recordIndex, statusNames);
+    const item = normalizeAgendaRecord(record, recordIndex, linkedNames);
     if (item) agenda.push(item);
   }
 

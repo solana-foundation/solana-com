@@ -147,6 +147,30 @@ describe("Breakpoint agenda publishing flags", () => {
     );
   });
 
+  it("reads the Royal Exchange track from the linked event and drops it from the title", () => {
+    const record = panelRecord();
+    record.fields.Stage = "Royal Exchange Stage";
+    record.fields.Session = "Payments Track: Sphere";
+    record.fields["⚙️ Session Name"] = "Payments Track: Sphere";
+    (record.fields as Record<string, unknown>).Event = ["recFme9smtZ0h7eGd"];
+
+    const item = normalizeAgendaRecord(record, 0);
+    expect(item?.track).toBe("Payments");
+    expect(item?.title).toBe("Sphere");
+
+    // Names fetched from the Event table win over the built-in list.
+    const named = normalizeAgendaRecord(record, 0, {
+      recFme9smtZ0h7eGd: "Royal Exchange: Allocators Track",
+    });
+    expect(named?.track).toBe("Allocators");
+    expect(named?.title).toBe("Payments Track: Sphere");
+
+    // Main Stage sessions link to the plain event and get no track.
+    const main = panelRecord();
+    (main.fields as Record<string, unknown>).Event = ["recB6l8JwkkkVfBhm"];
+    expect(normalizeAgendaRecord(main, 0)?.track).toBeUndefined();
+  });
+
   it("shortens 'Royal Exchange Stage' but keeps 'Main Stage'", () => {
     const record = panelRecord();
     record.fields.Stage = "Royal Exchange Stage";

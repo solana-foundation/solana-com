@@ -37,6 +37,15 @@ const ASSET_CLASS_ACCENTS: Record<string, string> = {
   "tokenized equities": "border-purple text-purple",
 };
 
+/** Royal Exchange tracks take the asset-class palette so pills read as one family. */
+const TRACK_ACCENTS: Record<string, string> = {
+  allocators: "border-yellow text-yellow",
+  consumer: "border-purple text-purple",
+  founders: "border-yellow text-yellow",
+  institutional: "border-blue text-blue",
+  payments: "border-green text-green",
+};
+
 type Translate = ReturnType<typeof useTranslations>;
 
 function normalizeDay(day: string) {
@@ -108,6 +117,7 @@ function searchText(item: AgendaItem) {
       item.description,
       item.format,
       item.location,
+      item.track && `${item.track} track`,
       ...(item.assetClasses ?? []),
       ...item.speakers.flatMap((speaker) => [
         speaker.name,
@@ -206,10 +216,12 @@ function SearchIcon() {
 }
 
 function AssetPill({
+  accentClass,
   assetClass,
   onSelect,
   t,
 }: {
+  accentClass?: string;
   assetClass: string;
   onSelect: (_assetClass: string) => void;
   t: Translate;
@@ -222,7 +234,7 @@ function AssetPill({
         event.stopPropagation();
         onSelect(assetClass);
       }}
-      className={`inline-flex h-6 shrink-0 items-center self-start whitespace-nowrap border px-2xs font-mono text-button-small uppercase leading-none tracking-[0.07rem] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${assetAccentClass(assetClass)}`}
+      className={`inline-flex h-6 shrink-0 items-center self-start whitespace-nowrap border px-2xs font-mono text-button-small uppercase leading-none tracking-[0.07rem] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${accentClass ?? assetAccentClass(assetClass)}`}
       data-agenda-asset-class
     >
       {assetClass}
@@ -319,6 +331,7 @@ function SessionRow({
   const hasDetails = Boolean(item.description || item.format || hasLinks);
   const detailsId = `agenda-${item.id}-details`;
   const assetClasses = item.assetClasses ?? [];
+  const trackLabel = item.track ? t("trackPill", { track: item.track }) : null;
 
   return (
     <article
@@ -354,8 +367,19 @@ function SessionRow({
               </div>
             )}
 
-            {assetClasses.length > 0 && (
+            {(trackLabel || assetClasses.length > 0) && (
               <div className="flex flex-wrap items-start gap-3xs md:col-start-2 md:row-start-1 md:justify-end md:self-start">
+                {trackLabel && (
+                  <AssetPill
+                    accentClass={
+                      TRACK_ACCENTS[item.track!.toLowerCase()] ??
+                      "border-white text-white"
+                    }
+                    assetClass={trackLabel}
+                    onSelect={onSearchAssetClass}
+                    t={t}
+                  />
+                )}
                 {assetClasses.map((assetClass) => (
                   <AssetPill
                     key={assetClass}

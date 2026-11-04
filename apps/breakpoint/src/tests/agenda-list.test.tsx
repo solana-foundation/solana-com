@@ -85,7 +85,8 @@ const items: AgendaItem[] = [
     speakers: [{ company: "Collector Crypt", name: "Jane Doe", title: "CEO" }],
     tag: "Keynote",
     time: "13:00",
-    title: "Consumer Track: Collector Crypt",
+    title: "Collector Crypt",
+    track: "Consumer",
   },
   {
     assetClasses: ["Intelligence"],
@@ -141,7 +142,7 @@ describe("AgendaList", () => {
     ).toHaveAttribute("aria-selected", "false");
 
     fireEvent.click(screen.getByRole("tab", { name: /Royal Exchange/ }));
-    expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
+    expect(titles()).toEqual(["Collector Crypt"]);
 
     fireEvent.click(screen.getByRole("tab", { name: /Day 2/ }));
     expect(titles()).toEqual([]);
@@ -170,7 +171,7 @@ describe("AgendaList", () => {
 
     // Other stages and days are included without touching the tabs.
     fireEvent.change(search, { target: { value: "collector" } });
-    expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
+    expect(titles()).toEqual(["Collector Crypt"]);
     fireEvent.change(search, { target: { value: "intelligence" } });
     expect(titles()).toEqual(["The Machine Economy"]);
     expect(screen.getByText(/Day 2 · .*17 Nov/)).toBeInTheDocument();
@@ -189,6 +190,20 @@ describe("AgendaList", () => {
       "Lunch",
     ]);
     expect(screen.getByRole("tab", { name: /Day 1/ })).toBeEnabled();
+  });
+
+  it("shows a Royal Exchange track pill that searches that track", () => {
+    renderList(items);
+    fireEvent.click(screen.getByRole("tab", { name: /Royal Exchange/ }));
+    expect(titles()).toEqual(["Collector Crypt"]);
+
+    const pill = screen.getByRole("button", {
+      name: "Search Consumer Track sessions",
+    });
+    expect(pill).toHaveTextContent("Consumer Track");
+    fireEvent.click(pill);
+    expect(screen.getByLabelText("Search")).toHaveValue("Consumer Track");
+    expect(titles()).toEqual(["Collector Crypt"]);
   });
 
   it("searches an asset class when its pill is clicked", () => {
@@ -267,7 +282,7 @@ describe("AgendaList", () => {
     const main = screen.getByRole("tab", { name: /Main Stage/ });
     main.focus();
     fireEvent.keyDown(main, { key: "ArrowLeft" });
-    expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
+    expect(titles()).toEqual(["Collector Crypt"]);
     expect(screen.getByRole("tab", { name: /Royal Exchange/ })).toHaveFocus();
   });
 });

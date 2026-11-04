@@ -67,5 +67,7 @@ export type AgendaItem = {
   tag?: string;
   time: string;
   title: string;
+  /** Royal Exchange track, e.g. "Payments" or "Consumer"; Main Stage sessions have none. */
+  track?: string;
   variant?: "session" | "static";
 };
