@@ -1,12 +1,17 @@
 import type { NextConfig } from "next";
 import createMDX from "@next/mdx";
 import { withSentryConfig } from "@sentry/nextjs";
+import { securityHeadersRoute } from "@workspace/security-headers";
 import { createNextIntlPlugin } from "@workspace/i18n/plugin";
 import { locales } from "@workspace/i18n/config";
 
 const prefix = "/accelerate-assets";
 const localePattern = locales.join("|");
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [securityHeadersRoute()];
+  },
   pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   reactStrictMode: true,
   trailingSlash: false,

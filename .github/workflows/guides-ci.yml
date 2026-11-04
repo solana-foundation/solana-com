@@ -5,12 +5,21 @@ name: Guides CI
 # guides the PR touches. Once a week it sweeps every guide, and failures
 # produce an auto-fix PR (opened by the solana-docs-checker GitHub App).
 #
+# Trust model: guide content is untrusted input. The agent executes the
+# commands a guide tells readers to run, so a PR-authored guide can steer it.
+# The walkthrough therefore only runs for same-repository PRs that touch
+# guides, holds a read-only GITHUB_TOKEN with no OIDC token, and the autofix
+# job never persists the GitHub App token in the checkout. ANTHROPIC_API_KEY
+# must be a dedicated key with a low spend limit (Linear ECO-958).
+#
 # Required secrets:
 #   ANTHROPIC_API_KEY                - API key used by the walkthrough agent
 #   DOCS_CHECKER_APP_ID              - solana-docs-checker GitHub App id
 #   DOCS_CHECKER_APP_PRIVATE_KEY     - private key for that GitHub App
 
 on:
+  # No paths filter: "Guides CI gate" is the required check, so the workflow
+  # must report on every PR. `detect` decides whether a walkthrough runs.
   pull_request:
   schedule:
     # Weekly sweep of all guides, Mondays 08:00 UTC
@@ -83,12 +92,15 @@ jobs:
   test:
     name: Walk through guide
     needs: detect
-    if: needs.detect.outputs.any == 'true'
+    # Fork PRs never receive secrets, but keep the guard explicit so the job
+    # cannot run guide-authored commands with the API key for outside code.
+    if:
+      needs.detect.outputs.any == 'true' && (github.event_name != 'pull_request'
+      || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
       contents: read
-      id-token: write
     strategy:
       fail-fast: false
       max-parallel: 4
@@ -96,11 +108,16 @@ jobs:
         guide: ${{ fromJSON(needs.detect.outputs.guides) }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Follow the guide
         uses: anthropics/claude-code-action@1f291e1cfe0f5fc21db2aef19af844591600ade7 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Read-only token; without it the action mints one through OIDC,
+          # which needs id-token: write.
+          github_token: ${{ github.token }}
           prompt: |
             Read scripts/guides-ci/test-guide-prompt.md in this repository and
             follow those instructions exactly.
@@ -157,10 +174,11 @@ jobs:
       inputs.open_fix_prs))
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # The GitHub App token (minted below) does the writing through
+    # create-pull-request; the job's own token stays read-only so the agent's
+    # Bash tool cannot push with it.
     permissions:
-      contents: write
-      pull-requests: write
-      id-token: write
+      contents: read
     steps:
       - name: Create bot token
         id: app-token
@@ -171,7 +189,7 @@ jobs:
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          persist-credentials: false
 
       - name: Download walkthrough reports
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -184,6 +202,7 @@ jobs:
         uses: anthropics/claude-code-action@1f291e1cfe0f5fc21db2aef19af844591600ade7 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ github.token }}
           prompt: |
             Read scripts/guides-ci/fix-guides-prompt.md in this repository and
             follow those instructions exactly.
@@ -195,6 +214,7 @@ jobs:
             --model claude-opus-4-8
             --max-turns 250
             --allowedTools "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch"
+            --disallowedTools "Bash(git push*),Bash(git remote*),Bash(gh auth*)"
 
       - name: Read PR title
         id: pr
