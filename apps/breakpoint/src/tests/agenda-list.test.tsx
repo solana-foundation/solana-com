@@ -133,8 +133,14 @@ describe("AgendaList", () => {
 
   it("switches stages and days without mixing sessions", () => {
     renderList(items);
+    expect(
+      screen.getByRole("tab", { name: "Main Stage Ground floor" }),
+    ).toHaveAttribute("aria-selected", "true");
+    expect(
+      screen.getByRole("tab", { name: "Royal Exchange First floor" }),
+    ).toHaveAttribute("aria-selected", "false");
 
-    fireEvent.click(screen.getByRole("tab", { name: "Royal Exchange" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Royal Exchange/ }));
     expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
 
     fireEvent.click(screen.getByRole("tab", { name: /Day 2/ }));
@@ -143,7 +149,7 @@ describe("AgendaList", () => {
       screen.getByText("Day 2 sessions on the Royal Exchange are coming soon."),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Main Stage" }));
+    fireEvent.click(screen.getByRole("tab", { name: /Main Stage/ }));
     expect(titles()).toEqual(["The Machine Economy"]);
   });
 
@@ -157,6 +163,10 @@ describe("AgendaList", () => {
       screen.getByText("1 session matches across all days and stages."),
     ).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: /Day 1/ })).toBeDisabled();
+
+    // Descriptions count, not just titles and speakers.
+    fireEvent.change(search, { target: { value: "cash" } });
+    expect(titles()).toEqual(["MoneyGram Ramps"]);
 
     // Other stages and days are included without touching the tabs.
     fireEvent.change(search, { target: { value: "collector" } });
@@ -254,10 +264,10 @@ describe("AgendaList", () => {
       "Lunch",
     ]);
 
-    const main = screen.getByRole("tab", { name: "Main Stage" });
+    const main = screen.getByRole("tab", { name: /Main Stage/ });
     main.focus();
     fireEvent.keyDown(main, { key: "ArrowLeft" });
     expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
-    expect(screen.getByRole("tab", { name: "Royal Exchange" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: /Royal Exchange/ })).toHaveFocus();
   });
 });

@@ -20,6 +20,12 @@ export const AGENDA_DAY_TABS = AGENDA_DAYS.map((day) => day.key);
 
 export const MAIN_STAGE = "Main Stage";
 
+/** Which floor of the venue each stage is on, shown beside the stage name. */
+export const STAGE_FLOORS: Record<string, string> = {
+  [MAIN_STAGE]: "Ground floor",
+  "Royal Exchange": "First floor",
+};
+
 export type AgendaSpeaker = {
   company?: string;
   /** Airtable record id in the Onboarded Speakers table, when linked. */

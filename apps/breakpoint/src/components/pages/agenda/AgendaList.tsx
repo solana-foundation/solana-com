@@ -8,6 +8,7 @@ import DisclosureIcon from "@/components/DisclosureIcon";
 import {
   AGENDA_DAYS,
   MAIN_STAGE,
+  STAGE_FLOORS,
   type AgendaItem,
   type AgendaSpeaker,
 } from "@/content/agenda/types";
@@ -104,6 +105,7 @@ function searchText(item: AgendaItem) {
   return normalizeSearch(
     [
       item.title,
+      item.description,
       item.format,
       item.location,
       ...(item.assetClasses ?? []),
@@ -445,21 +447,19 @@ function SearchControl({
   return (
     <label
       htmlFor={id}
-      className="flex w-full min-w-0 flex-col justify-center gap-2xs md:w-auto md:flex-1"
+      className="relative block w-full min-w-0 md:max-w-[480px]"
     >
-      <span className="type-button text-text-secondary">{label}</span>
-      <span className="relative block w-full md:max-w-[480px]">
-        <SearchIcon />
-        <input
-          id={id}
-          type="search"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          autoComplete="off"
-          className="font-mono text-button-small h-10 w-full border border-neutral-700 bg-black pl-10 pr-4 uppercase tracking-[0.07rem] text-white outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-text-secondary focus:border-white"
-        />
-      </span>
+      <span className="sr-only">{label}</span>
+      <SearchIcon />
+      <input
+        id={id}
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        className="font-mono text-button-small h-12 w-full border border-neutral-700 bg-black pl-10 pr-4 uppercase tracking-[0.07rem] text-white outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-text-secondary focus:border-white md:h-10"
+      />
     </label>
   );
 }
@@ -662,8 +662,8 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           }
           className="container mx-auto flex w-full items-end overflow-x-auto"
         >
-          {/* Pull the first tab's padding back so its label lines up with the content edge. */}
-          <div className="-ml-xs flex min-w-max items-end md:-ml-m">
+          {/* The rule sits on the content width so it lines up with the cards below. */}
+          <div className="flex w-full min-w-max items-end border-b border-neutral-700">
             {allDays.map((day) => {
               const active = day === activeDay && !searching;
               const date = dayDateLabel(day);
@@ -676,15 +676,22 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                   tabIndex={active ? 0 : -1}
                   disabled={searching}
                   onClick={() => selectDay(day)}
-                  className={`flex flex-col items-start gap-3xs border-b px-xs pb-2xs normal-case transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-default disabled:opacity-40 md:items-center md:px-m ${
+                  style={
+                    active ? { backgroundColor: dayAccent(day) } : undefined
+                  }
+                  className={`flex flex-1 flex-col items-start gap-3xs px-xs py-xs normal-case transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white disabled:cursor-default disabled:opacity-40 md:flex-none md:px-m ${
                     active
-                      ? "border-white text-white"
-                      : "border-neutral-700 text-text-secondary hover:text-white"
+                      ? "text-black"
+                      : "text-text-secondary hover:text-white"
                   }`}
                 >
                   <span className="type-h5 normal-case">{day}</span>
                   {date && (
-                    <span className="type-button-small font-normal text-text-secondary">
+                    <span
+                      className={`type-button-small font-normal ${
+                        active ? "text-black/70" : "text-text-secondary"
+                      }`}
+                    >
                       {date}
                     </span>
                   )}
@@ -692,13 +699,12 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
               );
             })}
           </div>
-          <div className="hidden h-px min-w-0 flex-1 bg-white/15 md:block" />
         </div>
 
         {searching ? (
           <div
             role="status"
-            className="container mx-auto flex w-full items-center justify-between gap-s pb-xs pt-xs"
+            className="container mx-auto flex w-full items-center justify-between gap-s py-xs"
           >
             <p className="type-button flex min-h-10 items-center text-text-secondary max-md:text-[length:var(--text-button-small)]!">
               {t("searchResults", { count: searchCount })}
@@ -724,35 +730,47 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                 selectStage,
               )
             }
-            className="container mx-auto flex w-full items-center gap-3xs overflow-x-auto pb-xs pt-xs"
+            className="container mx-auto flex w-full overflow-x-auto py-xs"
           >
-            {allStages.map((stage) => {
-              const active = stage === activeStage;
-              return (
-                <button
-                  key={stage}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  tabIndex={active ? 0 : -1}
-                  onClick={() => selectStage(stage)}
-                  className={`type-button flex h-10 shrink-0 items-center gap-2xs border px-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${
-                    active
-                      ? "border-white bg-white text-black"
-                      : "border-neutral-700 bg-black text-text-secondary hover:border-neutral-500 hover:text-white"
-                  }`}
-                >
-                  {stage}
-                </button>
-              );
-            })}
+            <div className="flex w-full min-w-max border border-neutral-700 md:w-auto">
+              {allStages.map((stage) => {
+                const active = stage === activeStage;
+                const floor = STAGE_FLOORS[stage];
+                return (
+                  <button
+                    key={stage}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    tabIndex={active ? 0 : -1}
+                    onClick={() => selectStage(stage)}
+                    className={`flex flex-1 flex-col items-start gap-4xs border-neutral-700 px-xs py-2xs text-left transition-colors not-first:border-l focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white md:flex-none md:px-s ${
+                      active
+                        ? "bg-white text-black"
+                        : "bg-black text-text-secondary hover:text-white"
+                    }`}
+                  >
+                    <span className="type-button">{stage}</span>
+                    {floor && (
+                      <span
+                        className={`type-button-small font-normal ${
+                          active ? "text-black/70" : "text-neutral-500"
+                        }`}
+                      >
+                        {floor}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ) : null}
       </div>
 
       <div
         aria-label={t("filters")}
-        className="container mx-auto flex w-full flex-col gap-s pt-m md:flex-row md:items-end md:gap-m"
+        className="container mx-auto flex w-full flex-col gap-2xs pt-s md:flex-row md:items-center md:justify-between md:gap-m"
       >
         <SearchControl
           id="agenda-search"
@@ -761,7 +779,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           value={query}
           onChange={setQuery}
         />
-        <p className="type-eyebrow text-[length:var(--text-button)]! tracking-[var(--text-button--letter-spacing)]! text-neutral-500 md:ml-auto md:pb-xs">
+        <p className="font-mono text-button-small text-neutral-500 md:shrink-0">
           {t("timezoneNote")}
         </p>
       </div>
