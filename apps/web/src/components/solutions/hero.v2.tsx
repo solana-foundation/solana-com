@@ -1,6 +1,10 @@
 "use client";
 
 import React from "react";
+import {
+  MetricSourcesFootnote,
+  type MetricSourceNoteProps,
+} from "@/component-library/metric-source-note";
 import type { ComponentType } from "react";
 import Image from "next/image";
 import { Button } from "@/app/components/ui/button";
@@ -12,6 +16,12 @@ import { useIntersectionObserver } from "@/hooks/useIntersectionObserver";
 export type SolutionHeroStat = {
   value: string;
   label: string;
+  source?: MetricSourceNoteProps;
+  /**
+   * The value comes locale-formatted from the metrics registry, so it is not
+   * uppercased. Implied by `source`; set it for unverified registry figures.
+   */
+  localized?: boolean;
   Icon?:
     | string
     | ComponentType<{
@@ -79,6 +89,9 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
 }) => {
   const statsCount = stats?.length ?? 0;
   const hasStats = statsCount > 0;
+  const statSources = (stats ?? []).flatMap(({ label, source }) =>
+    source ? [{ label, source }] : [],
+  );
   const hasBottomContent =
     hasStats || (showDownloadCard && emailCta && onEmailClick);
 
@@ -197,69 +210,87 @@ export const SolutionHero: React.FC<SolutionHeroProps> = ({
             {/* Stats */}
             {hasStats && (
               <div
-                className={cn(
-                  "grid grid-cols-2 xl:grid-cols-4 w-full xl:min-h-44",
-                  {
-                    "xl:w-2/3": Boolean(emailCta),
-                    "xl:grid-cols-2": statsCount === 2,
-                    "xl:grid-cols-3": statsCount === 3,
-                    "xl:grid-cols-4": statsCount > 3,
-                  },
-                )}
+                className={cn("w-full", {
+                  "xl:w-2/3": Boolean(emailCta),
+                })}
               >
-                {stats?.map((stat, index) => (
-                  <div
-                    key={stat.label}
-                    className={cn(
-                      "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15",
-                      {
-                        "border-l  ": index % 2,
-                        "xl:border-l ": index,
-                        "animate-fade-in-up": isIntersecting,
-                      },
-                    )}
-                    style={
-                      isIntersecting
-                        ? { animationDelay: `${0.1 + index * 0.1}s` }
-                        : { opacity: 0 }
-                    }
-                  >
-                    <div className="max-md:hidden">
-                      {stat.Icon && typeof stat.Icon === "string" ? (
-                        <Image
-                          src={stat.Icon}
-                          alt=""
-                          width={32}
-                          height={32}
-                          className="xl:size-8 md:size-5"
-                        />
-                      ) : stat.Icon ? (
-                        <stat.Icon className="xl:size-8 md:size-5" />
-                      ) : null}
-                    </div>
-                    <div>
-                      <div className="text-[20px] xl:text-[40px] leading-none uppercase font-light">
-                        {stat.value}
+                <div
+                  className={cn(
+                    "grid grid-cols-2 xl:grid-cols-4 w-full xl:min-h-44",
+                    {
+                      "xl:grid-cols-2": statsCount === 2,
+                      "xl:grid-cols-3": statsCount === 3,
+                      "xl:grid-cols-4": statsCount > 3,
+                    },
+                  )}
+                >
+                  {stats?.map((stat, index) => (
+                    <div
+                      key={stat.label}
+                      className={cn(
+                        "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15",
+                        {
+                          "border-l  ": index % 2,
+                          "xl:border-l ": index,
+                          "animate-fade-in-up": isIntersecting,
+                        },
+                      )}
+                      style={
+                        isIntersecting
+                          ? { animationDelay: `${0.1 + index * 0.1}s` }
+                          : { opacity: 0 }
+                      }
+                    >
+                      <div className="max-md:hidden">
+                        {stat.Icon && typeof stat.Icon === "string" ? (
+                          <Image
+                            src={stat.Icon}
+                            alt=""
+                            width={32}
+                            height={32}
+                            className="xl:size-8 md:size-5"
+                          />
+                        ) : stat.Icon ? (
+                          <stat.Icon className="xl:size-8 md:size-5" />
+                        ) : null}
                       </div>
-                      <div className="mt-[6px] md:mt-[8px] text-[14px] md:text-[18px] font-medium leading-[1.42] md:leading-[1.44] xl:leading-[1.33]">
-                        {stat.label}
+                      <div>
+                        <div
+                          className={cn(
+                            "text-[20px] xl:text-[40px] leading-none font-light",
+                            // Registry values arrive locale-formatted (e.g. "200ms",
+                            // "15 Mrd. $"); only uppercase hand-written values.
+                            !stat.source && !stat.localized && "uppercase",
+                          )}
+                        >
+                          {stat.value}
+                        </div>
+                        <div className="mt-[6px] md:mt-[8px] text-[14px] md:text-[18px] font-medium leading-[1.42] md:leading-[1.44] xl:leading-[1.33]">
+                          {stat.label}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {statsCount % 2 !== 0 && (
-                  <div
-                    className={cn(
-                      "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15 xl:hidden border-l",
-                      {
-                        "animate-fade-in-up": isIntersecting,
-                      },
-                    )}
-                    style={
-                      isIntersecting
-                        ? { animationDelay: `${0.1 + statsCount * 0.1}s` }
-                        : { opacity: 0 }
-                    }
+                  ))}
+                  {statsCount % 2 !== 0 && (
+                    <div
+                      className={cn(
+                        "p-[16px] xl:p-[16px_24px] flex flex-col justify-between gap-4 max-xl:border-t border-white/15 xl:hidden border-l",
+                        {
+                          "animate-fade-in-up": isIntersecting,
+                        },
+                      )}
+                      style={
+                        isIntersecting
+                          ? { animationDelay: `${0.1 + statsCount * 0.1}s` }
+                          : { opacity: 0 }
+                      }
+                    />
+                  )}
+                </div>
+                {statSources.length > 0 && (
+                  <MetricSourcesFootnote
+                    items={statSources}
+                    className="mt-2 mb-4 xl:mb-0 px-[16px] xl:px-[24px]"
                   />
                 )}
               </div>

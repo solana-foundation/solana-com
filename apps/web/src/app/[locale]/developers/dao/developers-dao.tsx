@@ -11,6 +11,8 @@ import {
   Stats,
 } from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import {
   CARD_DECK_CARDS,
   CARD_DECK_COLUMNS,
@@ -21,10 +23,18 @@ import {
   STATS_CONFIG,
 } from "@/data/developers/dao";
 
-export function DevelopersDaoPage() {
+export function DevelopersDaoPage({
+  statsMetrics,
+}: {
+  /** Registry figures for STATS_METRICS, in display order. */
+  statsMetrics: DisplayMetric[];
+}) {
   const t = useTranslations("developers-dao");
 
-  const stats = t.raw("stats") as { stat: string; description: string }[];
+  const stats = statsMetrics.map((metric, index) => ({
+    stat: metric.value,
+    description: t(`stats.${index}.description`),
+  }));
 
   const heroButtons = HERO_BUTTONS.map((button) => ({
     ...button,
@@ -82,6 +92,14 @@ export function DevelopersDaoPage() {
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
         <Stats stats={stats} contained={STATS_CONFIG.contained} />
       </ResponsiveBox>
+      <div className="mx-auto -mt-8 mb-8 max-w-screen-xl px-4 sm:-mt-12 sm:px-6 lg:-mt-16 lg:px-8">
+        <MetricSourcesFootnote
+          items={statsMetrics.map((metric, index) => ({
+            label: stats[index].description,
+            source: metric.source,
+          }))}
+        />
+      </div>
 
       <ResponsiveBox responsiveStyles={{ large: { marginTop: "20px" } }}>
         <Heading

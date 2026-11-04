@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import ts from "typescript";
@@ -48,20 +48,10 @@ const requiredExports = {
   "src/data/solutions/financial-institutions.ts": ["PROJECTS"],
 };
 const requiredClaimPaths = [
-  "financial-institutions-solution.projects.morganStanley.stat",
-  "financial-institutions-solution.projects.jpmorgan.stat",
   "financial-institutions-solution.projects.citi.stat",
   "financial-institutions-solution.projects.societeGenerale.stat",
-  "financial-institutions-solution.projects.stateStreet.stat",
   "financial-institutions-solution.projects.stateStreet.description",
   "pyusd.hero.body",
-  "developers-defi.stats.items.dexVolume.value",
-  "developers-defi.stats.items.stablecoins.value",
-  "developers-defi.stats.items.computeUnits.value",
-  "developers-defi.stats.items.txSize.value",
-  "pyusd.stats.items.solanaSupply.value",
-  "pyusd.stats.items.reserves.value",
-  "pyusd.stats.items.solanaShare.value",
   "pyusd.stats.items.backing.value",
   "pyusd.trust.items.issuer.body",
   "pyusd.mint.extensions.transferFee.body",
@@ -407,11 +397,11 @@ export function validateClaims(
   const errors = [];
   for (const requiredPath of requiredClaimPaths) {
     if (!claims.some((entry) => entry.path === requiredPath)) {
-      errors.push(`claims.json: missing required claim ${requiredPath}`);
+      errors.push(`claims/prose.json: missing required claim ${requiredPath}`);
     }
   }
   for (const entry of claims) {
-    const location = `claims.json:${entry.path}`;
+    const location = `claims/prose.json:${entry.path}`;
     const copy = messageAtPath(messages, entry.path);
     if (
       !entry.claim ||
@@ -447,12 +437,37 @@ export function validateClaims(
   return errors;
 }
 
-export function validateFinancialProjectStats(projects, claims, messages) {
+// A card with `metric` shows that registry key, so it must not also carry a
+// message value or a hardcoded stat. A card without one shows a qualitative
+// claim that must match its audited English claim, source, and date.
+export function validateFinancialProjectStats(
+  projects,
+  claims,
+  messages,
+  registry,
+) {
   if (!Array.isArray(projects))
     return ["financial institutions: PROJECTS must be a static array"];
   const errors = [];
   for (const project of projects) {
     const path = `financial-institutions-solution.projects.${project.key}.stat`;
+    if (project.metric !== undefined) {
+      if (!(project.metric in registry))
+        errors.push(`${path}: unknown registry metric ${project.metric}`);
+      if (messageAtPath(messages, path) !== undefined)
+        errors.push(`${path}: registry stats must not keep a message value`);
+      if (
+        project.statValue !== undefined ||
+        project.statSource !== undefined ||
+        project.statSourceNote !== undefined
+      )
+        errors.push(
+          `${path}: registry stats must not hardcode a value, source, or date`,
+        );
+      if (claims.some((entry) => entry.path === path))
+        errors.push(`${path}: registry stats must not keep a prose claim`);
+      continue;
+    }
     const claim = claims.find((entry) => entry.path === path);
     const message = messageAtPath(messages, path);
     if (
@@ -465,23 +480,252 @@ export function validateFinancialProjectStats(projects, claims, messages) {
       );
     if (!project.statSource || project.statSource !== claim?.sourceUrl)
       errors.push(`${path}: displayed source must match the audited source`);
+    if (!project.statSourceNote || project.statSourceNote !== claim?.asOf)
+      errors.push(`${path}: displayed date must match the audited asOf`);
   }
   return errors;
 }
 
-// Pages whose STATS export renders `<namespace>.stats.items.<id>.value`
-// beside a link to `statSource`.
+const metricUnits = new Set([
+  "usd",
+  "count",
+  "ms",
+  "percent",
+  "sol",
+  "bytes",
+  "wh",
+  "kwh",
+]);
+const metricRollups = new Set(["sum", "avg", "last"]);
+const defiLlamaQueries = new Set([
+  "chain-tvl",
+  "protocol-tvl",
+  "aggregator-volume",
+  "chain-dex-volume-30d",
+  "stablecoin-chain-supply",
+]);
+const solanaRpcQueries = new Set(["nakamoto-coefficient", "token-supply-sum"]);
+const x402scanQueries = new Set([
+  "transactions",
+  "volume-usd",
+  "buyers",
+  "sellers",
+  "buyers-and-sellers",
+  "transaction-share",
+  "volume-share",
+]);
+const climateFields = new Set([
+  "electricityTx",
+  "electricity365",
+  "emissionsTx",
+  "emissions365",
+]);
+const rwaXyzFields = new Set([
+  "distributedValueUSD",
+  "assetCount",
+  "holderCount",
+]);
+
+function isIsoDate(value) {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") &&
+    !Number.isNaN(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
+  );
+}
+
+/**
+ * Reads every src/data/metrics/*.json file into one registry. Each file holds
+ * the keys for its prefix (defi.json holds defi.*), so a key has one home.
+ */
+export function readMetricRegistry(directory) {
+  const registry = {};
+  const errors = [];
+  for (const file of readdirSync(directory).filter((name) =>
+    name.endsWith(".json"),
+  )) {
+    const prefix = file.replace(/\.json$/, "");
+    const entries = JSON.parse(
+      readFileSync(path.join(directory, file), "utf8"),
+    );
+    for (const [key, metric] of Object.entries(entries)) {
+      if (key.split(".")[0] !== prefix)
+        errors.push(
+          `metrics registry:${key}: belongs in ${key.split(".")[0]}.json, not ${file}`,
+        );
+      if (key in registry)
+        errors.push(`metrics registry:${key}: defined more than once`);
+      registry[key] = metric;
+    }
+  }
+  return { registry, errors };
+}
+
+/**
+ * Checks the src/data/metrics/*.json registry: every published metric needs a
+ * definition, HTTPS source, period, owner, dated snapshot (the published value
+ * or the live fallback), verification date, and an unexpired review deadline.
+ */
+export function validateMetricRegistry(
+  registry,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  const errors = [];
+  for (const [key, metric] of Object.entries(registry)) {
+    const location = `metrics registry:${key}`;
+    if (!/^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/.test(key))
+      errors.push(`${location}: key must be dotted kebab-case`);
+    if (!metricUnits.has(metric.unit))
+      errors.push(`${location}: unit must be one of ${[...metricUnits]}`);
+    if (!metric.definition?.trim())
+      errors.push(`${location}: definition is required`);
+    if (!metric.owner?.trim()) errors.push(`${location}: owner is required`);
+    if (metric.verification === "unverified") {
+      if (!metric.note?.trim())
+        errors.push(`${location}: unverified figures need a note`);
+      if (metric.live)
+        errors.push(`${location}: unverified figures cannot be live`);
+    } else if (metric.verification !== undefined) {
+      errors.push(`${location}: verification must be "unverified" or absent`);
+    }
+    if (metric.source !== undefined || metric.verification !== "unverified") {
+      if (!metric.source?.name?.trim())
+        errors.push(`${location}: source name is required`);
+      try {
+        const sourceUrl = new URL(metric.source?.url);
+        if (sourceUrl.protocol !== "https:")
+          errors.push(`${location}: valid HTTPS source is required`);
+      } catch {
+        errors.push(`${location}: valid HTTPS source is required`);
+      }
+    }
+    const period = metric.period;
+    if (
+      period?.kind !== "point" &&
+      !(
+        period?.kind === "trailing" &&
+        Number.isInteger(period.days) &&
+        period.days > 0
+      )
+    )
+      errors.push(`${location}: period must be point or trailing days`);
+    if (!Number.isFinite(metric.snapshot?.value))
+      errors.push(`${location}: snapshot value must be a number`);
+    if (!isIsoDate(metric.snapshot?.asOf))
+      errors.push(`${location}: valid snapshot asOf date is required`);
+    for (const field of ["verifiedAt", "reviewBy"]) {
+      if (!isIsoDate(metric[field]))
+        errors.push(`${location}: valid ${field} date is required`);
+    }
+    if (metric.snapshot?.asOf > today || metric.verifiedAt > today)
+      errors.push(
+        `${location}: snapshot or verification date is in the future`,
+      );
+    if (metric.snapshot?.asOf > metric.verifiedAt)
+      errors.push(`${location}: snapshot is newer than its verification`);
+    if (metric.reviewBy < today)
+      errors.push(`${location}: review deadline has passed`);
+    if (
+      metric.display !== undefined &&
+      (typeof metric.display !== "object" ||
+        Object.keys(metric.display).some(
+          (field) =>
+            !["prefix", "suffix"].includes(field) ||
+            typeof metric.display[field] !== "string" ||
+            metric.display[field].length > 3,
+        ))
+    )
+      errors.push(`${location}: display allows a short prefix and suffix only`);
+    const live = metric.live;
+    if (live?.provider === "data-api") {
+      if (
+        !Array.isArray(live.metrics) ||
+        live.metrics.length === 0 ||
+        !metricRollups.has(live.rollup) ||
+        !Number.isInteger(live.days) ||
+        live.days < 1
+      )
+        errors.push(`${location}: data-api spec needs metrics, rollup, days`);
+      if (
+        period?.kind === "trailing" &&
+        (period.days !== live.days || live.rollup === "last")
+      )
+        errors.push(`${location}: trailing period must match the live window`);
+    } else if (live?.provider === "rwa-xyz") {
+      if (!rwaXyzFields.has(live.field))
+        errors.push(`${location}: unknown RWA.xyz field ${live.field}`);
+    } else if (live?.provider === "defillama") {
+      if (!defiLlamaQueries.has(live.query) || !live.slug?.trim())
+        errors.push(`${location}: defillama spec needs a known query and slug`);
+      if (live.query === "stablecoin-chain-supply" && !live.chain?.trim())
+        errors.push(`${location}: stablecoin-chain-supply needs a chain`);
+    } else if (live?.provider === "solana-rpc") {
+      if (!solanaRpcQueries.has(live.query))
+        errors.push(`${location}: unknown solana-rpc query ${live.query}`);
+      if (
+        live.query === "token-supply-sum" &&
+        !(Array.isArray(live.mints) && live.mints.length > 0)
+      )
+        errors.push(`${location}: token-supply-sum needs mints`);
+    } else if (live?.provider === "x402scan") {
+      if (
+        !x402scanQueries.has(live.query) ||
+        ![0, 7, 30].includes(live.timeframe)
+      )
+        errors.push(
+          `${location}: x402scan spec needs a known query and timeframe 0, 7, or 30`,
+        );
+      if (period?.kind === "trailing" && period.days !== live.timeframe)
+        errors.push(
+          `${location}: trailing period must match the x402scan timeframe`,
+        );
+    } else if (live?.provider === "climate") {
+      if (!climateFields.has(live.field))
+        errors.push(`${location}: unknown climate field ${live.field}`);
+    } else if (live !== undefined) {
+      errors.push(`${location}: unknown live provider`);
+    }
+  }
+  return errors;
+}
+
+// Pages whose STATS export renders `<namespace>.stats.items.<id>`. A stat
+// with `metric` shows that registry key, so its number must not also live in
+// the messages. A stat without one shows its English value, which must be an
+// audited claim with a matching `statSource` and `statAsOf`.
 const statPages = [
   { namespace: "developers-defi", file: "src/data/developers/defi.ts" },
   { namespace: "pyusd", file: "src/data/pyusd.ts" },
 ];
 
-export function validatePageStats(namespace, stats, claims, messages) {
+export function validatePageStats(
+  namespace,
+  stats,
+  claims,
+  messages,
+  registry,
+) {
   if (!Array.isArray(stats))
     return [`${namespace}: STATS must be a static array`];
   const errors = [];
   for (const stat of stats) {
     const path = `${namespace}.stats.items.${stat.id}.value`;
+    if (
+      typeof messageAtPath(
+        messages,
+        `${namespace}.stats.items.${stat.id}.label`,
+      ) !== "string"
+    )
+      errors.push(
+        `${namespace}.stats.items.${stat.id}.label: label is missing`,
+      );
+    if (stat.metric !== undefined) {
+      if (!(stat.metric in registry))
+        errors.push(`${path}: unknown registry metric ${stat.metric}`);
+      if (messageAtPath(messages, path) !== undefined)
+        errors.push(`${path}: registry stats must not keep a message value`);
+      continue;
+    }
     const claim = claims.find((entry) => entry.path === path);
     if (!claim || messageAtPath(messages, path) !== claim.claim)
       errors.push(
@@ -489,6 +733,8 @@ export function validatePageStats(namespace, stats, claims, messages) {
       );
     if (!stat.statSource || stat.statSource !== claim?.sourceUrl)
       errors.push(`${path}: displayed source must match the audited source`);
+    if (!stat.statAsOf || stat.statAsOf !== claim?.asOf)
+      errors.push(`${path}: displayed date must match the audited asOf`);
   }
   return errors;
 }
@@ -498,7 +744,10 @@ if (
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   const claims = JSON.parse(
-    readFileSync(path.join(webRoot, "content-audit/claims.json"), "utf8"),
+    readFileSync(
+      path.join(webRoot, "src/data/metrics/claims/prose.json"),
+      "utf8",
+    ),
   );
   const messages = JSON.parse(
     readFileSync(
@@ -506,9 +755,13 @@ if (
       "utf8",
     ),
   );
+  const { registry: metricRegistry, errors: registryFileErrors } =
+    readMetricRegistry(path.join(webRoot, "src/data/metrics"));
   const errors = [
+    ...registryFileErrors,
     ...auditedFiles.flatMap(validateFile),
     ...validateClaims(claims, messages),
+    ...validateMetricRegistry(metricRegistry),
     ...validateFinancialProjectStats(
       readStaticExport(
         readFileSync(
@@ -520,6 +773,7 @@ if (
       ),
       claims,
       messages,
+      metricRegistry,
     ),
     ...statPages.flatMap(({ namespace, file }) =>
       validatePageStats(
@@ -531,6 +785,7 @@ if (
         ),
         claims,
         messages,
+        metricRegistry,
       ),
     ),
   ];
@@ -539,7 +794,7 @@ if (
     process.exitCode = 1;
   } else {
     console.log(
-      `Validated links in ${auditedFiles.length} page data files and ${claims.length} dated claims.`,
+      `Validated links in ${auditedFiles.length} page data files, ${claims.length} dated claims, and ${Object.keys(metricRegistry).length} registry metrics.`,
     );
   }
 }

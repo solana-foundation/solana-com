@@ -16,6 +16,8 @@ import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import { useTranslations } from "next-intl";
 import Image from "next/image";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import {
   HERO_IMAGE,
   MEET_USERS_IMAGE,
@@ -26,7 +28,12 @@ import {
   VIDEO_SOURCE,
 } from "@/data/solutions/actions";
 
-export function ActionsPage() {
+export function ActionsPage({
+  featureMetrics,
+}: {
+  /** Registry figures for FEATURE_METRICS, in card order. */
+  featureMetrics: DisplayMetric[];
+}) {
   const t = useTranslations("actions-solution");
 
   const sliderCards = SLIDER_IMAGES.map((src, i) => ({
@@ -48,16 +55,11 @@ export function ActionsPage() {
 
   const featureHighlightCards = [0, 1, 2, 3].map((i) => ({
     stat: {
-      stat: "3,751",
+      stat: featureMetrics[i].value,
       description: t(`featureHighlight.cards.${i}.stat.description`),
       value: {
         statType: "none" as const,
-        dynamicValueSource: "Explorer API",
-        dynamicValueEndpoint: "Transactions per second",
-        staticValue:
-          i === 0
-            ? undefined
-            : t.raw(`featureHighlight.cards.${i}.stat.staticValue`),
+        staticValue: featureMetrics[i].value,
       },
     },
     button: { label: "" },
@@ -290,6 +292,14 @@ export function ActionsPage() {
           dynamicDataFootnote="Live data"
           headingAs="h3"
         />
+        <div className="mx-auto -mt-8 mb-8 max-w-screen-xl px-4 sm:-mt-12 sm:px-6 lg:-mt-16 lg:px-8">
+          <MetricSourcesFootnote
+            items={featureMetrics.map((metric, i) => ({
+              label: t(`featureHighlight.cards.${i}.stat.description`),
+              source: metric.source,
+            }))}
+          />
+        </div>
       </ResponsiveBox>
     </>
   );

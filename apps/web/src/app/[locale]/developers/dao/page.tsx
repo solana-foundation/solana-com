@@ -1,13 +1,20 @@
 import { DevelopersDaoPage } from "./developers-dao";
 import { getIndexMetadata } from "@/app/metadata";
-import { META } from "@/data/developers/dao";
+import { META, STATS_METRICS } from "@/data/developers/dao";
+import { getDisplayMetrics } from "@/lib/metrics/present";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
 
 export default async function Page(_props: Props) {
-  return <DevelopersDaoPage />;
+  const metrics = await getDisplayMetrics(STATS_METRICS);
+
+  return (
+    <DevelopersDaoPage
+      statsMetrics={STATS_METRICS.map((key) => metrics[key])}
+    />
+  );
 }
 
 export async function generateMetadata({ params }: Props) {
