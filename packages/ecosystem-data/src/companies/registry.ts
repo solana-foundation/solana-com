@@ -33,6 +33,7 @@ import { cherryServers } from "./records/cherry-servers";
 import { circle } from "./records/circle";
 import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
+import { coindesk } from "./records/coindesk";
 import { colosseum } from "./records/colosseum";
 import { cooley } from "./records/cooley";
 import { cow } from "./records/cow";
@@ -195,6 +196,7 @@ export const companies = [
   circle,
   citi,
   coinbase,
+  coindesk,
   colosseum,
   cooley,
   cow,

@@ -442,6 +442,7 @@ const goldSponsors = [
   { companyId: "doublezero", width: 659, height: 105 },
   { companyId: "openledger", width: 3080, height: 1168 },
   { companyId: "greed-academy", width: 1051, height: 222 },
+  { companyId: "coindesk", width: 913, height: 172 },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
