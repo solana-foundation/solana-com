@@ -10,7 +10,7 @@ export const fallbackAgenda = [
     day: "Day 1",
     description:
       "Lily Liu and Akshay BD open Breakpoint 2026 with the themes for the two days: money, credit and collateral, tokenized equities, and the machines and intelligence that now run on them.",
-    duration: "20 min.",
+    duration: "20 min",
     format: "Keynote",
     id: "fallback-welcome",
     location: "Main Stage",
@@ -35,7 +35,7 @@ export const fallbackAgenda = [
   {
     assetClasses: ["Money"],
     day: "Day 1",
-    duration: "10 min.",
+    duration: "10 min",
     format: "Keynote",
     id: "fallback-moneygram",
     location: "Main Stage",
@@ -48,7 +48,7 @@ export const fallbackAgenda = [
   {
     assetClasses: ["Money"],
     day: "Day 1",
-    duration: "15 min.",
+    duration: "15 min",
     format: "Panel",
     id: "fallback-stablecoin-panel",
     location: "Main Stage",
@@ -73,7 +73,7 @@ export const fallbackAgenda = [
   },
   {
     day: "Day 1",
-    duration: "15 min.",
+    duration: "15 min",
     id: "fallback-break",
     location: "Main Stage",
     sortOrder: 690,
@@ -85,7 +85,7 @@ export const fallbackAgenda = [
   {
     assetClasses: ["Credit & Collateral"],
     day: "Day 1",
-    duration: "20 min.",
+    duration: "20 min",
     format: "Panel",
     id: "fallback-private-markets",
     location: "Main Stage",
@@ -109,7 +109,7 @@ export const fallbackAgenda = [
   {
     assetClasses: [],
     day: "Day 1",
-    duration: "15 min.",
+    duration: "15 min",
     format: "Keynote",
     id: "fallback-consumer-track",
     location: "Royal Exchange",
@@ -122,7 +122,7 @@ export const fallbackAgenda = [
   {
     assetClasses: ["Tokenized Equities"],
     day: "Day 1",
-    duration: "15 min.",
+    duration: "15 min",
     format: "Panel",
     id: "fallback-city-onchain",
     location: "Main Stage",
@@ -135,7 +135,7 @@ export const fallbackAgenda = [
   {
     assetClasses: ["Intelligence"],
     day: "Day 2",
-    duration: "20 min.",
+    duration: "20 min",
     format: "Panel",
     id: "fallback-machine-economy",
     location: "Main Stage",
@@ -160,7 +160,7 @@ export const fallbackAgenda = [
   {
     assetClasses: ["Crypto"],
     day: "Day 2",
-    duration: "17 min.",
+    duration: "17 min",
     format: "Debate",
     id: "fallback-sol-is-money",
     location: "Main Stage",

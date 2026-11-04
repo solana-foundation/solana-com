@@ -153,7 +153,7 @@ describe("Breakpoint agenda records", () => {
       assetClasses: ["Money"],
       day: "Day 1",
       description: "Three stablecoin issuers on distribution.",
-      duration: "15 min.",
+      duration: "15 min",
       format: "Panel",
       location: "Main Stage",
       time: "11:15",
@@ -236,7 +236,7 @@ describe("Breakpoint agenda records", () => {
     );
 
     expect(item?.time).toBe("12:15");
-    expect(item?.duration).toBe("15 min.");
+    expect(item?.duration).toBe("15 min");
   });
 
   it("keeps breaks as static rows and drops internal asset tags", () => {

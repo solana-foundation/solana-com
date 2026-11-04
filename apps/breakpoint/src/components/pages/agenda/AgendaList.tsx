@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { accordionButtonClassName } from "@/components/AccordionButton";
@@ -13,9 +13,11 @@ import {
 } from "@/content/agenda/types";
 
 const DEFAULT_DAY = "Day 1";
-const ALL_ASSET_CLASSES = "all";
 const LONDON_TIME_ZONE = "Europe/London";
 const EYEBROW_TEXT_CLASS = "type-eyebrow uppercase";
+/** Duration and stage drop to button size on phones so the title leads. */
+const META_SECONDARY_CLASS =
+  "text-text-secondary max-md:text-[length:var(--text-button-small)]! max-md:tracking-[0.05rem]!";
 
 /** Brand accents per asset class so a day's blocks read at a glance. */
 const ASSET_CLASS_ACCENTS: Record<string, string> = {
@@ -74,6 +76,16 @@ function todayAgendaDay() {
   }).format(new Date());
 
   return AGENDA_DAYS.find((candidate) => candidate.date === today)?.key;
+}
+
+function dayHeading(day: string) {
+  const date = dayDateLabel(day);
+  return date ? `${day} · ${date}` : day;
+}
+
+function sortItems(a: AgendaItem, b: AgendaItem) {
+  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+  return a.title.localeCompare(b.title);
 }
 
 function stageSortValue(stage: string) {
@@ -191,54 +203,57 @@ function SearchIcon() {
   );
 }
 
-function ArrowDownIcon() {
+function AssetPill({
+  assetClass,
+  onSelect,
+  t,
+}: {
+  assetClass: string;
+  onSelect: (_assetClass: string) => void;
+  t: Translate;
+}) {
   return (
-    <svg
-      aria-hidden="true"
-      width="8"
-      height="4"
-      viewBox="0 0 8 4"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2"
-    >
-      <path d="M0 0L4 4L8 0H0Z" fill="currentColor" />
-    </svg>
-  );
-}
-
-function AssetPill({ assetClass }: { assetClass: string }) {
-  return (
-    <span
-      className={`inline-flex shrink-0 items-center whitespace-nowrap border px-2xs py-4xs font-mono text-button-small uppercase tracking-[0.07rem] ${assetAccentClass(assetClass)}`}
+    <button
+      type="button"
+      aria-label={t("searchAssetClass", { assetClass })}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect(assetClass);
+      }}
+      className={`inline-flex shrink-0 items-center whitespace-nowrap border px-2xs py-4xs font-mono text-button-small uppercase leading-[var(--text-button--line-height)] tracking-[0.07rem] transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${assetAccentClass(assetClass)}`}
       data-agenda-asset-class
     >
       {assetClass}
-    </span>
+    </button>
   );
 }
 
 function SessionMeta({ item }: { item: AgendaItem }) {
+  const secondary = [item.duration, item.location].filter(
+    (value): value is string => Boolean(value),
+  );
+
   return (
-    <div className="flex w-auto shrink-0 flex-col items-start justify-start gap-3xs md:w-[140px]">
+    <div className="flex w-full flex-wrap items-baseline gap-x-3xs gap-y-3xs md:w-[140px] md:shrink-0 md:flex-col md:items-start md:gap-3xs">
       <p
-        className={`${EYEBROW_TEXT_CLASS} w-full whitespace-nowrap`}
+        className={`${EYEBROW_TEXT_CLASS} whitespace-nowrap`}
         style={{ color: "var(--agenda-accent)" }}
       >
         {item.time}
       </p>
-      {item.duration && (
-        <p
-          className={`${EYEBROW_TEXT_CLASS} w-full whitespace-nowrap text-text-secondary`}
+      {secondary.map((value) => (
+        <span
+          key={value}
+          className="inline-flex items-baseline gap-x-3xs whitespace-nowrap"
         >
-          {item.duration}
-        </p>
-      )}
-      {item.location && (
-        <p className={`${EYEBROW_TEXT_CLASS} w-full text-white`}>
-          {item.location}
-        </p>
-      )}
+          <span aria-hidden="true" className="text-text-secondary md:hidden">
+            ·
+          </span>
+          <p className={`${EYEBROW_TEXT_CLASS} ${META_SECONDARY_CLASS}`}>
+            {value}
+          </p>
+        </span>
+      ))}
     </div>
   );
 }
@@ -257,7 +272,7 @@ function SpeakerBlock({
   return (
     <div className="flex min-w-0 flex-col items-start gap-4xs">
       <div className="flex items-center gap-2xs">
-        <p className="type-paragraph-bold text-white">{speaker.name}</p>
+        <p className="type-paragraph text-white">{speaker.name}</p>
         {showLinks && speaker.xUrl && (
           <a
             href={speaker.xUrl}
@@ -287,11 +302,13 @@ function SpeakerBlock({
 
 function SessionRow({
   item,
+  onSearchAssetClass,
   onToggle,
   open,
   t,
 }: {
   item: AgendaItem;
+  onSearchAssetClass: (_assetClass: string) => void;
   onToggle: () => void;
   open: boolean;
   t: Translate;
@@ -309,31 +326,39 @@ function SessionRow({
       onClick={hasDetails ? onToggle : undefined}
       data-agenda-session
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-s md:flex-row md:gap-3xl">
+      <div className="flex min-w-0 flex-1 flex-col gap-2xs md:flex-row md:gap-3xl">
         <SessionMeta item={item} />
 
-        <div className="flex min-w-0 flex-1 flex-col items-start gap-s md:pr-l">
-          <div className="flex w-full flex-col items-start gap-2xs">
-            <div className="flex w-full flex-col items-start gap-2xs md:flex-row md:items-start md:justify-between md:gap-m">
-              {assetClasses.length > 0 && (
-                <div className="flex flex-wrap gap-3xs md:order-last md:justify-end">
-                  {assetClasses.map((assetClass) => (
-                    <AssetPill key={assetClass} assetClass={assetClass} />
-                  ))}
-                </div>
-              )}
-              <h2 className="type-h5 min-w-0 flex-1 text-white">
-                {item.title}
-              </h2>
-            </div>
+        <div className="flex min-w-0 flex-1 flex-col items-start gap-xs md:gap-s md:pr-l">
+          {/*
+            Phones read top to bottom: title, speakers, then asset pills.
+            From md up the pills sit beside the title in a second column.
+          */}
+          <div className="grid w-full grid-cols-1 gap-2xs md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-m">
+            <h2 className="type-h5 min-w-0 font-bold text-white md:col-start-1 md:row-start-1">
+              {item.title}
+            </h2>
 
             {item.speakers.length > 0 && (
-              <div className="flex w-full flex-col items-start gap-2xs md:flex-row md:flex-wrap md:gap-x-l md:gap-y-2xs">
+              <div className="flex w-full flex-col items-start gap-2xs md:col-start-1 md:row-start-2 md:flex-row md:flex-wrap md:gap-x-l md:gap-y-2xs">
                 {item.speakers.map((speaker) => (
                   <SpeakerBlock
                     key={`${item.id}-${speaker.name}-${speaker.company ?? ""}`}
                     showLinks={open}
                     speaker={speaker}
+                    t={t}
+                  />
+                ))}
+              </div>
+            )}
+
+            {assetClasses.length > 0 && (
+              <div className="flex flex-wrap gap-3xs md:col-start-2 md:row-start-1 md:justify-end">
+                {assetClasses.map((assetClass) => (
+                  <AssetPill
+                    key={assetClass}
+                    assetClass={assetClass}
+                    onSelect={onSearchAssetClass}
                     t={t}
                   />
                 ))}
@@ -386,50 +411,21 @@ function StaticRow({ item }: { item: AgendaItem }) {
       className="flex w-full overflow-hidden bg-[var(--agenda-accent)] p-xs text-black md:items-center md:justify-between md:px-s md:py-xl"
       data-agenda-static
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-m uppercase md:flex-row md:items-center md:gap-3xl">
-        <div className="flex w-[140px] shrink-0 flex-col items-start justify-center gap-3xs">
-          <p className={`${EYEBROW_TEXT_CLASS} w-full`}>{item.time}</p>
+      <div className="flex min-w-0 flex-1 flex-col gap-2xs uppercase md:flex-row md:items-center md:gap-3xl">
+        <div className="flex w-full flex-wrap items-baseline gap-x-3xs gap-y-3xs md:w-[140px] md:shrink-0 md:flex-col md:items-start md:justify-center md:gap-3xs">
+          <p className={EYEBROW_TEXT_CLASS}>{item.time}</p>
           {item.duration && (
-            <p className={`${EYEBROW_TEXT_CLASS} w-full`}>{item.duration}</p>
+            <span className="inline-flex items-baseline gap-x-3xs whitespace-nowrap">
+              <span aria-hidden="true" className="md:hidden">
+                ·
+              </span>
+              <p className={EYEBROW_TEXT_CLASS}>{item.duration}</p>
+            </span>
           )}
         </div>
         <h2 className="type-h2 min-w-0 flex-1">{item.title}</h2>
       </div>
     </article>
-  );
-}
-
-function SelectControl({
-  children,
-  id,
-  label,
-  onChange,
-  value,
-}: {
-  children: ReactNode;
-  id: string;
-  label: string;
-  onChange: (_value: string) => void;
-  value: string;
-}) {
-  return (
-    <label
-      htmlFor={id}
-      className="flex w-full min-w-0 flex-col justify-center gap-2xs md:w-auto"
-    >
-      <span className="type-button text-text-secondary">{label}</span>
-      <span className="relative block w-full md:w-[280px]">
-        <select
-          id={id}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="type-button h-10 w-full appearance-none overflow-hidden border border-neutral-700 bg-black pb-2 pl-4 pr-10 pt-2 text-white outline-none focus:border-white"
-        >
-          {children}
-        </select>
-        <ArrowDownIcon />
-      </span>
-    </label>
   );
 }
 
@@ -504,21 +500,12 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     });
   }, [items]);
 
-  const assetClassOptions = useMemo(() => {
-    const classes = new Set<string>();
-    for (const item of items) {
-      for (const assetClass of item.assetClasses ?? []) classes.add(assetClass);
-    }
-    return [...classes].sort((a, b) => a.localeCompare(b));
-  }, [items]);
-
   const [activeDay, setActiveDay] = useState(() =>
     allDays.includes(DEFAULT_DAY) ? DEFAULT_DAY : (allDays[0] ?? DEFAULT_DAY),
   );
   const [activeStage, setActiveStage] = useState<string | null>(
     () => allStages[0] ?? null,
   );
-  const [assetClass, setAssetClass] = useState(ALL_ASSET_CLASSES);
   const [query, setQuery] = useState("");
   const [openItemId, setOpenItemId] = useState<string | null>(null);
 
@@ -567,25 +554,25 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     scrollToScheduleTop();
   }, [activeDay, scrollToScheduleTop]);
 
-  const normalizedQuery = normalizeSearch(query);
-  const filtering =
-    normalizedQuery.length > 0 || assetClass !== ALL_ASSET_CLASSES;
-
-  const matchesFilters = useCallback(
-    (item: AgendaItem) => {
-      if (item.variant === "static") return !filtering;
-      if (
-        assetClass !== ALL_ASSET_CLASSES &&
-        !(item.assetClasses ?? []).includes(assetClass)
-      ) {
-        return false;
-      }
-      if (normalizedQuery && !searchText(item).includes(normalizedQuery)) {
-        return false;
-      }
-      return true;
+  const searchAssetClass = useCallback(
+    (assetClass: string) => {
+      setQuery(assetClass);
+      setOpenItemId(null);
+      scrollToScheduleTop();
     },
-    [assetClass, filtering, normalizedQuery],
+    [scrollToScheduleTop],
+  );
+
+  const normalizedQuery = normalizeSearch(query);
+  const searching = normalizedQuery.length > 0;
+
+  // A search spans every day and stage; the tabs only scope the browse view.
+  const matchesQuery = useCallback(
+    (item: AgendaItem) => {
+      if (item.variant === "static") return !searching;
+      return !searching || searchText(item).includes(normalizedQuery);
+    },
+    [normalizedQuery, searching],
   );
 
   const matchesStage = useCallback(
@@ -594,59 +581,64 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     [],
   );
 
-  const dayItems = useMemo(
-    () =>
-      items.filter((item) => item.day === activeDay && matchesFilters(item)),
-    [activeDay, items, matchesFilters],
-  );
-
   const visibleItems = useMemo(
     () =>
-      dayItems
-        .filter((item) => matchesStage(item, activeStage))
-        .sort((a, b) => {
-          if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-          return a.title.localeCompare(b.title);
-        }),
-    [activeStage, dayItems, matchesStage],
+      items
+        .filter(
+          (item) => item.day === activeDay && matchesStage(item, activeStage),
+        )
+        .sort(sortItems),
+    [activeDay, activeStage, items, matchesStage],
   );
 
-  const stageCounts = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const stage of allStages) {
-      counts.set(
-        stage,
-        dayItems.filter(
-          (item) => item.variant !== "static" && matchesStage(item, stage),
-        ).length,
-      );
-    }
-    return counts;
-  }, [allStages, dayItems, matchesStage]);
+  const searchGroups = useMemo(() => {
+    if (!searching) return [];
 
-  const matchesElsewhere = useMemo(() => {
-    if (!filtering) return 0;
-    return items.filter(
-      (item) =>
-        matchesFilters(item) &&
-        (item.day !== activeDay || !matchesStage(item, activeStage)),
-    ).length;
-  }, [activeDay, activeStage, filtering, items, matchesFilters, matchesStage]);
+    const groups = new Map<string, AgendaItem[]>();
+    for (const item of items) {
+      if (!matchesQuery(item)) continue;
+      const group = groups.get(item.day) ?? [];
+      group.push(item);
+      groups.set(item.day, group);
+    }
+
+    return [...groups.entries()]
+      .sort(
+        ([a], [b]) => daySortValue(a) - daySortValue(b) || a.localeCompare(b),
+      )
+      .map(([day, matches]) => ({ day, items: matches.sort(sortItems) }));
+  }, [items, matchesQuery, searching]);
+
+  const searchCount = searchGroups.reduce(
+    (total, group) => total + group.items.length,
+    0,
+  );
 
   const accentStyle = {
     "--agenda-accent": dayAccent(activeDay),
   } as CSSProperties;
 
-  const emptyMessage = (() => {
-    if (filtering) {
-      return activeStage
-        ? t("noMatches", { day: activeDay, stage: activeStage })
-        : t("noMatchesAnyStage", { day: activeDay });
-    }
-    return activeStage
+  const emptyMessage = searching
+    ? t("noResults", { query: query.trim() })
+    : activeStage
       ? t("comingSoon", { day: activeDay, stage: activeStage })
       : t("comingSoonAnyStage", { day: activeDay });
-  })();
+
+  const renderItem = (item: AgendaItem) =>
+    item.variant === "static" ? (
+      <StaticRow key={item.id} item={item} />
+    ) : (
+      <SessionRow
+        key={item.id}
+        item={item}
+        open={openItemId === item.id}
+        t={t}
+        onSearchAssetClass={searchAssetClass}
+        onToggle={() =>
+          setOpenItemId((current) => (current === item.id ? null : item.id))
+        }
+      />
+    );
 
   return (
     <section
@@ -673,7 +665,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           {/* Pull the first tab's padding back so its label lines up with the content edge. */}
           <div className="-ml-xs flex min-w-max items-end md:-ml-m">
             {allDays.map((day) => {
-              const active = day === activeDay;
+              const active = day === activeDay && !searching;
               const date = dayDateLabel(day);
               return (
                 <button
@@ -682,8 +674,9 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                   role="tab"
                   aria-selected={active}
                   tabIndex={active ? 0 : -1}
+                  disabled={searching}
                   onClick={() => selectDay(day)}
-                  className={`flex flex-col items-start gap-3xs border-b px-xs pb-2xs normal-case transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:items-center md:px-m ${
+                  className={`flex flex-col items-start gap-3xs border-b px-xs pb-2xs normal-case transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-default disabled:opacity-40 md:items-center md:px-m ${
                     active
                       ? "border-white text-white"
                       : "border-neutral-700 text-text-secondary hover:text-white"
@@ -702,7 +695,24 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           <div className="hidden h-px min-w-0 flex-1 bg-white/15 md:block" />
         </div>
 
-        {allStages.length > 1 && (
+        {searching ? (
+          <div
+            role="status"
+            className="container mx-auto flex w-full items-center justify-between gap-s pb-xs pt-xs"
+          >
+            <p className="type-button flex min-h-10 items-center text-text-secondary max-md:text-[length:var(--text-button-small)]!">
+              {t("searchResults", { count: searchCount })}
+            </p>
+            <button
+              type="button"
+              aria-label={t("clearSearch")}
+              onClick={() => setQuery("")}
+              className="type-button flex h-10 shrink-0 items-center border border-neutral-700 px-xs text-white transition-colors hover:border-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+            >
+              {t("clear")}
+            </button>
+          </div>
+        ) : allStages.length > 1 ? (
           <div
             role="tablist"
             aria-label={t("stageTabs")}
@@ -718,7 +728,6 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           >
             {allStages.map((stage) => {
               const active = stage === activeStage;
-              const count = stageCounts.get(stage) ?? 0;
               return (
                 <button
                   key={stage}
@@ -734,39 +743,17 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                   }`}
                 >
                   {stage}
-                  {filtering && (
-                    <span
-                      className={
-                        active ? "text-neutral-600" : "text-neutral-500"
-                      }
-                    >
-                      {count}
-                    </span>
-                  )}
                 </button>
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
 
       <div
         aria-label={t("filters")}
         className="container mx-auto flex w-full flex-col gap-s pt-m md:flex-row md:items-end md:gap-m"
       >
-        <SelectControl
-          id="agenda-asset-class"
-          label={t("assetClass")}
-          value={assetClass}
-          onChange={setAssetClass}
-        >
-          <option value={ALL_ASSET_CLASSES}>{t("allAssetClasses")}</option>
-          {assetClassOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </SelectControl>
         <SearchControl
           id="agenda-search"
           label={t("search")}
@@ -781,36 +768,31 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
 
       <div
         ref={listRef}
-        className="container mx-auto flex w-full flex-col items-start gap-xs pb-3xl pt-m md:pt-l"
+        className="container mx-auto flex w-full flex-col items-start gap-s pb-3xl pt-m md:gap-xs md:pt-l"
       >
-        {visibleItems.length > 0 ? (
-          visibleItems.map((item) =>
-            item.variant === "static" ? (
-              <StaticRow key={item.id} item={item} />
-            ) : (
-              <SessionRow
-                key={item.id}
-                item={item}
-                open={openItemId === item.id}
-                t={t}
-                onToggle={() =>
-                  setOpenItemId((current) =>
-                    current === item.id ? null : item.id,
-                  )
-                }
-              />
-            ),
-          )
+        {searching && searchCount > 0 ? (
+          searchGroups.map((group) => (
+            <section
+              key={group.day}
+              aria-label={dayHeading(group.day)}
+              className="flex w-full flex-col items-start gap-s pt-s first:pt-0 md:gap-xs"
+              style={
+                { "--agenda-accent": dayAccent(group.day) } as CSSProperties
+              }
+            >
+              <p className={`${EYEBROW_TEXT_CLASS} text-text-secondary`}>
+                {dayHeading(group.day)}
+              </p>
+              {group.items.map(renderItem)}
+            </section>
+          ))
+        ) : !searching && visibleItems.length > 0 ? (
+          visibleItems.map(renderItem)
         ) : (
           <div className="w-full border border-neutral-700 px-s py-l text-center">
             <p className="type-button-relaxed text-text-secondary">
               {emptyMessage}
             </p>
-            {matchesElsewhere > 0 && (
-              <p className="type-paragraph mt-2xs text-text-secondary">
-                {t("matchesElsewhere", { count: matchesElsewhere })}
-              </p>
-            )}
           </div>
         )}
       </div>

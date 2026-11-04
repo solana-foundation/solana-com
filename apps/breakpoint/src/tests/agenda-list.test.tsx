@@ -24,7 +24,7 @@ const items: AgendaItem[] = [
     assetClasses: ["Money"],
     day: "Day 1",
     description: "How MoneyGram connects cash to digital assets.",
-    duration: "10 min.",
+    duration: "10 min",
     format: "Keynote",
     id: "moneygram",
     location: "Main Stage",
@@ -45,7 +45,7 @@ const items: AgendaItem[] = [
   {
     assetClasses: ["Credit & Collateral"],
     day: "Day 1",
-    duration: "20 min.",
+    duration: "20 min",
     format: "Panel",
     id: "private-markets",
     location: "Main Stage",
@@ -77,7 +77,7 @@ const items: AgendaItem[] = [
   {
     assetClasses: [],
     day: "Day 1",
-    duration: "15 min.",
+    duration: "15 min",
     format: "Keynote",
     id: "consumer",
     location: "Royal Exchange",
@@ -90,7 +90,7 @@ const items: AgendaItem[] = [
   {
     assetClasses: ["Intelligence"],
     day: "Day 2",
-    duration: "20 min.",
+    duration: "20 min",
     format: "Panel",
     id: "machine-economy",
     location: "Main Stage",
@@ -147,33 +147,55 @@ describe("AgendaList", () => {
     expect(titles()).toEqual(["The Machine Economy"]);
   });
 
-  it("filters by asset class and searches speakers, sessions and asset classes", () => {
+  it("searches every day and stage at once and groups results by day", () => {
     renderList(items);
-
-    fireEvent.change(screen.getByLabelText("Asset class"), {
-      target: { value: "Credit & Collateral" },
-    });
-    expect(titles()).toEqual(["Unlocking Private Markets"]);
-
-    fireEvent.change(screen.getByLabelText("Asset class"), {
-      target: { value: "all" },
-    });
     const search = screen.getByLabelText("Search");
+
     fireEvent.change(search, { target: { value: "soohoo" } });
     expect(titles()).toEqual(["MoneyGram Ramps"]);
+    expect(
+      screen.getByText("1 session matches across all days and stages."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Day 1/ })).toBeDisabled();
 
+    // Other stages and days are included without touching the tabs.
     fireEvent.change(search, { target: { value: "collector" } });
+    expect(titles()).toEqual(["Consumer Track: Collector Crypt"]);
+    fireEvent.change(search, { target: { value: "intelligence" } });
+    expect(titles()).toEqual(["The Machine Economy"]);
+    expect(screen.getByText(/Day 2 · .*17 Nov/)).toBeInTheDocument();
+    // Breaks are not search results.
+    fireEvent.change(search, { target: { value: "lunch" } });
     expect(titles()).toEqual([]);
     expect(
-      screen.getByText("1 session matches on another day or stage."),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: /Royal Exchange 1/ }),
+      screen.getByText("No sessions match “lunch” on any day or stage."),
     ).toBeInTheDocument();
 
-    fireEvent.change(search, { target: { value: "intelligence" } });
-    fireEvent.click(screen.getByRole("tab", { name: /Day 2/ }));
-    expect(titles()).toEqual(["The Machine Economy"]);
+    fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+    expect(search).toHaveValue("");
+    expect(titles()).toEqual([
+      "MoneyGram Ramps",
+      "Unlocking Private Markets",
+      "Lunch",
+    ]);
+    expect(screen.getByRole("tab", { name: /Day 1/ })).toBeEnabled();
+  });
+
+  it("searches an asset class when its pill is clicked", () => {
+    renderList(items);
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Search Credit & Collateral sessions",
+      }),
+    );
+    expect(screen.getByLabelText("Search")).toHaveValue("Credit & Collateral");
+    expect(titles()).toEqual(["Unlocking Private Markets"]);
+    expect(
+      screen.queryByRole("button", {
+        name: "Expand Unlocking Private Markets",
+      }),
+    ).not.toBeNull();
   });
 
   it("expands a session to show its format, description and X links", () => {
