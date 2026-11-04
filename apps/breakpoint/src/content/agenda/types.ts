@@ -20,10 +20,13 @@ export const AGENDA_DAY_TABS = AGENDA_DAYS.map((day) => day.key);
 
 export const MAIN_STAGE = "Main Stage";
 
-/** Which floor of the venue each stage is on, shown beside the stage name. */
-export const STAGE_FLOORS: Record<string, string> = {
-  [MAIN_STAGE]: "Ground floor",
-  "Royal Exchange": "First floor",
+/**
+ * Which floor of the venue each stage is on, as a key into the
+ * `pages.schedule.list.floors` messages so the label can be translated.
+ */
+export const STAGE_FLOORS: Record<string, "groundFloor" | "firstFloor"> = {
+  [MAIN_STAGE]: "groundFloor",
+  "Royal Exchange": "firstFloor",
 };
 
 export type AgendaSpeaker = {

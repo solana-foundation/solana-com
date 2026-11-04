@@ -757,7 +757,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
                           active ? "text-black/70" : "text-neutral-500"
                         }`}
                       >
-                        {floor}
+                        {t(`floors.${floor}`)}
                       </span>
                     )}
                   </button>
