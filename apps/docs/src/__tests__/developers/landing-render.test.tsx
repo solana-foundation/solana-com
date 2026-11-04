@@ -67,6 +67,27 @@ describe("/developers landing", () => {
     expect(container.querySelector("main#dl-main")).not.toBeNull();
   });
 
+  it("keeps the old /developers section ids on their sections", async () => {
+    const { container } = renderWithIntl(
+      await DevelopersHub({ locale: "en", updates: [] }),
+    );
+    for (const [old, heading] of [
+      ["build-areas-heading", "dl-picker-title"],
+      ["paths-heading", "dl-routes-title"],
+      ["learning-heading", "dl-routes-title"],
+      ["updates-heading", "dl-updates-title"],
+      ["newsletter-heading", "dl-updates-title"],
+    ]) {
+      const target = container.querySelector(`#${old}`);
+      expect(target?.parentElement?.id, old).toBe(heading);
+      expect(target?.getAttribute("aria-hidden"), old).toBe("true");
+    }
+    // The visible heading text is unchanged.
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Other ways to learn" }),
+    ).toBeInTheDocument();
+  });
+
   it("server-renders the agent setup line with no links", async () => {
     renderWithIntl(await DevelopersHub({ locale: "ja", updates: [] }), "ja");
     const card = screen.getByTestId("agent-card");

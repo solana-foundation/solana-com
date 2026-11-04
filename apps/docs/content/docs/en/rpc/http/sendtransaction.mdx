@@ -9,7 +9,7 @@ type: reference
 <Info>
   **Source**
 
-  [`send_transaction`](https://github.com/anza-xyz/agave/blob/v3.1.8/rpc/src/rpc.rs#L3796)
+  [`send_transaction`](https://github.com/anza-xyz/agave/blob/v4.3.2/rpc/src/rpc.rs#L3893)
 </Info>
 
 This method does not alter the transaction in any way; it relays the transaction
@@ -43,6 +43,12 @@ to identify the transaction
 ([transaction id](/developers/docs/references/terminology#transaction-id)). This identifier
 can be easily extracted from the transaction data before submission.
 
+The Kit, web3.js, and Rust examples sign a new transfer with a recent blockhash,
+using the Solana CLI keypair at `~/.config/solana/id.json`. Fund it with devnet
+SOL from the [Solana Faucet](https://faucet.solana.com) first. The cURL example
+sends a signed transfer whose blockhash has expired: with `skipPreflight` the
+node still returns its signature, but the cluster drops the transaction.
+
 <RequestExample>
   ```bash cURL
   curl https://api.devnet.solana.com -s -X POST \
@@ -64,39 +70,97 @@ can be easily extracted from the transaction data before submission.
   ```
 
   ```ts Kit
+  import { readFile } from "node:fs/promises";
+  import { homedir } from "node:os";
   import {
+    address,
+    appendTransactionMessageInstruction,
+    createKeyPairSignerFromBytes,
     createSolanaRpc,
-    type Base64EncodedWireTransaction
+    createTransactionMessage,
+    getBase64EncodedWireTransaction,
+    lamports,
+    pipe,
+    setTransactionMessageFeePayerSigner,
+    setTransactionMessageLifetimeUsingBlockhash,
+    signTransactionMessageWithSigners
   } from "@solana/kit";
+  import { getTransferSolInstruction } from "@solana-program/system";
 
   const rpc_url = "https://api.devnet.solana.com";
   const rpc = createSolanaRpc(rpc_url);
 
-  const base64Tx =
-    "AbC/XNkPUUZ7/51SaG1wbG0ojrWHIGzVL73M8hRnDr73RkBAZc0ZnikluvcCeprAmqHDJrcPxPUbvEJMVBIiVQeAAQABAzfDSQC/GjcggrLsDpYz7jAlT+Gca846HqtFb8UQMM9cCWPIi4AX32PV8HrY7/1WgoRc3IATttceZsUMeQ1qx7UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIgsVWEgMTiOYp63gTtuYGw+izfm6wKQdivpiXQBpNnYAQICAAEMAgAAAEBCDwAAAAAAAA==";
+  // The Solana CLI keypair, funded from https://faucet.solana.com
+  const keypairFile = await readFile(`${homedir()}/.config/solana/id.json`, "utf8");
+  const sender = await createKeyPairSignerFromBytes(
+    new Uint8Array(JSON.parse(keypairFile))
+  );
+
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+  const transactionMessage = pipe(
+    createTransactionMessage({ version: 0 }),
+    (m) => setTransactionMessageFeePayerSigner(sender, m),
+    (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+    (m) =>
+      appendTransactionMessageInstruction(
+        getTransferSolInstruction({
+          source: sender,
+          destination: address("devFqxUpdo1sYETcWTXT12JE8V53MG2hRsXNMx2bYhA"),
+          amount: lamports(1_000_000n)
+        }),
+        m
+      )
+  );
+
+  const signedTransaction =
+    await signTransactionMessageWithSigners(transactionMessage);
+  const base64Tx = getBase64EncodedWireTransaction(signedTransaction);
 
   const signature = await rpc
-    .sendTransaction(base64Tx as Base64EncodedWireTransaction, {
-      encoding: "base64"
-    })
+    .sendTransaction(base64Tx, { encoding: "base64" })
     .send();
 
   console.log(signature);
   ```
 
   ```ts web3.js
+  import { readFileSync } from "node:fs";
+  import { homedir } from "node:os";
   import {
     Connection,
+    Keypair,
+    PublicKey,
+    SystemProgram,
+    TransactionMessage,
     VersionedTransaction,
     clusterApiUrl
   } from "@solana/web3.js";
 
   const connection = new Connection(clusterApiUrl("devnet"), "confirmed");
 
-  const base64Tx =
-    "AbuRLtc5C9bZtAUT4F4Y2H5SRRUK1HwOFZOK3V4qm/78MDJt+M2de/RCCaI3iTyodDepmrkUWbss0XRHS0lk5AOAAQABAzfDSQC/GjcggrLsDpYz7jAlT+Gca846HqtFb8UQMM9cCWPIi4AX32PV8HrY7/1WgoRc3IATttceZsUMeQ1qx7UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2dTRgcJmzcoGH1R3c2WqtHah2H19KvbC1p6BxLDqfoAQICAAEMAgAAAADKmjsAAAAAAA==";
+  // The Solana CLI keypair, funded from https://faucet.solana.com
+  const keypairFile = readFileSync(`${homedir()}/.config/solana/id.json`, "utf8");
+  const sender = await Keypair.fromSecretKey(
+    Uint8Array.from(JSON.parse(keypairFile))
+  );
 
-  let tx = VersionedTransaction.deserialize(Buffer.from(base64Tx, "base64"));
+  const { blockhash } = await connection.getLatestBlockhash();
+
+  const message = new TransactionMessage({
+    payerKey: sender.publicKey,
+    recentBlockhash: blockhash,
+    instructions: [
+      SystemProgram.transfer({
+        fromPubkey: sender.publicKey,
+        toPubkey: new PublicKey("devFqxUpdo1sYETcWTXT12JE8V53MG2hRsXNMx2bYhA"),
+        lamports: 1_000_000
+      })
+    ]
+  }).compileToV0Message();
+
+  let tx = new VersionedTransaction(message);
+  await tx.sign([sender]);
 
   let sig = await connection.sendTransaction(tx);
 
@@ -104,11 +168,15 @@ can be easily extracted from the transaction data before submission.
   ```
 
   ```rs Rust
-  use anyhow::Result;
-  use base64::{Engine as _, engine::general_purpose};
+  use anyhow::{anyhow, Result};
   use solana_client::{nonblocking::rpc_client::RpcClient, rpc_config::RpcSendTransactionConfig};
   use solana_commitment_config::{CommitmentConfig, CommitmentLevel};
-  use solana_sdk::transaction::VersionedTransaction;
+  use solana_sdk::{
+      pubkey,
+      signature::{read_keypair_file, Signer},
+      transaction::Transaction,
+  };
+  use solana_system_interface::instruction::transfer;
   use solana_transaction_status_client_types::UiTransactionEncoding;
 
   #[tokio::main]
@@ -118,22 +186,28 @@ can be easily extracted from the transaction data before submission.
           CommitmentConfig::confirmed(),
       );
 
-      let b64_tx = "AbuRLtc5C9bZtAUT4F4Y2H5SRRUK1HwOFZOK3V4qm/78MDJt+M2de/RCCaI3iTyodDepmrkUWbss0XRHS0lk5AOAAQABAzfDSQC/GjcggrLsDpYz7jAlT+Gca846HqtFb8UQMM9cCWPIi4AX32PV8HrY7/1WgoRc3IATttceZsUMeQ1qx7UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2dTRgcJmzcoGH1R3c2WqtHah2H19KvbC1p6BxLDqfoAQICAAEMAgAAAADKmjsAAAAAAA==";
-      let tx_bytes = general_purpose::STANDARD.decode(b64_tx).unwrap();
-      let tx: VersionedTransaction = bincode::deserialize(&tx_bytes).unwrap();
+      // The Solana CLI keypair, funded from https://faucet.solana.com
+      let keypair_path = format!("{}/.config/solana/id.json", std::env::var("HOME")?);
+      let sender = read_keypair_file(&keypair_path).map_err(|e| anyhow!("{e}"))?;
+      let recipient = pubkey!("devFqxUpdo1sYETcWTXT12JE8V53MG2hRsXNMx2bYhA");
+
+      let blockhash = client.get_latest_blockhash().await?;
+      let tx = Transaction::new_signed_with_payer(
+          &[transfer(&sender.pubkey(), &recipient, 1_000_000)],
+          Some(&sender.pubkey()),
+          &[&sender],
+          blockhash,
+      );
 
       let config = RpcSendTransactionConfig {
-          skip_preflight: true,
-          preflight_commitment: CommitmentLevel::Finalized.into(),
-          encoding: UiTransactionEncoding::Base64.into(),
-          max_retries: None,
-          min_context_slot: None,
+          preflight_commitment: Some(CommitmentLevel::Confirmed),
+          encoding: Some(UiTransactionEncoding::Base64),
+          ..Default::default()
       };
 
-      match client.send_transaction_with_config(&tx, config).await {
-          Ok(signature) => println!("Transaction Signature: {}", signature),
-          Err(err) => eprintln!("Error transferring tokens: {}", err),
-      }
+      let signature = client.send_transaction_with_config(&tx, config).await?;
+
+      println!("Transaction Signature: {}", signature);
 
       Ok(())
   }

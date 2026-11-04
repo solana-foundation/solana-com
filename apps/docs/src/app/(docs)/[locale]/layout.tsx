@@ -20,6 +20,7 @@ import {
   SitewideTopAlert,
 } from "@solana-com/ui-chrome";
 import { DocsAssistant } from "@/components/docs/docs-assistant.client";
+import { LegacyAnchors } from "@/components/docs/legacy-anchors.client";
 import { DOCS_ASK_PREPAINT_SCRIPT } from "@/lib/docs/ask/config";
 
 type Props = {
@@ -73,6 +74,8 @@ export default async function DocsRootLayout({ children, params }: Props) {
             suppressHydrationWarning
           />
           {children}
+          {/* Old #anchors whose sections moved (lib/docs/legacy-anchors). */}
+          <LegacyAnchors />
           <PersistentPodcastPlayer />
           <Script
             id="signals-script"

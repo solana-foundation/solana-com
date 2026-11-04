@@ -118,9 +118,11 @@ verify and settle that pair in production.
 
 ## Build an Express resource server
 
-Install the x402 V2 packages:
+Create a project and install the x402 V2 packages. `"type": "module"` lets the
+scripts on this page use top-level `await`:
 
 ```bash
+npm init -y && npm pkg set type=module
 npm install @x402/core @x402/express @x402/svm express
 npm install --save-dev @types/express tsx
 ```
@@ -178,6 +180,15 @@ app.listen(4021, () => {
 });
 ```
 
+Start the server with your recipient wallet and a facilitator. On devnet you
+can use the public facilitator at `https://x402.org/facilitator`. It supports
+the `exact` scheme on Solana devnet and pays the network fee when it settles a
+payment:
+
+```bash
+SOLANA_PAY_TO=<YOUR_WALLET_ADDRESS> FACILITATOR_URL=https://x402.org/facilitator npx tsx server.ts
+```
+
 An ordinary request now receives a V2 payment requirement:
 
 ```bash
@@ -185,7 +196,8 @@ curl -i http://127.0.0.1:4021/weather
 ```
 
 The facilitator must list `exact` support for the configured Solana network at
-its `/supported` endpoint before a client can complete this example.
+its `/supported` endpoint (`curl https://x402.org/facilitator/supported`) before
+a client can complete this example.
 
 Before advertising the route, create the recipient's associated token account
 for the accepted mint. Provision it idempotently during setup and decide which
@@ -193,13 +205,83 @@ account funds its rent. A facilitator may sponsor settlement transaction fees,
 but that does not imply that it will create the recipient account or fund its
 rent.
 
-## Build a payment-aware client
-
-Install the fetch client and Solana signer dependencies:
+This script creates the devnet USDC account for `SOLANA_PAY_TO` with the
+idempotent create instruction, so running it again changes nothing. The Solana
+CLI keypair at `~/.config/solana/id.json` pays the rent; fund it with devnet
+SOL from [faucet.solana.com](https://faucet.solana.com):
 
 ```bash
-npm install @scure/base @solana/kit@^6.9.0 @x402/fetch @x402/svm
+npm install @solana/kit@^8 @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/token
 ```
+
+```ts create-recipient-account.ts
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import {
+  address,
+  createClient,
+  createKeyPairSignerFromBytes
+} from "@solana/kit";
+import { solanaDevnetRpc } from "@solana/kit-plugin-rpc";
+import { signer } from "@solana/kit-plugin-signer";
+import {
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstructionAsync,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const payTo = address(process.env.SOLANA_PAY_TO!);
+const usdcMint = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const payer = await createKeyPairSignerFromBytes(
+  new Uint8Array(
+    JSON.parse(readFileSync(`${homedir()}/.config/solana/id.json`, "utf8"))
+  )
+);
+
+const client = createClient().use(signer(payer)).use(solanaDevnetRpc());
+
+// Succeeds whether or not the account already exists
+await client.sendTransaction([
+  await getCreateAssociatedTokenIdempotentInstructionAsync({
+    payer,
+    owner: payTo,
+    mint: usdcMint
+  })
+]);
+
+const [recipientAccount] = await findAssociatedTokenPda({
+  owner: payTo,
+  mint: usdcMint,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+console.log("Recipient USDC account:", recipientAccount);
+```
+
+## Build a payment-aware client
+
+Install the fetch client and Solana signer dependencies. `@x402/svm` requires
+`@solana/kit` 8 or later:
+
+```bash
+npm install @scure/base @solana/kit@^8 @x402/fetch @x402/svm
+```
+
+The client signs with a disposable devnet keypair, which it reads as a base58
+secret key from `SOLANA_PRIVATE_KEY`. Create one with the Solana CLI and encode
+it (run this in the project folder, where `@scure/base` is installed):
+
+```bash
+solana-keygen new --no-bip39-passphrase --outfile client.json
+export SOLANA_PRIVATE_KEY=$(node --input-type=module -e '
+import { base58 } from "@scure/base";
+import { readFileSync } from "node:fs";
+console.log(base58.encode(new Uint8Array(JSON.parse(readFileSync("client.json", "utf8")))));
+')
+```
+
+Send devnet USDC to the client's address (`solana-keygen pubkey client.json`)
+from the [Circle faucet](https://faucet.circle.com), choosing Solana Devnet. The
+client needs no SOL: the facilitator pays the transaction fee.
 
 The client below accepts only devnet USDC requirements up to `0.01` USDC
 (`10,000` base units) before registering the Solana scheme:
@@ -238,6 +320,12 @@ if (!response.ok) {
 
 console.log(await response.json());
 console.log(response.headers.get("PAYMENT-RESPONSE"));
+```
+
+With the server running, pay for one request:
+
+```bash
+npx tsx client.ts
 ```
 
 <Danger>

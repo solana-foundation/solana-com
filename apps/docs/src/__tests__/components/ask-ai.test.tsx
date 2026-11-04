@@ -87,6 +87,91 @@ describe("AskSearch", () => {
     expect(pda.textContent).toBe("PDA CreationKey Points Seeds and the bump");
   });
 
+  it("falls back to the docs' own index when Bri's search fails", async () => {
+    // As /api/docs-search answers (Fumadocs simple search).
+    const index = [
+      {
+        type: "page",
+        content: "getBalance",
+        breadcrumbs: ["RPC methods", "HTTP methods"],
+        id: "/developers/docs/rpc/http/getbalance",
+        url: "/developers/docs/rpc/http/getbalance",
+      },
+    ];
+    fetchMock.mockImplementation(async (url: string) => {
+      if (url.startsWith("/api/ask/search?"))
+        return Response.json(
+          { error: "ASK_SOLANA_PROXY_SECRET is not configured" },
+          { status: 503 },
+        );
+      if (url.startsWith("/api/docs-search?")) return Response.json(index);
+      return new Response(null, { status: 404 });
+    });
+    render(withIntl(<AskSearch />));
+    act(() => openDocsSearch("getBalance"));
+    const page = await screen.findByRole("link", { name: /getBalance/ });
+    expect(page).toHaveAttribute(
+      "href",
+      "/developers/docs/rpc/http/getbalance",
+    );
+    expect(page.textContent).toContain("RPC methods › HTTP methods");
+    expect(
+      screen.queryByText("Something went wrong. Please try again."),
+    ).toBeNull();
+    expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
+      "/api/ask/search?q=getBalance",
+      "/api/docs-search?query=getBalance&locale=en",
+    ]);
+  });
+
+  it("falls back to the docs' own index when Bri's search hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      fetchMock.mockImplementation(
+        (url: string, init?: RequestInit) =>
+          new Promise<Response>((resolve, reject) => {
+            if (url.startsWith("/api/docs-search?"))
+              return resolve(
+                Response.json([
+                  {
+                    id: "/developers/docs/core/fees",
+                    type: "page",
+                    content: "Fees",
+                    url: "/developers/docs/core/fees",
+                  },
+                ]),
+              );
+            // The agent never answers; only the abort ends it.
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("Aborted", "AbortError")),
+            );
+          }),
+      );
+      render(withIntl(<AskSearch />));
+      act(() => openDocsSearch("fees"));
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+      expect(screen.queryByRole("link", { name: /Fees/ })).toBeNull();
+      await act(() => vi.advanceTimersByTimeAsync(5000));
+      expect(screen.getByRole("link", { name: /Fees/ })).toHaveAttribute(
+        "href",
+        "/developers/docs/core/fees",
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says something went wrong only when both searches fail", async () => {
+    fetchMock.mockImplementation(
+      async () => new Response(null, { status: 503 }),
+    );
+    render(withIntl(<AskSearch />));
+    act(() => openDocsSearch("fees"));
+    expect(
+      await screen.findByText("Something went wrong. Please try again."),
+    ).toBeInTheDocument();
+  });
+
   it("says when nothing matches", async () => {
     results = [];
     render(withIntl(<AskSearch />));

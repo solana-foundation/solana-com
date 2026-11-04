@@ -39,29 +39,43 @@ achievements, or even characters in a game. The possibilities are endless.
 
 Using NFTs, you can conditionally gate access to a particular part of a game
 based on owning the NFT. This can form a more tight-knit community within your
-game. In [JavaScript](/developers/docs/clients/official/javascript) using the
-[Metaplex SDK](https://github.com/metaplex-foundation/js#readme) this would look
-like this:
+game. In [JavaScript](/developers/docs/clients/official/javascript), you can
+check ownership with Metaplex's
+[Token Metadata client](https://www.metaplex.com/docs/smart-contracts/token-metadata),
+which runs on Metaplex's [Umi](https://www.metaplex.com/docs/dev-tools/umi)
+framework. Install it with:
+
+```bash
+npm install @metaplex-foundation/umi @metaplex-foundation/umi-bundle-defaults @metaplex-foundation/mpl-token-metadata
+```
+
+Then load the player's NFTs and keep the ones from your collection. Check that
+the collection is verified: anyone can mint an NFT that names your collection,
+but only the collection's authority can verify it.
 
 ```js
-const decodedKey = new Uint8Array(
-  // For example '~/.config/solana/id.json'
-  JSON.parse(fs.readFileSync("yourKeyPair.json").toString())
-);
-let keyPair = Keypair.fromSecretKey(decodedKey);
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { publicKey, unwrapOption } from "@metaplex-foundation/umi";
+import {
+  fetchAllDigitalAssetByOwner,
+  mplTokenMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
 
-const metaplex = Metaplex.make(connection).use(keypairIdentity(keyPair));
+const umi = createUmi("https://api.devnet.solana.com").use(mplTokenMetadata());
 
-const nfts = await metaplex
-  .nfts()
-  .findAllByOwner({ owner: wallet.publicKey })
+// The player's wallet and the mint address of your collection NFT
+const playerAddress = publicKey("PLAYER_WALLET_ADDRESS");
+const collectionAddress = publicKey("COLLECTION_MINT_ADDRESS");
 
-let collectionNfts = []
-for (let i = 0; i < nfts.length; i++) {
-  if (nfts[i].collection?.address.toString() == collectionAddress.toString()) {
-    collectionNfts.push(nfts[i])
-  }
-}
+const assets = await fetchAllDigitalAssetByOwner(umi, playerAddress);
+
+const collectionNfts = assets.filter((asset) => {
+  const collection = unwrapOption(asset.metadata.collection);
+  return collection?.verified && collection.key === collectionAddress;
+});
+
+const hasAccess = collectionNfts.length > 0;
+console.log(`Collection NFTs: ${collectionNfts.length}, access: ${hasAccess}`);
 ```
 
 Another performant way to load NFTs is the
@@ -109,8 +123,9 @@ both fungible and non-fungible assets:
 > for the Seven Seas game here.
 
 You can also use
-[dynamic metadata](/developers/cookbook/games/interact-with-tokens) (using Token
-Extensions) to save character level and experience or items in an NFT. Here is a
+[dynamic metadata](/developers/docs/tokens/extensions/dynamic-metadata-nft)
+(using Token Extensions) to save character level and experience or items in an
+NFT. Here is a
 [Video Walkthrough](https://www.youtube.com/watch?v=n-ym1utpzhk&ab_channel=Solana)
 with source code that explains dynamic metadata NFTs. This could allow the NFTs
 in your game to become more valuable the more the players play with them.
@@ -123,39 +138,47 @@ You can also do this with Metaplex's new
 NFTs also have metadata which can be used for all kind of traits for game
 objects. For example, an NFT could represent a game character and their traits
 (Strength, Intelligence, Agility, etc) could directly influence how strong the
-character is in the game. You can load NFT metadata and their attributes using
-the Metaplex SDK:
+character is in the game. The attributes live in the JSON file that each NFT's
+metadata URI points to. You can load them with the same Metaplex packages as
+above:
 
 ```js
-import { Metaplex, keypairIdentity } from "@metaplex-foundation/js";
+import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
+import { publicKey } from "@metaplex-foundation/umi";
+import {
+  fetchAllDigitalAssetByOwner,
+  mplTokenMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
 
-const decodedKey = new Uint8Array(
-  // For example '.config/solana/devnet.json'
-  JSON.parse(fs.readFileSync("yourKeyPair.json").toString())
+const umi = createUmi("https://api.devnet.solana.com").use(mplTokenMetadata());
+const assets = await fetchAllDigitalAssetByOwner(
+  umi,
+  publicKey("PLAYER_WALLET_ADDRESS")
 );
-let keyPair = Keypair.fromSecretKey(decodedKey);
-
-const metaplex = Metaplex.make(connection).use(keypairIdentity(keyPair));
-const nfts = await metaplex.nfts().findAllByOwner({owner: keyPair.publicKey});
 
 let physicalDamage = 5;
 let magicalDamage = 5;
 
-nfts.forEach(async nft => {
-  const metaData = await metaplex.nfts().load({metadata: nft});
+for (const asset of assets) {
+  let json;
+  try {
+    json = await umi.downloader.downloadJson(asset.metadata.uri);
+  } catch {
+    continue; // Skip assets whose JSON file can't be loaded
+  }
 
-    metaData.json.attributes.forEach(async attribute => {
-      if (attribute.trait_type == "Strength") {
-        physicalDamage += parseInt(attribute.value)
-      }
-      if (attribute.trait_type == "Int") {
-        magicalDamage += parseInt(attribute.value)
-      }
-    });
-})
+  for (const attribute of json.attributes ?? []) {
+    if (attribute.trait_type === "Strength") {
+      physicalDamage += parseInt(attribute.value);
+    }
+    if (attribute.trait_type === "Int") {
+      magicalDamage += parseInt(attribute.value);
+    }
+  }
+}
 
-console.log("Player Physical Damage: " + physicalDamage)
-console.log("Player Magical Damage: " + magicalDamage)
+console.log("Player Physical Damage: " + physicalDamage);
+console.log("Player Magical Damage: " + magicalDamage);
 ```
 
 ## Use NFTs to save a game state
@@ -194,35 +217,37 @@ Every NFT metadata can also have an "animation url". This url can contain a
 video, GIF, or a 3D file. These 3D files usually use the format `.glb` or `.gltf`
 and can dynamically be loaded into a game.
 
-For Unity, you can use the [GLTFast](https://github.com/atteneder/glTFast)
-package. In JavaScript, the
-[GLTFast JS](https://discoverthreejs.com/book/first-steps/load-models/).
+For Unity, you can use the [glTFast](https://github.com/atteneder/glTFast)
+package. In JavaScript, you can use the
+[three.js GLTFLoader](https://discoverthreejs.com/book/first-steps/load-models/).
 
-The following is an example code snippet that loads an
-[NFT's metadata with glb model](https://solscan.io/token/DzHPvbGzrHK4UcyeDurw2nuBFKNvt4Kb7K8Bx9dtsfn#metadata)
-in it:
+The following Unity snippet loads the 3D model from an NFT's `animation_url`,
+using an `Nft` loaded with the
+[Solana Unity SDK](https://github.com/magicblock-labs/Solana.Unity-SDK):
 
 ```c#
 var gltf = gameObject.AddComponent<GLTFast.GltfAsset>();
-gltf.url = nft.metadata.animationUrl;
+gltf.Url = nft.metaplexData.data.offchainData.animation_url;
 ```
+
+In TypeScript, you can load a glTF file with `gltf-loader-ts`:
 
 ```bash
 npm install --save-dev gltf-loader-ts
 ```
 
 ```ts
-import { GltfLoader } from 'gltf-loader-ts';
+import { GltfAsset, GltfLoader, gltf } from 'gltf-loader-ts';
 
 let loader = new GltfLoader();
 let uri = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/BoxTextured/glTF/BoxTextured.gltf';
-let asset: Asset = await loader.load(uri);
-let gltf: GlTf = asset.gltf;
-console.log(gltf);
+let asset: GltfAsset = await loader.load(uri);
+let gltfJson: gltf.GlTf = asset.gltf;
+console.log(gltfJson);
 // -> {asset: {...}, scene: 0, scenes: Array(1), nodes: Array(2), meshes: Array(1), ...}
 
 let data = await asset.accessorData(0); // fetches BoxTextured0.bin
-let image: Image = await asset.imageData.get(0) // fetches CesiumLogoFlat.png
+let image: HTMLImageElement = await asset.imageData.get(0) // fetches CesiumLogoFlat.png
 ```
 
 ## How to create NFTs in a program and add additional metadata

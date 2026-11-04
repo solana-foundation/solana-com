@@ -22,26 +22,40 @@ account data matches the expected type.
 
 The `anchor-litesvm` account utilities handle this discriminator automatically.
 
+<Warning>
+  These examples need an SBPF v0 build of your program. `anchor-litesvm` 0.4
+  uses LiteSVM 0.11, which can't load SBPF v3 programs, so `build_with_program`
+  panics with `Failed to add program: Instruction(InvalidAccountData)`. With
+  Anchor 1.2 and later, build with `anchor build --arch v0` and run
+  `anchor test --skip-build`. For Anchor 1.1.x, and for where to put the test
+  and the IDL, see the
+  [Quick Start](/developers/docs/tools/litesvm/additional-crates/testing-with-anchor-litesvm#installation).
+</Warning>
+
+The account types come from `declare_program!(your_program)`, which generates
+them from your program's IDL: account structs under `your_program::accounts`
+and other types, such as enums, under `your_program::types`. Don't declare
+`#[account]` structs in the test file itself: the macro expects the program's
+`ID` in the crate root, which a test crate doesn't have.
+
 ## Fetching Anchor Accounts
 
 ### Basic Account Fetching
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
 use anchor_lang::prelude::*;
-use solana_signer::Signer;
-use solana_program::pubkey::Pubkey;
+use anchor_litesvm::{AnchorLiteSVM, Pubkey, Signer};
 
-#[account]
-pub struct UserAccount {
-    pub name: String,
-    pub balance: u64,
-    pub authority: Pubkey,
-}
+anchor_lang::declare_program!(your_program);
+
+use your_program::accounts::UserAccount;
 
 #[test]
 fn test_fetch_account() {
-    let mut ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+    let mut ctx = AnchorLiteSVM::build_with_program(
+        your_program::ID,
+        include_bytes!("../../../target/deploy/your_program.so"),
+    );
 
     let user = ctx.create_funded_account(10_000_000_000).unwrap();
 
@@ -49,7 +63,7 @@ fn test_fetch_account() {
 
     let (user_pda, _) = Pubkey::find_program_address(
         &[b"user", user.pubkey().as_ref()],
-        &PROGRAM_ID,
+        &your_program::ID,
     );
 
     // Fetch and deserialize the account
@@ -70,11 +84,19 @@ For PDAs or custom account layouts where discriminator validation might fail,
 use `get_account_unchecked`:
 
 ```rust
+use anchor_lang::prelude::*;
 use anchor_litesvm::AnchorLiteSVM;
+
+anchor_lang::declare_program!(your_program);
+
+use your_program::accounts::UserAccount;
 
 #[test]
 fn test_fetch_unchecked() {
-    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+    let ctx = AnchorLiteSVM::build_with_program(
+        your_program::ID,
+        include_bytes!("../../../target/deploy/your_program.so"),
+    );
 
     // Fetch without discriminator validation
     let account: UserAccount = ctx.get_account_unchecked(&some_pda).unwrap();
@@ -92,8 +114,12 @@ fn test_fetch_unchecked() {
 You can also use the account deserialization functions directly:
 
 ```rust
-use anchor_litesvm::{get_anchor_account, get_anchor_account_unchecked};
-use litesvm::LiteSVM;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{get_anchor_account, get_anchor_account_unchecked, LiteSVM};
+
+anchor_lang::declare_program!(your_program);
+
+use your_program::accounts::UserAccount;
 
 #[test]
 fn test_direct_account_fetch() {
@@ -113,13 +139,21 @@ fn test_direct_account_fetch() {
 The `AccountError` enum provides detailed error information:
 
 ```rust
-use anchor_litesvm::AccountError;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AccountError, AnchorLiteSVM};
+
+anchor_lang::declare_program!(your_program);
+
+use your_program::accounts::UserAccount;
 
 #[test]
 fn test_handle_errors() {
-    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+    let ctx = AnchorLiteSVM::build_with_program(
+        your_program::ID,
+        include_bytes!("../../../target/deploy/your_program.so"),
+    );
 
-    let result: Result<UserAccount, AccountError> = ctx.get_account(&nonexistent_pubkey);
+    let result = ctx.get_account::<UserAccount>(&nonexistent_pubkey);
 
     match result {
         Ok(account) => println!("Found account: {}", account.name),
@@ -146,40 +180,24 @@ fn test_handle_errors() {
 
 ### Fetching Different Account Types
 
+Here `your_program` defines `Config`, `UserProfile` and `Order` accounts, and an
+`OrderStatus` enum (`Pending`, `Completed`, `Cancelled`) that `Order` stores:
+
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
 use anchor_lang::prelude::*;
+use anchor_litesvm::AnchorLiteSVM;
 
-#[account]
-pub struct Config {
-    pub admin: Pubkey,
-    pub fee_bps: u16,
-}
+anchor_lang::declare_program!(your_program);
 
-#[account]
-pub struct UserProfile {
-    pub owner: Pubkey,
-    pub username: String,
-    pub created_at: i64,
-}
-
-#[account]
-pub struct Order {
-    pub user: Pubkey,
-    pub amount: u64,
-    pub status: OrderStatus,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
-pub enum OrderStatus {
-    Pending,
-    Completed,
-    Cancelled,
-}
+use your_program::accounts::{Config, Order, UserProfile};
+use your_program::types::OrderStatus;
 
 #[test]
 fn test_multiple_account_types() {
-    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+    let ctx = AnchorLiteSVM::build_with_program(
+        your_program::ID,
+        include_bytes!("../../../target/deploy/your_program.so"),
+    );
 
     // Each account type is deserialized correctly
     let config: Config = ctx.get_account(&config_pda).unwrap();
@@ -195,11 +213,19 @@ fn test_multiple_account_types() {
 ### Checking Account Existence Before Fetching
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, Pubkey};
+
+anchor_lang::declare_program!(your_program);
+
+use your_program::accounts::UserAccount;
 
 #[test]
 fn test_check_before_fetch() {
-    let ctx = AnchorLiteSVM::build_with_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"));
+    let ctx = AnchorLiteSVM::build_with_program(
+        your_program::ID,
+        include_bytes!("../../../target/deploy/your_program.so"),
+    );
 
     let user_pda = Pubkey::new_unique();
 
@@ -215,22 +241,21 @@ fn test_check_before_fetch() {
 
 ## Complete Example
 
-Here's a comprehensive example demonstrating account management:
+Here's a comprehensive example demonstrating account management with a counter
+program, whose `initialize` creates a `Counter` PDA (`count`, `authority`,
+`bump`) and whose `increment` adds one to `count`:
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use anchor_litesvm::TestHelpers;
 use anchor_lang::prelude::*;
-use solana_signer::Signer;
-use solana_program::pubkey::Pubkey;
+use anchor_litesvm::{AnchorLiteSVM, Pubkey, Signer, TestHelpers};
 
 anchor_lang::declare_program!(counter);
 
 #[test]
 fn test_counter_workflow() {
     let mut ctx = AnchorLiteSVM::build_with_program(
-        id(),
-        include_bytes!("../target/deploy/counter.so"),
+        counter::ID,
+        include_bytes!("../../../target/deploy/counter.so"),
     );
 
     let authority = ctx.svm.create_funded_account(10_000_000_000).unwrap();
@@ -238,7 +263,7 @@ fn test_counter_workflow() {
     // Derive the counter PDA
     let (counter_pda, bump) = Pubkey::find_program_address(
         &[b"counter", authority.pubkey().as_ref()],
-        &id(),
+        &counter::ID,
     );
 
     // Verify counter doesn't exist yet
@@ -255,11 +280,13 @@ fn test_counter_workflow() {
         .instruction()
         .unwrap();
 
-    ctx.execute_instruction(init_ix, &[&authority]).unwrap();
+    ctx.execute_instruction(init_ix, &[&authority])
+        .unwrap()
+        .assert_success();
 
     // Verify counter exists and has correct initial state
     assert!(ctx.account_exists(&counter_pda));
-    let counter: counter::Counter = ctx.get_account(&counter_pda).unwrap();
+    let counter: counter::accounts::Counter = ctx.get_account(&counter_pda).unwrap();
     assert_eq!(counter.count, 0);
     assert_eq!(counter.authority, authority.pubkey());
     assert_eq!(counter.bump, bump);
@@ -274,18 +301,32 @@ fn test_counter_workflow() {
         .instruction()
         .unwrap();
 
-    ctx.execute_instruction(increment_ix, &[&authority]).unwrap();
+    ctx.execute_instruction(increment_ix.clone(), &[&authority])
+        .unwrap()
+        .assert_success();
 
     // Verify incremented
-    let counter: counter::Counter = ctx.get_account(&counter_pda).unwrap();
+    let counter: counter::accounts::Counter = ctx.get_account(&counter_pda).unwrap();
     assert_eq!(counter.count, 1);
 
-    // Increment again
-    ctx.execute_instruction(increment_ix.clone(), &[&authority]).unwrap();
+    // An identical transaction with the same blockhash is rejected as
+    // AlreadyProcessed, so move to a new blockhash before repeating it
+    ctx.svm.expire_blockhash();
 
-    let counter: counter::Counter = ctx.get_account(&counter_pda).unwrap();
+    // Increment again
+    ctx.execute_instruction(increment_ix, &[&authority])
+        .unwrap()
+        .assert_success();
+
+    let counter: counter::accounts::Counter = ctx.get_account(&counter_pda).unwrap();
     assert_eq!(counter.count, 2);
 
     println!("Counter test passed! Final count: {}", counter.count);
 }
 ```
+
+<Info>
+  `execute_instruction(...).unwrap()` only unwraps the call itself. A
+  transaction the runtime rejects still returns `Ok`, so chain
+  `.assert_success()` to make the test fail when the transaction does.
+</Info>

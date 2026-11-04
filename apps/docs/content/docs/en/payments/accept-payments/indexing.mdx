@@ -76,7 +76,11 @@ Some options include:
 <CodeGroup>
 
 ```rust Rust
+use std::collections::HashMap;
+
+use futures::{SinkExt, StreamExt};
 use yellowstone_grpc_client::GeyserGrpcClient;
+use yellowstone_grpc_proto::prelude::subscribe_update::UpdateOneof;
 use yellowstone_grpc_proto::prelude::*;
 
 let mut client = GeyserGrpcClient::build_from_shared("https://grpc-endpoint:10000")?
@@ -113,6 +117,7 @@ import Client, { CommitmentLevel } from "@triton-one/yellowstone-grpc";
 import { getBase58Decoder } from "@solana/kit";
 
 const client = new Client("https://grpc-endpoint:10000", "YOUR_TOKEN", undefined);
+await client.connect();
 const stream = await client.subscribe();
 
 stream.write({
@@ -138,6 +143,10 @@ stream.on("data", (update) => {
 ```
 
 </CodeGroup>
+
+The Rust example uses `yellowstone-grpc-client` 17 and `yellowstone-grpc-proto`
+14 with `futures` and `tokio`; the TypeScript example uses
+`@triton-one/yellowstone-grpc` 10.
 
 <Note>
   Yellowstone returns raw Protocol Buffer data, not JSON. You'll need to decode
@@ -170,23 +179,35 @@ Pipeline::builder()
 
 Carbon includes **40+ pre-built decoders** for popular programs. For payment
 systems, the Token Program decoder handles all transfer variants while your
-processor implements business logic:
+processor implements business logic. This processor uses `carbon-core` and
+`carbon-token-program-decoder` 2.0:
 
 ```rust
-#[async_trait]
-impl Processor for PaymentProcessor {
-    type InputType = (InstructionMetadata, DecodedInstruction<TokenInstruction>);
+use carbon_core::{
+    error::CarbonResult, instruction::InstructionProcessorInputType, processor::Processor,
+};
+use carbon_token_program_decoder::instructions::TokenProgramInstruction;
 
+impl Processor<InstructionProcessorInputType<'_, TokenProgramInstruction>> for PaymentProcessor {
     async fn process(
         &mut self,
-        (meta, ix): Self::InputType,
-        _metrics: Arc<MetricsCollection>,
+        input: &InstructionProcessorInputType<'_, TokenProgramInstruction>,
     ) -> CarbonResult<()> {
-        if let TokenInstruction::Transfer { amount } = ix.data {
-            let accounts = Transfer::arrange_accounts(&ix.accounts)?;
-            if self.watched_wallets.contains(&accounts.destination) {
-                notify_payment(meta.signature, accounts.destination, amount).await;
+        // The decoder has already matched each account to its role
+        let (destination, amount) = match input.decoded_instruction {
+            TokenProgramInstruction::Transfer { data, accounts, .. } => {
+                (accounts.destination, data.amount)
             }
+            TokenProgramInstruction::TransferChecked { data, accounts, .. } => {
+                (accounts.destination, data.amount)
+            }
+            _ => return Ok(()),
+        };
+
+        // `destination` is a token account, so watch your token accounts
+        if self.watched_token_accounts.contains(&destination) {
+            let signature = input.metadata.transaction_metadata.signature;
+            notify_payment(signature, destination, amount).await;
         }
         Ok(())
     }
@@ -208,16 +229,33 @@ structured, typed data. It uses a **Parser + Handler** architecture:
 - **Handlers** execute your business logic on parsed data
 - **Pipelines** connect parsers to handlers in configurable flows
 
-```rust
-use yellowstone_vixen::Runtime;
-use yellowstone_vixen_parser::token_program::{TokenProgramParser, TokenProgramState};
+These snippets use Vixen 0.7. It does not compile against the newest
+Yellowstone crates, so pin `yellowstone-grpc-client` and
+`yellowstone-grpc-proto` to the versions it was released with:
 
-// Build a pipeline that parses Token Program events
+```toml Cargo.toml
+[dependencies]
+yellowstone-vixen = "0.7"
+yellowstone-vixen-spl-token-parser = "0.7"
+yellowstone-vixen-yellowstone-grpc-source = "0.7"
+yellowstone-grpc-client = "=13.2.1"
+yellowstone-grpc-proto = "=12.5.0"
+```
+
+`config` is a `VixenConfig` that you read from a TOML file with your gRPC
+endpoint and token:
+
+```rust
+use yellowstone_vixen::{Pipeline, Runtime};
+use yellowstone_vixen_spl_token_parser::AccountParser;
+use yellowstone_vixen_yellowstone_grpc_source::YellowstoneGrpcSource;
+
+// Build a pipeline that parses Token Program accounts. run() starts its own
+// Tokio runtime, so call it from a synchronous main (or use run_async().await).
 Runtime::<YellowstoneGrpcSource>::builder()
-    .account(Pipeline::new(TokenProgramParser, [PaymentHandler]))
-    .build(config)?
-    .run()
-    .await;
+    .account(Pipeline::new(AccountParser, [payment_handler]))
+    .build(config)
+    .run();
 ```
 
 Vixen includes built-in parsers for **SPL Token** and **Token-2022**, with
@@ -225,15 +263,23 @@ support for generating parsers from any Solana IDL. For payment monitoring, the
 token parser gives you typed access to transfers, mints, and account states:
 
 ```rust
-impl Handler<TokenProgramState> for PaymentHandler {
-    async fn handle(&self, state: &TokenProgramState) -> Result<()> {
-        match state {
-            TokenProgramState::TokenAccount(account) => {
-                if self.watched_wallets.contains(&account.owner) {
-                    process_balance_change(account).await;
-                }
+use std::collections::HashSet;
+
+use yellowstone_vixen::{vixen_core::AccountUpdate, Handler, HandlerResult};
+use yellowstone_vixen_spl_token_parser::{account::Account, Pubkey, TokenProgramState};
+
+// Pipelines require handlers to implement Debug
+#[derive(Debug)]
+pub struct PaymentHandler {
+    watched_wallets: HashSet<Pubkey>,
+}
+
+impl Handler<TokenProgramState, AccountUpdate> for PaymentHandler {
+    async fn handle(&self, state: &TokenProgramState, _raw: &AccountUpdate) -> HandlerResult<()> {
+        if let Some(Account::TokenAccount(account)) = &state.account {
+            if self.watched_wallets.contains(&account.owner) {
+                process_balance_change(account).await;
             }
-            _ => {}
         }
         Ok(())
     }

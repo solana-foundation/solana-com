@@ -14,9 +14,11 @@ agent and contributor notes out of the content folder.
 | `apps/docs/content/docs/<loc>/**`           | Translations from Lingo, served at `/<loc>/developers/docs/**`. A page without a translation falls back to English.   |
 | `apps/docs/content/cookbook/**`             | Cookbook (English only), `/developers/cookbook/**`.                                                                   |
 | `apps/docs/content/navigation/en.json`      | The sidebar and tab navigation (edit by hand).                                                                        |
+| `apps/docs/content/navigation/<loc>/`       | `labels.json`: tab and group names, link titles and tags. `en` is generated (`gen:nav-labels`); Lingo translates it.  |
 | `apps/docs/content/docs.json`               | Site config read by the docs app: name, footer, `search.prompt`, `seo.metatags`, `markdown.instructions`, 404.        |
 | `apps/docs/content/snippets/**`             | MDX snippets that pages import as `/snippets/...`. `examples`, `concepts`, `paths`, and `rpc/surfpool` are generated. |
 | `apps/docs/content/{concepts,paths}/`       | Concept and path sources (`*.en.json`) for `gen:concepts` and `gen:paths`; `addresses.json` feeds `gen:addresses`.    |
+| `apps/docs/content/legacy-anchors/`         | Old `#anchors` whose section is on another page now, or was cut (`<locale>.json`), for `gen:legacy-anchors`.          |
 | `apps/docs/content/styles/*.css`            | Docs styles (theme, no-JS fallbacks, demos, and so on), imported by the docs app.                                     |
 | `apps/docs/public/docs-assets/**`           | Images, video, and diagrams served at `/docs-assets/**`.                                                              |
 | `apps/docs/public/docs-assets/scripts/*.js` | Page scripts (`rpc-try-it.js`, `run-examples.js`, `playground.js`, `video-chapters.js`, `agent-banner.js`).           |
@@ -66,6 +68,8 @@ Package scripts (`pnpm --filter @workspace/docs-tooling <script>`):
 | `gen:surfpool [--check\|--sync --ref main]`                       | `src/generators/surfpool-rpc.ts`               |
 | `gen:paths`, `gen:concepts`, `gen:addresses` `[--sync] [--check]` | `src/generators/{paths,concepts,addresses}.ts` |
 | `gen:tags [--check]`                                              | `src/generators/tags.ts`                       |
+| `gen:nav-labels [--check]`                                        | `src/generators/nav-labels.ts`                 |
+| `gen:legacy-anchors [--check]`                                    | `src/generators/legacy-anchors.ts`             |
 | `generate` / `generate:check`                                     | every generator, in dependency order           |
 | `diagrams:mermaid`, `diagrams:themes`, `diagrams:fonts`           | `scripts/` (diagram rendering, see below)      |
 
@@ -75,8 +79,10 @@ Order (each step is idempotent; re-run from the top after any change):
 
 1. `generate`: `examples:build`, `gen:surfpool`, `gen:paths`,
    `gen:concepts --sync`, `gen:addresses --sync` (concepts reads the path pages,
-   so this order), and `gen:tags` (after any tab-root title or description
-   change, or a new hub).
+   so this order), `gen:tags` (after any tab-root title or description change,
+   or a new hub), `gen:nav-labels` (after any change to a tab or group name,
+   link title or tag in `navigation/en.json`), and `gen:legacy-anchors` (last:
+   it reads every page's heading ids).
 2. `verify` and `generate:check`, then build the docs app
    (`pnpm --filter solana-docs build`), which compiles every English and
    cookbook page (translations compile on their first request).
@@ -99,9 +105,60 @@ nothing lists the pages in a committed file.
   solana.com pages are linked as `https://solana.com/...`.
 - Heading ids come from @sindresorhus/slugify (`actions.json` ->
   `#actions-json`), not github-slugger (`#actionsjson`). Write anchors in that
-  form.
+  form. Repeated headings are numbered `-1`, `-2`, ... as solana.com/docs always
+  numbered them (the third "Output" is `#output-2`).
 - Step titles get ids too. Set `id` on a `<Step>` if inbound anchor links matter
-  more than the generated slug.
+  more than the generated slug. A heading can pin its id with `[#id]` at the end
+  (`### Using the Solana CLI [#using-the-solana-cli-1]`).
+- Older anchors keep working: a heading whose github-slugger id (the form
+  solana.com/docs published before, `#actionsjson`) differs from its id also
+  answers to that id, unless another element on the page has it (`anchorAliases`
+  in `src/lib/docs/rehype-docs-compat.mjs`).
+
+Old links must keep landing on their section. Other sites, search results and AI
+agents hold `#anchor` links to every heading the docs have published, in every
+locale. Before you rename, move, merge or delete a section:
+
+- **Renamed on the same page** (or merged into another section of it): keep the
+  old id in the page's frontmatter, `anchorAliases:` with `old-id: current-id`
+  lines. The target can be a heading or a `<Step>` id. The page then renders the
+  old id next to the heading, so the link works without JavaScript (see
+  `intro/coding-with-agents.mdx`). An alias that another element on the page
+  already has is skipped; pin ids with `[#id]` instead.
+- **Moved to another page, or cut**: add an entry to
+  `apps/docs/content/legacy-anchors/en.json` under the page the old link lands
+  on now (after redirects), then run `gen:legacy-anchors`:
+
+  ```json
+  {
+    "/developers/docs/quickstart": {
+      "create-a-playground-wallet": "/developers/docs/programs/build-first-program#connect-a-playground-wallet"
+    },
+    "/developers/docs/references/terminology": {
+      "supermajority": "#confirmed-block"
+    }
+  }
+  ```
+
+  A target is `#id` (same page), `/path#id`, or `/path` (the top of another
+  page). For cut content, point at the closest section. When the page has no
+  element for a hash, the docs app looks the hash up there and moves the reader
+  (`src/lib/docs/legacy-anchors.ts`; the map is fetched only then).
+
+- **Moving or deleting a page**: add its redirect (above) without an `#anchor`
+  when its sections went to different places. A redirect's `#anchor` replaces
+  the one in the old link, so only the entries in `legacy-anchors` can send each
+  old section on. Then move the page's entries to the page it lands on now, and
+  repoint entries that targeted it.
+- **Renaming or removing a heading that an entry targets**: `verify` fails with
+  the entry. Keep the old id in that page's `anchorAliases` (it then stays a
+  valid target), or update the entries.
+
+The locale files (`legacy-anchors/<locale>.json`) hold the anchors the old
+translated pages published, with the English page's ids as targets: on a
+translated page, the generator uses the translated heading at the same position.
+Translations come from Lingo; don't hand-edit those entries except to follow a
+page move.
 
 ## Assets
 
@@ -134,11 +191,15 @@ Theme rules:
 - **Top bar.** The docs header (logo, tabs, search, theme, and language) is
   shared with the /developers landing and kept to one row at every width. Tabs
   and labels come from `navigation/en.json`, including the divider after tab 4
-  (Markets). Links from other solana.com pages into the docs open in a new tab
-  (`isDocsHref` in `packages/ui-chrome/src/url-config.ts`).
+  (Markets). Locale pages show the labels from `navigation/<loc>/labels.json`
+  (Lingo), English where a label has no translation yet. Links from other
+  solana.com pages into the docs open in a new tab (`isDocsHref` in
+  `packages/ui-chrome/src/url-config.ts`).
 - **RTL (`ar`).** The docs app sets `<html lang="ar" dir="rtl">`. `theme.css`
   flips the text regions (content, header, sidebar, TOC, pagination) to RTL and
-  keeps code LTR.
+  keeps code LTR. An untranslated page served in English at `/ar/...` carries
+  `lang="en" dir="ltr"` on its `[data-docs]` container and lays out left to
+  right.
 - **Theme without JS.** A head script sets the theme class and
   `html[data-theme-preference]` before paint. Without JS neither is set; the
   theme must read in that case too.
@@ -198,7 +259,9 @@ so match them to the numbered tab row (`2 · Kit`).
   match the page slug. `verify` ("RPC Try it", `src/verify/rpc-try-it.ts`) fails
   on an English page that breaks this. Mainnet-beta answers browsers only from
   allowlisted origins (solana.com): on localhost or a Vercel preview it returns
-  403, which the dialog explains.
+  403, which the dialog explains. On `getSlotLeaders`, whose example start slot
+  goes out of range after about ten epochs, the dialog sends the selected
+  network's current slot (`getSlot`) instead while the request is unedited.
 - **Runnable examples.** Write code with `#region` markers in
   `packages/docs-examples`, add the block to that folder's `blocks.json`, record
   with
@@ -318,7 +381,12 @@ so match them to the numbered tab row (`2 · Kit`).
   directly instead of `groups` (Start here does): its pages render as plain
   sidebar entries with no group header, and a nested group (the Quickstart box)
   renders as a collapsible entry. Pages that should not show in the sidebar
-  (`docs/tags`) sit in `hidden: true` tabs.
+  (`docs/tags`) sit in `hidden: true` tabs. Then run `gen:nav-labels`: it writes
+  every tab and group name, link title and tag to `navigation/en/labels.json`,
+  keyed by the slug of the English label, which Lingo translates to
+  `navigation/<loc>/labels.json` (`{}` until it has). Renaming a label changes
+  its key, so its translations wait for the next Lingo run. Page titles in the
+  sidebar come from each page's frontmatter.
 
 ## Path and concept components
 

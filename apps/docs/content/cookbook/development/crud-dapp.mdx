@@ -42,7 +42,7 @@ entries all through onchain transactions.
 - Anchor program development
 - Anchor PDAs and accounts
 - Deploying a Solana program
-- Testing an onchain program
+- Generating a TypeScript client from the program's IDL
 - Connecting an onchain program to a React UI
 
 ## Prerequisites
@@ -52,33 +52,39 @@ with a few tools:
 
 - [Rust](https://www.rust-lang.org/tools/install)
 - [Node JS](https://nodejs.org/en/download)
-- [Solana CLI & Anchor](/developers/docs/quickstart)
+- [Solana CLI, Anchor and Surfpool](/developers/docs/quickstart)
+
+This guide was tested with `create-solana-dapp` 4.8.5 and its `nextjs-anchor`
+template, Anchor CLI 1.1.2, and Solana CLI 3.1.10 (the pair the installer sets
+up through AVM).
 
 ## Setting up the project
 
 ```shell
-npx create-solana-dapp
+npx create-solana-dapp@latest my-journal-dapp --template nextjs-anchor
 ```
 
-This CLI command enables quick Solana dApp creation. You can find the source
-code [here](https://github.com/solana-developers/create-solana-dapp).
+This CLI command creates the project from the `nextjs-anchor` template and
+installs its dependencies. You can find the source code of the CLI
+[here](https://github.com/solana-foundation/create-solana-dapp) and of the
+template
+[here](https://github.com/solana-foundation/templates/tree/main/kit/nextjs-anchor).
 
-Now respond to the prompts as follows:
+The template has three parts you will change in this guide:
 
-- Enter project name: `my-journal-dapp`
-- Select a preset: `Next.js`
-- Select a UI library: `Tailwind`
-- Select an Anchor template: `counter` program
+- `anchor/`: an Anchor workspace with an example `vault`
+  [program](/developers/docs/references/terminology#program) in
+  `anchor/programs/vault`
+- `app/`: a Next.js app built on `@solana/kit`, with a wallet connector, a
+  cluster selector, and a client for the vault program in `app/generated/vault`
+- `codama.json`: tells [Codama](https://github.com/codama-idl/codama) which IDL
+  to read and where to write the generated client
 
-By selecting `counter` for the Anchor template, a simple counter
-[program](/developers/docs/references/terminology#program), written in rust using the
-Anchor framework, will be generated for you. Before we start editing this
-generated template program, let's make sure everything is working as expected:
+Before we start adding our own program, let's make sure everything is working as
+expected:
 
 ```shell
 cd my-journal-dapp
-
-npm install
 
 npm run dev
 ```
@@ -89,23 +95,69 @@ If you're new to Anchor, [The Anchor Book](https://www.anchor-lang.com/docs) and
 [Anchor Examples](https://examples.anchor-lang.com/) are great references to
 help you learn.
 
-In `my-journal-dapp`, navigate to `anchor/programs/journal/src/lib.rs`. There
-will already be template code generated in this folder. Let's delete it and
-start from scratch so we can walk through each step.
+We'll add a `journal` program next to the template's vault program. Create its
+folder in the Anchor workspace:
+
+```shell
+cd anchor
+mkdir -p programs/journal/src
+```
+
+Then create its manifest, `anchor/programs/journal/Cargo.toml`:
+
+```toml title="anchor/programs/journal/Cargo.toml"
+[package]
+name = "journal"
+version = "0.1.0"
+description = "A journal program with create, update and delete instructions"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "journal"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+anchor-debug = []
+custom-heap = []
+custom-panic = []
+
+[dependencies]
+anchor-lang = "1.1.2"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(target_os, values("solana"))'] }
+```
+
+<Note>
+  `anchor new journal` also adds a program, but the manifest it writes inherits
+  `edition` and `rust-version` from a `[workspace.package]` table this template
+  doesn't have, so the build fails until you edit it. Writing the manifest
+  yourself avoids that.
+</Note>
 
 ### Define your Anchor program
 
-```rust
+Create `anchor/programs/journal/src/lib.rs` and start with the program module:
+
+```rust title="anchor/programs/journal/src/lib.rs"
 use anchor_lang::prelude::*;
 
-// This is your program's public key and it will update automatically when you build the project.
-declare_id!("7AGmMcgd1SjoMsCcXAAYwRgB9ihCyM8cZqjsUqriNRQt");
+// `anchor keys sync` replaces this with your program's address.
+declare_id!("11111111111111111111111111111111");
 
 #[program]
 pub mod journal {
     use super::*;
 }
 ```
+
+The address in `declare_id!` is a placeholder. You'll replace it with your
+program's real address before you build.
 
 ### Define your program state
 
@@ -117,13 +169,17 @@ When using Anchor, the `#[account]` attribute macro is used to define your
 program state.
 
 ```rust
+// A PDA seed can be at most 32 bytes, and the title is one of the seeds.
+pub const MAX_TITLE_LEN: usize = 32;
+pub const MAX_MESSAGE_LEN: usize = 1000;
+
 #[account]
 #[derive(InitSpace)]
 pub struct JournalEntryState {
     pub owner: Pubkey,
-    #[max_len(50)]
+    #[max_len(MAX_TITLE_LEN)]
     pub title: String,
-     #[max_len(1000)]
+    #[max_len(MAX_MESSAGE_LEN)]
     pub message: String,
 }
 ```
@@ -137,7 +193,21 @@ For this journal dApp, we will be storing:
 Note: Space must be defined when initializing an account. The `InitSpace` macro
 used in the above code will help calculate the space needed when initializing an
 account. For more information on space, read
-[here](https://www.anchor-lang.com/docs/space#the-init-space-macro).
+[here](https://www.anchor-lang.com/docs/references/space#the-initspace-macro).
+
+Each entry's title is also a seed of its address (see below), and a seed can be
+at most 32 bytes, so the title is capped at 32 bytes. Add the errors the program
+returns when a title or message is too long:
+
+```rust
+#[error_code]
+pub enum JournalError {
+    #[msg("Title must be 32 bytes or fewer")]
+    TitleTooLong,
+    #[msg("Message must be 1000 bytes or fewer")]
+    MessageTooLong,
+}
+```
 
 ### Create a journal entry
 
@@ -151,13 +221,13 @@ When creating a journal entry, the user will need to provide the `title` and
 `message` of the journal entry. So we need to add those two variables as
 additional arguments.
 
-When calling this instruction handler function, we want to save the `owner` of
-the account, the journal entry `title`, and the journal entry `message` to the
-account's `JournalEntryState`.
+When calling this instruction handler function, we want to check the lengths,
+then save the `owner` of the account, the journal entry `title`, and the journal
+entry `message` to the account's `JournalEntryState`.
 
 ```rust
 #[program]
-mod journal {
+pub mod journal {
     use super::*;
 
     pub fn create_journal_entry(
@@ -165,6 +235,9 @@ mod journal {
         title: String,
         message: String,
     ) -> Result<()> {
+        require!(title.len() <= MAX_TITLE_LEN, JournalError::TitleTooLong);
+        require!(message.len() <= MAX_MESSAGE_LEN, JournalError::MessageTooLong);
+
         msg!("Journal Entry Created");
         msg!("Title: {}", title);
         msg!("Message: {}", message);
@@ -189,7 +262,7 @@ our case, we need to define a data structure for `CreateEntry`:
 #[instruction(title: String, message: String)]
 pub struct CreateEntry<'info> {
     #[account(
-        init_if_needed,
+        init,
         seeds = [title.as_bytes(), owner.key().as_ref()],
         bump,
         payer = owner,
@@ -211,13 +284,15 @@ In the above code, we used the following macros:
 - `#[account(...)]` attribute macro then specifies additional constraints on the
   accounts
 
-Each journal entry is a program-derived address ( [PDA](/developers/docs/core/pda)) that
+Each journal entry is a program-derived address ([PDA](/developers/docs/core/pda)) that
 stores the entries state onchain. Since we are creating a new journal entry
-here, it needs to be initialized using the `init_if_needed` constraint.
+here, it needs to be initialized using the `init` constraint. `init` fails if
+the account already exists, so creating a second entry with the same title
+returns an error instead of overwriting the first one.
 
-With Anchor, a PDA is initialized with the `seeds`, `bumps`, and
-`init_if_needed` constraints. The `init_if_needed` constraint also requires the
-`payer` and `space` constraints to define who is paying the
+With Anchor, a PDA is initialized with the `seeds`, `bump`, and `init`
+constraints. The `init` constraint also requires the `payer` and `space`
+constraints to define who is paying the
 [rent](/developers/docs/references/terminology#rent) to hold this account's data onchain
 and how much space needs to be allocated for that data.
 
@@ -232,11 +307,11 @@ instruction handler with a context that has an `UpdateEntry` type.
 
 To do this, the instruction will need to rewrite/update the data for a specific
 PDA that was saved to the `JournalEntryState` of the account when the owner of
-the journal entry calls the `update_journal_entry` instruction.
+the journal entry calls the `update_journal_entry` instruction.
 
 ```rust
 #[program]
-mod journal {
+pub mod journal {
     use super::*;
 
     ...
@@ -246,6 +321,8 @@ mod journal {
         title: String,
         message: String,
     ) -> Result<()> {
+        require!(message.len() <= MAX_MESSAGE_LEN, JournalError::MessageTooLong);
+
         msg!("Journal Entry Updated");
         msg!("Title: {}", title);
         msg!("Message: {}", message);
@@ -264,7 +341,7 @@ pub struct UpdateEntry<'info> {
         mut,
         seeds = [title.as_bytes(), owner.key().as_ref()],
         bump,
-        realloc = 8 + 32 + 1 + 4 + title.len() + 4 + message.len(),
+        realloc = 8 + 32 + 4 + title.len() + 4 + message.len(),
         realloc::payer = owner,
         realloc::zero = true,
     )]
@@ -283,7 +360,9 @@ could have a different space size required to store it (i.e. the `message` could
 be shorter or longer), so we will need to use a few specific `realloc`
 constraints to reallocate the space for the account onchain:
 
-- `realloc` - sets the new space required
+- `realloc` - sets the new space required: 8 bytes for the discriminator, 32
+  for the owner, and a 4-byte length prefix plus the bytes of the title and of
+  the message
 - `realloc::payer` - defines the account that will either pay or be refunded
   based on the newly required lamports
 - `realloc::zero` - defines that the account may be updated multiple times when
@@ -315,7 +394,7 @@ entry.
 
 ```rust
 #[program]
-mod journal {
+pub mod journal {
     use super::*;
 
     ...
@@ -347,17 +426,193 @@ onchain and refund the rent back to the journal entry's owner.
 
 The `seeds` and `bump` constraints are needed to validate the account.
 
+### The complete program
+
+Put together, `anchor/programs/journal/src/lib.rs` looks like this:
+
+```rust title="anchor/programs/journal/src/lib.rs" expandable
+use anchor_lang::prelude::*;
+
+// `anchor keys sync` replaces this with your program's address.
+declare_id!("11111111111111111111111111111111");
+
+#[program]
+pub mod journal {
+    use super::*;
+
+    pub fn create_journal_entry(
+        ctx: Context<CreateEntry>,
+        title: String,
+        message: String,
+    ) -> Result<()> {
+        require!(title.len() <= MAX_TITLE_LEN, JournalError::TitleTooLong);
+        require!(message.len() <= MAX_MESSAGE_LEN, JournalError::MessageTooLong);
+
+        msg!("Journal Entry Created");
+        msg!("Title: {}", title);
+        msg!("Message: {}", message);
+
+        let journal_entry = &mut ctx.accounts.journal_entry;
+        journal_entry.owner = ctx.accounts.owner.key();
+        journal_entry.title = title;
+        journal_entry.message = message;
+        Ok(())
+    }
+
+    pub fn update_journal_entry(
+        ctx: Context<UpdateEntry>,
+        title: String,
+        message: String,
+    ) -> Result<()> {
+        require!(message.len() <= MAX_MESSAGE_LEN, JournalError::MessageTooLong);
+
+        msg!("Journal Entry Updated");
+        msg!("Title: {}", title);
+        msg!("Message: {}", message);
+
+        let journal_entry = &mut ctx.accounts.journal_entry;
+        journal_entry.message = message;
+
+        Ok(())
+    }
+
+    pub fn delete_journal_entry(_ctx: Context<DeleteEntry>, title: String) -> Result<()> {
+        msg!("Journal entry titled {} deleted", title);
+        Ok(())
+    }
+}
+
+// A PDA seed can be at most 32 bytes, and the title is one of the seeds.
+pub const MAX_TITLE_LEN: usize = 32;
+pub const MAX_MESSAGE_LEN: usize = 1000;
+
+#[account]
+#[derive(InitSpace)]
+pub struct JournalEntryState {
+    pub owner: Pubkey,
+    #[max_len(MAX_TITLE_LEN)]
+    pub title: String,
+    #[max_len(MAX_MESSAGE_LEN)]
+    pub message: String,
+}
+
+#[derive(Accounts)]
+#[instruction(title: String, message: String)]
+pub struct CreateEntry<'info> {
+    #[account(
+        init,
+        seeds = [title.as_bytes(), owner.key().as_ref()],
+        bump,
+        payer = owner,
+        space = 8 + JournalEntryState::INIT_SPACE
+    )]
+    pub journal_entry: Account<'info, JournalEntryState>,
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(title: String, message: String)]
+pub struct UpdateEntry<'info> {
+    #[account(
+        mut,
+        seeds = [title.as_bytes(), owner.key().as_ref()],
+        bump,
+        realloc = 8 + 32 + 4 + title.len() + 4 + message.len(),
+        realloc::payer = owner,
+        realloc::zero = true,
+    )]
+    pub journal_entry: Account<'info, JournalEntryState>,
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(title: String)]
+pub struct DeleteEntry<'info> {
+    #[account(
+        mut,
+        seeds = [title.as_bytes(), owner.key().as_ref()],
+        bump,
+        close = owner,
+    )]
+    pub journal_entry: Account<'info, JournalEntryState>,
+    #[account(mut)]
+    pub owner: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[error_code]
+pub enum JournalError {
+    #[msg("Title must be 32 bytes or fewer")]
+    TitleTooLong,
+    #[msg("Message must be 1000 bytes or fewer")]
+    MessageTooLong,
+}
+```
+
 ### Build and deploy your Anchor program
 
+From the `anchor` folder, give the program its address, then build the
+workspace:
+
 ```shell
-npm run anchor build
-npm run anchor program deploy
+anchor keys sync
+anchor build
+```
+
+`anchor keys sync` creates the program's keypair,
+`target/deploy/journal-keypair.json`, and writes its address into
+`declare_id!`. `anchor build` compiles the vault and journal programs into
+`target/deploy` and writes their IDLs to `target/idl`.
+
+<Warning>
+**`anchor build` fails with `Platform tools v1.52 is incompatible with SBPFv3`?**
+That happens with Anchor 1.1.x on Solana CLI 4.3 or later, for example when
+Anchor isn't managed by AVM (AVM pairs Anchor 1.1.2 with Solana CLI 3.1.10).
+Build the programs for SBPF v0 without the IDL, then build the journal IDL on
+its own (tested with Anchor 1.1.2 and Solana CLI 4.3.2):
+
+```shell
+anchor build --no-idl -- --arch v0
+anchor idl build -p journal -o target/idl/journal.json
+```
+
+For other Anchor versions, see
+[Build your first program](/developers/docs/programs/build-first-program#run-test).
+</Warning>
+
+Next, deploy the program. On a local network, start Surfpool in a second
+terminal. `--no-deploy` stops it from deploying the workspace on its own, since
+you'll deploy the program yourself:
+
+```shell
+surfpool start --no-deploy
+```
+
+Then fund your wallet (`~/.config/solana/id.json`, the deployer in
+`Anchor.toml`) on the local network and deploy the journal program:
+
+```shell
+solana airdrop 10 --url localhost
+anchor program deploy --program-name journal --provider.cluster localnet
+```
+
+To deploy to devnet instead, get devnet SOL for your wallet (`solana address`
+prints it) from the [Solana Faucet](https://faucet.solana.com). Deploying needs
+about 2.5 SOL: about 1.25 SOL stays in the program account, and the rest comes
+back when the deploy closes its temporary buffer. Then run:
+
+```shell
+anchor program deploy --program-name journal --provider.cluster devnet
 ```
 
 ## Connecting a Solana program to a UI
 
 `create-solana-dapp` already sets up a UI with a wallet connector for you. All
-we need to do is simply modify if to fit your newly created program.
+we need to do is simply modify it to fit your newly created program.
 
 Since this journal program has the three instructions, we will need components
 in the UI that will be able to call each of these instructions:
@@ -366,220 +621,278 @@ in the UI that will be able to call each of these instructions:
 - update entry
 - delete entry
 
-Within your project's repo, open the
-`web/components/journal/journal-data-access.tsx` to add code to be able to call
-each of our instructions.
+### Generate a TypeScript client
 
-Update the `useJournalProgram` function to be able to create an entry:
+The template turns the program's IDL into a TypeScript client with Codama. Point
+`codama.json`, in the project root, at the journal IDL:
 
-```typescript
-const createEntry = useMutation<string, Error, CreateEntryArgs>({
-  mutationKey: ["journalEntry", "create", { cluster }],
-  mutationFn: async ({ title, message, owner }) => {
-    const [journalEntryAddress] = await PublicKey.findProgramAddress(
-      [Buffer.from(title), owner.toBuffer()],
-      programId
-    );
-
-    return program.methods
-      .createJournalEntry(title, message)
-      .accounts({
-        journalEntry: journalEntryAddress
-      })
-      .rpc();
-  },
-  onSuccess: (signature) => {
-    transactionToast(signature);
-    accounts.refetch();
-  },
-  onError: (error) => {
-    toast.error(`Failed to create journal entry: ${error.message}`);
+```json title="codama.json"
+{
+  "idl": "./anchor/target/idl/journal.json",
+  "scripts": {
+    "js": [
+      {
+        "from": "@codama/renderers-js",
+        "args": ["./app/generated/journal"]
+      }
+    ]
   }
-});
+}
 ```
 
-Then update the `useJournalProgramAccount` function to be able to update and
-delete entries:
+Then generate the client from the project root:
 
-```typescript
-const updateEntry = useMutation<string, Error, CreateEntryArgs>({
-  mutationKey: ["journalEntry", "update", { cluster }],
-  mutationFn: async ({ title, message, owner }) => {
-    const [journalEntryAddress] = await PublicKey.findProgramAddress(
-      [Buffer.from(title), owner.toBuffer()],
-      programId
-    );
-
-    return program.methods
-      .updateJournalEntry(title, message)
-      .accounts({
-        journalEntry: journalEntryAddress
-      })
-      .rpc();
-  },
-  onSuccess: (signature) => {
-    transactionToast(signature);
-    accounts.refetch();
-  },
-  onError: (error) => {
-    toast.error(`Failed to update journal entry: ${error.message}`);
-  }
-});
-
-const deleteEntry = useMutation({
-  mutationKey: ["journal", "deleteEntry", { cluster, account }],
-  mutationFn: (title: string) =>
-    program.methods
-      .deleteJournalEntry(title)
-      .accounts({ journalEntry: account })
-      .rpc(),
-  onSuccess: (tx) => {
-    transactionToast(tx);
-    return accounts.refetch();
-  }
-});
+```shell
+cd ..
+npm run codama:js
 ```
 
-Next, update the UI in `web/components/journal/journal-ui.tsx` to take in user
-input values for the `title` and `message` of when creating a journal entry:
+Codama writes the client to `app/generated/journal`. It includes an instruction
+builder for each instruction, such as `getCreateJournalEntryInstructionAsync`,
+which derives the entry's PDA from the title and the owner, and fetchers for
+the entry accounts, such as `fetchAllJournalEntryState`.
 
-```tsx
-export function JournalCreate() {
-  const { createEntry } = useJournalProgram();
-  const { publicKey } = useWallet();
+### Add a journal component
+
+Create `app/components/journal-card.tsx`. It reads the connected wallet's
+entries, and builds and sends the create, update and delete instructions with
+the template's `useSendTransaction` hook, which has the wallet sign each
+transaction:
+
+```tsx title="app/components/journal-card.tsx" expandable
+"use client";
+
+import { useState } from "react";
+import useSWR from "swr";
+import {
+  isSolanaError,
+  SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM,
+  type Address,
+  type Base58EncodedBytes,
+  type Instruction,
+} from "@solana/kit";
+import { toast } from "sonner";
+import { useWallet } from "../lib/wallet/context";
+import { useSendTransaction } from "../lib/hooks/use-send-transaction";
+import { useSolanaClient } from "../lib/solana-client-context";
+import { useCluster } from "./cluster-context";
+import {
+  JOURNAL_PROGRAM_ADDRESS,
+  fetchAllJournalEntryState,
+  getCreateJournalEntryInstructionAsync,
+  getDeleteJournalEntryInstructionAsync,
+  getJournalErrorMessage,
+  getUpdateJournalEntryInstructionAsync,
+  type JournalError,
+} from "../generated/journal";
+
+function errorMessage(err: unknown) {
+  if (
+    isSolanaError(err, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM) &&
+    typeof err.context?.code === "number"
+  ) {
+    return getJournalErrorMessage(err.context.code as JournalError);
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
+export function JournalCard() {
+  const { signer, status } = useWallet();
+  const { send, isSending } = useSendTransaction();
+  const client = useSolanaClient();
+  const { cluster } = useCluster();
+
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
-  const isFormValid = title.trim() !== "" && message.trim() !== "";
+  const owner = signer?.address;
 
-  const handleSubmit = () => {
-    if (publicKey && isFormValid) {
-      createEntry.mutateAsync({ title, message, owner: publicKey });
+  // Every journal entry account stores its owner right after the 8-byte
+  // discriminator, so filter the program's accounts on that field.
+  const entries = useSWR(
+    owner ? (["journal", cluster, owner] as const) : null,
+    async ([, , ownerAddress]) => {
+      const accounts = await client.rpc
+        .getProgramAccounts(JOURNAL_PROGRAM_ADDRESS, {
+          encoding: "base64",
+          dataSlice: { offset: 0, length: 0 },
+          filters: [
+            {
+              memcmp: {
+                offset: 8n,
+                bytes: ownerAddress as string as Base58EncodedBytes,
+                encoding: "base58",
+              },
+            },
+          ],
+        })
+        .send();
+      return fetchAllJournalEntryState(
+        client.rpc,
+        accounts.map(({ pubkey }) => pubkey as Address),
+      );
+    },
+  );
+
+  async function run(label: string, instruction: Promise<Instruction>) {
+    try {
+      await send({ instructions: [await instruction] });
+      toast.success(`${label} confirmed`);
+      await entries.mutate();
+      return true;
+    } catch (err) {
+      console.error(err);
+      toast.error(`${label} failed: ${errorMessage(err)}`);
+      return false;
     }
-  };
-
-  if (!publicKey) {
-    return <p>Connect your wallet</p>;
   }
+
+  async function handleCreate() {
+    if (!signer) return;
+    const created = await run(
+      "Create entry",
+      getCreateJournalEntryInstructionAsync({ owner: signer, title, message }),
+    );
+    if (created) {
+      setTitle("");
+      setMessage("");
+    }
+  }
+
+  if (status !== "connected" || !signer) {
+    return (
+      <section className="w-full rounded-2xl border border-border-low bg-card p-6 text-sm text-muted">
+        Connect your wallet to write journal entries.
+      </section>
+    );
+  }
+
+  const titleBytes = new TextEncoder().encode(title).length;
 
   return (
-    <div>
-      <input
-        type="text"
-        placeholder="Title"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-        className="input input-bordered w-full max-w-xs"
-      />
-      <textarea
-        placeholder="Message"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        className="textarea textarea-bordered w-full max-w-xs"
-      />
-      <br></br>
-      <button
-        type="button"
-        className="btn btn-xs lg:btn-md btn-primary"
-        onClick={handleSubmit}
-        disabled={createEntry.isPending || !isFormValid}
-      >
-        Create Journal Entry {createEntry.isPending && "..."}
-      </button>
-    </div>
-  );
-}
-```
-
-Lastly, update the UI in `journal-ui.tsx` to take in a user input values for the
-`message` of when updating a journal entry:
-
-```tsx
-function JournalCard({ account }: { account: PublicKey }) {
-  const { accountQuery, updateEntry, deleteEntry } = useJournalProgramAccount({
-    account
-  });
-  const { publicKey } = useWallet();
-  const [message, setMessage] = useState("");
-  const title = accountQuery.data?.title;
-
-  const isFormValid = message.trim() !== "";
-
-  const handleSubmit = () => {
-    if (publicKey && isFormValid && title) {
-      updateEntry.mutateAsync({ title, message, owner: publicKey });
-    }
-  };
-
-  if (!publicKey) {
-    return <p>Connect your wallet</p>;
-  }
-
-  return accountQuery.isLoading ? (
-    <span className="loading loading-spinner loading-lg"></span>
-  ) : (
-    <div className="card card-bordered border-base-300 border-4 text-neutral-content">
-      <div className="card-body items-center text-center">
-        <div className="space-y-6">
-          <h2
-            className="card-title justify-center text-3xl cursor-pointer"
-            onClick={() => accountQuery.refetch()}
-          >
-            {accountQuery.data?.title}
-          </h2>
-          <p>{accountQuery.data?.message}</p>
-          <div className="card-actions justify-around">
-            <textarea
-              placeholder="Update message here"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="textarea textarea-bordered w-full max-w-xs"
-            />
-            <button
-              className="btn btn-xs lg:btn-md btn-primary"
-              onClick={handleSubmit}
-              disabled={updateEntry.isPending || !isFormValid}
-            >
-              Update Journal Entry {updateEntry.isPending && "..."}
-            </button>
-          </div>
-          <div className="text-center space-y-4">
-            <p>
-              <ExplorerLink
-                path={`account/${account}`}
-                label={ellipsify(account.toString())}
-              />
-            </p>
-            <button
-              className="btn btn-xs btn-secondary btn-outline"
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    "Are you sure you want to close this account?"
-                  )
-                ) {
-                  return;
-                }
-                const title = accountQuery.data?.title;
-                if (title) {
-                  return deleteEntry.mutateAsync(title);
-                }
-              }}
-              disabled={deleteEntry.isPending}
-            >
-              Close
-            </button>
-          </div>
-        </div>
+    <section className="w-full space-y-6 rounded-2xl border border-border-low bg-card p-6">
+      <div className="space-y-3">
+        <p className="text-lg font-semibold">New journal entry</p>
+        <input
+          placeholder="Title (up to 32 bytes)"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full rounded-lg border border-border-low bg-card px-4 py-2.5 text-sm"
+        />
+        <textarea
+          placeholder="Message"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className="w-full rounded-lg border border-border-low bg-card px-4 py-2.5 text-sm"
+        />
+        <button
+          onClick={handleCreate}
+          disabled={
+            isSending || !title.trim() || !message.trim() || titleBytes > 32
+          }
+          className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:opacity-50"
+        >
+          {isSending ? "Confirming..." : "Create entry"}
+        </button>
       </div>
-    </div>
+
+      <div className="space-y-4">
+        {entries.data?.length === 0 && (
+          <p className="text-sm text-muted">No journal entries yet.</p>
+        )}
+        {entries.data?.map(({ address, data }) => (
+          <div
+            key={address}
+            className="space-y-3 rounded-xl border border-border-low p-4"
+          >
+            <p className="font-semibold">{data.title}</p>
+            <p className="text-sm">{data.message}</p>
+            <textarea
+              placeholder="New message"
+              value={drafts[address] ?? ""}
+              onChange={(e) =>
+                setDrafts({ ...drafts, [address]: e.target.value })
+              }
+              className="w-full rounded-lg border border-border-low bg-card px-4 py-2.5 text-sm"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() =>
+                  run(
+                    "Update entry",
+                    getUpdateJournalEntryInstructionAsync({
+                      owner: signer,
+                      title: data.title,
+                      message: drafts[address] ?? "",
+                    }),
+                  )
+                }
+                disabled={isSending || !drafts[address]?.trim()}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+              >
+                Update
+              </button>
+              <button
+                onClick={() =>
+                  run(
+                    "Delete entry",
+                    getDeleteJournalEntryInstructionAsync({
+                      owner: signer,
+                      title: data.title,
+                    }),
+                  )
+                }
+                disabled={isSending}
+                className="rounded-lg border border-border-low px-4 py-2 text-sm font-medium disabled:opacity-50"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 ```
+
+The component finds the wallet's entries with `getProgramAccounts`: every
+journal entry account stores its owner right after Anchor's 8-byte
+discriminator, so a `memcmp` filter at offset 8 returns only the connected
+wallet's entries. The title input is capped at 32 bytes, the same limit the
+program enforces.
+
+### Show the journal on the page
+
+In `app/page.tsx`, replace the vault card with the journal card:
+
+```tsx title="app/page.tsx"
+import { JournalCard } from "./components/journal-card";
+
+// ...
+
+{/* Journal Program Section */}
+<JournalCard />
+```
+
+Remove the `VaultCard` import and the `<VaultCard />` element it replaces.
+
+### Run the app
+
+```shell
+npm run dev
+```
+
+Open `http://localhost:3000`, pick the cluster you deployed to in the cluster
+menu (`localnet` for Surfpool), and connect a wallet. On `localnet`, use the
+**Airdrop** button to fund the wallet; on devnet, use the
+[Solana Faucet](https://faucet.solana.com). Then create, update and delete
+journal entries.
 
 ## Resources
 
-- Journal dApp:
-  [solana-journal-eight.vercel.app](https://solana-journal-eight.vercel.app)
-- Example code:
-  [https://github.com/solana-foundation/CRUD-dApp](https://github.com/solana-foundation/CRUD-dApp)
+- `nextjs-anchor` template:
+  [solana-foundation/templates](https://github.com/solana-foundation/templates/tree/main/kit/nextjs-anchor)
+- [Anchor account constraints](https://www.anchor-lang.com/docs/references/account-constraints)
+- [Codama](https://github.com/codama-idl/codama)

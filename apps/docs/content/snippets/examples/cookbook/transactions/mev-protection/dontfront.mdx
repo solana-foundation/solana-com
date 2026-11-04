@@ -107,10 +107,12 @@ const signed = await signTransactionMessageWithSigners(transactionMessage);
 assertIsTransactionWithBlockhashLifetime(signed);
 const base64Tx = getBase64EncodedWireTransaction(signed);
 
-// Send via Jito block engine (not standard RPC). In tests we just verify the
-// transaction builds + serializes — the actual block-engine submit needs a
-// reachable Jito endpoint.
-try {
+// Sending through Jito submits a real mainnet transaction, so it is off by
+// default and the example prints the signed transaction instead. To send it,
+// sign with a funded mainnet keypair, take the blockhash from a mainnet RPC
+// node, and set SEND_TO_JITO=1.
+if (process.env.SEND_TO_JITO === "1") {
+  // Send via Jito's block engine, not a regular RPC node.
   const response = await fetch(JITO_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -121,10 +123,18 @@ try {
       params: [base64Tx, { encoding: "base64" }],
     }),
   });
-  const { result: signature } = (await response.json()) as { result?: string };
-  console.log(`Sent with dontfront protection: ${signature}`);
-} catch (err) {
-  console.warn("Jito submission failed (expected in offline tests):", err);
+  const body = (await response.json()) as {
+    result?: string;
+    error?: { code: number; message: string };
+  };
+  if (!response.ok || body.error || !body.result) {
+    throw new Error(
+      `Jito rejected the transaction (HTTP ${response.status}): ${JSON.stringify(body.error ?? body)}`,
+    );
+  }
+  console.log("Sent with dontfront protection:", body.result);
+} else {
+  console.log("Signed transaction (base64):", base64Tx);
 }
 ```
 
@@ -206,30 +216,32 @@ async fn main() -> anyhow::Result<()> {
     let serialized = bincode::serialize(&transaction)?;
     let base64_tx = STANDARD.encode(&serialized);
 
-    // Send via Jito block engine (not standard RPC). In tests we just verify the
-    // transaction builds + serializes — the actual block-engine submit needs a
-    // reachable Jito endpoint.
-    let client = reqwest::Client::new();
-    match client
-        .post(JITO_ENDPOINT)
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "sendTransaction",
-            "params": [base64_tx, {"encoding": "base64"}]
-        }))
-        .send()
-        .await
-    {
-        Ok(response) => match response.json::<serde_json::Value>().await {
-            Ok(body) => match body["result"].as_str() {
-                Some(signature) => println!("Sent with dontfront protection: {signature}"),
-                None => eprintln!("Jito returned: {:?}", body),
-            },
-            Err(e) => eprintln!("Failed to parse Jito response: {}", e),
-        },
-        Err(e) => eprintln!("Jito submission failed (expected in offline tests): {}", e),
+    // Sending through Jito submits a real mainnet transaction, so it is off by
+    // default and the example prints the signed transaction instead. To send it,
+    // sign with a funded mainnet keypair, take the blockhash from a mainnet RPC
+    // node, and set SEND_TO_JITO=1.
+    if std::env::var("SEND_TO_JITO").as_deref() == Ok("1") {
+        // Send via Jito's block engine, not a regular RPC node.
+        let response = reqwest::Client::new()
+            .post(JITO_ENDPOINT)
+            .json(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [base64_tx, {"encoding": "base64"}]
+            }))
+            .send()
+            .await?;
+        let status = response.status();
+        let body: serde_json::Value = response.json().await?;
+        match body["result"].as_str() {
+            Some(signature) if status.is_success() && body.get("error").is_none() => {
+                println!("Sent with dontfront protection: {signature}")
+            }
+            _ => anyhow::bail!("Jito rejected the transaction (HTTP {status}): {body}"),
+        }
+    } else {
+        println!("Signed transaction (base64): {base64_tx}");
     }
 
     Ok(())
@@ -237,18 +249,22 @@ async fn main() -> anyhow::Result<()> {
 ```
 
 ```py Python
+import asyncio
 import base64
+import json
+import os
 import random
+import urllib.error
+import urllib.request
 
-import httpx
-from solana.rpc.api import Client
+from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
 from solders.instruction import AccountMeta, Instruction
 from solders.keypair import Keypair
-from solders.message import Message
+from solders.message import MessageV0
 from solders.pubkey import Pubkey
 from solders.system_program import TransferParams, transfer
-from solders.transaction import Transaction
+from solders.transaction import VersionedTransaction
 
 JITO_ENDPOINT = "https://mainnet.block-engine.jito.wtf/api/v1/transactions"
 # Any pubkey starting with "jitodontfront"; it does not need to exist onchain.
@@ -265,57 +281,73 @@ TIP_ACCOUNTS = [
     "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
 ]
 
-client = Client("http://localhost:8899", commitment=Confirmed)
-sender = Keypair()
-recipient = Keypair()
 
-airdrop = client.request_airdrop(sender.pubkey(), 1_000_000_000)
-client.confirm_transaction(airdrop.value)
+async def main():
+    async with AsyncClient("http://localhost:8899", commitment=Confirmed) as client:
+        sender = Keypair()
+        recipient = Keypair()
 
-# Append jitodontfront as a read-only account to the transfer instruction.
-transfer_ix = transfer(
-    TransferParams(
-        from_pubkey=sender.pubkey(), to_pubkey=recipient.pubkey(), lamports=1_000_000
+        airdrop = await client.request_airdrop(sender.pubkey(), 1_000_000_000)
+        await client.confirm_transaction(airdrop.value)
+
+        # Append jitodontfront as a read-only account to the transfer instruction.
+        transfer_ix = transfer(
+            TransferParams(
+                from_pubkey=sender.pubkey(), to_pubkey=recipient.pubkey(), lamports=1_000_000
+            )
+        )
+        transfer_ix = Instruction(
+            transfer_ix.program_id,
+            transfer_ix.data,
+            transfer_ix.accounts + [AccountMeta(DONT_FRONT, is_signer=False, is_writable=False)],
+        )
+
+        # Jito tip: at least 1000 lamports to a random tip account.
+        tip_ix = transfer(
+            TransferParams(
+                from_pubkey=sender.pubkey(),
+                to_pubkey=Pubkey.from_string(random.choice(TIP_ACCOUNTS)),
+                lamports=1_000,
+            )
+        )
+
+        blockhash = (await client.get_latest_blockhash()).value.blockhash
+        message = MessageV0.try_compile(sender.pubkey(), [transfer_ix, tip_ix], [], blockhash)
+        transaction = VersionedTransaction(message, [sender])
+        base64_tx = base64.b64encode(bytes(transaction)).decode()
+
+    # Sending through Jito submits a real mainnet transaction, so it is off by
+    # default and the example prints the signed transaction instead. To send it,
+    # sign with a funded mainnet keypair, take the blockhash from a mainnet RPC
+    # node, and set SEND_TO_JITO=1.
+    if os.environ.get("SEND_TO_JITO") != "1":
+        print("Signed transaction (base64):", base64_tx)
+        return
+
+    # Send through Jito's block engine, not a regular RPC node.
+    request = urllib.request.Request(
+        JITO_ENDPOINT,
+        data=json.dumps(
+            {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [base64_tx, {"encoding": "base64"}],
+            }
+        ).encode(),
+        headers={"Content-Type": "application/json"},
     )
-)
-transfer_ix = Instruction(
-    transfer_ix.program_id,
-    transfer_ix.data,
-    transfer_ix.accounts + [AccountMeta(DONT_FRONT, is_signer=False, is_writable=False)],
-)
+    try:
+        with urllib.request.urlopen(request) as response:
+            result = json.load(response)
+    except urllib.error.HTTPError as error:
+        raise RuntimeError(f"Jito rejected the transaction: {error.read().decode()}") from error
+    if "error" in result:
+        raise RuntimeError(f"Jito rejected the transaction: {result['error']}")
+    print("Sent with dontfront protection:", result["result"])
 
-# Jito tip: at least 1000 lamports to a random tip account.
-tip_ix = transfer(
-    TransferParams(
-        from_pubkey=sender.pubkey(),
-        to_pubkey=Pubkey.from_string(random.choice(TIP_ACCOUNTS)),
-        lamports=1_000,
-    )
-)
 
-blockhash = client.get_latest_blockhash().value.blockhash
-transaction = Transaction(
-    [sender], Message([transfer_ix, tip_ix], sender.pubkey()), blockhash
-)
-
-# Send through Jito's block engine, not a regular RPC node.
-response = httpx.post(
-    JITO_ENDPOINT,
-    json={
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "sendTransaction",
-        "params": [
-            base64.b64encode(bytes(transaction)).decode(),
-            {"encoding": "base64"},
-        ],
-    },
-)
-result = response.json()
-if "error" in result:
-    raise RuntimeError(f"Jito rejected the transaction: {result['error']}")
-response.raise_for_status()
-print("Sent with dontfront protection:", result["result"])
+asyncio.run(main())
 ```
 
 ```go Go
@@ -328,6 +360,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/solana-foundation/solana-go/v2"
@@ -386,6 +419,15 @@ func main() {
 		panic(err)
 	}
 	tx.Sign(func(solana.PublicKey) *solana.PrivateKey { return &sender.PrivateKey })
+
+	// Sending through Jito submits a real mainnet transaction, so it is off by
+	// default and the example prints the signed transaction instead. To send it,
+	// sign with a funded mainnet keypair, take the blockhash from a mainnet RPC
+	// node, and set SEND_TO_JITO=1.
+	if os.Getenv("SEND_TO_JITO") != "1" {
+		fmt.Println("Signed transaction (base64):", tx.MustToBase64())
+		return
+	}
 
 	// Send through Jito's block engine, not a regular RPC node.
 	body, _ := json.Marshal(map[string]any{

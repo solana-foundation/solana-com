@@ -85,11 +85,14 @@ const ROUTE_ICONS: Record<LearnRouteId, IconComponent> = {
 
 function SectionHead({
   id,
+  aliases,
   title,
   body,
   children,
 }: {
   id: string;
+  /** Ids the old /developers page used for this section (old links). */
+  aliases?: string[];
   title: string;
   body: ReactNode;
   children?: ReactNode;
@@ -97,7 +100,15 @@ function SectionHead({
   return (
     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div className="max-w-[720px]">
-        <h2 id={id} className={h2}>
+        <h2 id={id} className={aliases ? `relative ${h2}` : h2}>
+          {aliases?.map((alias) => (
+            <span
+              key={alias}
+              id={alias}
+              aria-hidden="true"
+              className="pointer-events-none absolute top-0 scroll-mt-32"
+            />
+          ))}
           {title}
         </h2>
         <p className={lead}>{body}</p>
@@ -364,6 +375,7 @@ export async function DevelopersHub({
         <div className={container}>
           <SectionHead
             id="dl-picker-title"
+            aliases={["build-areas-heading"]}
             title={t("picker.title")}
             body={t("picker.body")}
           />
@@ -632,6 +644,7 @@ export async function DevelopersHub({
         <div className={container}>
           <SectionHead
             id="dl-routes-title"
+            aliases={["paths-heading", "learning-heading"]}
             title={t("routes.title")}
             body={t("routes.body")}
           />
@@ -719,6 +732,7 @@ export async function DevelopersHub({
         <div className={container}>
           <SectionHead
             id="dl-updates-title"
+            aliases={["updates-heading", "newsletter-heading"]}
             title={t("updates.title")}
             body={t("updates.body")}
           />

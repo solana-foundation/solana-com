@@ -34,8 +34,8 @@
  *
  * Without JavaScript nothing changes: the static request/response examples
  * are all there is, as before.
- * FRAGILE: relies on #header (inserts the bar after it) and on code blocks
- * being <pre> elements. If #header is missing the bar goes before #content.
+ * FRAGILE: relies on #page-header (inserts the bar after it) and on code blocks
+ * being <pre> elements. If #page-header is missing the bar goes before #content.
  */
 (function () {
   if (window.__solRpcTryIt) return;
@@ -227,7 +227,7 @@
 
   /**
    * A short explanation under responses that are correct but would puzzle a
-   * reader: methods public endpoints turn off, airdrop limits, the example's
+   * reader: methods public endpoints turn off, the closed RPC faucets, the example's
    * slot falling out of range, and empty results for example addresses.
    */
   // Public endpoints answer methods they turn off (getLargestAccounts,
@@ -242,8 +242,11 @@
   function responseNote(method, text, httpStatus, srv) {
     var m = method.toLowerCase();
     var err = rpcError(text);
-    if (m === "requestairdrop" && (err || httpStatus === 429))
-      return "\n\nPublic airdrops are rate limited and often refused. Get devnet or testnet SOL from https://faucet.solana.com instead.";
+    if (
+      m === "requestairdrop" &&
+      (err || httpStatus === 429 || httpStatus === 410)
+    )
+      return "\n\nThe devnet and testnet RPC faucets are closed (HTTP 410). Get devnet or testnet SOL from https://faucet.solana.com, or call requestAirdrop on a local validator or Surfpool.";
     if (disabledOnPublic(text))
       return (
         "\n\n" +
@@ -498,12 +501,17 @@
       showEndpoint();
       refreshBarUrl();
     });
+    // True while the editor holds the page's example (or a copy of it with
+    // only the start slot refreshed): see currentSlotPayload.
+    var exampleBody = true;
     reset.addEventListener("click", function () {
       body.value = req.body;
+      exampleBody = true;
       body.removeAttribute("aria-invalid");
       body.focus();
     });
     body.addEventListener("input", function () {
+      exampleBody = false;
       body.removeAttribute("aria-invalid");
     });
     body.addEventListener("keydown", function (e) {
@@ -515,10 +523,42 @@
 
     // --- HTTP ---------------------------------------------------------
     var busy = false;
+
+    // getSlotLeaders: the page's example has a fixed start slot, which a
+    // network stops serving about ten epochs later. While the editor still
+    // holds the example, read the selected network's current slot (getSlot)
+    // and send that as the start slot. The editor shows the slot sent.
+    function currentSlotPayload(payload, url, signal) {
+      if (!exampleBody || methodOf(payload).toLowerCase() !== "getslotleaders")
+        return Promise.resolve(payload);
+      return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: '{"jsonrpc":"2.0","id":1,"method":"getSlot"}',
+        signal: signal,
+      })
+        .then(function (res) {
+          return res.json();
+        })
+        .then(function (r) {
+          if (!r || typeof r.result !== "number") return payload;
+          var next = payload.replace(
+            /("params"\s*:\s*\[\s*)\d+/,
+            "$1" + String(r.result),
+          );
+          body.value = next;
+          return next;
+        })
+        .catch(function () {
+          return payload;
+        });
+    }
+
     function sendHttp() {
       if (busy) return;
-      var payload = parseBody();
-      if (payload == null) return;
+      var parsed = parseBody();
+      if (parsed == null) return;
+      var payload = parsed;
       var url = server().http;
       var ctrl =
         typeof AbortController === "function" ? new AbortController() : null;
@@ -533,12 +573,18 @@
       setStatus("busy", "Sending to " + server().label + "…");
       var t0 = performance.now();
       var httpStatus = 0;
-      fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: payload,
-        signal: ctrl ? ctrl.signal : undefined,
-      })
+      var signal = ctrl ? ctrl.signal : undefined;
+      currentSlotPayload(parsed, url, signal)
+        .then(function (next) {
+          payload = next;
+          t0 = performance.now();
+          return fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+            signal: signal,
+          });
+        })
         .then(function (res) {
           httpStatus = res.status;
           return res.text().then(function (text) {
@@ -835,7 +881,7 @@
     if (current && (!info || current.info.path !== info.path)) teardown();
     if (!info) return;
     if (current && document.contains(current.bar)) return;
-    var header = document.getElementById("header");
+    var header = document.getElementById("page-header");
     var content = document.getElementById("content");
     if (!header && !content) return;
     var req = current ? current.req : findRequest(info);

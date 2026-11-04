@@ -230,8 +230,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tools/x402-facilitator",
   },
   {
+    // The AI agents guide is the docs' Tools > AI page (not "Build with AI
+    // agents", intro/coding-with-agents).
     source: "/developers/guides/getstarted/intro-to-ai",
-    destination: "/docs/intro/coding-with-agents",
+    destination: "/developers/docs/tools/ai",
   },
   {
     source: "/developers/guides/getstarted/how-to-verify-a-token",
@@ -282,8 +284,11 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tools/x402-facilitator",
   },
   {
+    // /docs/tools/ai is a docs page again (Build onchain AI agents). Links
+    // from before #1771 to its old sections (now intro/coding-with-agents)
+    // are sent there by the docs app's legacy anchors.
     source: "/docs/tools/ai",
-    destination: "/docs/intro/coding-with-agents",
+    destination: "/developers/docs/tools/ai",
   },
   {
     source: "/docs/references",
@@ -1013,7 +1018,8 @@ export default {
     },
     {
       source: "/cli",
-      destination: "/docs/intro/installation#install-the-solana-cli",
+      destination:
+        "/developers/docs/intro/installation/dependencies#install-solana-cli",
     },
     {
       source: "/setup",
@@ -1167,13 +1173,14 @@ export default {
       source: "/docs/core/transactions/versions",
       destination: "/docs/advanced/versions",
     },
+    // Rent has its own page in the docs again.
     {
       source: "/docs/core/rent",
-      destination: "/docs/core/fees",
+      destination: "/developers/docs/core/rent",
     },
     {
       source: "/docs/intro/rent",
-      destination: "/docs/core/fees",
+      destination: "/developers/docs/core/rent",
     },
     {
       source: "/docs/intro/transaction_fees",
@@ -1795,9 +1802,11 @@ export default {
       source: "/developers/guides/getstarted/rust-to-solana",
       destination: "/docs/intro/quick-start",
     },
+    // The scaffold guides' create-solana-dapp nextjs-anchor walkthrough is
+    // the cookbook's CRUD dApp guide.
     {
       source: "/developers/guides/getstarted/scaffold-nextjs-anchor",
-      destination: "/docs#deploy-your-first-solana-application",
+      destination: "/developers/cookbook/development/crud-dapp",
     },
     {
       source: "/developers/guides/wallets/add-solana-wallet-adapter-to-nextjs",
@@ -1817,7 +1826,7 @@ export default {
     },
     {
       source: "/developers/guides/getstarted/full-stack-solana-development",
-      destination: "/docs#deploy-your-first-solana-application",
+      destination: "/developers/cookbook/development/crud-dapp",
     },
     {
       source: "/docs/toolkit/:path*",

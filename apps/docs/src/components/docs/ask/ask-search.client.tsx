@@ -48,6 +48,10 @@ import {
 
 /** As Bri's search view: search this long after the last keystroke. */
 const DEBOUNCE_MS = 250;
+/** How long Bri's search may take before the docs' own index answers. */
+const AGENT_SEARCH_TIMEOUT_MS = 5000;
+/** At most this many rows from the docs' own index. */
+const INDEX_RESULTS = 10;
 
 /** Lucide search (ISC). */
 function SearchIcon({ className }: { className?: string }) {
@@ -65,9 +69,42 @@ const rowClass = cn(
   focusRing,
 );
 
+/** A page found by the docs' own index (Fumadocs simple search). */
+type IndexHit = {
+  type: string;
+  url: string;
+  content: string;
+  breadcrumbs?: string[];
+};
+
+/**
+ * The docs' own index (GET /api/docs-search, Fumadocs), for when Bri's
+ * search fails or is slow (the agent proxy unavailable). A locale's index
+ * holds its translated pages and the English pages served at its URLs.
+ */
+async function searchDocsIndex(
+  query: string,
+  signal: AbortSignal,
+): Promise<AskSearchResult[]> {
+  const params = new URLSearchParams({ query, locale: currentLocale() });
+  const res = await fetch(`/api/docs-search?${params}`, { signal });
+  if (!res.ok) throw new Error(`docs search failed (${res.status})`);
+  const hits = (await res.json()) as IndexHit[];
+  return hits
+    .filter((hit) => hit.type === "page" && hit.url && hit.content)
+    .slice(0, INDEX_RESULTS)
+    .map((hit) => ({
+      title: hit.content,
+      url: hit.url,
+      breadcrumbs: hit.breadcrumbs,
+    }));
+}
+
 /**
  * Bri's search (`searchDocs`, GET /api/ask/search) for `query`: debounced,
- * and the previous request aborted when the query changes.
+ * and the previous request aborted when the query changes. When it fails or
+ * takes longer than AGENT_SEARCH_TIMEOUT_MS, the docs' own index answers
+ * (`searchDocsIndex`, GET /api/docs-search).
  */
 function useDocsSearch(query: string) {
   const [results, setResults] = useState<AskSearchResult[]>([]);
@@ -84,20 +121,36 @@ function useDocsSearch(query: string) {
     setState("loading");
     const controller = new AbortController();
     const timeout = setTimeout(async () => {
+      // Bri's request alone is cut off after the timeout.
+      const agent = new AbortController();
+      const abortAgent = () => agent.abort();
+      controller.signal.addEventListener("abort", abortAgent);
+      const slow = setTimeout(abortAgent, AGENT_SEARCH_TIMEOUT_MS);
+      let found: AskSearchResult[];
       try {
-        const found = await searchDocs(trimmed, controller.signal);
-        setResults(found);
-        setState("done");
-        trackAskSolana("docs_ai_search", {
-          query: trimmed,
-          result_count: found.length,
-        });
+        found = await searchDocs(trimmed, agent.signal);
       } catch {
-        if (!controller.signal.aborted) {
-          setResults([]);
-          setState("error");
+        if (controller.signal.aborted) return;
+        try {
+          found = await searchDocsIndex(trimmed, controller.signal);
+        } catch {
+          if (!controller.signal.aborted) {
+            setResults([]);
+            setState("error");
+          }
+          return;
         }
+      } finally {
+        clearTimeout(slow);
+        controller.signal.removeEventListener("abort", abortAgent);
       }
+      if (controller.signal.aborted) return;
+      setResults(found);
+      setState("done");
+      trackAskSolana("docs_ai_search", {
+        query: trimmed,
+        result_count: found.length,
+      });
     }, DEBOUNCE_MS);
     return () => {
       controller.abort();

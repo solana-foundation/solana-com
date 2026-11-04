@@ -240,14 +240,17 @@ code for illustration purposes.
   example code.
 </Note>
 
-The demo below uses three possible outcomes:
+`validateAddress` takes the mint you intend to send and that mint's token
+program. A token account passes only if it holds that mint under that program,
+so a USDC account is rejected when you are sending PYUSD. The demo uses four
+possible outcomes:
 
 | Result              | Meaning                                 | Action                                                              |
 | ------------------- | --------------------------------------- | ------------------------------------------------------------------- |
 | `IS_WALLET`         | Valid wallet address                    | Derive and send to associated token account                         |
-| `IS_TOKEN_ACCOUNT`  | Valid token account                     | Send tokens directly to this address                                |
+| `IS_TOKEN_ACCOUNT`  | Token account for the expected mint     | Send tokens directly to this address                                |
 | `USER_VERIFICATION` | Address requires recipient confirmation | Require explicit review before sending SPL tokens or funding an ATA |
-| `REJECT`            | Invalid address                         | Do not send                                                         |
+| `REJECT`            | Invalid address, or the wrong mint      | Do not send                                                         |
 
 It then maps each result to per-asset acceptability with `canReceiveNativeSol`
 (wallets only) and `canReceiveSplToken` (wallets or token accounts). A
@@ -298,15 +301,19 @@ export type ValidationResult =
  * address requiring recipient verification, or invalid.
  *
  * @param inputAddress - The address to validate
+ * @param expectedMint - The mint you intend to send
+ * @param expectedTokenProgram - The token program that owns that mint
  * @param rpc - Optional RPC client (defaults to mainnet)
  * @returns Classification result:
  *   - IS_WALLET: Valid wallet address
- *   - IS_TOKEN_ACCOUNT: Valid token account
+ *   - IS_TOKEN_ACCOUNT: Token account for the expected mint
  *   - USER_VERIFICATION: Require explicit review before sending SPL tokens
- *   - REJECT: Invalid address for transfers
+ *   - REJECT: Invalid address for transfers, or a token account for another mint
  */
 export async function validateAddress(
   inputAddress: Address,
+  expectedMint: Address,
+  expectedTokenProgram: Address,
   rpc: Rpc<GetAccountInfoApi> = defaultRpc
 ): Promise<ValidationResult> {
   const account = await fetchJsonParsedAccount(rpc, inputAddress);
@@ -345,20 +352,28 @@ export async function validateAddress(
     return { type: "IS_WALLET" };
   }
 
-  // Token Program or Token-2022, check if token account
+  // Token Program or Token-2022, check if token account for the expected mint
   if (owner === TOKEN_PROGRAM || owner === TOKEN_2022_PROGRAM) {
-    const accountType = (
-      account.data as { parsedAccountMeta?: { type?: string } }
-    ).parsedAccountMeta?.type;
-
-    if (accountType === "account") {
-      return { type: "IS_TOKEN_ACCOUNT" };
-    }
-    // Reject if not a token account (mint account)
-    return {
-      type: "REJECT",
-      reason: "Not a token account"
+    const data = account.data as {
+      mint?: string;
+      parsedAccountMeta?: { type?: string };
     };
+
+    // Reject if not a token account (mint account)
+    if (data.parsedAccountMeta?.type !== "account") {
+      return {
+        type: "REJECT",
+        reason: "Not a token account"
+      };
+    }
+    // Reject a token account for another mint or token program
+    if (owner !== expectedTokenProgram || data.mint !== expectedMint) {
+      return {
+        type: "REJECT",
+        reason: `Token account holds ${data.mint}, not ${expectedMint}`
+      };
+    }
+    return { type: "IS_TOKEN_ACCOUNT" };
   }
 
   // An account owned by another program can be a smart wallet.
@@ -412,13 +427,23 @@ const [NON_EXISTENT_PDA] = await getProgramDerivedAddress({
 const PROGRAM_ACCOUNT =
   "p1exdMJcjVao65QdewkaZRUnU6VPSXhus9n2GzWfh98" as Address;
 
-async function runExample(label: string, address: Address) {
+async function runExample(
+  label: string,
+  address: Address,
+  expectedMint: Address = USDC_MINT,
+  expectedTokenProgram: Address = TOKEN_PROGRAM
+) {
   console.log(`\n${"─".repeat(60)}`);
   console.log(`Example: ${label}`);
   console.log(`Input: ${address}`);
+  console.log(`Sending: ${expectedMint}`);
   console.log(`${"─".repeat(60)}`);
 
-  const result = await validateAddress(address);
+  const result = await validateAddress(
+    address,
+    expectedMint,
+    expectedTokenProgram
+  );
   console.log("\nResult:", result);
   console.log(
     `Can receive SOL?   ${canReceiveNativeSol(result) ? "YES" : "NO"}`
@@ -440,7 +465,12 @@ console.log("  IS_TOKEN_ACCOUNT Examples");
 console.log("═".repeat(60));
 
 await runExample("USDC token account (Token Program)", USDC_TOKEN_ACCOUNT);
-await runExample("PYUSD token account (Token-2022)", PYUSD_TOKEN_ACCOUNT);
+await runExample(
+  "PYUSD token account (Token-2022)",
+  PYUSD_TOKEN_ACCOUNT,
+  PYUSD_MINT,
+  TOKEN_2022_PROGRAM
+);
 
 console.log("\n" + "═".repeat(60));
 console.log("  USER_VERIFICATION Examples");
@@ -454,7 +484,13 @@ console.log("  REJECT Examples");
 console.log("═".repeat(60));
 
 await runExample("USDC mint address", USDC_MINT);
-await runExample("PYUSD mint address", PYUSD_MINT);
+await runExample("PYUSD mint address", PYUSD_MINT, PYUSD_MINT, TOKEN_2022_PROGRAM);
+await runExample(
+  "USDC token account when sending PYUSD",
+  USDC_TOKEN_ACCOUNT,
+  PYUSD_MINT,
+  TOKEN_2022_PROGRAM
+);
 
 console.log("\n" + "═".repeat(60));
 console.log("  Done!");

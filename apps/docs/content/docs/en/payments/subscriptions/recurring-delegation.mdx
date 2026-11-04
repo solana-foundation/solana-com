@@ -11,6 +11,9 @@ This guide keeps the moving parts visible. You derive the accounts first,
 initialize the Subscription Authority if needed, create the recurring
 delegation, then use that delegation PDA for transfers.
 
+To run these snippets on a local network, first
+[set up a local environment](/developers/docs/payments/subscriptions/overview#set-up-a-local-environment).
+
 ## Install
 
 <Tabs>
@@ -119,6 +122,7 @@ The setup has four parts:
 
   <Tab title="Rust">
     ```rust
+    use std::time::{SystemTime, UNIX_EPOCH};
     use solana_address::{address, Address};
     use subscriptions::{
         accounts::SubscriptionAuthority,
@@ -136,8 +140,9 @@ The setup has four parts:
     let nonce = 0u64;
     let amount_per_period = 1_000_000u64;
     let period_length_s = 86_400u64;
-    let start_ts = 1_731_657_600i64;
-    let expiry_ts = start_ts + 86_400 * 30;
+    let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+    let start_ts = 0i64; // start when the transaction lands
+    let expiry_ts = now + 86_400 * 30;
 
     let (subscription_authority, _) = Address::find_program_address(
         &[b"SubscriptionAuthority", user.as_ref(), token_mint.as_ref()],
@@ -218,14 +223,18 @@ rejects transfers that would exceed the period's remaining allowance.
     use subscriptions::generated::{instructions::TransferRecurringBuilder, types::TransferData};
 
     let receiver_ata: Address = address!("RECEIVER_TOKEN_ACCOUNT_ADDRESS_HERE");
+    let (event_authority, _) =
+        Address::find_program_address(&[b"event_authority"], &SUBSCRIPTIONS_ID);
 
     let transfer_ix = TransferRecurringBuilder::new()
         .delegation_pda(delegation_pda)
         .subscription_authority(subscription_authority)
         .delegator_ata(user_ata)
         .receiver_ata(receiver_ata)
+        .token_mint(token_mint)
         .token_program(TOKEN_PROGRAM_ID)
         .delegatee(delegatee)
+        .event_authority(event_authority)
         .transfer_data(TransferData { amount: 100_000, delegator: user, mint: token_mint })
         .instruction();
     ```
@@ -272,8 +281,9 @@ the delegation PDA and returns its rent to the signer.
 - Once the next period starts, the pulled amount resets.
 - `expiryTs` is a hard stop: once it passes, transfers fail and the sponsor can
   recover rent. There is no spend-time grace period.
-- The examples use `startTs = 0n`, so the delegation starts when the transaction
-  lands. On a local Surfpool the cluster clock can lag your wall clock, so a
+- The examples use `startTs = 0n` (`start_ts = 0` in Rust), so the delegation
+  starts when the transaction lands. A fixed `startTs` in the past fails with
+  `RecurringDelegationStartTimeInPast`. On a local Surfpool the cluster clock can lag your wall clock, so a
   `startTs` of "now" may still be in the future for the program, and a transfer
   right after creation fails with `DelegationNotStarted` (error 407). Either
   keep `startTs` at `0`, or advance the clock first with the `surfnet_timeTravel`

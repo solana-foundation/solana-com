@@ -15,7 +15,8 @@ import (
 
 func main() {
 	client := rpc.New("http://localhost:8899")
-	mint := solana.MustPublicKeyFromBase58("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")
+	// Example: PYTH mint address (its metadata uri points to a JSON file)
+	mint := solana.MustPublicKeyFromBase58("HZ1JovNiVvGrGNiiYvEozEVgZ58xaU3RKwX8eACQBCt3")
 
 	// Fetch the onchain metadata and read its uri
 	metadataAddress, _, err := solana.FindTokenMetadataAddress(mint)
@@ -46,6 +47,9 @@ func main() {
 			panic(err)
 		}
 		defer response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			panic(fmt.Sprintf("fetching %s failed: %s", uri, response.Status))
+		}
 
 		var jsonMetadata struct {
 			Name        string `json:"name"`
@@ -59,6 +63,8 @@ func main() {
 		fmt.Println("Name:", jsonMetadata.Name)
 		fmt.Println("Description:", jsonMetadata.Description)
 		fmt.Println("Image:", jsonMetadata.Image)
+	} else {
+		fmt.Println("This token's metadata has no uri, so there is no offchain JSON")
 	}
 }
 

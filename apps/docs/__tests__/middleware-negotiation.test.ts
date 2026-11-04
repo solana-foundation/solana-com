@@ -86,13 +86,15 @@ describe("Markdown content negotiation", () => {
     expect(link).toContain(
       '<https://solana.com/developers/docs/llms.txt>; rel="describedby"; type="text/plain"',
     );
-    // next-intl's hreflang links stay.
-    expect(link).toMatch(/hreflang="ja"/);
+    // No hreflang alternates in the header: most locale URLs serve the
+    // English page, so each page's <head> lists only its real alternates.
+    expect(link).not.toMatch(/hreflang=/);
 
     const ja = await run("/ja/developers/docs/core/accounts");
     expect(ja.headers.get("link")).toContain(
       "<https://solana.com/ja/developers/docs/core/accounts.md>",
     );
+    expect(ja.headers.get("link")).not.toMatch(/hreflang=/);
     const landing = await run("/developers");
     expect(landing.headers.get("link")).toContain(
       "<https://solana.com/developers.md>",
