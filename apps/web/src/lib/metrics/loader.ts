@@ -36,7 +36,7 @@ export type ResolvedMetric = {
 };
 
 /** Daily data-api rows land the next day; allow a short pipeline delay. */
-const DATA_API_STALE_AFTER_DAYS = 3;
+const STALE_AFTER_DAYS = 3;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type SourceLoaders = {
@@ -214,7 +214,7 @@ function resolveMetric(
       value: result.value,
       asOf: result.endDate,
       status:
-        daysBetween(result.endDate, context.today) > DATA_API_STALE_AFTER_DAYS
+        daysBetween(result.endDate, context.today) > STALE_AFTER_DAYS
           ? "stale"
           : "live",
       definition,
@@ -232,11 +232,14 @@ function resolveMetric(
   }
 
   if (isExternalSpec(live) && context.external) {
+    const asOf =
+      context.external.asOf ?? context.external.fetchedAt.slice(0, 10);
     return {
       key,
       value: context.external.value,
-      asOf: context.external.fetchedAt.slice(0, 10),
-      status: "live",
+      asOf,
+      status:
+        daysBetween(asOf, context.today) > STALE_AFTER_DAYS ? "stale" : "live",
       definition,
     };
   }

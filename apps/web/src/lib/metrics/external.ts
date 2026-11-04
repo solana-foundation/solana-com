@@ -20,6 +20,8 @@ export type ExternalValue = {
   value: number;
   /** When the value was fetched (ISO). */
   fetchedAt: string;
+  /** The day the value describes (YYYY-MM-DD), when the source dates it. */
+  asOf?: string;
 };
 
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -72,31 +74,52 @@ export function extractDefiLlamaValue(
         return (payload as { totalAllTime?: unknown })?.totalAllTime;
       case "chain-dex-volume-30d":
         return (payload as { total30d?: unknown })?.total30d;
-      case "stablecoin-chain-supply": {
-        // The last entry is today's partial reading; use the latest complete day.
-        const startOfToday = Math.floor(now / 1000 / DAY_SECONDS) * DAY_SECONDS;
-        const tokens = (
-          payload as {
-            chainBalances?: Record<
-              string,
-              {
-                tokens?: {
-                  date: number;
-                  circulating?: { peggedUSD?: number };
-                }[];
-              }
-            >;
-          }
-        )?.chainBalances?.[spec.chain]?.tokens;
-        return tokens?.filter((entry) => entry.date < startOfToday).at(-1)
-          ?.circulating?.peggedUSD;
-      }
+      case "stablecoin-chain-supply":
+        return latestCompleteStablecoinDay(spec, payload, now)?.circulating
+          ?.peggedUSD;
     }
   })();
 
   return typeof value === "number" && Number.isFinite(value) && value > 0
     ? value
     : undefined;
+}
+
+/**
+ * The day a DefiLlama value describes, when it is not the fetch day. A
+ * stablecoin reading is for the latest complete day, which can be days old
+ * if DefiLlama stops updating.
+ */
+export function defiLlamaValueDate(
+  spec: DefiLlamaLiveSpec,
+  payload: unknown,
+  now = Date.now(),
+): string | undefined {
+  if (spec.query !== "stablecoin-chain-supply") return undefined;
+  const date = latestCompleteStablecoinDay(spec, payload, now)?.date;
+  return date === undefined
+    ? undefined
+    : new Date(date * 1000).toISOString().slice(0, 10);
+}
+
+type StablecoinDay = {
+  date: number;
+  circulating?: { peggedUSD?: number };
+};
+
+// The last entry is today's partial reading; use the latest complete day.
+function latestCompleteStablecoinDay(
+  spec: Extract<DefiLlamaLiveSpec, { query: "stablecoin-chain-supply" }>,
+  payload: unknown,
+  now: number,
+): StablecoinDay | undefined {
+  const startOfToday = Math.floor(now / 1000 / DAY_SECONDS) * DAY_SECONDS;
+  const tokens = (
+    payload as {
+      chainBalances?: Record<string, { tokens?: StablecoinDay[] }>;
+    }
+  )?.chainBalances?.[spec.chain]?.tokens;
+  return tokens?.filter((entry) => entry.date < startOfToday).at(-1);
 }
 
 async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
@@ -123,14 +146,12 @@ async function resolveExternal(spec: ExternalLiveSpec): Promise<ExternalValue> {
   const fetchedAt = new Date().toISOString();
 
   if (spec.provider === "defillama") {
-    const value = extractDefiLlamaValue(
-      spec,
-      await fetchJson(defiLlamaUrl(spec)),
-    );
+    const payload = await fetchJson(defiLlamaUrl(spec));
+    const value = extractDefiLlamaValue(spec, payload);
     if (value === undefined) {
       throw new Error(`DefiLlama returned no ${spec.query} for ${spec.slug}`);
     }
-    return { value, fetchedAt };
+    return { value, fetchedAt, asOf: defiLlamaValueDate(spec, payload) };
   }
 
   const value = positive(await resolveOther(spec));

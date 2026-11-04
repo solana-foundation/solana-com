@@ -151,6 +151,25 @@ describe("loadMetrics", () => {
     error.mockRestore();
   });
 
+  it("dates an external value by the day it describes and flags old readings", async () => {
+    const metrics = await loadMetrics(["pyusd.solana-supply"], {
+      dataApiRows: async () => [],
+      rwaStats,
+      external: async () => ({
+        value: 7e8,
+        fetchedAt: "2026-11-04T08:00:00.000Z",
+        asOf: "2026-10-30",
+      }),
+      today: () => "2026-11-04",
+    });
+
+    expect(metrics["pyusd.solana-supply"]).toMatchObject({
+      value: 7e8,
+      asOf: "2026-10-30",
+      status: "stale",
+    });
+  });
+
   it("builds one stream for every registry metric, calling each source once", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const dataApiRows = vi.fn(async () => supplyRows("2026-10-29", 15e9));

@@ -6,6 +6,7 @@ vi.mock("next/cache", () => ({
 
 import {
   defiLlamaUrl,
+  defiLlamaValueDate,
   extractDefiLlamaValue,
   extractX402Value,
 } from "@/lib/metrics/external";
@@ -94,6 +95,34 @@ describe("extractDefiLlamaValue for stablecoins", () => {
         today * 1000 + 3600_000,
       ),
     ).toBe(7.08e8);
+  });
+
+  it("dates the value by the day it describes, not the fetch day", () => {
+    const day = 24 * 60 * 60;
+    const today = Date.parse("2026-11-04T00:00:00Z") / 1000;
+    const spec = {
+      provider: "defillama",
+      query: "stablecoin-chain-supply",
+      slug: "120",
+      chain: "Solana",
+    } as const;
+    const payload = {
+      chainBalances: {
+        Solana: {
+          tokens: [
+            { date: today - 5 * day, circulating: { peggedUSD: 7.0e8 } },
+          ],
+        },
+      },
+    };
+
+    expect(defiLlamaValueDate(spec, payload, today * 1000)).toBe("2026-10-30");
+    expect(
+      defiLlamaValueDate(
+        { provider: "defillama", query: "chain-tvl", slug: "Solana" },
+        [],
+      ),
+    ).toBe(undefined);
   });
 });
 
