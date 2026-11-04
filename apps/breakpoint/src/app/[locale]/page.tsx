@@ -15,6 +15,9 @@ import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
+import LiveEventSection from "@/components/sections/live/LiveEventSection";
+import VenueMapSection from "@/components/sections/VenueMapSection";
+import { isLiveConference } from "@/content/conference-state";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { buildBreakpointJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
@@ -29,14 +32,23 @@ export default async function HomePage({
   const t = await getTranslations({ locale, namespace: "breakpoint" });
   const initialNow = Date.now();
   const jsonLd = await buildBreakpointJsonLd(locale);
+  const live = isLiveConference();
 
   return (
     <PageShell
       contentId="breakpoint-content"
-      navigation={{
-        ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: t("menu.items.register"),
-      }}
+      navigation={
+        live
+          ? {
+              ctaAlwaysVisible: true,
+              ctaHref: "/schedule",
+              ctaLabel: t("navigation.agenda"),
+            }
+          : {
+              ctaHref: GENERAL_ADMISSION_HREF,
+              ctaLabel: t("menu.items.register"),
+            }
+      }
       beforeNavigation={
         <script
           type="application/ld+json"
@@ -44,21 +56,36 @@ export default async function HomePage({
         />
       }
     >
-      <HeroSection />
-      <NarrativeSection />
-      <Marquee />
-      <TicketsSection initialNow={initialNow} />
-      <ParticipateSection />
-      <WhyAttendSection />
-      <SponsorsSection />
-      <SpeakersSection />
-      <GallerySection />
-      <StatsSection />
-      <Marquee />
-      <EventsSection />
-      <HighlightsSection />
-      <AnnouncementsSection />
-      <FAQSection />
+      {live ? (
+        <>
+          <LiveEventSection />
+          <VenueMapSection />
+          <Marquee />
+          <SponsorsSection />
+          <SpeakersSection />
+          <EventsSection />
+          <FAQSection />
+        </>
+      ) : (
+        <>
+          <HeroSection />
+          <NarrativeSection />
+          <Marquee />
+          <TicketsSection initialNow={initialNow} />
+          <ParticipateSection />
+          <WhyAttendSection />
+          <SponsorsSection />
+          <SpeakersSection />
+          <GallerySection />
+          <StatsSection />
+          <Marquee />
+          <EventsSection />
+          <HighlightsSection />
+          <AnnouncementsSection />
+          <VenueMapSection />
+          <FAQSection />
+        </>
+      )}
       <Footer />
     </PageShell>
   );

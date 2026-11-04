@@ -121,6 +121,35 @@ authority for every visual update.
 Before adding a new component, check whether one of these can be reused or
 narrowly extended.
 
+## Live Event State
+
+The home page has two editions, chosen by `CONFERENCE_STATE` in
+`src/content/conference-state.ts` (`pre` | `live` | `post`). Flipping the
+constant and merging is the release; there is no runtime toggle.
+
+- `live` renders `src/components/sections/live/LiveEventSection.tsx` (stream
+  hero plus today's sessions), the venue map, sponsors, speakers, side events
+  and FAQ. `pre` renders the marketing page with the venue map before the FAQ.
+- Today's sessions come from the agenda loader (`src/content/live/agenda.ts`)
+  and are placed on the clock by `src/lib/live-sessions.ts` in Europe/London.
+  Sessions need a `HH:mm` time and a day tab (`Day 1` = 16 Nov, `Day 2` = 17
+  Nov, `Pre-Event` = 15 Nov); rows with `TBC`/`TBD` times are skipped.
+  `/api/live-sessions` refreshes the client every two minutes and five seconds
+  before each session boundary.
+- Set the YouTube live id in `src/content/live/streams.ts`
+  (`MAIN_STAGE_STREAM.youtubeVideoId`). Until it is set the hero shows a
+  placeholder naming the next session.
+- In development, `/?now=2026-11-16T10:05:00Z` freezes the clock so the live
+  layout can be checked on any date.
+
+## Venue Map
+
+`src/components/venue/InteractiveMap.tsx` draws the Olympia floor plan from
+`src/content/venue/map-data.ts`. Positions are viewBox units (x 0–1000, y
+0–floor height) over the floor images in `public/img/venue`. To move a marker or
+add a booth, edit the data file only; icons and sponsor logos live in
+`public/img/venue/icons` and `public/img/venue/logos`.
+
 ## Validation
 
 Prefer targeted validation from the repo root:
