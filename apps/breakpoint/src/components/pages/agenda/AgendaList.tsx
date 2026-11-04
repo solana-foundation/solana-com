@@ -668,10 +668,10 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
           onKeyDown={(event) =>
             handleTabListKeyDown(event, allDays, activeDay, selectDay)
           }
-          className="flex w-full items-end justify-start overflow-x-auto md:justify-center"
+          className="container mx-auto flex w-full items-end overflow-x-auto"
         >
-          <div className="h-px w-xs shrink-0 bg-neutral-700 md:hidden" />
-          <div className="flex min-w-max items-end">
+          {/* Pull the first tab's padding back so its label lines up with the content edge. */}
+          <div className="-ml-xs flex min-w-max items-end md:-ml-m">
             {allDays.map((day) => {
               const active = day === activeDay;
               const date = dayDateLabel(day);
