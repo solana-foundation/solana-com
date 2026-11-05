@@ -203,6 +203,21 @@ export function Callout({
   );
 }
 
+/**
+ * Security guidance inline in a docs page: a shield-marked callout whose
+ * label reads "Security" or "Security: <title>".
+ */
+export function Security({ title, children }: P & { title?: string }) {
+  return (
+    <Callout icon="shield-alert" color="#e11d48" className="callout-security">
+      <span className="mb-1 block font-semibold">
+        {title ? `Security: ${title}` : "Security"}
+      </span>
+      {children}
+    </Callout>
+  );
+}
+
 // ----------------------------------------------------------------- Cards
 
 export function Card({
@@ -1319,6 +1334,7 @@ export const docsComponents = {
   Warning,
   Danger,
   Callout,
+  Security,
   Card,
   Columns,
   CardGroup,
