@@ -1,4 +1,8 @@
-import type { AgendaItem, AgendaSpeaker } from "@/content/agenda/types";
+import {
+  AGENDA_DAYS,
+  type AgendaItem,
+  type AgendaSpeaker,
+} from "@/content/agenda/types";
 import {
   asNumber,
   asString,
@@ -9,6 +13,82 @@ import {
 } from "@/lib/airtable";
 
 const LONDON_TIME_ZONE = "Europe/London";
+
+/**
+ * The agenda's "Web Publishing Status" column links to a small status table
+ * whose rows are named Time, Title, Speaker, Description and Do not publish.
+ * The events team ticks those per session as copy is approved: Title makes
+ * the session visible, and Time, Speaker and Description each release that
+ * part of it. "Do not publish" (or no status at all) hides the row. Override
+ * the table and view through env vars if the Airtable schema moves.
+ */
+const DEFAULT_PUBLISHING_STATUS_TABLE_ID = "tblHvCpfpI5CTlPDx";
+const DEFAULT_PUBLISHING_STATUS_VIEW_ID = "viwqFPlX2sI3F97Gl";
+
+/**
+ * The agenda's "Event" column (shown as the event tag in Airtable) links to
+ * the Event table. Royal Exchange sessions link to one of its track rows,
+ * named "Royal Exchange: Payments Track" and so on, which the site shows as
+ * a track pill. Main Stage sessions link to the plain "BP26" event.
+ */
+const DEFAULT_EVENT_TABLE_ID = "tblrNPTUikMJRRYsn";
+const DEFAULT_EVENT_VIEW_ID = "viwVdKtYBlP4oVdhC";
+
+/** Known track records, used when the Event table cannot be read. */
+const DEFAULT_EVENT_NAMES: Record<string, string> = {
+  rec1pxUIQz1Mf1pZB: "Royal Exchange: Founders Track",
+  rec2tfVVQVlmi1g9Q: "Royal Exchange: Allocators Track",
+  rec3801iOZbhD11fz: "Royal Exchange: Institutional Track",
+  recFme9smtZ0h7eGd: "Royal Exchange: Payments Track",
+  recOgWixYg0uEoJcS: "Royal Exchange: Consumer Track",
+};
+
+/** Known status records, used when the status table cannot be read. */
+const DEFAULT_PUBLISHING_STATUS_NAMES: Record<string, string> = {
+  recEP0WiwY2y8dx22: "Description",
+  recOn6L12BmGHDOno: "Title",
+  recRQY6k9lMzQnFk9: "Speaker",
+  recqpel3kBGWP6Xkx: "Do not publish",
+  recwtiuTWTluBFNAE: "Time",
+};
+
+const AGENDA_FIELDS = [
+  "⚙️ Session Name",
+  "Session",
+  "Description",
+  "Start Time",
+  "End Time",
+  "⚙️ Start Day",
+  "Duration",
+  "Stage",
+  "Asset Class",
+  "Format_Cleaned",
+  "Order",
+  "Sequence Ordinal",
+  "Onboarded Speakers",
+  "Moderator",
+  "Speaker Name and Company",
+  "Moderator Name and Company",
+  "Role or Title (from Onboarded Speakers)",
+  "Role or Title (from Moderator)",
+  "Confirmed Speakers Full Name",
+  "Confirmed Moderator Full Name",
+  "Web Publishing Status",
+  "Event",
+] as const;
+
+/** Internal scheduling tags that are not asset classes attendees care about. */
+const HIDDEN_ASSET_CLASSES = new Set(["anchor", "break", "open"]);
+
+export type PublishingFlags = {
+  description: boolean;
+  doNotPublish: boolean;
+  speakers: boolean;
+  time: boolean;
+  title: boolean;
+};
+
+type StatusNames = Record<string, string>;
 
 function isLinkedRecordId(value: string) {
   return /^rec[a-z0-9]{14,}$/i.test(value);
@@ -27,14 +107,17 @@ function asDisplayString(value: unknown): string | undefined {
   return parts.length > 0 ? parts.join(", ") : undefined;
 }
 
+/**
+ * Airtable lookups arrive as arrays with one entry per linked record, so each
+ * entry is kept whole even when it contains a comma ("Mitsui & Co., Ltd").
+ * Formula fields arrive as one comma-joined string and are split on request.
+ */
 function asStringList(
   value: unknown,
   splitCommas = false,
 ): string[] | undefined {
   if (Array.isArray(value)) {
-    const values = value.flatMap(
-      (item) => asStringList(item, splitCommas) ?? [],
-    );
+    const values = value.flatMap((item) => asStringList(item, false) ?? []);
     return values.length > 0 ? values : undefined;
   }
 
@@ -103,18 +186,16 @@ function normalizeDayValue(value: unknown): string | undefined {
   const normalized = text.toLowerCase().trim();
   if (normalized.includes("pre")) return "Pre-Event";
 
-  const dayMatch = normalized.match(/\bday\s*([123])\b/);
+  const dayMatch = normalized.match(/^day\s*([123])$/);
   if (dayMatch) return `Day ${dayMatch[1]}`;
 
   if (/^[123]$/.test(normalized)) return `Day ${normalized}`;
 
   const key = dateKey(text);
-  if (key === "2026-11-14") return "Pre-Event";
-  if (key === "2026-11-15") return "Day 1";
-  if (key === "2026-11-16") return "Day 2";
-  if (key === "2026-11-17") return "Day 3";
+  const day = AGENDA_DAYS.find((candidate) => candidate.date === key);
+  if (day) return day.key;
 
-  return text;
+  return key ? undefined : text;
 }
 
 function minutesFromClock(value: string | undefined): number | undefined {
@@ -126,7 +207,7 @@ function minutesFromClock(value: string | undefined): number | undefined {
 }
 
 function formatDurationMinutes(minutes: number): string {
-  if (minutes < 60) return `${minutes} min.`;
+  if (minutes < 60) return `${minutes} min`;
 
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
@@ -191,17 +272,44 @@ function parseSpeakerText(
   return { name: cleanValue };
 }
 
+function buildPeople(
+  names: string[],
+  companies: string[],
+  titles: string[],
+  ids: string[],
+  isModerator: boolean,
+): AgendaSpeaker[] {
+  const alignedIds = ids.length === names.length ? ids : [];
+
+  return names.map((name, index) => {
+    const parsed = parseSpeakerText(name);
+    const title =
+      titles[index]?.trim() || (isModerator ? "Moderator" : undefined);
+
+    return {
+      company:
+        parsed.company ??
+        companies[index] ??
+        (names.length === 1 ? companies[0] : undefined),
+      id: alignedIds[index],
+      ...(isModerator ? { isModerator } : {}),
+      name: parsed.name,
+      title,
+    };
+  });
+}
+
 function buildSpeakers(fields: Record<string, unknown>): AgendaSpeaker[] {
-  const names = fieldList(
+  const speakerNames = fieldList(
     fields,
     [
+      "Speaker Name and Company",
       "Confirmed Speakers Full Name",
       "Confirmed Speakers Full Name (Formatted)",
       "Confirmed Speakers Full Name (Luma)",
       "Confirmed Speakers, Concise (Luma)",
       "Speakers and Moderators, Concise (Luma)",
       "Speakers and Moderators (Luma)",
-      "Speaker Name and Company",
       "Speaker Names",
       "Speaker Name",
       "Presenters",
@@ -214,76 +322,99 @@ function buildSpeakers(fields: Record<string, unknown>): AgendaSpeaker[] {
     true,
   ).filter((name) => !isLinkedRecordId(name));
 
-  const companies = fieldList(fields, [
-    "Speaker Companies",
-    "Speaker Company",
-    "Companies",
-    "Company",
-    "Organizations",
-    "Organization",
-    "Organisation",
-  ]);
-
-  const titles = fieldList(fields, [
-    "Speaker Titles",
-    "Speaker Title",
-    "Speaker Roles",
-    "Speaker Role",
-    "Speaker Job Titles",
-    "Speaker Job Title",
-    "Role or Title (from Onboarded Speakers)",
-    "Speaker Role Lookup",
-    "Roles",
-  ]);
-
-  const speakers = names.map((name, index) => {
-    const parsed = parseSpeakerText(name);
-
-    return {
-      company:
-        parsed.company ??
-        companies[index] ??
-        (names.length === 1 ? companies[0] : undefined),
-      name: parsed.name,
-      title: titles[index],
-    };
-  });
+  const speakers = buildPeople(
+    speakerNames,
+    fieldList(fields, [
+      "Speaker Companies",
+      "Speaker Company",
+      "Companies",
+      "Company",
+      "Organizations",
+      "Organization",
+      "Organisation",
+    ]),
+    fieldList(fields, [
+      "Role or Title (from Onboarded Speakers)",
+      "Speaker Titles",
+      "Speaker Title",
+      "Speaker Roles",
+      "Speaker Role",
+      "Speaker Job Titles",
+      "Speaker Job Title",
+      "Speaker Role Lookup",
+      "Roles",
+    ]),
+    fieldList(fields, ["Onboarded Speakers"]).filter(isLinkedRecordId),
+    false,
+  );
 
   const moderatorNames = fieldList(
     fields,
-    ["Moderator Names", "Moderator Name", "Moderator", "Moderators"],
+    [
+      "Moderator Name and Company",
+      "Confirmed Moderator Full Name",
+      "Moderator Names",
+      "Moderator Name",
+      "Moderators",
+    ],
     true,
   ).filter((name) => !isLinkedRecordId(name));
 
-  const moderatorCompanies = fieldList(fields, [
-    "Moderator Companies",
-    "Moderator Company",
-  ]);
-
-  const moderatorTitles = fieldList(fields, [
-    "Moderator Titles",
-    "Moderator Title",
-    "Moderator Roles",
-    "Moderator Role",
-  ]);
-
-  for (const [index, name] of moderatorNames.entries()) {
-    const parsed = parseSpeakerText(name);
-    if (speakers.some((speaker) => speaker.name === parsed.name)) continue;
-    speakers.unshift({
-      company: parsed.company ?? moderatorCompanies[index],
-      name: parsed.name,
-      title: moderatorTitles[index] ?? "Moderator",
-    });
-  }
+  const moderators = buildPeople(
+    moderatorNames,
+    fieldList(fields, ["Moderator Companies", "Moderator Company"]),
+    fieldList(fields, [
+      "Role or Title (from Moderator)",
+      "Moderator Titles",
+      "Moderator Title",
+      "Moderator Roles",
+      "Moderator Role",
+    ]),
+    fieldList(fields, ["Moderator"]).filter(isLinkedRecordId),
+    true,
+  );
 
   const deduped = new Map<string, AgendaSpeaker>();
-  for (const speaker of speakers) {
-    const key = `${speaker.name}-${speaker.company ?? ""}`;
-    if (!deduped.has(key)) deduped.set(key, speaker);
+  for (const person of [...speakers, ...moderators]) {
+    const key = `${person.name}-${person.company ?? ""}`;
+    if (!deduped.has(key)) deduped.set(key, person);
   }
 
   return [...deduped.values()];
+}
+
+function buildAssetClasses(fields: Record<string, unknown>): string[] {
+  return fieldList(fields, [
+    "Asset Class",
+    "Asset Classes",
+    "Asset Type",
+    "Track",
+    "Theme",
+  ]).filter((value) => !HIDDEN_ASSET_CLASSES.has(value.toLowerCase()));
+}
+
+/** Scheduling formats that read awkwardly as a public session type. */
+const FORMAT_LABELS: Record<string, string> = {
+  "day 1 open": "Welcome",
+  "open/close": "Remarks",
+};
+
+/**
+ * "Royal Exchange Stage" reads as "Royal Exchange" in the stage tabs and the
+ * meta line, where "Stage" is already implied. One-word names such as
+ * "Main Stage" keep the word.
+ */
+function displayStageName(stage: string | undefined) {
+  if (!stage) return stage;
+  const trimmed = stage.replace(/\s+stage$/i, "").trim();
+  return trimmed.split(/\s+/).length >= 2 ? trimmed : stage;
+}
+
+/** "Royal Exchange Keynote" reads as "Keynote" once the stage is shown beside it. */
+function normalizeFormat(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const stripped = value.replace(/^royal exchange\s+/i, "").trim() || value;
+  return FORMAT_LABELS[stripped.toLowerCase()] ?? stripped;
 }
 
 function normalizeVariant(
@@ -296,27 +427,84 @@ function normalizeVariant(
     ["Variant", "Display Type", "Display", "Kind", "Type Override"],
     asDisplayString,
   );
-  const normalized = `${value ?? ""} ${tag ?? ""} ${title}`.toLowerCase();
+  // Whole words only: "Breakpoint 2027 Announcement" is a session, "Break" is not.
+  const isBreak = /\b(break|lunch)\b/i.test(
+    `${value ?? ""} ${tag ?? ""} ${title}`,
+  );
 
-  if (
-    normalized.includes("break") ||
-    normalized.includes("lunch") ||
-    normalized.includes("closing")
-  ) {
-    return "static";
-  }
-
-  return "session";
+  return isBreak ? "static" : "session";
 }
 
-function normalizeAgendaRecord(
+/**
+ * The Royal Exchange track a session belongs to ("Payments", "Consumer"...),
+ * read from its linked Event row. Anything that is not a "Royal Exchange: X
+ * Track" event, such as the Main Stage's "BP26", yields no track.
+ */
+export function readTrack(
+  fields: Record<string, unknown>,
+  linkedNames: StatusNames = DEFAULT_EVENT_NAMES,
+): string | undefined {
+  for (const value of fieldList(fields, ["Event", "Event Tag", "Track"])) {
+    const name = linkedNames[value] ?? DEFAULT_EVENT_NAMES[value] ?? value;
+    const match = name.match(/^royal exchange\s*:\s*(.+?)\s+track$/i);
+    if (match?.[1]) return match[1].trim();
+  }
+  return undefined;
+}
+
+/** "Payments Track: Sphere" reads as "Sphere" once the track pill carries the label. */
+function stripTrackPrefix(title: string, track: string | undefined) {
+  if (!track) return title;
+  const escaped = track.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const prefix = new RegExp(`^\\s*${escaped}\\s+track\\s*[:\\-–—]\\s*`, "i");
+  const stripped = title.replace(prefix, "").trim();
+  return stripped || title;
+}
+
+export function readPublishingFlags(
+  fields: Record<string, unknown>,
+  statusNames: StatusNames = DEFAULT_PUBLISHING_STATUS_NAMES,
+): PublishingFlags | null {
+  const raw = fieldList(fields, [
+    "Web Publishing Status",
+    "Publishing Status",
+    "Web Status",
+  ]);
+  if (raw.length === 0) return null;
+
+  // A linked status we cannot name might be "Do not publish", so treat the
+  // row as unreviewed rather than guess.
+  const unresolved = raw.some(
+    (value) => isLinkedRecordId(value) && !(value in statusNames),
+  );
+  const names = raw.map((value) =>
+    (statusNames[value] ?? value).trim().toLowerCase(),
+  );
+  const has = (needle: string) => names.some((name) => name.includes(needle));
+
+  return {
+    description: has("description"),
+    doNotPublish: unresolved || has("do not publish") || has("unpublish"),
+    speakers: has("speaker"),
+    time: has("time"),
+    title: has("title"),
+  };
+}
+
+export function normalizeAgendaRecord(
   record: AirtableRecord,
   index: number,
+  statusNames: StatusNames = DEFAULT_PUBLISHING_STATUS_NAMES,
 ): AgendaItem | null {
   const fields = record.fields ?? {};
   if (!isPublished(fields)) return null;
 
-  const title = getField(
+  // A session with no publishing status has not been reviewed for the web.
+  const flags = readPublishingFlags(fields, statusNames);
+  if (!flags || flags.doNotPublish || !flags.title) return null;
+
+  const track = readTrack(fields, statusNames);
+  const rawTitle = getField(
     fields,
     [
       "Title",
@@ -332,27 +520,28 @@ function normalizeAgendaRecord(
     ],
     asDisplayString,
   );
+  const title = stripTrackPrefix(rawTitle ?? "", track);
   if (!title) return null;
 
   const day =
     getField(
       fields,
       [
-        "Day - Format",
         "Day",
         "Agenda Day",
         "Event Day",
         "Schedule Day",
         "Tab",
+        "⚙️ Start Day",
+        "Start Time",
         "Date",
         "Start Day (Friendly Format)_New",
         "Start Day (Friendly Format)",
-        "⚙️ Start Day",
       ],
       normalizeDayValue,
     ) ?? "Day 1";
 
-  const time = getField(
+  const startTime = getField(
     fields,
     ["Start Time", "Start", "Time", "Start time", "Begins", "Start Date"],
     formatClockText,
@@ -367,40 +556,9 @@ function normalizeAgendaRecord(
       fields,
       ["Duration", "Length", "Session Duration", "Minutes"],
       asDuration,
-    ) ?? durationFromTimes(time, endTime);
-  const tag = getField(
-    fields,
-    [
-      "Tag",
-      "Format_Cleaned",
-      "Format Cleaned",
-      "Format",
-      "Session Format",
-      "Session Type",
-      "Event Type",
-      "Type",
-      "Category",
-    ],
-    asDisplayString,
-  );
-  const sortOrder =
+    ) ?? durationFromTimes(startTime, endTime);
+  const format = normalizeFormat(
     getField(
-      fields,
-      ["Sort Order", "sortOrder", "Order", "order", "Priority", "priority"],
-      asNumber,
-    ) ??
-    minutesFromClock(time) ??
-    index;
-
-  return {
-    day,
-    description: getField(
-      fields,
-      ["Description", "Session Description", "Abstract", "Details", "Overview"],
-      asDisplayString,
-    ),
-    duration,
-    format: getField(
       fields,
       [
         "Format_Cleaned",
@@ -408,52 +566,158 @@ function normalizeAgendaRecord(
         "Format",
         "Session Format",
         "Session Type",
+        "Tag",
+        "Event Type",
+        "Type",
+        "Category",
       ],
       asDisplayString,
     ),
-    id: record.id,
-    location: getField(
+  );
+  const sortOrder =
+    getField(
       fields,
-      ["Location", "Room", "Stage", "Venue", "Track"],
-      asDisplayString,
+      ["Sort Order", "sortOrder", "Order", "order", "Priority", "priority"],
+      asNumber,
+    ) ??
+    minutesFromClock(startTime) ??
+    index;
+
+  const speakers = flags.speakers ? buildSpeakers(fields) : [];
+  const speakerIds = flags.speakers
+    ? [
+        ...new Set(
+          [
+            ...fieldList(fields, ["Onboarded Speakers"]),
+            ...fieldList(fields, ["Moderator"]),
+            ...speakers.map((speaker) => speaker.id ?? ""),
+          ].filter(isLinkedRecordId),
+        ),
+      ]
+    : [];
+
+  return {
+    assetClasses: buildAssetClasses(fields),
+    day,
+    description: flags.description
+      ? getField(
+          fields,
+          [
+            "Description",
+            "Session Description",
+            "Abstract",
+            "Details",
+            "Overview",
+          ],
+          asDisplayString,
+        )
+      : undefined,
+    duration,
+    format,
+    id: record.id,
+    location: displayStageName(
+      getField(
+        fields,
+        ["Stage", "Location", "Room", "Venue", "Track"],
+        asDisplayString,
+      ),
     ),
     sortOrder,
-    speakerIds: [
-      ...fieldList(fields, ["Onboarded Speakers"]),
-      ...fieldList(fields, ["Moderator"]),
-    ].filter(isLinkedRecordId),
-    speakers: buildSpeakers(fields),
-    tag,
-    time: time ?? "TBD",
+    speakerIds,
+    speakers,
+    tag: format,
+    time: flags.time ? (startTime ?? "TBC") : "TBC",
     title,
-    variant: normalizeVariant(fields, title, tag),
+    track,
+    variant: normalizeVariant(fields, title, format),
   };
 }
 
 function daySortValue(day: string) {
-  const normalized = day.toLowerCase();
-  if (normalized.includes("pre")) return 0;
-  const match = normalized.match(/\b([123])\b/);
-  if (match) return Number(match[1]);
-  return 99;
+  const index = AGENDA_DAYS.findIndex((candidate) => candidate.key === day);
+  return index === -1 ? AGENDA_DAYS.length : index;
+}
+
+async function fetchPublishingStatusNames(): Promise<StatusNames> {
+  const records = await getAirtableRecords({
+    baseId: process.env.AIRTABLE_BASE_ID_AGENDA,
+    cacheKey: "breakpoint-agenda-publishing-status",
+    cacheTag: "breakpoint-agenda",
+    fields: ["Web Status"],
+    label: "Breakpoint agenda publishing status",
+    tableId:
+      process.env.AIRTABLE_TABLE_ID_AGENDA_PUBLISHING_STATUS ||
+      DEFAULT_PUBLISHING_STATUS_TABLE_ID,
+    token: process.env.AIRTABLE_PAT,
+    viewId:
+      process.env.AIRTABLE_VIEW_ID_AGENDA_PUBLISHING_STATUS ||
+      DEFAULT_PUBLISHING_STATUS_VIEW_ID,
+  });
+
+  const names: StatusNames = {};
+  for (const record of records ?? []) {
+    const name = getField(
+      record.fields ?? {},
+      ["Web Status", "Status", "Name"],
+      asString,
+    );
+    if (name) names[record.id] = name;
+  }
+
+  // Known ids stay as a floor so a trimmed view cannot drop "Do not publish".
+  return { ...DEFAULT_PUBLISHING_STATUS_NAMES, ...names };
+}
+
+/** Names of the linked Event rows, so a session's track can be read. */
+async function fetchEventNames(): Promise<StatusNames> {
+  const records = await getAirtableRecords({
+    baseId: process.env.AIRTABLE_BASE_ID_AGENDA,
+    cacheKey: "breakpoint-agenda-events",
+    cacheTag: "breakpoint-agenda",
+    fields: ["Event Name"],
+    label: "Breakpoint agenda events",
+    tableId:
+      process.env.AIRTABLE_TABLE_ID_AGENDA_EVENTS || DEFAULT_EVENT_TABLE_ID,
+    token: process.env.AIRTABLE_PAT,
+    viewId: process.env.AIRTABLE_VIEW_ID_AGENDA_EVENTS || DEFAULT_EVENT_VIEW_ID,
+  });
+
+  const names: StatusNames = {};
+  for (const record of records ?? []) {
+    const name = getField(
+      record.fields ?? {},
+      ["Event Name", "Name"],
+      asString,
+    );
+    if (name) names[record.id] = name;
+  }
+
+  return { ...DEFAULT_EVENT_NAMES, ...names };
 }
 
 async function fetchAirtableAgenda(): Promise<AgendaItem[] | null> {
-  const records = await getAirtableRecords({
-    baseId: process.env.AIRTABLE_BASE_ID_AGENDA,
-    cacheKey: "breakpoint-agenda",
-    cacheTag: "breakpoint-agenda",
-    label: "Breakpoint agenda",
-    tableId: process.env.AIRTABLE_TABLE_ID_AGENDA,
-    token: process.env.AIRTABLE_PAT,
-    viewId: process.env.AIRTABLE_VIEW_ID_AGENDA,
-  });
+  const [records, statusNames, eventNames] = await Promise.all([
+    getAirtableRecords({
+      baseId: process.env.AIRTABLE_BASE_ID_AGENDA,
+      cacheKey: "breakpoint-agenda",
+      cacheTag: "breakpoint-agenda",
+      fields: [...AGENDA_FIELDS],
+      label: "Breakpoint agenda",
+      tableId: process.env.AIRTABLE_TABLE_ID_AGENDA,
+      token: process.env.AIRTABLE_PAT,
+      viewId: process.env.AIRTABLE_VIEW_ID_AGENDA,
+    }),
+    fetchPublishingStatusNames(),
+    fetchEventNames(),
+  ]);
 
   if (!records) return null;
 
+  // One lookup covers both linked tables; Airtable record ids never collide.
+  const linkedNames = { ...eventNames, ...statusNames };
   const agenda: AgendaItem[] = [];
   for (const [recordIndex, record] of records.entries()) {
-    const item = normalizeAgendaRecord(record, recordIndex);
+    const item = normalizeAgendaRecord(record, recordIndex, linkedNames);
     if (item) agenda.push(item);
   }
 
