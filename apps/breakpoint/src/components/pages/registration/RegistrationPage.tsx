@@ -32,11 +32,6 @@ const ticketSeeds = [
     tone: "featured",
   },
   {
-    id: "lateBird",
-    price: "$800",
-    tone: "disabled",
-  },
-  {
     id: "developers",
     price: "$250",
     href: DEVELOPER_APPLICATION_HREF,
@@ -64,7 +59,7 @@ type RegistrationTicketSeed = {
   originalPrice?: string;
   price: string;
   priceAfterIncrease?: string;
-  tone: "disabled" | "featured" | "standard";
+  tone: "featured" | "standard";
 };
 
 type RegistrationTicket = RegistrationTicketSeed & {
@@ -93,15 +88,12 @@ function RegistrationTicketCard({
   ticket: RegistrationTicket;
 }) {
   const isFeatured = ticket.tone === "featured";
-  const isDisabled = ticket.tone === "disabled";
 
   const cardClasses = isFeatured
     ? "bg-purple text-black"
-    : isDisabled
-      ? "border border-neutral-700 bg-black text-white"
-      : "bg-background-secondary text-white";
+    : "bg-background-secondary text-white";
 
-  const buttonTone = isFeatured ? "dark" : isDisabled ? "muted" : "light";
+  const buttonTone = isFeatured ? "dark" : "light";
 
   return (
     <article
@@ -134,7 +126,6 @@ function RegistrationTicketCard({
           )}
         </p>
         <RegistrationTicketButton
-          disabled={isDisabled}
           href={ticket.href}
           label={ticket.ctaLabel}
           tone={buttonTone}
@@ -158,7 +149,7 @@ function TicketsGrid({
           className="self-center"
           initialNow={initialNow}
         />
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {tickets.map((ticket) => (
             <RegistrationTicketCard
               key={ticket.id}
