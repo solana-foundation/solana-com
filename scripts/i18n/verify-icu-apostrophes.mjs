@@ -12,7 +12,9 @@ import { fileURLToPath } from "node:url";
 // the apostrophe and renders the tag literally, and an apostrophe before a
 // closing tag fails with UNCLOSED_TAG. The typographic apostrophe is not an
 // ICU quote character and reads correctly in every supported language.
-export const asciiApostropheBeforeTag = /'(?=<\/?[a-zA-Z])/g;
+// A doubled apostrophe ('') is ICU's escape for a literal one and renders
+// correctly, so it is left alone.
+export const asciiApostropheBeforeTag = /(?<!')'(?=<\/?[a-zA-Z])/g;
 export const typographicApostrophe = "’";
 
 export function fixApostrophesBeforeTags(text) {

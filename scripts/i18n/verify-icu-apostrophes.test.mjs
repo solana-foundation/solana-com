@@ -37,6 +37,7 @@ test("finds ASCII apostrophes directly before opening and closing ICU tags", () 
     fine: {
       typographic: "Agents d\u2019<colored>IA</colored>",
       plainApostrophe: "l'impact de <colored>Solana</colored>",
+      icuEscaped: "Agents d''<colored>IA</colored>",
       notATag: "x' < y",
       number: 3,
       empty: null,
@@ -68,6 +69,11 @@ test("replaces only the apostrophe before the tag with the typographic one", () 
   assert.equal(
     fixApostrophesBeforeTags(broken["enterpriseFaq.items.q3.a"]),
     "tramite un\u2019<t1>allowlist</t1> (es. solo conti)",
+  );
+  // ICU's doubled apostrophe already renders as one literal apostrophe.
+  assert.equal(
+    fixApostrophesBeforeTags("Agents d''<colored>IA</colored>"),
+    "Agents d''<colored>IA</colored>",
   );
   for (const value of Object.values(broken)) {
     assert.deepEqual(
