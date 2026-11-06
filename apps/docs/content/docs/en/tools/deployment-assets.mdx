@@ -1,0 +1,131 @@
+---
+title: Deployment assets
+description: Preparing your program build for deployment to Mainnet
+---
+
+Ensure you have the following before deploying your application to Mainnet:
+
+- The program ELF file - typically the result of an `anchor build` or
+  `cargo-build-sbf` that ends in `.so`
+- The program keypair - A JSON file containing an array of integers
+
+In this section, we will describe where to find these assets and how to prepare
+them.
+
+## Preparing your ELF file
+
+The ELF file contains the compiled bytecode, memory layout information, and
+metadata required for the Solana virtual machine (SVM) to understand how to load
+and run your program. The ELF file is created when your source code is compiled.
+
+To create your ELF file, you can run the following command for Anchor:
+
+```bash
+anchor build
+```
+
+or the following for other frameworks:
+
+```bash
+cargo build-sbf
+```
+
+You can then find your ELF file in a directory like
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Your program is ready when the ELF file is compiled to
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). To
+check your program, you can run the following command:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+If you see output like the following, your program is ready:
+
+```
+  Flags:                             0x3
+```
+
+If not, follow the migration guide linked
+[here](https://solana.com/upgrades/sbpfv3-programs).
+
+## Preparing your program address
+
+Your program address is the program ID you will use to invoke your program
+instructions. You can either 1) use the program keypair generated during the
+build, 2) grind a new keypair whose address starts with a custom prefix, or 3)
+derive an account address from a base address and seed. The first two options
+produce a keypair that can sign for the program account. An account created with
+a seed does not have its own private key; the base account controls it.
+
+### Use the generated keypair
+
+By default, `anchor build` and `cargo build-sbf` place the program keypair at:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Back up this file before cleaning the build directory. Anyone with access to the
+keypair can sign as the program account, so do not commit it to source control.
+
+### Grind a keypair with a custom prefix
+
+Use [`vanity`](https://github.com/cavemanloverboy/vanity) to search for an
+Ed25519 keypair whose public key starts with a specific base58 prefix. Install
+the CPU version from crates.io:
+
+```bash
+cargo install vanity
+```
+
+The project also provides CUDA, Metal, and OpenCL builds for GPU-accelerated
+searches. See the `vanity` installation instructions for the requirements of
+each backend.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+When it finds a match, `vanity` prints the public key, the private seed in hex,
+and a Solana-compatible keypair JSON array. Save the JSON file in a safe
+location, then confirm that it contains the expected public key:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Treat the command output and the saved JSON file as private key material.
+
+### Create an account with a seed
+
+For a faster search, `vanity grind` searches seed strings for
+`CreateAccountWithSeed` instead of generating Ed25519 keypairs. Provide the
+public key of the base account that will authorize creation, the account owner,
+and the prefix to search for. For an upgradeable program account, use the
+upgradeable BPF loader as the owner:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+The result includes the derived address and a seed string. Verify them before
+creating the account:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Use the same base address, seed, and owner to derive the address with
+`Pubkey::create_with_seed`, then submit a System Program
+`create_account_with_seed` instruction. The base account and funding account
+must sign the transaction. Because the derived account has no standalone
+keypair, this option requires an account-creation and deployment flow that uses
+the base account rather than a program keypair file.
