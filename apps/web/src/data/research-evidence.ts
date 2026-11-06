@@ -19,6 +19,11 @@ export const RESEARCH_SOURCES = {
     date: "September 2026",
     href: "https://solana.com/news/slot-time-reduction-effects",
   },
+  validatorData: {
+    title: "Solana Validator Analytics",
+    date: "November 2026",
+    href: "https://www.validators.app",
+  },
 } as const;
 
 // Each figure is a registry key (src/data/metrics), which holds its value,

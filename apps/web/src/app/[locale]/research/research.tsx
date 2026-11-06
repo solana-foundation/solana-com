@@ -183,7 +183,7 @@ export function ResearchPage({ translations: t, metrics }: ResearchPageProps) {
       id: "validator",
       title: t.validatorHeadline,
       body: t.validatorBody,
-      report: RESEARCH_SOURCES.networkHealth,
+      report: RESEARCH_SOURCES.validatorData,
       metrics: RESEARCH_METRICS.validator,
       cards: translatedCards(
         VALIDATOR_CARD_DECK.cards.filter((card) => card.id !== "blockZero"),
