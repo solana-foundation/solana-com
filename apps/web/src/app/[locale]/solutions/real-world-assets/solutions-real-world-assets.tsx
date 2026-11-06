@@ -26,46 +26,45 @@ import {
   TokenIcon,
 } from "@solana-com/ui-chrome/icons";
 import { useState } from "react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import type { NewsItem } from "@/components/solutions/latest-news.v2";
-import type { RwaStats } from "@/lib/tokens/rwa-stats";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
 type SolutionsRealWorldAssetsPageProps = {
   news: NewsItem[];
-  stats: RwaStats;
+  heroMetrics: DisplayMetric[];
+  /** Registry figures for PROJECTS, in the same order. */
+  projectMetrics: { stat?: DisplayMetric; description?: DisplayMetric }[];
 };
 
 export function SolutionsRealWorldAssetsPage({
   news,
-  stats,
+  heroMetrics,
+  projectMetrics,
 }: SolutionsRealWorldAssetsPageProps) {
   const t = useTranslations();
-  const format = useFormatter();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
-  // Hero figures are sourced live from RWA.xyz (see fetchRwaStats) and cached
-  // server-side, so the app refreshes periodically without calling the API on
-  // every page request. The 24/7 anchor is static.
-  const formatCompactUsd = (value: number) =>
-    `$${format.number(value, {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    })}`;
-
+  // Hero figures come from the metrics registry: live RWA.xyz totals cached
+  // server-side, or the dated registry snapshot if RWA.xyz is unavailable.
+  // The 24/7 anchor is static.
   const heroStats: SolutionHeroStat[] = [
     {
-      value: formatCompactUsd(stats.totalValueUSD),
+      value: heroMetrics[0].value,
       label: t("real-world-assets-solution.hero.stats.0.label"),
+      source: heroMetrics[0].source,
       Icon: CoinsIcon,
     },
     {
-      value: format.number(stats.totalAssets),
+      value: heroMetrics[1].value,
       label: t("real-world-assets-solution.hero.stats.1.label"),
+      source: heroMetrics[1].source,
       Icon: TokenIcon,
     },
     {
-      value: formatCompactUsd(stats.volume24hUSD),
+      value: heroMetrics[2].value,
       label: t("real-world-assets-solution.hero.stats.2.label"),
+      source: heroMetrics[2].source,
       Icon: ChartIcon,
     },
     {
@@ -133,7 +132,17 @@ export function SolutionsRealWorldAssetsPage({
             light: (chunks) => <span className="font-light">{chunks}</span>,
             br: () => <br />,
           })}
-          projects={PROJECTS}
+          projects={PROJECTS.map((project, index) => {
+            const { stat, description } = projectMetrics[index];
+            return {
+              ...project,
+              statValue: stat?.value,
+              descriptionValues: description && {
+                buidlValue: description.value,
+              },
+              source: stat?.source ?? description?.source,
+            };
+          })}
           translationBase="real-world-assets-solution.projects"
           logos={LOGOS}
           controlsAlign="right"

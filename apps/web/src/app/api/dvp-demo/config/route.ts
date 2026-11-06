@@ -28,11 +28,9 @@ export async function GET() {
       },
     });
   } catch (error) {
+    console.error("dvp-demo config failed:", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Demo is not configured",
-      },
+      { error: "Demo is not configured" },
       { status: 503 },
     );
   }

@@ -1,25 +1,32 @@
 import { VideoBadge } from "@/components/solutions/video-grid.v2";
 import { getCompanyLogoSrc } from "@workspace/ecosystem-data";
 import { Formats, TranslationValues } from "next-intl";
+import type { MetricKey } from "@/lib/metrics/registry";
 
-export const PROJECTS = [
+/**
+ * Cards with `metric` show that registry figure. The others show a qualitative
+ * claim (`statValue`) audited in claims/prose.json with its source and date.
+ */
+export const PROJECTS: {
+  src: string;
+  key: string;
+  href: string;
+  metric?: MetricKey;
+  statValue?: string;
+  statSource?: string;
+  statSourceNote?: string;
+}[] = [
   {
     src: getCompanyLogoSrc("morgan-stanley") ?? "",
     key: "morganStanley",
     href: "https://www.morganstanley.com/im/en-us/individual-investor/insights/press-release/msim-files-initial-registration-statements-for-two-cryptocurrency-etps.html",
-    statValue: "$1.9T",
-    statSource:
-      "https://www.morganstanley.com/content/dam/msdotcom/en/about-us-2026ams/2026_Shareholder_Letter.pdf",
-    statSourceNote: "2025-12-31",
+    metric: "institutions.morgan-stanley-im-aum",
   },
   {
     src: getCompanyLogoSrc("jpmorgan") ?? "",
     key: "jpmorgan",
     href: "https://www.jpmorgan.com/about-us/corporate-news/2025/jpmorgan-commercial-paper-issuance-solana-blockchain",
-    statValue: "$50M",
-    statSource:
-      "https://news.bloomberglaw.com/crypto/jpmorgan-uses-solana-blockchain-for-galaxys-dollar-note-deal",
-    statSourceNote: "2025-12-11",
+    metric: "institutions.jpmorgan-galaxy-cp-issuance",
   },
   {
     src: getCompanyLogoSrc("citi") ?? "",
@@ -36,15 +43,13 @@ export const PROJECTS = [
     href: "https://www.sgforge.com/societe-generale-forge-solana-network/",
     statValue: "1:1",
     statSource: "https://www.sgforge.com/product/coinvertible/",
+    statSourceNote: "2026-09-27",
   },
   {
     src: getCompanyLogoSrc("state-street") ?? "",
     key: "stateStreet",
     href: "https://investors.statestreet.com/investor-news-events/press-releases/news-details/2025/State-Street-Investment-Management-and-Galaxy-Digital-Partner-to-Tokenize-Private-Liquidity-Fund-With-Planned-Seed-Investment-from-Ondo/default.aspx",
-    statValue: "$50T+",
-    statSource:
-      "https://www.statestreet.com/web/about/our-story/annual-report/documents/2026-proxy-statement.pdf",
-    statSourceNote: "2025-12-31",
+    metric: "institutions.state-street-auca",
   },
 ];
 

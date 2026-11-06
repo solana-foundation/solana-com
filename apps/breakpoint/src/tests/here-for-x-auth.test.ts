@@ -6,13 +6,19 @@ import {
   safeReturnPath,
   sealXState,
   openXState,
+  openXConfirm,
+  sealXConfirm,
+  stripAutoSave,
   compactReturnPath,
   startXSignIn,
+  xNonceCookie,
   xSessionCookie,
   readXSession,
   finishXSignIn,
 } from "@/lib/here-for/x-auth";
 import { GET as callback } from "@/app/api/here-for/x/callback/route";
+import { GET as login } from "@/app/api/here-for/x/login/route";
+import { POST as confirm } from "@/app/api/here-for/x/confirm/route";
 import { POST as logout } from "@/app/api/here-for/x/logout/route";
 
 const mocks = vi.hoisted(() => ({
@@ -113,25 +119,136 @@ describe("here-for X auth", () => {
     expect(String(revoke?.[1]?.body)).toContain("token=access");
   });
 
-  it("completes sign-in from a browser that never saw the login", async () => {
+  const callbackUrl = "https://solana.com/breakpoint/api/here-for/x/callback";
+
+  it("signs in the browser that started sign-in when its nonce matches", async () => {
     vi.stubEnv("X_CLIENT_ID", "client");
-    vi.stubEnv(
-      "X_OAUTH_CALLBACK_URL",
-      "https://solana.com/breakpoint/api/here-for/x/callback",
-    );
+    vi.stubEnv("X_OAUTH_CALLBACK_URL", callbackUrl);
     xResponses();
-    const state = sealXState("verifier", returnTo);
-    const response = await callback(
+    const started = await login(
       new NextRequest(
-        `https://solana.com/breakpoint/api/here-for/x/callback?code=c&state=${state}`,
+        `https://solana.com/breakpoint/api/here-for/x/login?return=${encodeURIComponent(returnTo)}`,
       ),
+    );
+    const nonce = started.cookies.get(xNonceCookie.name)?.value;
+    expect(nonce).toMatch(/^[A-Za-z0-9_-]{20,}$/);
+    expect(started.cookies.get(xNonceCookie.name)?.httpOnly).toBe(true);
+    const state = new URL(started.headers.get("location")!).searchParams.get(
+      "state",
+    );
+    expect(openXState(state)?.nonce).toBe(nonce);
+    const response = await callback(
+      new NextRequest(`${callbackUrl}?code=c&state=${state}`, {
+        headers: { cookie: `${xNonceCookie.name}=${nonce}` },
+      }),
     );
     expect(response.headers.get("location")).toBe(
       `https://solana.com${returnTo}`,
     );
-    expect(response.headers.get("set-cookie")).toContain("here_for_x=");
+    const cookies = response.headers.get("set-cookie") ?? "";
+    expect(cookies).toContain("here_for_x=");
     // Only a finished sign-in may let the add page save carried picks.
-    expect(response.headers.get("set-cookie")).toContain("here_for_x_return=1");
+    expect(cookies).toContain("here_for_x_return=1");
+    // The nonce is single-use.
+    expect(response.cookies.get(xNonceCookie.name)?.maxAge).toBe(0);
+  });
+
+  it("rejects a forwarded callback when the browser's nonce does not match", async () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    vi.stubEnv("X_OAUTH_CALLBACK_URL", callbackUrl);
+    const fetch = xResponses();
+    const state = sealXState("verifier", returnTo, "attacker-nonce");
+    const response = await callback(
+      new NextRequest(`${callbackUrl}?code=c&state=${state}`, {
+        headers: { cookie: `${xNonceCookie.name}=victim-nonce` },
+      }),
+    );
+    expect(response.headers.get("location")).toBe(
+      `https://solana.com${returnTo}&x=error`,
+    );
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(
+      "here_for_x=",
+    );
+    // The code is never exchanged, so the attacker's sign-in is not consumed.
+    expect(fetch).not.toHaveBeenCalled();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("asks a browser that never saw the login to confirm, without auto-saving", async () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    vi.stubEnv("X_OAUTH_CALLBACK_URL", callbackUrl);
+    xResponses();
+    const state = sealXState(
+      "verifier",
+      "/breakpoint/mutuals/add?picks=bob,carol&save=1",
+      "nonce",
+    );
+    const response = await callback(
+      new NextRequest(`${callbackUrl}?code=c&state=${state}`),
+    );
+    const location = new URL(response.headers.get("location")!);
+    expect(location.origin + location.pathname).toBe(
+      "https://solana.com/breakpoint/mutuals/confirm",
+    );
+    // No session yet: the identity waits in a short-lived confirm token.
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(
+      "here_for_x=",
+    );
+    expect(response.headers.get("set-cookie") ?? "").not.toContain(
+      "here_for_x_return",
+    );
+    expect(mocks.create).not.toHaveBeenCalled();
+    const token = location.searchParams.get("token");
+    expect(openXConfirm(token)).toEqual({
+      session: identity,
+      returnTo: "/breakpoint/mutuals/add?picks=bob%2Ccarol",
+    });
+    vi.advanceTimersByTime(2 * 60 * 1000 + 1);
+    expect(openXConfirm(token)).toBeNull();
+  });
+
+  it("finishes a confirmed sign-in only from a same-origin form with a live token", async () => {
+    vi.stubEnv("X_OAUTH_CALLBACK_URL", callbackUrl);
+    // Production rejects form posts without an Origin, and needs a real secret.
+    vi.stubEnv("AWARDS_COOKIE_SECRET", "s".repeat(32));
+    const token = sealXConfirm(identity, returnTo);
+    const post = (body: string, origin?: string) =>
+      confirm(
+        new NextRequest(
+          "https://solana.com/breakpoint/api/here-for/x/confirm",
+          {
+            method: "POST",
+            headers: {
+              "content-type": "application/x-www-form-urlencoded",
+              ...(origin ? { origin } : {}),
+            },
+            body,
+          },
+        ),
+      );
+    vi.stubEnv("NODE_ENV", "production");
+    expect((await post(`token=${token}`, "https://evil.test")).status).toBe(
+      403,
+    );
+    expect((await post(`token=${token}`)).status).toBe(403);
+    const ok = await post(`token=${token}`, "https://solana.com");
+    expect(ok.status).toBe(303);
+    expect(ok.headers.get("location")).toBe(`https://solana.com${returnTo}`);
+    expect(ok.headers.get("set-cookie")).toContain("here_for_x=");
+    expect(ok.headers.get("set-cookie") ?? "").not.toContain(
+      "here_for_x_return",
+    );
+    const tampered = `${token.slice(0, -2)}xx`;
+    const bad = await post(`token=${tampered}`, "https://solana.com");
+    expect(bad.headers.get("location")).toContain("x=error");
+    expect(bad.headers.get("set-cookie") ?? "").not.toContain("here_for_x=");
+  });
+
+  it("strips the auto-save marker but keeps the picks", () => {
+    expect(stripAutoSave("/breakpoint/mutuals/add?picks=a,b&save=1#top")).toBe(
+      "/breakpoint/mutuals/add?picks=a%2Cb#top",
+    );
+    expect(stripAutoSave(returnTo)).toBe(returnTo);
   });
 
   it("sends a cancelled sign-in back to the picks with a notice", async () => {
@@ -225,6 +342,17 @@ describe("here-for X auth", () => {
     ).toBe("/breakpoint/mutuals/add?picks=alice&save=1");
   });
 
+  it("carries ten full-length handles and the save marker through X sign-in", () => {
+    vi.stubEnv("X_CLIENT_ID", "client");
+    const picks = Array.from(
+      { length: 10 },
+      (_, i) => `person${String(i).padStart(9, "0")}`,
+    ).join(",");
+    const returnTo = `/ja/breakpoint/mutuals/add?picks=${encodeURIComponent(picks)}&save=1`;
+    const state = new URL(startXSignIn(returnTo)).searchParams.get("state");
+    expect(state!.length).toBeLessThanOrEqual(1024);
+    expect(openXState(state)?.returnTo).toBe(returnTo);
+  });
   it("revalidates return paths stored in OAuth state", () => {
     expect(openXState(sealXState("verifier", "/\t/evil.test"))).toBeNull();
   });

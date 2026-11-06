@@ -8,11 +8,19 @@ import { cn } from "@/app/components/utils";
 import Image from "next/image";
 import { Logo, Logos } from "@/component-library/logos";
 import { Button } from "@/app/components/ui/button";
+import {
+  MetricSourcesFootnote,
+  type MetricSourceNoteProps,
+} from "@/component-library/metric-source-note";
 
 export type ProjectsProps = {
   className?: string;
   title?: React.ReactNode;
-  projects?: (CompanyStatsCardProps & { colSpan?: number })[];
+  projects?: (CompanyStatsCardProps & {
+    colSpan?: number;
+    /** Registry source, listed in the section's Sources footnote. */
+    source?: MetricSourceNoteProps;
+  })[];
   bgSrc?: string;
   logos?: Logo[];
   cta?: string;
@@ -112,11 +120,19 @@ export const Projects: React.FC<ProjectsProps> = ({
                   statIcon={item.statIcon}
                   statType={item.statType}
                   hideStats={item.hideStats}
+                  isMetric={item.isMetric}
                 />
               );
             })}
           </div>
         </div>
+        <MetricSourcesFootnote
+          className="mt-4 self-start"
+          items={projects.map((item) => ({
+            label: `${item.name}: ${item.statLabel}`,
+            source: item.source,
+          }))}
+        />
         {logos && logos.length > 0 && (
           <Logos
             className="mt-10 xl:mt-16 -mx-5 md:-mx-8 xl:-mx-10 w-auto px-5 md:px-8 xl:px-10 h-[28px] xl:h-[40px] gap-6 xl:gap-12 justify-start md:justify-between"

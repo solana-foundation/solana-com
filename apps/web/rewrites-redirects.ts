@@ -58,19 +58,21 @@ function withLocaleRedirects(redirects: RedirectInput[]): LocaleRedirect[] {
 /**
  * Adds a `.md` twin for each redirect so the raw-markdown variants of moved
  * pages (served via the docs app's markdown middleware) keep working.
- * Skipped for external destinations and destinations with anchors.
+ * Skipped for external destinations. Anchors are preserved after the `.md`
+ * suffix.
  */
 function withMdVariants(redirects: RedirectInput[]): RedirectInput[] {
   return redirects.flatMap((redirect) => {
     const { source, destination } = redirect;
     const isExternalDest =
       destination.startsWith("https://") || destination.startsWith("http://");
-    if (isExternalDest || destination.includes("#")) {
+    if (isExternalDest) {
       return [redirect];
     }
+    const markdownDestination = destination.replace(/(#|$)/, ".md$1");
     return [
       redirect,
-      { ...redirect, source: `${source}.md`, destination: `${destination}.md` },
+      { ...redirect, source: `${source}.md`, destination: markdownDestination },
     ];
   });
 }
@@ -141,7 +143,7 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/developers/guides/advanced/security-best-practices",
-    destination: "/docs/tools/production-readiness",
+    destination: "/docs/tools/security",
   },
   {
     source: "/developers/guides/advanced/confirmation",
@@ -450,12 +452,8 @@ export default {
         destination: `${BREAKPOINT_APP_URL}/breakpoint-assets/:path+`,
         locale: false,
       },
-      // Media app rewrites - new routes
-      {
-        source: "/admin",
-        destination: `${MEDIA_APP_URL}/admin`,
-        locale: false,
-      },
+      // Media app rewrites - new routes. The CMS (/keystatic) is deliberately
+      // not proxied: editor cookies must stay on the media host, not solana.com.
       {
         source: "/news",
         destination: `${MEDIA_APP_URL}/news`,
@@ -1810,8 +1808,7 @@ export default {
     },
     {
       source: "/docs/references/feature-gates/direct-mapping",
-      destination:
-        "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
+      destination: "/upgrades/direct-mapping",
       permanent: true,
     },
     {

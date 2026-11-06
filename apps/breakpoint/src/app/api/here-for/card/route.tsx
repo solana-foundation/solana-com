@@ -273,7 +273,7 @@ export async function GET(request: NextRequest) {
   );
 }
 
-type T = (key: string, values?: Record<string, string>) => string;
+type T = (key: string, values?: Record<string, string | number>) => string;
 
 const eyebrow = (color: string) => ({
   fontFamily: "FavoritMono",
@@ -288,8 +288,10 @@ function Your3({ card, t }: { card: Extract<Card, { type: "your3" }>; t: T }) {
     <div style={{ display: "flex", flexDirection: "column" }}>
       <span style={{ ...eyebrow(COLOR.white), marginBottom: 18 }}>
         {t("isHereFor", { handle: card.handle })}
+        {card.adds.length > 3 &&
+          ` · ${t("more", { count: card.adds.length - 3 })}`}
       </span>
-      {card.adds.map((add, i) => (
+      {card.adds.slice(0, 3).map((add, i) => (
         <div
           key={add.handle}
           style={{
@@ -298,7 +300,9 @@ function Your3({ card, t }: { card: Extract<Card, { type: "your3" }>; t: T }) {
             height: 96,
             borderTop: `1px solid ${COLOR.stroke}`,
             borderBottom:
-              i === card.adds.length - 1 ? `1px solid ${COLOR.stroke}` : "none",
+              i === Math.min(card.adds.length, 3) - 1
+                ? `1px solid ${COLOR.stroke}`
+                : "none",
           }}
         >
           <span style={{ ...eyebrow(COLOR.purple), width: 68 }}>0{i + 1}</span>

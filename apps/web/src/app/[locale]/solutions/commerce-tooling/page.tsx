@@ -1,13 +1,21 @@
 import { SolutionsCommerceToolingPage } from "./solutions-commerce-tooling";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
+import { getDisplayMetrics } from "@/lib/metrics/present";
+import { STATS_METRICS } from "@/data/solutions/commerce-tooling";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
 
 export default async function Page(_props: Props) {
-  return <SolutionsCommerceToolingPage />;
+  const metrics = await getDisplayMetrics(STATS_METRICS);
+
+  return (
+    <SolutionsCommerceToolingPage
+      statsMetrics={STATS_METRICS.map((key) => metrics[key])}
+    />
+  );
 }
 
 export async function generateMetadata({ params }: Props) {

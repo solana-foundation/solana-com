@@ -134,6 +134,9 @@ async function send(
   return sig;
 }
 
+/** A settlement creates at most four ATAs (two parties x two mints). */
+const MAX_RELAY_ATA_CREATES = 4;
+
 /** Programs the demo client legitimately invokes in relayed transactions. */
 const RELAY_PROGRAMS = new Set<string>([
   PROGRAM_ID,
@@ -160,6 +163,59 @@ export function assertRelayable(tx: Transaction, treasuryAddr: string): void {
   const treasuryIndices = new Set(
     msg.staticAccounts.flatMap((a, i) => (a === treasuryAddr ? [i] : [])),
   );
+  // The treasury pays rent for every ATA it relays, so ATA creates are only
+  // accepted as part of a DvP step (the client never sends them alone) and in
+  // the quantity a settlement needs. A transaction stuffed with ATA creates
+  // for arbitrary owners would otherwise drain the treasury into rent.
+  const programs = msg.instructions.map(
+    (ix) => msg.staticAccounts[ix.programAddressIndex],
+  );
+  const ataCount = programs.filter(
+    (p) => p === ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
+  ).length;
+  if (ataCount > MAX_RELAY_ATA_CREATES) {
+    throw new Error("Relay refused: too many associated token account creates");
+  }
+  if (ataCount > 0 && !programs.includes(PROGRAM_ID as Address)) {
+    throw new Error(
+      "Relay refused: token account creates must accompany a DvP instruction",
+    );
+  }
+  // Each sponsored ATA must belong to this very DvP step: its owner is a
+  // transaction signer (a role wallet signing the step), or the DvP
+  // instruction itself references the owner (the escrow PDA) or the token
+  // account being created (settlement destinations, refund accounts).
+  // Appending creates for unrelated accounts to an otherwise valid step would
+  // make the treasury pay their rent.
+  const dvpAccountIndices = new Set(
+    msg.instructions
+      .filter((ix) => msg.staticAccounts[ix.programAddressIndex] === PROGRAM_ID)
+      .flatMap((ix) => ix.accountIndices ?? []),
+  );
+  const signerCount = msg.header.numSignerAccounts;
+  for (const ix of msg.instructions) {
+    if (
+      msg.staticAccounts[ix.programAddressIndex] !==
+      ASSOCIATED_TOKEN_PROGRAM_ADDRESS
+    ) {
+      continue;
+    }
+    // Associated Token Program account layout: payer, ata, owner, mint, ...
+    const ataIndex = ix.accountIndices?.[1];
+    const ownerIndex = ix.accountIndices?.[2];
+    const partOfStep =
+      ataIndex !== undefined &&
+      ownerIndex !== undefined &&
+      !treasuryIndices.has(ownerIndex) &&
+      (ownerIndex < signerCount ||
+        dvpAccountIndices.has(ownerIndex) ||
+        dvpAccountIndices.has(ataIndex));
+    if (!partOfStep) {
+      throw new Error(
+        "Relay refused: token account is not part of this DvP step",
+      );
+    }
+  }
   for (const ix of msg.instructions) {
     const program = msg.staticAccounts[ix.programAddressIndex];
     if (!program || !RELAY_PROGRAMS.has(program)) {

@@ -32,6 +32,8 @@ import { CodeAlt as CodeFilled } from "@boxicons/react/CodeAlt";
 import { Signal5 } from "@boxicons/react/Signal5";
 import { TachometerAlt } from "@boxicons/react/TachometerAlt";
 import { PostItem } from "@/types/media";
+import type { StatsGridItem } from "@/component-library/stats-grid";
+import type { MetricSourceNoteProps } from "@/component-library/metric-source-note";
 import { fetchLatestPosts } from "@/lib/media/post";
 import { useEffect, useState, useMemo } from "react";
 import { useLocale } from "next-intl";
@@ -110,12 +112,19 @@ interface HomePageProps {
     performanceTitle: React.ReactNode;
     performanceSubtitle: string;
     performanceCounterLabels: string[];
-    performanceStats: { value: string; label: string }[];
+    performanceStats: StatsGridItem[];
     whatsUpTitle: React.ReactNode;
     whatsUpCta: string;
     projectsTitle: React.ReactNode;
     projectsCta: string;
-    projectsTranslations: { name: string; stat: string; statLabel: string }[];
+    projectsTranslations: {
+      name: string;
+      stat: string;
+      statLabel: string;
+      /** Registry source for cards whose stat comes from the metrics registry. */
+      source?: MetricSourceNoteProps;
+      isMetric: boolean;
+    }[];
     newsTitle: React.ReactNode;
     newsButton: string;
     videosTitle: string;
@@ -322,6 +331,8 @@ export function HomePage({
           name: translations.projectsTranslations[index].name,
           stat: translations.projectsTranslations[index].stat,
           statLabel: translations.projectsTranslations[index].statLabel,
+          source: translations.projectsTranslations[index].source,
+          isMetric: translations.projectsTranslations[index].isMetric,
         }))}
         bgSrc="/src/img/index/projects-bg.webp"
         logos={PROJECTS_LOGOS}

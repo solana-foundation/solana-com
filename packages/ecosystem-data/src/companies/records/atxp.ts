@@ -24,7 +24,7 @@ export const atxp = {
       blog: "https://atxp.ai/blog/",
     },
     socials: {
-      x: "https://x.com/atxp_ai",
+      x: "https://x.com/TheUnbiasedCo",
       github: "https://github.com/atxp-dev",
     },
   },

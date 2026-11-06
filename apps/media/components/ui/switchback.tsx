@@ -1,4 +1,5 @@
 import React from "react";
+import { safeHref } from "@/lib/mdx-security";
 import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { Button } from "@/components/ui/button";
 
@@ -78,7 +79,7 @@ const Switchback: React.FC<SwitchbackProps> = ({
                       variant={index === 0 ? "default" : "outline"}
                     >
                       <a
-                        href={button.url}
+                        href={safeHref(button.url)}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

@@ -17,8 +17,11 @@ import {
   RESOURCES,
   STATS,
   STATS_LIVE_LINK,
+  type STATS_METRICS,
   TRUST_ITEMS,
 } from "@/data/pyusd";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import { CopyButton, PageSelectionColor } from "./interactions";
 
 const container = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
@@ -116,8 +119,35 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-export async function PyusdPage({ locale }: { locale: string }) {
+export async function PyusdPage({
+  locale,
+  metrics,
+}: {
+  locale: string;
+  metrics: Record<(typeof STATS_METRICS)[number], DisplayMetric>;
+}) {
   const t = await getTranslations({ locale, namespace: "pyusd" });
+  const tMetrics = await getTranslations({ locale, namespace: "metrics" });
+  // A stat's value and source: the registry for metrics, the audited claim
+  // (English message, source, and date) for the backing commitment.
+  const stats = STATS.map((stat) =>
+    "metric" in stat
+      ? { id: stat.id, ...metrics[stat.metric] }
+      : {
+          id: stat.id,
+          value: t(`stats.items.${stat.id}.value`),
+          source: {
+            name: "Paxos",
+            href: stat.statSource,
+            period: tMetrics("period.asOf", {
+              date: new Intl.DateTimeFormat(locale, {
+                dateStyle: "medium",
+                timeZone: "UTC",
+              }).format(new Date(`${stat.statAsOf}T00:00:00Z`)),
+            }),
+          },
+        },
+  );
 
   const linksFor = (
     base: string,
@@ -208,7 +238,7 @@ export async function PyusdPage({ locale }: { locale: string }) {
           {t("stats.heading")}
         </h2>
         <dl className="m-0 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-nd-border-light bg-nd-border-light sm:grid-cols-2 xl:grid-cols-4">
-          {STATS.map(({ id, statSource }) => (
+          {stats.map(({ id, value }) => (
             <div key={id} className="flex flex-col gap-3 bg-nd-bg p-6 md:p-8">
               <dt
                 className={`order-2 text-sm leading-snug md:text-base ${muted}`}
@@ -216,20 +246,18 @@ export async function PyusdPage({ locale }: { locale: string }) {
                 {t(`stats.items.${id}.label`)}
               </dt>
               <dd className="order-1 m-0 font-brand text-4xl font-medium tracking-[-0.04em] text-white md:text-5xl">
-                {t(`stats.items.${id}.value`)}
-              </dd>
-              <dd className="order-3 m-0 mt-auto pt-2">
-                <Link
-                  href={statSource}
-                  className={`inline-flex items-center gap-1 rounded-sm font-brand-mono text-xs uppercase tracking-[0.12em] text-nd-mid-em-text no-underline hover:text-white ${focusRing}`}
-                >
-                  {t("stats.sourceLabel")}
-                  <ArrowUpRight aria-hidden className="!size-3.5" />
-                </Link>
+                {value}
               </dd>
             </div>
           ))}
         </dl>
+        <MetricSourcesFootnote
+          className="mt-4"
+          items={stats.map(({ id, source }) => ({
+            label: t(`stats.items.${id}.label`),
+            source,
+          }))}
+        />
         <div className="mt-6">
           <TextLink href={STATS_LIVE_LINK.href}>
             {t(`stats.links.${STATS_LIVE_LINK.id}`)}

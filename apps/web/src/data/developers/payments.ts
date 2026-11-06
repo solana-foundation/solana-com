@@ -32,5 +32,5 @@ export const RELATED_LINKS = [
 ] as const;
 
 export const PRODUCTION_LINK = {
-  href: "/docs/tools/production-readiness",
+  href: "/docs/tools/transaction-landing#transaction-landing",
 } as const;

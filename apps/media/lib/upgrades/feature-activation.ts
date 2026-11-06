@@ -8,6 +8,7 @@ import {
 export const FEATURE_GATE_PROGRAM_ADDRESS = address(
   "Feature111111111111111111111111111111111111",
 );
+const SYSTEM_PROGRAM_ADDRESS = address("11111111111111111111111111111111");
 const FEATURE_ACCOUNT_SIZE = 9;
 export const LARGER_TRANSACTIONS_FEATURE_ADDRESS = address(
   "txv1aq4pp281K9um3tnPgkfX8UqtFT6wcVW3hNezGLL",
@@ -32,6 +33,11 @@ export function readFeatureAccountState(
   if (account === null) return "not-set";
 
   const data = getBase64Encoder().encode(account.data[0]);
+  // Anyone can send lamports to a feature address before activation, which
+  // leaves an empty System-owned account there. The gate is still unset.
+  if (account.owner === SYSTEM_PROGRAM_ADDRESS && data.length === 0) {
+    return "not-set";
+  }
   if (
     account.owner !== FEATURE_GATE_PROGRAM_ADDRESS ||
     data.length < FEATURE_ACCOUNT_SIZE

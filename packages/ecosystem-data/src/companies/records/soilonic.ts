@@ -1,4 +1,6 @@
 import type { CompanyRecord } from "../../types";
+import soilonicLogoWhite from "../../../assets/companies/soilonic/logo-white.svg";
+import soilonicLogoWhiteOnDark from "../../../assets/companies/soilonic/logo-white-on-dark.svg";
 import soilonicBreakpoint2026Logo from "../../../assets/companies/soilonic/breakpoint-2026-logo.png";
 
 export const soilonic = {
@@ -6,11 +8,11 @@ export const soilonic = {
   slug: "soilonic",
   name: "Soilonic",
   profile: {
-    tagline: "The world's first tradeable token backed by healthy fertile soil",
+    tagline: "Regenerative soil, art, and digital ownership.",
     summary:
-      "Soilonic is a Solana-based platform that tokenizes certified fertile soil to create economic value for regenerative farmers.",
+      "Soilonic brings together regenerative agriculture, digital ownership, and art.",
     description:
-      "Soilonic connects regenerative agriculture with onchain ownership through its soil-backed token, Soilo. The platform is designed to direct value to farmers maintaining healthy soil while making verified regenerative soil accessible as a digital asset.",
+      "Soilonic connects soil-focused projects with collectible artworks, design objects, and regenerative materials. Its artist collaborations and exhibitions bring soil regeneration into cultural experiences.",
     sector: "Tokenization",
     type: "Platform",
     links: {
@@ -20,15 +22,53 @@ export const soilonic = {
       linkedin: "https://www.linkedin.com/company/soilonic",
     },
   },
-  defaultLogoId: "breakpoint-2026-white",
+  defaultLogoId: "logo-white",
   logos: [
     {
+      id: "logo-white",
+      fileName: "logo-white.svg",
+      format: "svg",
+      width: 178.1,
+      height: 151.99,
+      theme: "dark",
+      background: "transparent",
+      treatment: "monotone",
+      kind: "logo",
+      source: soilonicLogoWhite,
+    },
+    {
+      id: "logo-white-on-dark",
+      fileName: "logo-white-on-dark.svg",
+      format: "svg",
+      width: 470.23,
+      height: 526.94,
+      theme: "dark",
+      background: "dark",
+      kind: "logo",
+      source: soilonicLogoWhiteOnDark,
+    },
+    {
       id: "breakpoint-2026-white",
+      fileName: "logo-white.svg",
+      format: "svg",
+      width: 178.1,
+      height: 151.99,
+      theme: "dark",
+      background: "transparent",
+      treatment: "monotone",
+      kind: "logo",
+      source: soilonicLogoWhite,
+    },
+    {
+      id: "logo-color",
       fileName: "breakpoint-2026-logo.png",
       format: "png",
       source: soilonicBreakpoint2026Logo,
-      theme: "dark",
+      theme: "light",
+      background: "transparent",
       kind: "logo",
+      width: 1693,
+      height: 929,
     },
   ],
 } satisfies CompanyRecord;

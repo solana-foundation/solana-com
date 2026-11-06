@@ -33,6 +33,7 @@ import { cherryServers } from "./records/cherry-servers";
 import { circle } from "./records/circle";
 import { citi } from "./records/citi";
 import { coinbase } from "./records/coinbase";
+import { coindesk } from "./records/coindesk";
 import { colosseum } from "./records/colosseum";
 import { cooley } from "./records/cooley";
 import { cow } from "./records/cow";
@@ -59,6 +60,7 @@ import { galaxy } from "./records/galaxy";
 import { gmgn } from "./records/gmgn";
 import { gradient } from "./records/gradient";
 import { grayscale } from "./records/grayscale";
+import { greedAcademy } from "./records/greed-academy";
 import { hackhack } from "./records/hackhack";
 import { hamiltonLane } from "./records/hamilton-lane";
 import { humaFinance } from "./records/huma-finance";
@@ -87,6 +89,7 @@ import { morganStanley } from "./records/morgan-stanley";
 import { moneygram } from "./records/moneygram";
 import { nodit } from "./records/nodit";
 import { nagyWolfeAppleton } from "./records/nagy-wolfe-appleton";
+import { openledger } from "./records/openledger";
 import { openmined } from "./records/openmined";
 import { openStandard } from "./records/open-standard";
 import { opensea } from "./records/opensea";
@@ -138,9 +141,11 @@ import { syndica } from "./records/syndica";
 import { tala } from "./records/tala";
 import { tether } from "./records/tether";
 import { theGraph } from "./records/the-graph";
+import { tickr } from "./records/tickr";
 import { titan } from "./records/titan";
-import { trojan } from "./records/trojan";
 import { triton } from "./records/triton";
+import { trojan } from "./records/trojan";
+import { truther } from "./records/truther";
 import { unclaimedSol } from "./records/unclaimed-sol";
 import { veliaNet } from "./records/velia-net";
 import { visa } from "./records/visa";
@@ -191,6 +196,7 @@ export const companies = [
   circle,
   citi,
   coinbase,
+  coindesk,
   colosseum,
   cooley,
   cow,
@@ -217,6 +223,7 @@ export const companies = [
   gmgn,
   gradient,
   grayscale,
+  greedAcademy,
   hackhack,
   hamiltonLane,
   humaFinance,
@@ -245,6 +252,7 @@ export const companies = [
   moneygram,
   nodit,
   nagyWolfeAppleton,
+  openledger,
   openmined,
   openStandard,
   opensea,
@@ -296,9 +304,11 @@ export const companies = [
   tala,
   tether,
   theGraph,
+  tickr,
   titan,
-  trojan,
   triton,
+  trojan,
+  truther,
   unclaimedSol,
   veliaNet,
   visa,

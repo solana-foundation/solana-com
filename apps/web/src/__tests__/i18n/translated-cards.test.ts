@@ -118,10 +118,8 @@ describe("translated card content", () => {
     ) as Record<string, unknown>;
     const paths = [
       ...HERO_BUTTONS.map(({ id }) => `hero.buttons.${id}`),
-      ...STATS.flatMap(({ id }) => [
-        `stats.items.${id}.value`,
-        `stats.items.${id}.label`,
-      ]),
+      // Values come from the metrics registry; only labels are messages.
+      ...STATS.map(({ id }) => `stats.items.${id}.label`),
       `stats.links.${STATS_LIVE_LINK.id}`,
       ...withLinks("properties.items", NETWORK_PROPERTIES, ["title", "body"]),
       ...withLinks("stack.steps", STACK_STEPS, ["label", "title", "body"]),
@@ -154,9 +152,10 @@ describe("translated card content", () => {
       ...pyusd.HERO_BUTTONS.map(({ id }) => `hero.buttons.${id}`),
       ...pyusd.MINT_DETAILS.map(({ id }) => `hero.mint.details.${id}`),
       `hero.mint.links.${pyusd.MINT_EXPLORER_LINK.id}`,
-      ...pyusd.STATS.flatMap(({ id }) => [
-        `stats.items.${id}.value`,
-        `stats.items.${id}.label`,
+      // Registry stats have no message value; the backing claim does.
+      ...pyusd.STATS.flatMap((stat) => [
+        ...("metric" in stat ? [] : [`stats.items.${stat.id}.value`]),
+        `stats.items.${stat.id}.label`,
       ]),
       `stats.links.${pyusd.STATS_LIVE_LINK.id}`,
       ...withLinks("trust.items", pyusd.TRUST_ITEMS, ["title", "body"]),

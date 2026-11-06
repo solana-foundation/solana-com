@@ -8,20 +8,32 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/franklin-templeton.webp",
     key: "franklinTempleton",
+    metric: "institutions.franklin-benji-growth-30d",
   },
   {
     src: "/src/img/logos-eco/r3.webp",
     key: "r3",
+    metric: "institutions.r3-tokenized-rwa",
   },
   {
     src: "/src/img/logos-eco/bullish.svg",
     key: "bullish",
+    metric: "institutions.bullish-daily-volume",
   },
   {
     src: "/src/img/logos-eco/apollo.webp",
     key: "apollo",
+    metric: "tokenization.apollo-acred.solana-value",
   },
-];
+] as const;
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "stablecoins.circulating-supply",
+  "consumer.launchpad-tokens-2025",
+  "rwa.holders",
+  "defi.dex-volume-12m",
+] as const;
 
 export const LOGOS = [
   {

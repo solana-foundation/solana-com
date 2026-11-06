@@ -56,6 +56,7 @@ describe("speaker event filter", () => {
                   id: "keynote",
                   fields: {
                     Title: "Opening",
+                    "Web Publishing Status": ["Time", "Title", "Speaker"],
                     Day: "Day 1",
                     Format_Cleaned: "Keynote",
                     Tag: "Money",
@@ -70,6 +71,7 @@ describe("speaker event filter", () => {
                   id: "fireside",
                   fields: {
                     Title: "Conversation",
+                    "Web Publishing Status": ["Time", "Title", "Speaker"],
                     Day: "Day 2",
                     Format_Cleaned: "Fireside",
                     "Confirmed Speakers Full Name": [
@@ -82,6 +84,7 @@ describe("speaker event filter", () => {
                   id: "moderated",
                   fields: {
                     Title: "Moderated session",
+                    "Web Publishing Status": ["Time", "Title", "Speaker"],
                     Format_Cleaned: "Royal Exchange",
                     Moderator: ["rec00000000000002"],
                   },
@@ -99,6 +102,7 @@ describe("speaker event filter", () => {
                   id: "other-company",
                   fields: {
                     Title: "Other Ada",
+                    "Web Publishing Status": ["Time", "Title", "Speaker"],
                     Format: "Product Demo",
                     "Confirmed Speakers Full Name": [
                       "Ada Lovelace - Other Company",

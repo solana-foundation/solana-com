@@ -56,7 +56,10 @@ describe("here-for adds route", () => {
   it("returns contract validation codes", async () => {
     for (const [body, code] of [
       [{ adds: [] }, "invalid_adds"],
-      [{ adds: ["b", "c", "d", "e"] }, "invalid_adds"],
+      [
+        { adds: Array.from({ length: 11 }, (_, i) => `person${i}`) },
+        "invalid_adds",
+      ],
       [{ adds: ["b", "c", "bad-name"] }, "invalid_adds"],
       [{ adds: ["alice", "b", "c"] }, "self_add"],
     ] as const) {
@@ -64,6 +67,12 @@ describe("here-for adds route", () => {
       expect(response.status).toBe(400);
       expect((await response.json()).code).toBe(code);
     }
+  });
+  it("saves ten picks under the signed-in handle", async () => {
+    const adds = Array.from({ length: 10 }, (_, i) => `@person${i}`);
+    const response = await POST(request({ adds }));
+    expect(response.status).toBe(200);
+    expect(mocks.submit.mock.calls[0]?.slice(1, 3)).toEqual(["@alice", adds]);
   });
   it("requires an X sign-in", async () => {
     mocks.session.mockReturnValue(null);

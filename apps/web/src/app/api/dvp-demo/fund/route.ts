@@ -3,13 +3,20 @@ import { address } from "@solana/kit";
 import type { RoleKey } from "@/lib/delivery-vs-payment/config";
 import { fundRoles } from "@/lib/delivery-vs-payment/server/solana";
 import { allow, clientKey } from "@/lib/delivery-vs-payment/server/rateLimit";
+import {
+  crossOriginResponse,
+  isSameOriginRequest,
+} from "@/lib/delivery-vs-payment/server/request-origin";
 
 export const runtime = "nodejs";
+// confirm() may poll for up to 45 s; keep the function budget above it.
+export const maxDuration = 60;
 
 const PER_IP = { limit: 5, windowMs: 60 * 60 * 1000 };
 const GLOBAL = { limit: 60, windowMs: 60 * 60 * 1000 };
 
 export async function POST(request: Request) {
+  if (!isSameOriginRequest(request)) return crossOriginResponse();
   if (
     !allow(`fund:${clientKey(request)}`, PER_IP.limit, PER_IP.windowMs) ||
     !allow("fund:global", GLOBAL.limit, GLOBAL.windowMs)
@@ -40,9 +47,7 @@ export async function POST(request: Request) {
     Object.values(addresses).forEach((value) => address(value));
     return NextResponse.json(await fundRoles(addresses));
   } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Funding failed" },
-      { status: 500 },
-    );
+    console.error("dvp-demo fund failed:", error);
+    return NextResponse.json({ error: "Funding failed" }, { status: 500 });
   }
 }

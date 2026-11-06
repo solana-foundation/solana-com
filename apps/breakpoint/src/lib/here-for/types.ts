@@ -6,7 +6,7 @@
  * stay small on the wire and map straight onto three.js buffers.
  */
 
-export const HERE_FOR_MAX_ADDS = 3;
+export const HERE_FOR_MAX_ADDS = 10;
 
 export type HereForHandle = `@${string}`;
 
@@ -17,7 +17,7 @@ export type HereForGraphPayload = {
   generatedAt: string;
   /** Node index -> handle. */
   handles: HereForHandle[];
-  /** Node index -> 1 when the person has added their own 3, else 0. */
+  /** Node index -> 1 when the person has added their own picks, else 0. */
   claimed: number[];
   /** Flat [x, y, z, x, y, z, ...] in layout units, one decimal place. */
   positions: number[];
@@ -46,7 +46,7 @@ export type HereForPersonLink = {
 export type HereForPersonPayload = {
   handle: HereForHandle;
   claimed: boolean;
-  /** Their adds in rank order (1-3). */
+  /** Their adds in rank order. */
   adds: (HereForPersonLink & { rank: number })[];
   addedBy: HereForPersonLink[];
   mutualCount: number;
@@ -60,7 +60,7 @@ export type HereForSuggestionReason =
 
 export type HereForSuggestion = {
   handle: HereForHandle;
-  /** True when they've added their own 3. */
+  /** True when they've added their own picks. */
   claimed: boolean;
   score: number;
   reasons: HereForSuggestionReason[];
