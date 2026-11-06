@@ -31,7 +31,7 @@ export const PROJECTS = [
 
 /** Registry keys for the hero stats, in display order. */
 export const HERO_METRICS = [
-  "consumer.quarterly-active-wallets",
+  "consumer.daily-active-wallets",
   "consumer.fee-volatility-ratio",
   "apps.revenue-12m",
   "consumer.launchpad-tokens-2025",
