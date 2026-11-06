@@ -7,7 +7,10 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const rootDir = path.resolve(scriptDir, "../..");
+// --root points the guard at a fixture repository in tests.
+const rootDir = path.resolve(
+  readOption("--root") ?? path.resolve(scriptDir, "../.."),
+);
 const configPath = path.join(rootDir, ".lingo/config.json");
 const lockPath = path.join(rootDir, ".lingo/lock.json");
 const config = JSON.parse(fs.readFileSync(configPath, "utf8"));

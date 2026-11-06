@@ -40,13 +40,16 @@ function sha256(text) {
   return crypto.createHash("sha256").update(text).digest("hex");
 }
 
-export function listCatalogs(rootDir) {
+// Scopes mirror run.mjs: "all" and "ui" cover every catalog, an app name only
+// that app's catalogs.
+export function listCatalogs(rootDir, scope = "all") {
+  const app = ["all", "ui"].includes(scope) ? "*" : scope;
   return fs
-    .globSync("packages/i18n/messages/*/*/*.json", { cwd: rootDir })
+    .globSync(`packages/i18n/messages/${app}/*/*.json`, { cwd: rootDir })
     .toSorted();
 }
 
-export function checkCatalogs(rootDir, { fix = false } = {}) {
+export function checkCatalogs(rootDir, { fix = false, scope = "all" } = {}) {
   const lockPath = path.join(rootDir, ".lingo/lock.json");
   const lock = fs.existsSync(lockPath)
     ? JSON.parse(fs.readFileSync(lockPath, "utf8"))
@@ -55,7 +58,7 @@ export function checkCatalogs(rootDir, { fix = false } = {}) {
   let fixedFiles = 0;
   let refreshedLockEntries = 0;
 
-  for (const catalogPath of listCatalogs(rootDir)) {
+  for (const catalogPath of listCatalogs(rootDir, scope)) {
     const absolutePath = path.join(rootDir, catalogPath);
     const text = fs.readFileSync(absolutePath, "utf8");
     const hits = findApostrophesBeforeTags(JSON.parse(text));
@@ -74,6 +77,15 @@ export function checkCatalogs(rootDir, { fix = false } = {}) {
     const fixed = fixApostrophesBeforeTags(text);
     fs.writeFileSync(absolutePath, fixed);
     fixedFiles++;
+
+    // A JSON-escaped apostrophe or "<" survives the raw rewrite; report it
+    // instead of claiming the catalog is clean.
+    findings.push(
+      ...findApostrophesBeforeTags(JSON.parse(fixed)).map((hit) => ({
+        catalogPath,
+        ...hit,
+      })),
+    );
 
     // Follow the lock only when it described the bytes just rewritten, i.e.
     // fresh Lingo output. A catalog a human already edited stays diverged so
@@ -96,9 +108,11 @@ function main() {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
   const rootDir = path.resolve(scriptDir, "../..");
   const fix = process.argv.includes("--fix");
+  const scopeIndex = process.argv.indexOf("--scope");
+  const scope = scopeIndex === -1 ? "all" : process.argv[scopeIndex + 1];
   const { findings, fixedFiles, refreshedLockEntries } = checkCatalogs(
     rootDir,
-    { fix },
+    { fix, scope },
   );
 
   if (fix) {
@@ -107,12 +121,13 @@ function main() {
         ? "No ICU apostrophes needed normalization"
         : `Normalized ASCII apostrophes before ICU tags in ${fixedFiles} catalog(s) (${refreshedLockEntries} lock entr${refreshedLockEntries === 1 ? "y" : "ies"} refreshed).`,
     );
-    return;
   }
 
   if (findings.length > 0) {
     console.error(
-      "ASCII apostrophe directly before an ICU tag; intl-messageformat reads it as a quote and renders the tag literally. Use ’ or run with --fix.",
+      fix
+        ? "ASCII apostrophe directly before an ICU tag survived --fix (JSON-escaped); fix these values by hand."
+        : "ASCII apostrophe directly before an ICU tag; intl-messageformat reads it as a quote and renders the tag literally. Use ’ or run with --fix.",
     );
     for (const { catalogPath, key, value } of findings) {
       console.error(`- ${catalogPath} ${key}: ${value.slice(0, 100)}`);
@@ -120,7 +135,9 @@ function main() {
     process.exit(1);
   }
 
-  console.log("ICU apostrophe guard passed");
+  if (!fix) {
+    console.log("ICU apostrophe guard passed");
+  }
 }
 
 if (

@@ -261,7 +261,12 @@ async function main() {
   // intl-messageformat reads an ASCII apostrophe before a tag as a quote, so
   // normalize Lingo's catalog output before locking it in.
   if (scope !== "docs") {
-    runOrExit("node", ["./scripts/i18n/verify-icu-apostrophes.mjs", "--fix"]);
+    runOrExit("node", [
+      "./scripts/i18n/verify-icu-apostrophes.mjs",
+      "--fix",
+      "--scope",
+      scope,
+    ]);
   }
 
   runOrExit("node", [

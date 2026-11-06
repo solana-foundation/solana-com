@@ -158,3 +158,34 @@ test("--fix rewrites catalogs and follows the lock only for untouched Lingo outp
   assert.equal(lock.files[enPath].sha256, lockBefore.files[enPath].sha256);
   assert.deepEqual(checkCatalogs(rootDir).findings, []);
 });
+
+test("--fix reports a JSON-escaped apostrophe it cannot rewrite and honours the scope", (t) => {
+  const { rootDir } = fixture(t, { itLocked: true });
+  const accPath = "packages/i18n/messages/accelerate/fr/common.json";
+  // Raw JSON escape for the apostrophe: decodes to the broken form.
+  const escapedText =
+    '{\n  "ai": {\n    "build": {\n      "title": "Agents d\\u0027<colored>IA</colored>"\n    }\n  }\n}\n';
+  fs.mkdirSync(path.dirname(path.join(rootDir, accPath)), { recursive: true });
+  fs.writeFileSync(path.join(rootDir, accPath), escapedText);
+
+  // An app scope leaves other apps' catalogs alone.
+  const webOnly = checkCatalogs(rootDir, { fix: true, scope: "web" });
+  assert.equal(webOnly.fixedFiles, 2);
+  assert.deepEqual(webOnly.findings, []);
+  assert.equal(
+    fs.readFileSync(path.join(rootDir, accPath), "utf8"),
+    escapedText,
+  );
+
+  // The escaped apostrophe decodes to the broken form, survives the raw
+  // rewrite, and must still be reported.
+  const everything = checkCatalogs(rootDir, { fix: true });
+  assert.equal(everything.fixedFiles, 1);
+  assert.deepEqual(everything.findings, [
+    {
+      catalogPath: accPath,
+      key: "ai.build.title",
+      value: "Agents d'<colored>IA</colored>",
+    },
+  ]);
+});
