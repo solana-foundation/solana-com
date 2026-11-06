@@ -109,3 +109,21 @@ test("recovers multiple structural failures but rejects a mixed report", (t) => 
   assert.equal(fs.existsSync(path.join(rootDir, target)), true);
   assert.equal(fs.existsSync(path.join(rootDir, otherTarget)), true);
 });
+
+test("recovers missing-unit and inline structure failures", (t) => {
+  const rootDir = fixture(t);
+  const missingUnitLine = structuralLine(source, target).replace(
+    "unit 14 is jsx-children:11 in the source but jsx-children:11.0 in the target",
+    "target is missing unit 134 (paragraph:61.2.0)",
+  );
+  const inlineLine = `    ${otherTarget}: Failed to plan ${otherSource}: Cannot safely update ${otherSource} (mdx), unit paragraph:2: inline structures do not correspond unambiguously between the previous source and target. Align the affected markup or explicitly retranslate this file. Existing wording has not been changed.`;
+
+  assert.deepEqual(
+    failedStructuralTargets(
+      failureReport([missingUnitLine, inlineLine]),
+      config,
+      rootDir,
+    ),
+    [target, otherTarget],
+  );
+});

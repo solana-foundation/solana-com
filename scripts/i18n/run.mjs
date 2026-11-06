@@ -195,6 +195,12 @@ async function main() {
     process.exit(1);
   }
 
+  runOrExit("node", [
+    "./scripts/i18n/verify-target-coverage.mjs",
+    scope,
+    "--relock-unchanged",
+  ]);
+
   // A partial Lingo run can leave only a few MDX targets with incompatible
   // structure. Backfill those exact files, preserving other translations and
   // the lockfile. Lingo detects missing targets from the filesystem.

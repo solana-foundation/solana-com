@@ -30,7 +30,7 @@ export function failedStructuralTargets(output, config, rootDir) {
   const targets = [];
   for (const line of failureLines) {
     const match = line.match(
-      /^\s+(apps\/docs\/content\/(?:docs|learn|developers-learn)\/([a-z]{2})\/[a-zA-Z0-9/_-]+\.mdx): Failed to plan (apps\/docs\/content\/(?:docs|learn|developers-learn)\/en\/[a-zA-Z0-9/_-]+\.mdx): Cannot safely update .* because the source and target document structures are not aligned \(unit .*\)\. Force a full retranslation of this file to reset it\.$/,
+      /^\s+(apps\/docs\/content\/(?:docs|learn|developers-learn)\/([a-z]{2})\/[a-zA-Z0-9/_-]+\.mdx): Failed to plan (apps\/docs\/content\/(?:docs|learn|developers-learn)\/en\/[a-zA-Z0-9/_-]+\.mdx): Cannot safely update .*(?: because the source and target document structures are not aligned \(.*\)\. Force a full retranslation of this file to reset it| inline structures do not correspond unambiguously between the previous source and target\. Align the affected markup or explicitly retranslate this file\. Existing wording has not been changed)\.$/,
     );
     if (!match) return [];
 
