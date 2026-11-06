@@ -1,75 +1,134 @@
 ---
 title: "البدء السريع: قبول دفعة"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  اعرض رمز QR الخاص بـ سولانا Pay في تطبيق React، وأكّد الدفعة على السلسلة، واستقبل أول دفعة بعملة مستقرة على devnet.
 ---
 
-ستحصل في النهاية على زر دفع في تطبيق React يتصل بمحفظة، ويتيح للدافع اختيار رمز مميز، ويؤكد دفعة حقيقية إلى عنوانك. تحتاج إلى Node.js 20 أو أحدث، وتطبيق React أو Next.js (يكفي إنشاء `create-next-app` جديد)، ومحفظة للدفع منها.
+ستحصل في النهاية على مكوّن React يعرض رمز QR الخاص بـ سولانا Pay لدفعة بعملة USDC،
+وينتظر وصول الدفعة، ويتحقق من أنها تطابق ما طلبته. تحتاج إلى Node.js 20 أو أحدث،
+وتطبيق React أو Next.js (يكفي إنشاء
+`create-next-app` جديد)، ومحفظة جوال مضبوطة على devnet. موّلها بعملة
+USDC على devnet من [faucet.circle.com](https://faucet.circle.com) وبعملة SOL على devnet
+من [faucet.solana.com](https://faucet.solana.com) لتغطية رسوم المعاملات.
 
 <Callout type="caution">
-  Commerce Kit قيد التجربة التجريبية حاليًا. قد تتغير واجهات برمجة التطبيقات قبل الإصدار المستقر.
+  `@solana/pay` قيد التجربة التجريبية حاليًا. قد تتغير واجهات برمجة التطبيقات قبل الإصدار المستقر.
 </Callout>
 
-## 1. تثبيت Commerce Kit
+## 1. تثبيت سولانا Pay
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. إضافة الزر
+## 2. إضافة رمز QR للدفع
 
-أضف مكوّن `PaymentButton` في أي مكان من تطبيقك واضبط محفظة التاجر على عنوان تتحكم فيه:
+ينشئ المكوّن مرجعًا فريدًا للطلب، ويضمّنه في رابط
+[طلب التحويل](/docs/tools/solana-pay/quickstart/transfer-requests)، ثم
+يعرض الرابط على هيئة رمز QR. بعد ذلك يراقب وجود معاملة تتضمن
+المرجع، ويتحقق من المستلم والمبلغ والرمز المميز قبل تعليم
+الطلب على أنه مدفوع. اضبط `MERCHANT_WALLET` على عنوان تتحكم فيه:
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-يتولى المكوّن داخليًا إدارة اتصال المحفظة، واختيار الرمز المميز، ومعالجة المعاملات، وحالة واجهة المستخدم. يتيح `mode: "tip"` للدافع اختيار المبلغ؛ راجع [أوضاع الدفع](/docs/tools/commerce-kit/quickstart/payment-button) للاطلاع على عمليات الدفع بسعر ثابت وسلة التسوق.
-
-## جرّبه في المتصفح
-
-اضبط زر الدفع وابدأ تدفق الإكرامية دون مغادرة هذه الصفحة.
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="ملعب Commerce Kit"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[افتح ملعب Commerce Kit بملء الشاشة](https://launch.solana.com/products/commercekit/playground)
+تُحدَّد `amount` بوحدات الرمز المميز، لذا تطلب القيمة `1` مبلغ 1 USDC. احذف `splToken`
+لطلب SOL بدلًا من ذلك.
 
 ## 3. استلام دفعة
 
-شغّل تطبيقك، وانقر على الزر، وقم بتوصيل المحفظة، ثم ادفع. يتلقى رد النداء `onPaymentSuccess` توقيع المعاملة الذي يُعدّ إيصالك: ابحث عنه باستخدام [getTransaction](/docs/rpc/http/gettransaction) أو في أي مستكشف.
+شغّل تطبيقك، وامسح رمز QR بمحفظتك، ووافق على الدفعة. بمجرد
+تأكيد المعاملة واجتيازها التحقق، يعرض المكوّن
+توقيع المعاملة. هذا التوقيع هو إيصالك: ابحث عنه باستخدام
+[getTransaction](/docs/rpc/http/gettransaction) أو في أي مستكشف.
+
+<Callout type="warn">
+  التحقق في المتصفح مناسب للعرض التجريبي. قبل تنفيذ الطلبات الحقيقية،
+  تحقق من الدفعات على خادمك. راجع [التحقق
+  من المدفوعات](/docs/payments/accept-payments/verification-tools).
+</Callout>
 
 ## إلى أين تذهب بعد ذلك
 
+- [سولانا Pay](/docs/tools/solana-pay) - طلبات التحويل، وطلبات
+  المعاملات، وخيارات رمز QR
 - [كيف تعمل المدفوعات على سولانا](/docs/payments/how-payments-work) - المحافظ، والعملات المستقرة، وtoken account، والرسوم
 - [التحقق من المدفوعات](/docs/payments/accept-payments/verification-tools) - تأكيد الدفعة من جانب الخادم قبل تنفيذ الطلب
 - [إرسال المدفوعات](/docs/payments/send-payments) - المدفوعات والتحويلات من الواجهة الخلفية الخاصة بك

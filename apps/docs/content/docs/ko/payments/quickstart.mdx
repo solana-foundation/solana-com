@@ -1,75 +1,118 @@
 ---
 title: "빠른 시작: 결제 수락하기"
 description:
-  Add a working payment button to a React app in about five minutes and take
-  your first stablecoin payment.
+  React 앱에 Solana Pay QR 코드를 표시하고, 온체인에서 결제를 확인하며, devnet에서 첫 스테이블코인 결제를 받아 보세요.
 ---
 
-최종적으로 React 앱에 결제 버튼이 생성됩니다. 이 버튼은 지갑을 연결하고, 결제자가 토큰을 선택하며, 귀하의 주소로 실제 결제를 확인합니다. Node.js 20 이상, React 또는 Next.js 앱(새로 생성한 `create-next-app`도 가능), 그리고 결제에 사용할 지갑이 필요합니다.
+최종적으로 USDC 결제용 Solana Pay QR 코드를 표시하고, 결제가 반영될 때까지 기다린 뒤, 요청한 내용과 일치하는지 확인하는 React 컴포넌트가 만들어집니다. Node.js 20 이상, React 또는 Next.js 앱(새로 생성한 `create-next-app`도 가능), 그리고 devnet으로 설정한 모바일 지갑이 필요합니다. [faucet.circle.com](https://faucet.circle.com)에서 devnet USDC를, [faucet.solana.com](https://faucet.solana.com)에서 devnet SOL을 받아 지갑에 채워 트랜잭션 수수료를 충당하세요.
 
 <Callout type="caution">
-  Commerce Kit은 현재 베타 버전입니다. 안정적인 릴리스 전에 API가 변경될 수 있습니다.
+  `@solana/pay`는 현재 베타 버전입니다. 안정적인 릴리스 전에 API가 변경될 수 있습니다.
 </Callout>
 
-## 1. Commerce Kit 설치
+## 1. Solana Pay 설치
 
 ```bash
-pnpm add @solana-commerce/kit
+pnpm add @solana/pay@beta @solana/kit
 ```
 
-## 2. 버튼 추가
+## 2. 결제 QR 코드 추가
 
-앱의 원하는 위치에 `PaymentButton` 컴포넌트를 추가하고, 귀하가 관리하는 주소로 판매자 지갑을 설정하세요:
+이 컴포넌트는 주문별 고유 참조(reference)를 생성하고, 이를 [전송 요청](/docs/tools/solana-pay/quickstart/transfer-requests) URL로 인코딩한 다음, 해당 URL을 QR 코드로 렌더링합니다. 이후 해당 참조가 포함된 트랜잭션을 감시하다가, 수신자, 금액, 토큰을 검증한 뒤 주문을 결제 완료로 처리합니다. `MERCHANT_WALLET`을 직접 관리하는 주소로 설정하세요:
 
 ```tsx
-import { PaymentButton } from "@solana-commerce/kit";
+"use client";
 
-function Checkout() {
-  return (
-    <PaymentButton
-      config={{
-        merchant: { name: "My Store", wallet: "your-wallet-address" },
-        mode: "tip"
-      }}
-      onPaymentSuccess={(signature) => {
-        console.log("Payment confirmed:", signature);
-      }}
-    />
-  );
+import { useEffect, useRef, useState } from "react";
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  generateKeyPair,
+  getAddressFromPublicKey
+} from "@solana/kit";
+import {
+  createQR,
+  encodeURL,
+  validateTransfer,
+  watchReference
+} from "@solana/pay";
+
+const MERCHANT_WALLET = address("your-wallet-address");
+const USDC_DEVNET = address("4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU");
+const AMOUNT = 1;
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const rpcSubscriptions = createSolanaRpcSubscriptions(
+  "wss://api.devnet.solana.com"
+);
+
+export function Checkout() {
+  const qrRef = useRef<HTMLDivElement>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    async function startPayment() {
+      const keyPair = await generateKeyPair();
+      const reference = await getAddressFromPublicKey(keyPair.publicKey);
+
+      const url = encodeURL({
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference,
+        label: "My Store",
+        message: "Order #1001"
+      });
+
+      if (abortController.signal.aborted) return;
+
+      if (qrRef.current) {
+        qrRef.current.innerHTML = "";
+        createQR(url, 300).append(qrRef.current);
+      }
+
+      const result = await watchReference(rpcSubscriptions, reference, {
+        abortSignal: abortController.signal
+      });
+      if (result.err) throw new Error("Payment transaction failed");
+
+      await validateTransfer(rpc, result.signature, {
+        recipient: MERCHANT_WALLET,
+        amount: AMOUNT,
+        splToken: USDC_DEVNET,
+        reference
+      });
+      setSignature(result.signature);
+    }
+
+    startPayment().catch((error) => {
+      if (!abortController.signal.aborted) console.error(error);
+    });
+
+    return () => abortController.abort();
+  }, []);
+
+  if (signature) return <p>Payment confirmed: {signature}</p>;
+  return <div ref={qrRef} />;
 }
 ```
 
-이 컴포넌트는 지갑 연결, 토큰 선택, 트랜잭션 처리 및 UI 상태를 내부적으로 처리합니다. `mode: "tip"`은 결제자가 금액을 선택할 수 있게 합니다. 고정 가격 및 장바구니 결제에 대해서는 [결제 모드](/docs/tools/commerce-kit/quickstart/payment-button)를 참조하세요.
-
-## 브라우저에서 체험하기
-
-이 페이지를 벗어나지 않고 결제 버튼을 구성하고 팁 플로우를 실행해 보세요.
-
-<iframe
-  src="https://launch.solana.com/products/commercekit/playground"
-  title="Commerce Kit Playground"
-  width="100%"
-  height="1080"
-  loading="lazy"
-  allow="clipboard-read; clipboard-write; payment"
-  referrerPolicy="strict-origin-when-cross-origin"
-  style={{
-    display: "block",
-    width: "100%",
-    border: "1px solid rgba(148, 163, 184, 0.25)",
-    borderRadius: "12px",
-    background: "#fff"
-  }}
-/>
-
-[Commerce Kit Playground 전체 화면으로 열기](https://launch.solana.com/products/commercekit/playground)
+`amount`는 토큰 단위이므로 `1`은 1 USDC를 요청합니다. `splToken`을 생략하면 대신 SOL을 요청합니다.
 
 ## 3. 결제 받기
 
-앱을 실행하고, 버튼을 클릭한 후 지갑을 연결하고 결제하세요. `onPaymentSuccess` 콜백은 트랜잭션 서명을 수신하며, 이것이 영수증입니다. [getTransaction](/docs/rpc/http/gettransaction)이나 임의의 익스플로러에서 조회할 수 있습니다.
+앱을 실행하고 지갑으로 QR 코드를 스캔한 다음 결제를 승인하세요. 트랜잭션이 컨펌되고 검증을 통과하면 컴포넌트에 트랜잭션 서명이 표시됩니다. 이 서명이 영수증 역할을 하며, [getTransaction](/docs/rpc/http/gettransaction)이나 아무 익스플로러에서나 조회할 수 있습니다.
+
+<Callout type="warn">
+  브라우저에서의 검증은 데모용으로는 충분합니다. 실제 주문을 처리하기 전에 서버에서 결제를 검증하세요. [결제 검증](/docs/payments/accept-payments/verification-tools)을 참고하세요.
+</Callout>
 
 ## 다음 단계
 
+- [Solana Pay](/docs/tools/solana-pay) - 전송 요청, 트랜잭션 요청, QR 코드 옵션
 - [Solana에서 결제가 작동하는 방식](/docs/payments/how-payments-work) - 지갑, 스테이블코인, token account 및 수수료
 - [결제 검증](/docs/payments/accept-payments/verification-tools) - 주문 처리 전 서버 측에서 결제 확인
 - [결제 전송](/docs/payments/send-payments) - 자체 백엔드에서의 지급 및 이체
