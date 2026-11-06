@@ -44,7 +44,7 @@ export default async function Page(_props: Props) {
         validators: t("evidence.metrics.validators"),
         nakamoto: t("evidence.metrics.nakamoto"),
         countries: t("evidence.metrics.countries"),
-        voteParticipation: t("evidence.metrics.voteParticipation"),
+        solPercentStaked: t("evidence.metrics.solPercentStaked"),
         energyPerTransaction: t("evidence.metrics.energyPerTransaction"),
         annualizedEnergy: t("evidence.metrics.annualizedEnergy"),
         slotTarget: t("evidence.metrics.slotTarget"),

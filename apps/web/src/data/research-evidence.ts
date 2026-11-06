@@ -31,7 +31,7 @@ export const RESEARCH_METRICS = {
     { key: "research.validator-countries-2025", label: "countries" },
     {
       key: "research.sol-percent-staked",
-      label: "voteParticipation",
+      label: "solPercentStaked",
     },
   ],
   energy: [
