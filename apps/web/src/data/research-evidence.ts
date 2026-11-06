@@ -30,7 +30,7 @@ export const RESEARCH_METRICS = {
     { key: "research.nakamoto-coefficient-2025", label: "nakamoto" },
     { key: "research.validator-countries-2025", label: "countries" },
     {
-      key: "research.simd-228-vote-participation",
+      key: "research.sol-percent-staked",
       label: "voteParticipation",
     },
   ],
