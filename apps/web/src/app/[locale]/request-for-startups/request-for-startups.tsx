@@ -5,6 +5,7 @@ import { Link } from "@workspace/i18n/routing";
 import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import { ArrowDown } from "@boxicons/react/ArrowDown";
 import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
+import { Rocket } from "@boxicons/react/Rocket";
 import { Terminal } from "@boxicons/react/Terminal";
 import { User } from "@boxicons/react/User";
 import { motion, useReducedMotion, type Variants } from "motion/react";
@@ -31,6 +32,9 @@ const ACCENTS: Record<Request["accent"], string> = {
   blue: "#80ecff",
   orange: "#ffb45c",
 };
+
+const BUILDER_PROGRAM_APPLICATION_URL =
+  "https://docs.google.com/forms/d/e/1FAIpQLScOeyOQcW2VK271z9EexZXk3xuEkBpKSALLTc4IP4Fd4A-a7g/viewform";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -375,16 +379,28 @@ export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
       <motion.section id="build" className={styles.build} {...sectionMotion}>
         <PointField compact />
         <motion.div className={styles.buildInner} {...sectionItemMotion}>
-          <p className={styles.eyebrow}>Your signal starts here</p>
+          <p className={styles.eyebrow}>Solana Builder Program</p>
           <h2>
             Start where the <em>request ends.</em>
           </h2>
           <p>
-            Bring an idea to life with the people, tools, and capital that can
-            help it move. The build challenge is coming next.
+            Building on one of these requests? Apply to the Solana Builder
+            Program for grants, go-to-market support, builder tools, hiring
+            help, and credits. The build challenge is coming next.
           </p>
           <div className={styles.ctaGroup}>
-            <Button asChild className={styles.cta}>
+            <Button asChild className={styles.ctaApply}>
+              <a
+                href={BUILDER_PROGRAM_APPLICATION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Rocket pack="filled" aria-hidden="true" />
+                Apply to the Builder Program{" "}
+                <ArrowUpRight pack="filled" aria-hidden="true" />
+              </a>
+            </Button>
+            <Button asChild variant="outline" className={styles.ctaSecondary}>
               <a href="https://solana.com/llms.txt">
                 <Terminal pack="filled" aria-hidden="true" />
                 Agents: read llms.txt{" "}

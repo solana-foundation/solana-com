@@ -118,16 +118,6 @@ export const styles = {
     motion-safe:[&:hover]:[transform:translateY(-2px)]
     [&:focus-visible]:[outline:3px_solid_var(--green)]
     [&:focus-visible]:[outline-offset:5px]`,
-  cta: `rfs-cta
-    [&_svg]:[color:var(--green)]
-    [background:var(--paper)] rounded-full [color:var(--ink)] inline-flex [font:500_12px/1_DSemi,_monospace]
-    [gap:9px] [padding:14px_18px] no-underline
-    motion-safe:[transition:color_0.25s_ease,_border-color_0.25s_ease,_background-color_0.25s_ease,_opacity_0.25s_ease,_transform_0.25s_ease]
-    motion-safe:[&:hover]:[background:var(--paper)]
-    motion-safe:[&:hover]:[color:var(--ink)]
-    motion-safe:[&:hover]:[transform:translateY(-2px)]
-    [&:focus-visible]:[outline:3px_solid_var(--green)]
-    [&:focus-visible]:[outline-offset:5px]`,
   requestsSection: `rfs-requestsSection [background:var(--surface)]
     [padding:clamp(80px,_10vw,_150px)_clamp(20px,_4.45vw,_72px)_clamp(96px,_12vw,_180px)]
     max-[620px]:[padding:72px_20px_104px]`,
@@ -269,7 +259,19 @@ export const styles = {
     [&:focus-visible]:[outline:1px_solid_var(--request-accent)]
     [&:focus-visible]:[outline-offset:4px]`,
   buildInner: `rfs-buildInner [margin:0_auto] [max-width:960px] relative [z-index:1]`,
-  ctaGroup: `rfs-ctaGroup items-center flex flex-wrap [gap:12px] justify-center`,
+  ctaGroup: `rfs-ctaGroup items-center flex flex-wrap [gap:12px] justify-center
+    max-[620px]:justify-start`,
+  ctaApply: `rfs-ctaApply
+    [&_svg]:[color:currentcolor]
+    [background:var(--green)] [border:1px_solid_var(--green)] rounded-full [color:var(--ink)] inline-flex
+    [font:500_12px/1_DSemi,_monospace] [gap:9px] [padding:14px_18px] no-underline
+    motion-safe:[transition:color_0.25s_ease,_border-color_0.25s_ease,_background-color_0.25s_ease,_opacity_0.25s_ease,_transform_0.25s_ease]
+    motion-safe:[&:hover]:[background:var(--paper)]
+    motion-safe:[&:hover]:[border-color:var(--paper)]
+    motion-safe:[&:hover]:[color:var(--ink)]
+    motion-safe:[&:hover]:[transform:translateY(-2px)]
+    [&:focus-visible]:[outline:3px_solid_var(--paper)]
+    [&:focus-visible]:[outline-offset:5px]`,
   ctaSecondary: `rfs-ctaSecondary [background:transparent] [border:1px_solid_rgba(244,_243,_246,_0.7)] rounded-full
     [color:var(--paper)] inline-flex [font:500_12px/1_DSemi,_monospace] [gap:9px] [padding:14px_18px] no-underline
     motion-safe:[transition:color_0.25s_ease,_border-color_0.25s_ease,_background-color_0.25s_ease,_opacity_0.25s_ease,_transform_0.25s_ease]

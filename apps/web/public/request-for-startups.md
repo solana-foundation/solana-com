@@ -333,4 +333,5 @@ Kyle Samani describes a fan following several football games with multiple predi
 ## Start building
 
 - **Humans:** [open the Solana quickstart](https://solana.com/docs/intro/quick-start).
+- **Support:** once there is something to show, [apply to the Solana Builder Program](https://docs.google.com/forms/d/e/1FAIpQLScOeyOQcW2VK271z9EexZXk3xuEkBpKSALLTc4IP4Fd4A-a7g/viewform) for grants, go-to-market support, builder tools, hiring help, and credits.
 - **Agents:** start with [Solana’s agent resources](https://solana.com/llms.txt), then follow the tooling path for the selected request. Use [Full Documentation](https://solana.com/llms-full.txt) for code-level details and validate a smallest working flow locally before proposing production deployment.
