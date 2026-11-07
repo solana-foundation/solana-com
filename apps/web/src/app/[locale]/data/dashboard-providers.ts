@@ -158,7 +158,7 @@ export function hasInvalidProviderParam(
 }
 
 export function getProviderScope(tab: DashboardTab) {
-  if (tab === "rpc" || tab === "senders") {
+  if (tab === "rpc" || tab === "senders" || tab === "grpc") {
     return tab;
   }
 

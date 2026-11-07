@@ -126,6 +126,12 @@ describe("getAxisValueFormatter", () => {
 });
 
 describe("formatValue", () => {
+  it("preserves sub-millisecond lag precision and zero values", () => {
+    expect(formatValue(0.0123, "Milliseconds")).toBe("0.012");
+    expect(formatValue(0, "Milliseconds")).toBe("0.0");
+    expect(formatValue(10.42, "Milliseconds")).toBe("10.4");
+  });
+
   it("rounds percent values to whole numbers and caps them at 100", () => {
     expect(formatValue(99.4, "Percent")).toBe("99%");
     expect(formatValue(99.5, "Percent")).toBe("100%");

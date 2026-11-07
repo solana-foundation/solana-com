@@ -11,6 +11,7 @@ import {
 import { type DashboardRange } from "./date-range";
 import { getProviderScope, updateProvidersParam } from "./dashboard-providers";
 import type { QueryUpdates } from "./dashboard-types";
+import type { GrpcStream, GrpcCommitment } from "./grpc-config";
 
 export function applyQueryUpdates(
   params: URLSearchParams,
@@ -58,6 +59,10 @@ export function applyQueryUpdates(
   if (updates.timeframe) {
     params.set("timeframe", updates.timeframe);
   }
+  if (updates.grpcRegion) params.set("region", updates.grpcRegion);
+  if (updates.grpcCloudProvider) params.set("cloud", updates.grpcCloudProvider);
+  if (updates.grpcStream) params.set("stream", updates.grpcStream);
+  if (updates.grpcCommitment) params.set("commitment", updates.grpcCommitment);
 }
 
 export function getDashboardUrl(pathname: string, params: URLSearchParams) {
@@ -122,6 +127,10 @@ export function getDashboardDataUrl({
   rpcMethod,
   rpcRegion,
   rpcTimeframe,
+  grpcRegion = "all",
+  grpcCloudProvider = "all",
+  grpcStream = "transaction",
+  grpcCommitment = "processed",
 }: {
   activeTab: DashboardTab;
   range: DashboardRange;
@@ -129,7 +138,22 @@ export function getDashboardDataUrl({
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
   rpcTimeframe: RpcTimeframe;
+  grpcRegion?: string;
+  grpcCloudProvider?: string;
+  grpcStream?: GrpcStream;
+  grpcCommitment?: GrpcCommitment;
 }) {
+  if (activeTab === "grpc") {
+    const params = new URLSearchParams({
+      region: grpcRegion,
+      cloud: grpcCloudProvider,
+      stream: grpcStream,
+      commitment: grpcCommitment,
+      timeframe: rpcTimeframe,
+    });
+    params.set("connections", "1");
+    return `/api/grpc/data?${params.toString()}`;
+  }
   if (activeTab !== "rpc" && activeTab !== "senders") {
     const params = new URLSearchParams(
       range.kind === "custom"
@@ -165,6 +189,7 @@ export function parseTab(value: string | null): DashboardTab {
     value === "lending" ||
     value === "perps" ||
     value === "rpc" ||
+    value === "grpc" ||
     value === "senders"
     ? value
     : "overview";
