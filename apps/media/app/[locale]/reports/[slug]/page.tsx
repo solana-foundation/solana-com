@@ -6,6 +6,7 @@ import { ArrowOutUpRightSquare } from "@boxicons/react/ArrowOutUpRightSquare";
 import { ArrowLeft } from "@boxicons/react/ArrowLeft";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { remarkRejectMdxCode, safeHref } from "@/lib/mdx-security";
 import { notFound } from "next/navigation";
 import ErrorBoundary from "@/components/error-boundary";
 import { ReportFormModal } from "@/components/report/report-form-modal";
@@ -144,7 +145,9 @@ export default async function ReportPage({
                   source={preprocessMDX(await report.body())}
                   components={mdxComponents}
                   options={{
-                    mdxOptions: { remarkPlugins: [remarkGfm] },
+                    mdxOptions: {
+                      remarkPlugins: [remarkGfm, remarkRejectMdxCode],
+                    },
                   }}
                 />
               </div>
@@ -182,7 +185,7 @@ export default async function ReportPage({
                     className="rounded-full text-base md:text-lg px-5 bg-white text-black hover:!bg-white/90 tracking-[-0.16px] md:tracking-[-0.18px]"
                   >
                     <a
-                      href={String(report.pdfUrl)}
+                      href={safeHref(String(report.pdfUrl))}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

@@ -16,9 +16,12 @@ import { SolutionReport } from "@/components/solutions/report.v2";
 import { SelectionColor } from "@/component-library/selection-color";
 import { FinancialInstitutionsLogoMarquee } from "./logo-marquee";
 import type { NewsItem } from "@/components/solutions/latest-news.v2";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
 type SolutionsFinancialInstitutionsPageProps = {
   news: NewsItem[];
+  /** Registry figures for PROJECTS, in the same order (undefined for claim cards). */
+  projectMetrics: (DisplayMetric | undefined)[];
 };
 
 const CONNECT_TYPEFORM_URL =
@@ -26,6 +29,7 @@ const CONNECT_TYPEFORM_URL =
 
 export function SolutionsFinancialInstitutionsPage({
   news,
+  projectMetrics,
 }: SolutionsFinancialInstitutionsPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -63,7 +67,12 @@ export function SolutionsFinancialInstitutionsPage({
             light: (chunks) => <span className="font-light">{chunks}</span>,
             br: () => <br />,
           })}
-          projects={PROJECTS}
+          projects={PROJECTS.map((project, index) => {
+            const metric = projectMetrics[index];
+            return metric
+              ? { ...project, statValue: metric.value, source: metric.source }
+              : project;
+          })}
           translationBase="financial-institutions-solution.projects"
           controlsAlign="right"
           bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"

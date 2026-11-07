@@ -402,12 +402,6 @@ export const productToolItems: NavItemDefinition[] = [
     icon: MoneyIcon,
   },
   {
-    id: "products-commerce-kit",
-    titleKey: "nav.products.tools.items.commerceKit.title",
-    href: "/docs/tools/commerce-kit",
-    icon: StoreIcon,
-  },
-  {
     id: "products-kora",
     titleKey: "nav.products.tools.items.kora.title",
     href: "/docs/tools/kora",

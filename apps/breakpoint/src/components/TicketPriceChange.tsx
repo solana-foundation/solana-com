@@ -3,17 +3,15 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import {
-  getNextTicketPriceChangeAt,
+  GENERAL_ADMISSION_PRICE_INCREASE_AT,
   getTicketPriceCountdownParts,
   hasGeneralAdmissionPriceIncreased,
-  hasLateBirdStarted,
 } from "@/content/ticket-pricing";
 
 type GeneralAdmissionPriceProps = {
   currentPrice: string;
   initialNow: number;
   increasedPrice: string;
-  lateBirdPrice?: string;
 };
 
 type TicketPriceChangeCountdownProps = {
@@ -32,7 +30,7 @@ type LocalizedGeneralAdmissionPriceProps = Pick<
   "initialNow"
 >;
 
-export function usePriceChangeClock(initialNow: number) {
+function usePriceChangeClock(initialNow: number) {
   const [now, setNow] = useState(initialNow);
 
   useEffect(() => {
@@ -43,7 +41,7 @@ export function usePriceChangeClock(initialNow: number) {
       setNow(currentTime);
 
       if (
-        getNextTicketPriceChangeAt(currentTime) === null &&
+        hasGeneralAdmissionPriceIncreased(currentTime) &&
         intervalId !== undefined
       ) {
         window.clearInterval(intervalId);
@@ -52,7 +50,7 @@ export function usePriceChangeClock(initialNow: number) {
 
     tick();
 
-    if (getNextTicketPriceChangeAt(Date.now()) !== null) {
+    if (Date.now() < GENERAL_ADMISSION_PRICE_INCREASE_AT) {
       intervalId = window.setInterval(tick, 1000);
     }
 
@@ -89,14 +87,11 @@ export function GeneralAdmissionPrice({
   currentPrice,
   initialNow,
   increasedPrice,
-  lateBirdPrice,
 }: GeneralAdmissionPriceProps) {
   const now = usePriceChangeClock(initialNow);
-  const price = hasLateBirdStarted(now)
-    ? (lateBirdPrice ?? increasedPrice)
-    : hasGeneralAdmissionPriceIncreased(now)
-      ? increasedPrice
-      : currentPrice;
+  const price = hasGeneralAdmissionPriceIncreased(now)
+    ? increasedPrice
+    : currentPrice;
 
   return <>{price}</>;
 }
@@ -108,7 +103,7 @@ export function TicketPriceChangeCountdown({
 }: TicketPriceChangeCountdownProps) {
   const now = usePriceChangeClock(initialNow);
 
-  if (getNextTicketPriceChangeAt(now) === null) {
+  if (hasGeneralAdmissionPriceIncreased(now)) {
     return null;
   }
 
@@ -158,7 +153,6 @@ export function LocalizedGeneralAdmissionPrice({
       currentPrice={t("tickets.categories.general.price")}
       initialNow={initialNow}
       increasedPrice={t("tickets.categories.general.priceAfterIncrease")}
-      lateBirdPrice={t("tickets.categories.lateBird.price")}
     />
   );
 }

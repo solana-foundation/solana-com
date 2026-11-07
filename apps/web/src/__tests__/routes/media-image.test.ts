@@ -49,7 +49,7 @@ describe("Media image proxy", () => {
         new URL(
           "https://solana-com-media.vercel.app/uploads/posts/story/hero.webp",
         ),
-        { next: { revalidate: 300 } },
+        { redirect: "manual", cache: "no-store" },
       );
     },
   );
@@ -62,7 +62,7 @@ describe("Media image proxy", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("does not return or cache HTML as a successful image", async () => {
+  it("does not return HTML as a successful image", async () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubGlobal(
       "fetch",
@@ -74,8 +74,25 @@ describe("Media image proxy", () => {
         ),
     );
     const response = await GET(request("/uploads/story.webp"));
-    expect(response.status).toBe(502);
-    expect(response.headers.get("Cache-Control")).toBeNull();
+    expect(response.status).toBe(415);
+    expect(response.headers.get("Cache-Control")).toBe("public, s-maxage=60");
+  });
+
+  it("retries after a login redirect from a protected preview", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 307,
+          headers: { Location: "https://vercel.com/login" },
+        }),
+      )
+      .mockResolvedValueOnce(image());
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await GET(request("/uploads/story.webp"));
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it.each([
@@ -92,7 +109,7 @@ describe("Media image proxy", () => {
       expect(fetchMock).not.toHaveBeenCalled();
     },
   );
-  it("preserves image queries across a public retry", async () => {
+  it("drops image queries before requesting either Media origin", async () => {
     vi.stubEnv("NODE_ENV", "production");
     const fetchMock = vi
       .fn()
@@ -107,16 +124,12 @@ describe("Media image proxy", () => {
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      new URL(
-        "https://media-preview.vercel.app/uploads/story.webp?width=640&fit=cover",
-      ),
-      { next: { revalidate: 300 } },
+      new URL("https://media-preview.vercel.app/uploads/story.webp"),
+      { redirect: "manual", cache: "no-store" },
     );
     expect(fetchMock).toHaveBeenLastCalledWith(
-      new URL(
-        "https://solana-com-media.vercel.app/uploads/story.webp?width=640&fit=cover",
-      ),
-      { next: { revalidate: 300 } },
+      new URL("https://solana-com-media.vercel.app/uploads/story.webp"),
+      { redirect: "manual", cache: "no-store" },
     );
   });
 });

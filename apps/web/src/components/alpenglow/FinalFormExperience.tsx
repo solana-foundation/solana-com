@@ -17,7 +17,6 @@ import type {
   FinalFormCanvasHandle,
 } from "./FinalFormCanvas";
 import type { AlpenglowEvent, StreamStatus } from "./types";
-import { AlpenglowDashboardStats } from "./AlpenglowDashboardStats";
 
 const FinalFormCanvas = dynamic(
   () => import("./FinalFormCanvas").then((module) => module.FinalFormCanvas),
@@ -215,15 +214,6 @@ export default function FinalFormExperience({
         </div>
         <div className="ff-intro">
           <p>{t("hero.description")}</p>
-          <Button
-            asChild
-            variant="outline"
-            className="ff-intro-button rounded-none border-white/40 bg-transparent font-brand-mono text-xs font-normal uppercase tracking-[0.08em] text-white shadow-none hover:border-[#14f195] hover:bg-[#14f195] hover:text-black"
-          >
-            <a href={localizeMediaHref("/upgrades/alpenglow/dashboard")}>
-              {t("actions.viewDashboard")} <span aria-hidden="true">↗</span>
-            </a>
-          </Button>
         </div>
       </section>
       <section
@@ -287,7 +277,6 @@ export default function FinalFormExperience({
             </div>
           </div>
         </div>
-        <AlpenglowDashboardStats />
       </section>
       <p className="ff-note">{t("visualizerNote")}</p>
       <section className="ff-shift" aria-labelledby="ff-shift-title">

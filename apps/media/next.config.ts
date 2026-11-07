@@ -1,11 +1,13 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { securityHeadersRoute } from "@workspace/security-headers";
 
 const withNextIntl = createNextIntlPlugin("./i18n/request.ts");
 const assetPrefix = "/media-assets";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   reactStrictMode: true,
   trailingSlash: false,
   assetPrefix,
@@ -28,21 +30,12 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "res.cloudinary.com",
+        pathname: "/resourcefulmind-inc/**",
         port: "",
       },
       {
         protocol: "https",
-        hostname: "*.cloudfront.net",
-        port: "",
-      },
-      {
-        protocol: "https",
-        hostname: "placehold.co",
-        port: "",
-      },
-      {
-        protocol: "https",
-        hostname: "*.vercel.app",
+        hostname: "dnfpbwm8i1o6z.cloudfront.net",
         port: "",
       },
       {
@@ -102,22 +95,7 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
-    const headers = [
-      {
-        key: "X-Frame-Options",
-        value: "SAMEORIGIN",
-      },
-      {
-        key: "Content-Security-Policy",
-        value: "frame-ancestors 'self'",
-      },
-    ];
-    return [
-      {
-        source: "/:path*",
-        headers,
-      },
-    ];
+    return [securityHeadersRoute()];
   },
 
   async redirects() {

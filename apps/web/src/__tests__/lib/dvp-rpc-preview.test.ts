@@ -19,7 +19,11 @@ describe("DvP preview RPC", () => {
           requests.push(init?.method ?? "GET");
           if (init?.method === "POST")
             return new Response(null, { status: 403 });
-          return GET(new Request(url));
+          return GET(
+            new Request(url, {
+              headers: { "sec-fetch-site": "same-origin" },
+            }),
+          );
         }
 
         expect(url.href).toBe("https://devnet.example.test/rpc");

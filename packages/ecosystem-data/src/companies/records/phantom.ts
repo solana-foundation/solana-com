@@ -24,8 +24,7 @@ export const phantom = {
     },
     socials: {
       x: "https://x.com/phantom",
-      linkedin: "https://www.linkedin.com/company/phantomwallet",
-      discord: "https://discord.gg/phantom",
+      linkedin: "https://www.linkedin.com/company/phantom-app",
       github: "https://github.com/phantom",
     },
   },

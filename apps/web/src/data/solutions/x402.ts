@@ -55,3 +55,10 @@ export const TOOLS = [
     href: "https://solana.com/developers/templates",
   },
 ];
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "x402.solana-transactions-all-time",
+  "x402.solana-buyers-and-sellers-all-time",
+  "x402.solana-volume-share-30d",
+] as const;

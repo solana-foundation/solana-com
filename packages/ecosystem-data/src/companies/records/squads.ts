@@ -10,14 +10,14 @@ export const squads = {
     summary:
       "Squads is the multisig standard on Solana, providing smart account infrastructure for teams, DAOs, and businesses to securely manage onchain assets with shared ownership and permissions.",
     description:
-      "Squads is the industry-standard multisig platform on Solana, built on the formally verified Squads Protocol. Teams can deploy a multisig in a few clicks, configuring time locks, spending limits, roles, sub-accounts, and custom access controls. Major Solana projects including Helium, Jito, Pyth, Drift, and Orca rely on Squads for onchain operations.",
+      "Squads is the industry-standard multisig platform on Solana, built on the formally verified Squads Protocol. Teams can deploy a multisig in a few clicks, configuring time locks, spending limits, roles, sub-accounts, and custom access controls. Major Solana projects including Helium, Jito, Pyth, and Orca rely on Squads for onchain operations.",
     sector: "Infrastructure",
     type: "Protocol",
     links: {
       website: "https://squads.xyz/",
     },
     socials: {
-      x: "https://x.com/SquadsProtocol",
+      x: "https://x.com/multisig",
       linkedin: "https://www.linkedin.com/company/squads-labs",
       github: "https://github.com/Squads-Protocol",
     },

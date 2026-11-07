@@ -1,5 +1,5 @@
 import type { AbstractIntlMessages } from "next-intl";
-import { getRequestConfig } from "./server";
+import type { GetRequestConfigParams, RequestConfig } from "next-intl/server";
 import {
   getEnglishFallbackMessages,
   getMessageFallback,
@@ -28,7 +28,13 @@ export function createAppRequestConfig(app: AppId) {
     | ReturnType<typeof getEnglishFallbackMessages>
     | undefined;
 
-  return getRequestConfig(async ({ requestLocale }) => {
+  // Deliberately not wrapped in next-intl's `getRequestConfig` (an identity
+  // function): importing next-intl/server here closes a cycle through its
+  // `next-intl/config` alias, and after an HMR rebuild the import can be read
+  // before it is initialised ("Cannot read properties of undefined").
+  return async ({
+    requestLocale,
+  }: GetRequestConfigParams): Promise<RequestConfig> => {
     const { locale, messages } = await loadAppRequestMessages(
       app,
       await requestLocale,
@@ -42,5 +48,5 @@ export function createAppRequestConfig(app: AppId) {
       messages,
       getMessageFallback: (ctx) => getMessageFallback(englishMessages, ctx),
     };
-  });
+  };
 }

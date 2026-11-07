@@ -203,6 +203,7 @@ export default function MenuOverlay({ open, onClose }: Props) {
 
   const menuItems: MenuItem[] = [
     { label: t("items.home"), href: "/" },
+    { label: t("items.schedule"), href: "/schedule" },
     { label: t("items.travel"), href: "/travel" },
     { label: t("items.register"), href: "/registration" },
     { label: t("items.faq"), href: "/faq" },

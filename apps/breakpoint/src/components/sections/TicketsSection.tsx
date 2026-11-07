@@ -6,9 +6,7 @@ import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import {
   GeneralAdmissionPrice,
   TicketPriceChangeCountdown,
-  usePriceChangeClock,
 } from "@/components/TicketPriceChange";
-import { hasLateBirdStarted } from "@/content/ticket-pricing";
 import {
   BREAKPOINT_LUMA_EVENT_ID,
   DEVELOPER_APPLICATION_HREF,
@@ -28,7 +26,6 @@ declare global {
 
 type TicketCardProps = {
   description?: string;
-  disabled?: boolean;
   heading: string;
   href?: string;
   lumaEventId?: string;
@@ -67,19 +64,17 @@ function ArrowGlyph({ className = "" }: { className?: string }) {
 function TicketLink({
   children,
   className,
-  disabled = false,
   href,
   lumaEventId,
   label,
 }: {
   children: React.ReactNode;
   className: string;
-  disabled?: boolean;
   href?: string;
   label: string;
   lumaEventId?: string;
 }) {
-  if (disabled || !href) {
+  if (!href) {
     return (
       <article aria-disabled="true" aria-label={label} className={className}>
         {children}
@@ -152,45 +147,26 @@ function FeaturedTicketCard({
 }
 
 function HorizontalTicketCard({
-  disabled = false,
   heading,
   href,
   lumaEventId,
   price,
 }: TicketCardProps) {
-  const activeClasses =
-    "bg-neutral-700 text-white transition-colors hover:bg-neutral-600 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white";
-  const disabledClasses =
-    "border border-stroke-primary bg-black text-text-secondary";
-
   return (
     <TicketLink
-      disabled={disabled}
       href={href}
       label={heading}
       lumaEventId={lumaEventId}
-      className={`group flex h-[77px] items-center justify-between gap-1 overflow-hidden p-s md:h-auto md:gap-s ${
-        disabled ? disabledClasses : activeClasses
-      }`}
+      className="group flex h-[77px] items-center justify-between gap-1 overflow-hidden bg-neutral-700 p-s text-white transition-colors hover:bg-neutral-600 focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white md:h-auto md:gap-s"
     >
-      <h3
-        className={`type-p-large-bold w-[141px] shrink-0 md:w-auto ${
-          disabled ? "text-text-secondary" : "text-white"
-        }`}
-      >
+      <h3 className="type-p-large-bold w-[141px] shrink-0 text-white md:w-auto">
         {heading}
       </h3>
       <div className="flex min-w-0 items-center gap-1 md:gap-3">
-        <p
-          className={`font-bp26 text-[24px] leading-[1.18] tracking-[0.06rem] whitespace-nowrap uppercase md:text-h2 md:leading-[var(--text-h2--line-height)] md:tracking-[var(--text-h2--letter-spacing)] ${
-            disabled ? "text-text-secondary" : "text-white"
-          }`}
-        >
+        <p className="font-bp26 text-[24px] leading-[1.18] tracking-[0.06rem] whitespace-nowrap uppercase text-white md:text-h2 md:leading-[var(--text-h2--line-height)] md:tracking-[var(--text-h2--letter-spacing)]">
           {price}
         </p>
-        {!disabled && (
-          <ArrowGlyph className="size-4 text-white transition-transform group-hover:translate-x-1 group-hover:-translate-y-1 md:size-[35px]" />
-        )}
+        <ArrowGlyph className="size-4 text-white transition-transform group-hover:translate-x-1 group-hover:-translate-y-1 md:size-[35px]" />
       </div>
     </TicketLink>
   );
@@ -199,7 +175,6 @@ function HorizontalTicketCard({
 export default function TicketsSection({ initialNow }: { initialNow: number }) {
   const t = useTranslations("breakpoint");
   const variant = useVariant();
-  const lateBirdStarted = hasLateBirdStarted(usePriceChangeClock(initialNow));
 
   useEffect(() => {
     window.luma?.initCheckout?.();
@@ -229,25 +204,17 @@ export default function TicketsSection({ initialNow }: { initialNow: number }) {
 
         <div className="grid grid-cols-1 gap-xs md:grid-cols-bp-desktop md:gap-s">
           <FeaturedTicketCard
-            heading={t(
-              `tickets.categories.${lateBirdStarted ? "lateBird" : "general"}.label`,
-            )}
-            description={t(
-              `tickets.categories.${lateBirdStarted ? "lateBird" : "general"}.description`,
-            )}
+            heading={t("tickets.categories.general.label")}
+            description={t("tickets.categories.general.description")}
             initialNow={initialNow}
-            price={t(
-              `tickets.categories.${lateBirdStarted ? "lateBird" : "general"}.price`,
+            price={t("tickets.categories.general.price")}
+            priceAfterIncrease={t(
+              "tickets.categories.general.priceAfterIncrease",
             )}
-            priceAfterIncrease={
-              lateBirdStarted
-                ? undefined
-                : t("tickets.categories.general.priceAfterIncrease")
-            }
             href={lumaHref}
             lumaEventId={lumaEventId}
           />
-          <div className="grid gap-xs md:col-span-8 md:h-[352px] md:grid-rows-3 md:gap-s">
+          <div className="grid gap-xs md:col-span-8 md:h-[352px] md:grid-rows-2 md:gap-s">
             <HorizontalTicketCard
               heading={t("tickets.categories.developers.label")}
               price={t("tickets.categories.developers.price")}
@@ -258,13 +225,6 @@ export default function TicketsSection({ initialNow }: { initialNow: number }) {
               price={t("tickets.categories.students.price")}
               href={STUDENT_APPLICATION_HREF}
             />
-            {!lateBirdStarted && (
-              <HorizontalTicketCard
-                heading={t("tickets.categories.lateBird.label")}
-                price={t("tickets.categories.lateBird.price")}
-                disabled
-              />
-            )}
           </div>
         </div>
       </div>

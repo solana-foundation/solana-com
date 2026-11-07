@@ -31,3 +31,10 @@ export const TOOLS = [
     href: "https://github.com/QuantuLabs/8004-solana-ts/blob/main/docs/QUICKSTART.md",
   },
 ];
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "agents.register-cost",
+  "agents.feedback-cost",
+  "agents.set-wallet-cost",
+] as const;

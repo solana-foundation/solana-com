@@ -90,6 +90,7 @@ describe("awards voting", () => {
   });
 
   it("restores the persisted vote after a duplicate submission", async () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const savedVote = {
       category: awardCategories[0]!.id,
       twitterHandle: "@grizzle_art",
@@ -119,5 +120,15 @@ describe("awards voting", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit vote" })).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Share vote" }));
+    const shareUrl = new URL(open.mock.calls[0]![0] as string);
+    expect(shareUrl.origin + shareUrl.pathname).toBe(
+      "https://x.com/intent/tweet",
+    );
+    expect(shareUrl.searchParams.get("text")).toBe(
+      `I voted for Grizz (@grizzle_art) in the ${messages.breakpoint.awards.categories[awardCategories[0]!.id].name} at @SolanaEvents. 🏆`,
+    );
+    expect(shareUrl.searchParams.get("url")).toBe(window.location.href);
   });
 });

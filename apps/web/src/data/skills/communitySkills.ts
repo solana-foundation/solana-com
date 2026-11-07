@@ -135,7 +135,7 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     slug: "ranger-finance-skill",
     title: "Ranger Finance Skill",
     description:
-      "AI coding skill for Ranger Finance, a Solana perps aggregator across Drift, Flash, and Jupiter.",
+      "AI coding skill for Ranger Finance, a Solana perps aggregator across Flash, Jupiter, and other venues.",
     url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/ranger-finance",
     category: DEFI,
   },

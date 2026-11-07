@@ -19,6 +19,13 @@ export const STATS_CONFIG = {
   contained: true,
 } as const;
 
+/** Registry keys for the stats row, in display order. */
+export const STATS_METRICS = [
+  "dao.daos-created",
+  "dao.treasury-value",
+  "network.average-fee-30d",
+] as const;
+
 export const CARD_DECK_COLUMNS = 3;
 
 export const CARD_DECK_CARDS = [

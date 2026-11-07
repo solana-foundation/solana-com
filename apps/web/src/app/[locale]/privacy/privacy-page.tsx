@@ -29,14 +29,19 @@ import {
   isExternalHref,
   type PrivacyMode,
   type PrivacyStatus,
+  PRIVACY_METRICS,
 } from "@/data/solutions/privacy";
 import Marquee from "@/component-library/marquee";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import { PrivacyContactButton } from "./privacy-contact";
 import { ViewAsLedger } from "./privacy-ledger";
 import { EcosystemShowcase } from "./privacy-ecosystem";
 import type { DiagramLabels } from "./privacy-diagrams";
 import { Reveal, SettlementTrack, SolutionIcon } from "./privacy-motion";
 import { PrivacyHeroArt } from "./privacy-hero-art";
+
+type PrivacyMetrics = Record<(typeof PRIVACY_METRICS)[number], DisplayMetric>;
 
 /* ──────────────────────────────────────────────────────────
    Shared styles
@@ -467,7 +472,7 @@ function SolutionIntro({
   );
 }
 
-function ConfidentialBalances() {
+function ConfidentialBalances({ metrics }: { metrics: PrivacyMetrics }) {
   const t = useTranslations("privacy.confidentialBalances");
   const tStatus = useTranslations("privacy.solutions.status");
   const format = useFormatter();
@@ -518,18 +523,33 @@ function ConfidentialBalances() {
 
         <div className="mt-14 grid gap-px overflow-hidden rounded-2xl border border-nd-border-light bg-nd-border-light md:mt-20 md:grid-cols-3">
           {CONFIDENTIAL_BALANCES_STATS.map((stat, index) => (
-            <div key={stat} className="bg-nd-bg p-6 md:p-8">
+            <div key={stat.key} className="bg-nd-bg p-6 md:p-8">
               <p
                 className={`font-brand text-[40px] font-medium leading-none tracking-[-0.04em] md:text-[48px] ${index === 0 ? "text-nd-highlight-lavendar" : "text-white"}`}
               >
-                {t(`stats.${stat}.value`)}
+                {"metric" in stat
+                  ? metrics[stat.metric].value
+                  : t(`stats.${stat.key}.value`)}
               </p>
               <p className="nd-body-s mt-3 text-nd-mid-em-text">
-                {t(`stats.${stat}.label`)}
+                {t(`stats.${stat.key}.label`)}
               </p>
             </div>
           ))}
         </div>
+        <MetricSourcesFootnote
+          className="mt-4"
+          items={CONFIDENTIAL_BALANCES_STATS.flatMap((stat) =>
+            "metric" in stat
+              ? [
+                  {
+                    label: t(`stats.${stat.key}.label`),
+                    source: metrics[stat.metric].source,
+                  },
+                ]
+              : [],
+          )}
+        />
 
         <div className={`${calloutClass} mt-6 p-6 md:p-8`}>
           <p className="nd-body-m text-nd-mid-em-text">
@@ -723,7 +743,7 @@ function Compliance() {
   );
 }
 
-function Glance() {
+function Glance({ metrics }: { metrics: PrivacyMetrics }) {
   const t = useTranslations("privacy.glance");
   const reduceMotion = useReducedMotion();
   return (
@@ -744,7 +764,7 @@ function Glance() {
               <p
                 className={`font-brand text-[36px] font-medium leading-none tracking-[-0.04em] md:text-[40px] ${stat.highlight ? "text-nd-highlight-lavendar" : "text-white"}`}
               >
-                {t(`stats.${stat.key}.value`)}
+                {metrics[stat.metric].value}
               </p>
               <p className="nd-body-xs mt-3 text-nd-mid-em-text">
                 {t(`stats.${stat.key}.label`)}
@@ -752,6 +772,13 @@ function Glance() {
             </div>
           ))}
         </Reveal>
+        <MetricSourcesFootnote
+          className="mt-4"
+          items={GLANCE_STATS.map((stat) => ({
+            label: t(`stats.${stat.key}.label`),
+            source: metrics[stat.metric].source,
+          }))}
+        />
 
         <div className="mt-12 md:mt-16">
           <p className={eyebrowClass}>{t("buildingLabel")}</p>
@@ -896,7 +923,7 @@ function Resources() {
    Page
    ────────────────────────────────────────────────────────── */
 
-export function PrivacyPage() {
+export function PrivacyPage({ metrics }: { metrics: PrivacyMetrics }) {
   return (
     <>
       <SelectionColor selectionColor="#55E9AB" selectionTextColor="#000000" />
@@ -904,11 +931,11 @@ export function PrivacyPage() {
         <Hero />
         <Modes />
         <Solutions />
-        <ConfidentialBalances />
+        <ConfidentialBalances metrics={metrics} />
         <PrivateChannels />
         <Rings />
         <Compliance />
-        <Glance />
+        <Glance metrics={metrics} />
         <Ecosystem />
         <Resources />
       </main>

@@ -3,36 +3,12 @@ import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
-
-const securityHeaders: Array<{ key: string; value: string }> = [
-  {
-    key: "X-Frame-Options",
-    value: "SAMEORIGIN",
-  },
-  {
-    key: "X-XSS-Protection",
-    value: "1; mode=block",
-  },
-  {
-    key: "X-Content-Type-Options",
-    value: "nosniff",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: `frame-ancestors 'self'`,
-  },
-];
-
-if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
-  securityHeaders.push({
-    key: "X-Robots-Tag",
-    value: "noindex",
-  });
-}
+import { securityHeadersRoute } from "@workspace/security-headers";
 
 const prefix = "/docs-assets";
 const isVercelBuild = process.env.VERCEL === "1";
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
@@ -127,16 +103,12 @@ const nextConfig: NextConfig = {
         hostname: "res.cloudinary.com",
       },
       {
-        protocol: "https",
-        hostname: "**.cloudfront.net",
-      },
-      {
         protocol: "http",
         hostname: "localhost",
       },
       {
         protocol: "https",
-        hostname: "*.vercel.app",
+        hostname: "solana-com-media.vercel.app",
         port: "",
       },
       {
@@ -152,12 +124,7 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
-    return [
-      {
-        source: "/:path*",
-        headers: securityHeaders,
-      },
-    ];
+    return [securityHeadersRoute()];
   },
 
   async redirects() {
@@ -167,7 +134,11 @@ const nextConfig: NextConfig = {
     const movedRoutes = [
       {
         source: "/docs/payments/accept-payments/payment-button",
-        destination: "/docs/tools/commerce-kit/quickstart/payment-button",
+        destination: "/docs/tools/solana-pay",
+      },
+      {
+        source: "/docs/payments/accept-payments/solana-pay",
+        destination: "/docs/tools/solana-pay",
       },
       {
         source: "/docs/payments/accept-payments/pay-sh",
@@ -179,22 +150,24 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/docs/payments/production-readiness",
-        destination: "/docs/tools/production-readiness",
+        destination: "/docs/tools/transaction-landing#transaction-landing",
       },
     ];
 
-    return movedRoutes.flatMap(({ source, destination }) =>
-      [
+    return movedRoutes.flatMap(({ source, destination }) => {
+      const markdownDestination = destination.replace(/(#|$)/, ".md$1");
+
+      return [
         [source, destination],
-        [`${source}.md`, `${destination}.md`],
+        [`${source}.md`, markdownDestination],
         [`/:locale${source}`, `/:locale${destination}`],
-        [`/:locale${source}.md`, `/:locale${destination}.md`],
+        [`/:locale${source}.md`, `/:locale${markdownDestination}`],
       ].map(([source, destination]) => ({
         source,
         destination,
         permanent: true,
-      })),
-    );
+      }));
+    });
   },
 
   async rewrites() {
