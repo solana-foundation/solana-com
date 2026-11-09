@@ -58,13 +58,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Rebuild the request URL from the configured origin and the validated path
-  // below /uploads/, dropping query and hash. The request can only ever name
-  // an upload on a Media origin, never a host or route the caller chose.
+  // Rebuild the request URL from a Media origin and the validated path below
+  // /uploads/, dropping query and hash. The request can only ever name an
+  // upload on a Media origin, never a host or route the caller chose.
   const uploadPath = resolved.pathname.slice(UPLOADS_PREFIX.length);
-  const upstreamUrl = new URL(`${mediaOrigin}${UPLOADS_PREFIX}${uploadPath}`);
+  const uploadUrl = (origin: string) =>
+    new URL(`${origin}${UPLOADS_PREFIX}${uploadPath}`);
 
-  let upstreamResponse = await fetch(upstreamUrl, FETCH_OPTIONS);
+  let upstreamResponse = await fetch(uploadUrl(mediaOrigin), FETCH_OPTIONS);
 
   // A protected Media preview answers with a login redirect or an HTML login
   // page. Retry the same upload on the public Media origin before giving up.
@@ -73,10 +74,10 @@ export async function GET(request: NextRequest) {
     MEDIA_APP_URL !== PUBLIC_MEDIA_URL &&
     !isServableImage(upstreamResponse)
   ) {
-    const publicUrl = new URL(
-      `${PUBLIC_MEDIA_URL}${UPLOADS_PREFIX}${uploadPath}`,
+    upstreamResponse = await fetch(
+      uploadUrl(new URL(PUBLIC_MEDIA_URL).origin),
+      FETCH_OPTIONS,
     );
-    upstreamResponse = await fetch(publicUrl, FETCH_OPTIONS);
   }
 
   if (!isServableImage(upstreamResponse) || !upstreamResponse.body) {
