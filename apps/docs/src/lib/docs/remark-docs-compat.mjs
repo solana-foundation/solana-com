@@ -14,9 +14,11 @@
  *   component that this app provides in the docs MDX components
  *   (components/docs/docs-components.tsx). The import is dropped, so `<X>`
  *   resolves to the real component here.
- * - Heading ids follow the slugs the docs have always published (kept by
- *   `docsSlug`, used through remarkHeading's `slug` option in
- *   source.config.ts), so existing #anchors keep working.
+ * - Heading ids come from `docsSlug` (used through remarkHeading's `slug`
+ *   option in source.config.ts). Where an older link's id differs (the
+ *   github-slugger ids solana.com/docs published, renamed headings),
+ *   rehype-docs-compat adds it as an anchor alias, so those links keep
+ *   landing on their section.
  * - `<LegacyWeb3jsNotice />` becomes the notice on `@solana/web3.js` 1.x
  *   code (see expandLegacyWeb3jsNotices below).
  * - `<Steps codePanel>` and `panel` fence marks are checked and left out of
@@ -246,6 +248,8 @@ export const LEGACY_WEB3JS_NOTICE_SOURCE = `<Warning>
   **\`@solana/web3.js\` 1.x is no longer actively maintained**
 
   It receives critical fixes only. Use [Kit](/developers/docs/clients/official/javascript#solana-kit) for new code. To migrate existing code, follow the [Kit upgrade guide](https://www.solanakit.com/docs/upgrade-guide), or the [web3.js v3 migration guide](https://github.com/solana-foundation/solana-web3.js/blob/main/docs/web3js-v1-to-v3-migration.md) to keep the class-based API.
+
+  To run this code, install 1.x with \`npm install @solana/web3.js@1\`. A plain \`npm install @solana/web3.js\` installs v3, which this code doesn't run on.
 </Warning>`;
 
 function isLegacyNotice(node) {
@@ -452,12 +456,13 @@ export function remarkDocsCompat() {
 }
 
 /**
- * Heading slugs as the docs have published them: lower case; spaces and
- * dots become hyphens; letters, digits, `-`, `_` and a few symbols are
- * kept (/ & + # @ ’ “ ” → and full-width ？ ：), all other punctuation and
+ * Heading slugs: lower case; spaces and dots become hyphens; letters,
+ * digits, `-`, `_` and a few symbols are kept (/ & + # @ ’ “ ” → and full-width ？ ：), all other punctuation and
  * emoji are dropped; runs of hyphens collapse. Inside inline code an
  * opening parenthesis separates words (`useTheme(theme)` -> usetheme-theme).
- * Repeats on one page get -2, -3, ...
+ * Repeats on one page get -1, -2, ..., skipping ids already taken, as
+ * github-slugger numbers them: solana.com/docs published repeats that way,
+ * so an old `#output-2` still lands on the third "Output".
  */
 const KEEP = /[\p{L}\p{N}\-_’/&+”“→？#@：\s.]/u;
 
@@ -484,7 +489,12 @@ export function docsSlug(root, heading) {
     counters.set(root, used);
   }
   const base = docsSlugBase(headingText(heading));
-  const n = (used.get(base) ?? 0) + 1;
-  used.set(base, n);
-  return n === 1 ? base : `${base}-${n}`;
+  let slug = base;
+  while (used.has(slug)) {
+    const n = used.get(base) + 1;
+    used.set(base, n);
+    slug = `${base}-${n}`;
+  }
+  used.set(slug, 0);
+  return slug;
 }

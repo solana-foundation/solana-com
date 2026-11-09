@@ -25,11 +25,15 @@ import { format } from "node:util";
 import { expect, vi } from "vitest";
 import {
   createSolanaRpc,
+  isSignature,
   signature as toSignature,
   type Signature,
 } from "@solana/kit";
 
-const SIGNATURE_RE = /[1-9A-HJ-NP-Za-km-z]{87,88}/g;
+// A 64-byte signature is 86 to 88 base58 characters (fewer when it starts
+// with zero bytes), so match the whole range and keep only candidates that
+// decode to 64 bytes.
+const SIGNATURE_RE = /[1-9A-HJ-NP-Za-km-z]{64,88}/g;
 
 export interface RunExampleOptions {
   /** Where the recorded output lives (sibling `<file>.output.txt`). */
@@ -85,6 +89,7 @@ export async function runExample<T>(
   if (opts.signatures !== "none") {
     for (const line of text.split("\n")) {
       for (const m of line.matchAll(SIGNATURE_RE)) {
+        if (!isSignature(m[0])) continue;
         const sig = toSignature(m[0]);
         const tx = await fetchTx(sig);
         if (opts.failedLabel?.test(line)) {

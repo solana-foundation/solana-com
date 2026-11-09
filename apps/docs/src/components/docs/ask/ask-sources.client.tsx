@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import type { CSSProperties } from "react";
 import { cn } from "./cn";
 import { isDocsHref } from "@/lib/docs/docs-href";
+import { askLinkTarget, type AskLinkTarget } from "@/lib/docs/ask/safe-link";
 import type { AskCitation } from "@/lib/docs/ask/store";
 import { DocsLink } from "../docs-link";
 import { ArrowUpRightIcon, Lucide } from "../docs-ui-icons";
@@ -24,25 +25,23 @@ export function FileTextIcon({ className }: { className?: string }) {
   );
 }
 
+const plainRowClass =
+  "-mx-2 flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5";
+
 const rowClass = cn(
-  "group -mx-2 flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 no-underline transition-colors duration-150 hover:bg-[var(--sol-soft)] motion-reduce:transition-none",
+  plainRowClass,
+  "group no-underline transition-colors duration-150 hover:bg-[var(--sol-soft)] motion-reduce:transition-none",
   focusRing,
 );
-
-function host(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
 
 /**
  * Where a source sits: another site's host; none for a docs page, or when
  * the title already says it. The title goes in a tooltip.
  */
-function place(citation: AskCitation, external: boolean) {
-  const section = external ? host(citation.url) : "";
+function place(citation: AskCitation, link: AskLinkTarget | null) {
+  const section = link?.external
+    ? new URL(link.href).hostname.replace(/^www\./, "")
+    : "";
   const repeats =
     !!citation.title &&
     citation.title.toLowerCase().includes(section.toLowerCase());
@@ -52,9 +51,11 @@ function place(citation: AskCitation, external: boolean) {
   };
 }
 
+/** A source `askLinkTarget` doesn't allow is listed unlinked. */
 function SourceRow({ citation }: { citation: AskCitation }) {
-  const external = /^https?:\/\//i.test(citation.url);
-  const { section, trail } = place(citation, external);
+  const link = askLinkTarget(citation.url);
+  const external = !!link?.external;
+  const { section, trail } = place(citation, link);
   const content = (
     <>
       <span aria-hidden="true" className={cn(iconTile, "size-5")}>
@@ -77,10 +78,17 @@ function SourceRow({ citation }: { citation: AskCitation }) {
       ) : null}
     </>
   );
-  if (isDocsHref(citation.url)) {
+  if (!link) {
+    return (
+      <span title={trail} className={plainRowClass}>
+        {content}
+      </span>
+    );
+  }
+  if (isDocsHref(link.href)) {
     return (
       <DocsLink
-        href={citation.url}
+        href={link.href}
         title={trail}
         data-ask-internal=""
         className={rowClass}
@@ -91,10 +99,10 @@ function SourceRow({ citation }: { citation: AskCitation }) {
   }
   return (
     <a
-      href={citation.url}
+      href={link.href}
       title={trail}
       className={rowClass}
-      {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
     >
       {content}
     </a>

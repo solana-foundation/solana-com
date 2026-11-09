@@ -57,12 +57,14 @@ Subscribe to your token account for real-time payment notifications using the
 
 ```typescript
 import {
+  createSolanaRpc,
   createSolanaRpcSubscriptions,
   getBase64Codec,
   type Address
 } from "@solana/kit";
 import { getTokenCodec } from "@solana-program/token";
 
+const rpc = createSolanaRpc("https://api.mainnet.solana.com");
 const rpcSubscriptions = createSolanaRpcSubscriptions(
   "wss://api.mainnet.solana.com"
 );
@@ -73,14 +75,19 @@ async function watchPayments(
 ) {
   const abortController = new AbortController();
 
+  // Start from the current balance, so the first notification reports only
+  // the new transfer and not the whole balance
+  const { value } = await rpc
+    .getTokenAccountBalance(tokenAccountAddress, { commitment: "confirmed" })
+    .send();
+  let previousBalance = BigInt(value.amount);
+
   const subscription = await rpcSubscriptions
     .accountNotifications(tokenAccountAddress, {
       commitment: "confirmed",
       encoding: "base64"
     })
     .subscribe({ abortSignal: abortController.signal });
-
-  let previousBalance = 0n;
 
   for await (const notification of subscription) {
     const [data] = notification.value.data;
@@ -103,6 +110,13 @@ Each notification contains a base64 encoded string of the token account data.
 Because we know the account we are looking at is a token account, we can decode
 the data using the `getTokenCodec` method from the `@solana-program/token`
 package.
+
+The function reads the current balance before it subscribes, so each payment
+is the difference from the previous balance, not the account's whole balance.
+A balance change tells you that funds arrived, not who sent them or which order
+they pay for, and two transfers that land close together can arrive as one
+change. To match each payment to an order, read its transaction, as in
+[Parsing Transaction History](#parsing-transaction-history) below.
 
 Note that for production applications, you should consider a more robust
 streaming solution. Some options include:
@@ -271,9 +285,11 @@ customers hit.
 
 - **Acting on "processed" status.** Solana transactions go through three stages:
   processed → confirmed → finalized. A "processed" transaction can still be
-  dropped if its block is skipped. Wait for "finalized" before shipping orders.
-  It takes roughly 150 milliseconds, and "confirmed" reports the same block.
-  See [settlement and finality](/developers/docs/defi/finality).
+  dropped if its block is skipped. Fulfill an order only once its payment is
+  `finalized`. On mainnet that takes roughly 150 milliseconds, and `confirmed`
+  reports the same block, so code that checks `confirmed` (as the checkout
+  tutorial does) is equally safe. See
+  [settlement and finality](/developers/docs/defi/finality).
 
 - **Ignoring the mint.** Anyone can create a token called "USDC". Validate that
   the token account's mint matches the real stablecoin mint address and token

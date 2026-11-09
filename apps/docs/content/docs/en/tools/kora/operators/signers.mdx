@@ -129,7 +129,7 @@ operational characteristics (and a no-signer option for limited testing):
 - [Private Key](#private-key-signer) - simple, self-managed
 - [Turnkey](#turnkey-signer) - key management service
 - [Privy](#privy-signer) - key management service
-- Vault - HashiCorp Vault integration
+- [Vault](#vault-signer) - HashiCorp Vault integration
 - [No Signer](#no-signer) - no signer (for limited testing)
 
 ## Private Key Signer
@@ -184,8 +184,11 @@ solana-keygen new --outfile ~/.config/solana/kora-keypair.json
 solana-keygen pubkey ~/.config/solana/kora-keypair.json
 
 # Fund with SOL for transaction fees
-solana transfer --from <your-funding-wallet> <kora-public-key> 0.1
+solana transfer --from <your-funding-wallet> --allow-unfunded-recipient <kora-public-key> 0.1
 ```
+
+A new keypair has no account onchain yet, so `solana transfer` needs
+`--allow-unfunded-recipient` to send it SOL.
 
 ### Signer.toml Configuration
 
@@ -433,6 +436,76 @@ app_secret_env = "PRIVY_APP_SECRET"
 wallet_id_env = "PRIVY_WALLET_ID"
 ```
 
+## Vault Signer
+
+[HashiCorp Vault](https://developer.hashicorp.com/vault) can hold the signing
+key in its
+[Transit secrets engine](https://developer.hashicorp.com/vault/docs/secrets/transit).
+Kora sends each transaction to Vault's `transit/sign/<key name>` endpoint and
+never sees the private key.
+
+### Prerequisites
+
+- A Vault server with the Transit secrets engine enabled at `transit/`
+- A Vault token that can sign with Transit keys
+
+### Setup
+
+Create an `ed25519` Transit key for Kora and read its public key:
+
+```bash
+vault secrets enable transit
+vault write -f transit/keys/kora-signer type=ed25519
+
+# The public key is under data.keys."1".public_key, base64-encoded
+vault read -format=json transit/keys/kora-signer
+```
+
+Kora needs the key's Solana address, which is the same public key in base58.
+Convert it in a project that has `@solana/kit` installed:
+
+```bash
+node -e 'import("@solana/kit").then(({ getBase58Decoder }) => console.log(getBase58Decoder().decode(Buffer.from(process.argv[1], "base64"))))' <base64-public-key>
+```
+
+You will need to fund that address with SOL to pay for transaction fees.
+
+### Configure Environment Variables
+
+```bash
+# .env file
+VAULT_ADDR="https://vault.example.com:8200"
+VAULT_TOKEN="your_vault_token"
+VAULT_KEY_NAME="kora-signer"         # Transit key name
+VAULT_PUBKEY="your_solana_address"   # base58 public key of the Transit key
+```
+
+### Signer.toml Configuration
+
+Required variables:
+
+- `name` - The name of the signer
+- `type` - The type of signer (must be `vault`)
+- `vault_addr_env` - The environment variable containing the Vault address
+- `vault_token_env` - The environment variable containing the Vault token
+- `key_name_env` - The environment variable containing the Transit key name
+- `pubkey_env` - The environment variable containing the signer's base58
+  public key
+
+```toml
+[[signers]]
+name = "my_vault_signer"
+type = "vault"
+vault_addr_env = "VAULT_ADDR"
+vault_token_env = "VAULT_TOKEN"
+key_name_env = "VAULT_KEY_NAME"
+pubkey_env = "VAULT_PUBKEY"
+```
+
+The repository's `signers.example.toml` at `v2.0.5` uses `addr_env` and
+`token_env` for Vault; Kora 2.0.5 rejects those names. Use `vault_addr_env` and
+`vault_token_env` as shown above.
+
 ## No Signer
 
 If no signer is configured, Kora will throw an error. If you want to run Kora
@@ -473,7 +546,7 @@ require a signer. Methods that need a signer (for example `getConfig`) return
 Add detailed logging to diagnose issues:
 
 ```bash
-RUST_LOG=debug kora rpc --with-turnkey-signer
+RUST_LOG=debug kora --config kora.toml rpc start --signers-config signers.toml
 ```
 
 ## Security & Best Practices
@@ -493,20 +566,21 @@ Clients can specify a preferred signer for consistency across related
 operations:
 
 ```typescript
-// Fetch the signers by calling getPayerSigner
-const { signer, payment_destination } = await client.getPayerSigner();
-console.log(signer, payment_destination);
+// Fetch the signer and payment address by calling getPayerSigner
+const { signer_address, payment_address } = await client.getPayerSigner();
+console.log(signer_address, payment_address);
 
 // Estimate with specific signer
 const estimate = await client.estimateTransactionFee({
   transaction: tx,
-  signer_key: signer, // Public key of preferred signer (one of the signers in the signer pool)
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", // USDC
+  signer_key: signer_address, // Public key of preferred signer (one of the signers in the signer pool)
 });
 
 // Sign with same signer
 const signed = await client.signTransaction({
   transaction: tx,
-  signer_key: signer, // Same signer for consistency
+  signer_key: signer_address, // Same signer for consistency
 });
 ```
 

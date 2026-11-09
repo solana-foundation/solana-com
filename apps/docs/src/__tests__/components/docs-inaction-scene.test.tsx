@@ -138,6 +138,74 @@ describe("InActionScene", () => {
     expect(screen.getByText("Explorer link unavailable")).toBeTruthy();
   });
 
+  it("a request that never goes out (BotID waiting on its challenge) still ends, after 25 s", async () => {
+    // BotID's fetch wrapper awaits a challenge before it sends anything, so
+    // the request's own AbortSignal timeout never takes effect.
+    const fetch = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal("fetch", fetch);
+    render(<InActionScene kind="checkout" />);
+    fireEvent.click(screen.getByRole("button", { name: "Pay 1 USDC" }));
+    await flush(3000);
+    expect(screen.getByRole("button", { name: /Paying/ })).toBeTruthy();
+    await flush(25_000);
+    expect(screen.getByRole("button", { name: "Paid" })).toBeTruthy();
+    expect(screen.getByText("Explorer link unavailable")).toBeTruthy();
+  });
+
+  it("with BotID's challenge script blocked, every tap ends (real botid wrapper)", async () => {
+    const original = {
+      fetch: window.fetch,
+      open: XMLHttpRequest.prototype.open,
+      send: XMLHttpRequest.prototype.send,
+    };
+    const route = vi.fn(
+      async () => new Response(JSON.stringify({ error: "x" }), { status: 503 }),
+    );
+    window.fetch = route as typeof window.fetch;
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { initBotId } = await import("botid/client/core");
+      initBotId({ protect: [{ path: "/api/demo/checkout", method: "POST" }] });
+      // jsdom loads no scripts: fail the challenge script botid adds, as a
+      // blocked or 404 c.js does in a browser.
+      const blockChallenge = () =>
+        document
+          .querySelector('script[src*="a-4-a/c.js"]')
+          ?.dispatchEvent(new Event("error"));
+
+      render(<InActionScene kind="checkout" />);
+      fireEvent.click(screen.getByRole("button", { name: "Pay 1 USDC" }));
+      await flush(100);
+      blockChallenge();
+      await flush(1000);
+      expect(screen.getByRole("button", { name: "Paid" })).toBeTruthy();
+      expect(screen.getByText("Explorer link unavailable")).toBeTruthy();
+      // The failed script is gone, so the next tap loads it again instead of
+      // waiting forever on it.
+      expect(document.querySelector('script[src*="a-4-a/c.js"]')).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: "Pay again" }));
+      await flush(100);
+      expect(
+        document.querySelector('script[src*="a-4-a/c.js"]'),
+      ).not.toBeNull();
+      blockChallenge();
+      await flush(1000);
+      expect(screen.getByText("Order #1002 paid")).toBeTruthy();
+      expect(screen.getByText("Explorer link unavailable")).toBeTruthy();
+      // botid never let a request out without its challenge.
+      expect(route).not.toHaveBeenCalled();
+    } finally {
+      window.fetch = original.fetch;
+      XMLHttpRequest.prototype.open = original.open;
+      XMLHttpRequest.prototype.send = original.send;
+      document
+        .querySelectorAll('script[src*="a-4-a/c.js"]')
+        .forEach((script) => script.remove());
+      quiet.mockRestore();
+    }
+  });
+
   it("lights up sign, then send once the route streams sent, then final", async () => {
     let finish = () => {};
     vi.stubGlobal(

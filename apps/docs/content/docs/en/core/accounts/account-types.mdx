@@ -77,6 +77,17 @@ points to a separate **program data account** that contains the program code.
 The following example fetches the Token Program account. The `executable` field
 is `true`, confirming it is a program account.
 
+<Note>
+  The Rust tabs on this page use the 2.x Solana crates. Install the
+  dependencies with (tested with Rust 1.89 and 1.98):
+
+  ```bash
+  cargo add anyhow solana-client@2 solana-commitment-config@2 solana-sdk@2
+  cargo add solana-system-interface@1 spl-token-2022-interface@1 bincode@1
+  cargo add tokio --features full
+  ```
+</Note>
+
 <CodeGroup>
 
 ```ts Kit
@@ -183,6 +194,44 @@ console.log(
 ```
 
 </CodeGroup>
+
+The Kit example prints:
+
+```txt title="Output"
+{
+  context: { apiVersion: '4.3.2', slot: 464764206n },
+  value: {
+    data: [ 'AgAAACfxkLHTr5i4znFMROjK3/n4/EXLjl+sQgLv+BENl903', 'base64' ],
+    executable: true,
+    lamports: 230130698n,
+    owner: 'BPFLoaderUpgradeab1e11111111111111111111111',
+    rentEpoch: 18446744073709551615n,
+    space: 36n
+  }
+}
+```
+
+The Token Program is a loader-v3 program, so its account holds only 36 bytes: a
+4-byte tag and the address of the program data account that stores the
+bytecode. With `jsonParsed` encoding, the RPC node decodes that address for you:
+
+```ts Kit
+const { value } = await client.rpc
+  .getAccountInfo(programId, { encoding: "jsonParsed" })
+  .send();
+console.log(value?.data);
+```
+
+```txt title="Output"
+{
+  parsed: {
+    info: { programData: '3gvYRKWyXRR9xKWe1ZjPhLY5ZJRN7KDB4rFZFGoJfFk2' },
+    type: 'program'
+  },
+  program: 'bpf-upgradeable-loader',
+  space: 36n
+}
+```
 
 ## Data accounts
 
@@ -547,6 +596,72 @@ console.log(mintAccount);
 ```
 
 </CodeGroup>
+
+### Raw and decoded data
+
+An RPC node returns an account's `data` as raw bytes (base64 encoded here). To
+read it, decode the bytes with the owning program's layout. The example below
+fetches the USDC mint, an 82-byte account owned by the Token Program, as raw
+bytes and then decoded with `fetchMint` from `@solana-program/token`.
+
+```ts Kit
+import { Address, createClient } from "@solana/kit";
+import { solanaRpc } from "@solana/kit-plugin-rpc";
+import { generatedPayer } from "@solana/kit-plugin-signer";
+import { fetchMint } from "@solana-program/token";
+
+const client = await createClient()
+  .use(generatedPayer())
+  .use(
+    solanaRpc({
+      rpcUrl: "https://api.mainnet.solana.com"
+    })
+  );
+
+const mintAddress = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v" as Address;
+
+// Raw: the 82 bytes the Token Program stores for this mint
+const { value: raw } = await client.rpc
+  .getAccountInfo(mintAddress, { encoding: "base64" })
+  .send();
+console.log(raw);
+
+// Decoded: the same bytes read with the Token Program's mint layout
+const mint = await fetchMint(client.rpc, mintAddress);
+console.log(mint.data);
+```
+
+```txt title="Output"
+{
+  data: [
+    'AQAAAJj+huiNm+Lqi8HMpIeLKYjCQPUrhCS/tA7Rot3LXhmbG0uc7Tz7HgAGAQEAAABicKqKWcWUBbRShshncubNEm6bil06OFNtN/e0FOi2Zw==',
+    'base64'
+  ],
+  executable: false,
+  lamports: 558721628506n,
+  owner: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA',
+  rentEpoch: 18446744073709551615n,
+  space: 82n
+}
+{
+  mintAuthority: {
+    __option: 'Some',
+    value: 'BJE5MMbqXjVwjAF7oxwPYXnTXDyspzZyt4vwenNw5ruG'
+  },
+  supply: 8720488404372251n,
+  decimals: 6,
+  isInitialized: true,
+  freezeAuthority: {
+    __option: 'Some',
+    value: '7dGbd2QZcCKcTndnHcTL8q7SMVXAkp688NTQYwrRCrar'
+  }
+}
+```
+
+The account's `lamports` is the SOL held by the mint account (its storage
+deposit plus any SOL sent to its address), not the token supply. The supply is
+part of the decoded `data`: `8720488404372251n` base units, or about 8.72
+billion USDC with 6 decimals.
 
 ### System accounts
 

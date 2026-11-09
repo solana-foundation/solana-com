@@ -8,6 +8,11 @@
  * each rule's `.md` twin (raw-markdown URLs; a destination's #anchor is
  * dropped) and its locale twins (`/<locale>/docs/...`). Rules match in
  * order, so specific pages come before the catch-alls at the end.
+ *
+ * A destination's #anchor replaces the one an old link carries, so a page
+ * whose old sections are spread over the new page has no #anchor here: its
+ * old anchors go to their sections through anchorAliases (same page) or
+ * the legacy anchors (content/legacy-anchors, another page).
  */
 import { locales } from "@workspace/i18n/config";
 
@@ -21,7 +26,7 @@ const movedDocsRedirects: Redirect[] = [
   },
   {
     source: "/docs/payments/agentic-payments/x402-quickstart",
-    destination: "/developers/docs/payments/pay-sh#let-an-agent-pay-x402",
+    destination: "/developers/docs/payments/pay-sh",
   },
   {
     source: "/docs/payments/agentic-payments/x402-facilitator",
@@ -102,9 +107,11 @@ const movedDocsRedirects: Redirect[] = [
   },
   {
     source: "/docs/tokenization",
-    destination: "/developers/docs/assets#tokenization",
+    destination: "/developers/docs/assets",
   },
   {
+    // Live's Solana Pay QR quickstart ("Quickstart: accept a payment") is
+    // the checkout tutorial's QR code step here.
     source: "/docs/payments/quickstart",
     destination: "/developers/docs/payments/checkout/browser",
   },
@@ -118,11 +125,11 @@ const movedDocsRedirects: Redirect[] = [
   },
   {
     source: "/docs/payments/agentic-payments/x402/making-a-payment",
-    destination: "/developers/docs/payments/pay-sh#let-an-agent-pay-x402",
+    destination: "/developers/docs/payments/pay-sh",
   },
   {
     source: "/docs/tools/solana-pay/quickstart",
-    destination: "/developers/docs/tools/solana-pay#quick-start",
+    destination: "/developers/docs/tools/solana-pay",
   },
   {
     source: "/docs/tools/kora/json-rpc-api/authentication",
@@ -150,18 +157,80 @@ const movedDocsRedirects: Redirect[] = [
     source: "/docs/intro/installation",
     destination: "/developers/docs/quickstart",
   },
+  // apps/web sends the HTML URL here too; this covers the `.md` twin.
+  { source: "/docs/intro/rent", destination: "/developers/docs/core/rent" },
   { source: "/docs/tags/:tag+", destination: "/developers/docs/tags" },
+  // Program questions moved to Solana Stack Exchange (as apps/web sends
+  // /docs/programs/faq). An external page has no Markdown twin, so the
+  // `.md` URL is written out: it goes to the same page.
+  {
+    source: "/docs/programs/faq",
+    destination: "https://solana.stackexchange.com",
+  },
+  {
+    source: "/docs/programs/faq.md",
+    destination: "https://solana.stackexchange.com",
+  },
 ];
 
 /**
  * The Developer Bootcamp lives in Video tutorials. The old lesson pages go
- * to the matching video page.
+ * to the matching video page, and their Markdown twins (`.md`) to its
+ * Markdown twin. `markdownTwin` skips patterns, so the `.md` rules are
+ * written out, before the HTML patterns (which would also match `x.md`).
+ * `/:path*.md` also matches the course page's own twin
+ * (/developers/bootcamp/depin.md).
  */
+const BOOTCAMP_PAGE = "/developers/docs/video-guides/2026-developer-bootcamp";
+
+/**
+ * 2026 Developer Bootcamp lessons and courses: the chapter of the video page
+ * that covers each (heading ids on that page). Courses go to the chapter list.
+ */
+const bootcampChapters: Record<string, string> = {
+  foundations: "chapters",
+  "foundations/bootcamp-intro": "introduction",
+  "foundations/quick-intro-to-blockchain": "introduction",
+  "foundations/local-installation": "local-installation",
+  "foundations/hello-world": "hello-world",
+  "foundations/ai-best-practices": "ai-best-practices",
+  "program-patterns": "chapters",
+  "program-patterns/voting": "onchain-voting",
+  "program-patterns/escrow-application": "escrow-application",
+  "program-patterns/stable-coin": "stablecoin",
+  "program-patterns/stable-swap": "stable-swap",
+  "program-patterns/security": "security-checklist",
+  "fullstack-apps": "chapters",
+  "fullstack-apps/private-transfers": "private-transfers",
+  "fullstack-apps/x402": "x402",
+  "fullstack-apps/real-world-assets": "real-world-assets",
+  "fullstack-apps/prediction-market": "prediction-market",
+  "shipping-production": "chapters",
+  "shipping-production/indexing": "indexing",
+  "shipping-production/production-readiness": "production-readiness",
+};
+
 const bootcampRedirects: Redirect[] = [
   {
-    source: "/developers/bootcamp",
-    destination: "/developers/docs/video-guides/2026-developer-bootcamp",
+    source: "/developers/bootcamp/solana-crashcourse/:path*.md",
+    destination: "/developers/docs/video-guides/solana-crash-course.md",
   },
+  {
+    source: "/developers/bootcamp/depin/:path*.md",
+    destination: "/developers/docs/video-guides/building-depin-projects.md",
+  },
+  {
+    source: "/developers/bootcamp/:path+.md",
+    destination: `${BOOTCAMP_PAGE}.md`,
+  },
+  {
+    source: "/developers/bootcamp",
+    destination: BOOTCAMP_PAGE,
+  },
+  ...Object.entries(bootcampChapters).map(([lesson, chapter]) => ({
+    source: `/developers/bootcamp/${lesson}`,
+    destination: `${BOOTCAMP_PAGE}#${chapter}`,
+  })),
   {
     source: "/developers/bootcamp/solana-crashcourse/:path*",
     destination: "/developers/docs/video-guides/solana-crash-course",
@@ -172,7 +241,7 @@ const bootcampRedirects: Redirect[] = [
   },
   {
     source: "/developers/bootcamp/:path*",
-    destination: "/developers/docs/video-guides/2026-developer-bootcamp",
+    destination: BOOTCAMP_PAGE,
   },
 ];
 
