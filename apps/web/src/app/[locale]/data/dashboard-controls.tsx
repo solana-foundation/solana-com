@@ -46,7 +46,6 @@ import {
   type DashboardRange,
   type DateBounds,
 } from "./date-range";
-import { grpcTimeframeOptions } from "./grpc-config";
 
 const customRangeValue = "custom";
 
@@ -136,11 +135,7 @@ export function DashboardControls({
               <FilterSelect
                 ariaLabel={t("controls.rpcTimeframeAriaLabel")}
                 label={t("controls.rpcTimeframeLabel")}
-                options={
-                  activeTab === "grpc"
-                    ? grpcTimeframeOptions
-                    : rpcTimeframeOptions
-                }
+                options={rpcTimeframeOptions}
                 value={rpcTimeframe}
                 onChange={(value) => onUpdateQuery({ timeframe: value })}
               />
@@ -187,10 +182,10 @@ export function DashboardControls({
             </div>
           </>
         ) : null}
-        {isRefreshing ? <RefreshingIndicator /> : null}
       </div>
 
       {showCustomRange ||
+      isRefreshing ||
       (showProviderControls && availableProviders.length > 0) ? (
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-x-4">
           {showCustomRange ? (
@@ -200,6 +195,7 @@ export function DashboardControls({
               onChange={(nextRange) => onUpdateQuery({ range: nextRange })}
             />
           ) : null}
+          {isRefreshing ? <RefreshingIndicator /> : null}
           {showProviderControls && availableProviders.length > 0 ? (
             <ProviderControls
               availableProviders={availableProviders}
@@ -221,7 +217,7 @@ function RefreshingIndicator() {
   return (
     <div
       aria-live="polite"
-      className="hidden shrink-0 items-center gap-2 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text md:ml-auto md:inline-flex"
+      className="inline-flex shrink-0 items-center gap-2 font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text"
       role="status"
     >
       <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />
