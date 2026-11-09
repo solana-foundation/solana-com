@@ -8,7 +8,7 @@ import { ArrowUpRight } from "@boxicons/react/ArrowUpRight";
 import { Rocket } from "@boxicons/react/Rocket";
 import { Terminal } from "@boxicons/react/Terminal";
 import { User } from "@boxicons/react/User";
-import { motion, useReducedMotion, type Variants } from "motion/react";
+import { motion, MotionConfig, type Variants } from "motion/react";
 import {
   Accordion,
   AccordionContent,
@@ -128,7 +128,6 @@ function PointField({ compact = false }: { compact?: boolean }) {
 
 export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
   const t = useTranslations("request-for-startups");
-  const reduceMotion = useReducedMotion();
   const [openRequest, setOpenRequest] = useState(REQUESTS[0].slug);
   const handleRequestChange = useCallback((value: string) => {
     setOpenRequest(value);
@@ -152,25 +151,23 @@ export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
     return () => window.removeEventListener("hashchange", syncRequestFromHash);
   }, []);
 
-  const containerMotion = reduceMotion
-    ? {}
-    : {
-        variants: heroContainer,
-        initial: "hidden" as const,
-        animate: "show" as const,
-      };
-  const itemMotion = reduceMotion ? {} : { variants: heroItem };
-  const sectionMotion = reduceMotion
-    ? {}
-    : {
-        variants: sectionContainer,
-        initial: "hidden" as const,
-        whileInView: "show" as const,
-        viewport: { amount: 0, once: true },
-      };
-  const sectionItemMotion = reduceMotion ? {} : { variants: sectionItem };
+  // MotionConfig honours prefers-reduced-motion below: transforms settle
+  // instantly and opacity still resolves, so the hidden variants never stick.
+  const containerMotion = {
+    variants: heroContainer,
+    initial: "hidden" as const,
+    animate: "show" as const,
+  };
+  const itemMotion = { variants: heroItem };
+  const sectionMotion = {
+    variants: sectionContainer,
+    initial: "hidden" as const,
+    whileInView: "show" as const,
+    viewport: { amount: 0, once: true },
+  };
+  const sectionItemMotion = { variants: sectionItem };
 
-  return (
+  const page = (
     <main className={styles.page}>
       <section className={styles.hero}>
         <PointField />
@@ -420,4 +417,6 @@ export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
       <LatestNews title={t("news.title")} items={news} layout="compact" />
     </main>
   );
+
+  return <MotionConfig reducedMotion="user">{page}</MotionConfig>;
 }

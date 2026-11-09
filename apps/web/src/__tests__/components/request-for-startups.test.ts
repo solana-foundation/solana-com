@@ -17,10 +17,14 @@ describe("request-for-startups accordion scroll behavior", () => {
   it("keeps each newly expanded request beneath the header", () => {
     const first = document.createElement("div");
     first.id = "exotic-rwas";
-    first.getBoundingClientRect = () => DOMRect.fromRect({ y: 240 });
+    Object.defineProperty(first, "offsetTop", { value: 240 });
+    // The section wrapper is mid-entrance (translated 28px); layout offsets
+    // must win over the transformed client rect.
+    first.getBoundingClientRect = () => DOMRect.fromRect({ y: 268 });
     const second = document.createElement("div");
     second.id = "ai";
-    second.getBoundingClientRect = () => DOMRect.fromRect({ y: 520 });
+    Object.defineProperty(second, "offsetTop", { value: 520 });
+    second.getBoundingClientRect = () => DOMRect.fromRect({ y: 548 });
     const header = document.createElement("header");
     header.getBoundingClientRect = () => DOMRect.fromRect({ height: 80 });
     document.body.append(header, first, second);
