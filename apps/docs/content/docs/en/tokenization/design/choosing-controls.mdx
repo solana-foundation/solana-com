@@ -1,0 +1,174 @@
+---
+title: Choosing token controls
+sidebarTitle: "Choosing token controls"
+description:
+  How to choose between frozen-by-default accounts with Token ACL, transfer
+  hooks, and manual freeze and thaw, and how to split token authorities so no
+  single key can do everything.
+type: conceptual
+prerequisites:
+  - /developers/docs/tokenization/design
+related:
+  - /developers/docs/tokenization/design/program-and-authority-design
+  - /developers/docs/tokenization/token-acl
+  - /developers/docs/defi/cash-leg
+  - /developers/docs/tokens/extensions/default-state
+  - /developers/docs/tokens/extensions/transfer-hook
+  - /developers/docs/tokenization/tutorials/issuing/gate-the-holders
+"og:title": Token Transfer Controls for Regulated Issuers on Solana
+"twitter:title": Token Transfer Controls for Regulated Issuers on Solana
+---
+
+<Info>
+Frozen-by-default accounts with Token ACL add no compute to each transfer and
+keep the token usable in venues that do not run custom code on every transfer.
+A transfer hook suits rules that cannot be expressed as whether an account may
+hold the token at all.
+</Info>
+
+## Three ways to restrict who holds a token
+
+On networks where each token is its own contract, transfer restrictions run as
+code on every transfer. On Solana most of these controls are extensions
+enforced inside the [Token-2022 program](/developers/docs/tokens) itself, so
+they are shared standards rather than code you maintain.
+
+| Approach                          | How it works                                                                                         | Cost per transfer         | Composability                                                                                                  |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Frozen by default + Token ACL** | Every new token account is created frozen. A qualifying wallet thaws itself against an onchain list | None                      | High: the mint reads as an ordinary Token-2022 mint, though integrators must handle accounts created frozen    |
+| **Transfer hook**                 | A program you write is invoked on every transfer and can reject it                                   | Compute on every transfer | Lower: integrating venues must support hooks and account for your program                                      |
+| **Manual freeze and thaw**        | You hold the freeze authority and act on each account yourself                                       | None                      | High, but you are a liveness dependency for every new holder                                                   |
+
+### Frozen by default with Token ACL
+
+[Default Account State](/developers/docs/tokens/extensions/default-state)
+creates every token account frozen. On its own, no address can hold the token
+until the issuer thaws it individually.
+
+[Token ACL](/developers/docs/tokenization/token-acl) removes the issuer's
+signature from each thaw. The freeze authority is delegated to a shared
+program that exposes a permissionless thaw, and that program delegates the
+allow-or-deny decision to a pluggable gate. With an address-based list as the
+gate, a wallet on the allowlist thaws itself; in allowlist mode the issuer, or
+its operator, still adds each holder to the list. The issuer keeps an override
+throughout: freeze or thaw directly, swap the gate, or reclaim the freeze
+authority.
+
+Integrators read it as an ordinary Token-2022 mint, but need a path for
+accounts that are created frozen and thaw through the gate.
+
+<Note>
+Token ACL is deployed on devnet and mainnet and specified in sRFC-37. Its
+releases are pre-1.0 as of October 2026; check the current state on
+[Token ACL](/developers/docs/tokenization/token-acl).
+</Note>
+
+### When a hook is required
+
+A [transfer hook](/developers/docs/tokens/extensions/transfer-hook) fits rules
+that depend on the transfer rather than on the holder. Lockups that expire per
+tranche, jurisdiction-dependent limits on transfer size, and holder counts that
+must stay under a statutory cap cannot be expressed as a list of permitted
+addresses.
+
+A hook is also a program to audit and maintain.
+
+```mermaid
+flowchart TD
+  accTitle: Choosing between Token ACL and a transfer hook
+  accDescr: A rule that depends on the holder fits frozen-by-default accounts with Token ACL, at no cost per transfer. A rule that depends on the transfer needs a transfer hook, which runs on every transfer, for example for lockups, size limits, or holder caps.
+  Q(["The rule depends on"])
+  Q -->|the holder| ACL["Frozen by default + Token ACL<br/>A qualifying wallet thaws itself<br/>No cost per transfer"]
+  Q -->|the transfer| HK["Transfer hook<br/>Runs on every transfer and can reject it<br/>Compute on every transfer"]
+  HK -->|for example| EX["Rules about the transfer<br/>Lockups that expire per tranche<br/>Limits on transfer size<br/>Holder counts under a statutory cap"]
+  class ACL focal
+```
+
+<div className="sol-mermaid" data-fallback="mermaid" data-mermaid="bd4642648f05">
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/bd4642648f05-light.svg" alt="Choosing between Token ACL and a transfer hook. A rule that depends on the holder fits frozen-by-default accounts with Token ACL, at no cost per transfer. A rule that depends on the transfer needs a transfer hook, which runs on every transfer, for example for lockups, size limits, or holder caps." />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/bd4642648f05.svg" alt="Choosing between Token ACL and a transfer hook. A rule that depends on the holder fits frozen-by-default accounts with Token ACL, at no cost per transfer. A rule that depends on the transfer needs a transfer hook, which runs on every transfer, for example for lockups, size limits, or holder caps." />
+
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/bd4642648f05-sm-light.svg" alt="Choosing between Token ACL and a transfer hook. A rule that depends on the holder fits frozen-by-default accounts with Token ACL, at no cost per transfer. A rule that depends on the transfer needs a transfer hook, which runs on every transfer, for example for lockups, size limits, or holder caps." />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/bd4642648f05-sm.svg" alt="Choosing between Token ACL and a transfer hook. A rule that depends on the holder fits frozen-by-default accounts with Token ACL, at no cost per transfer. A rule that depends on the transfer needs a transfer hook, which runs on every transfer, for example for lockups, size limits, or holder caps." />
+</div>
+
+### Allowlist or blocklist
+
+Token ACL's pluggable gate supports either. They differ in the default:
+admitted or denied.
+
+An **allowlist** defaults to denied: nobody holds the token until they are
+admitted. This suits a supervised issuance, where every holder has been
+onboarded and you can name them. It also fails safe: a gap in your onboarding
+pipeline stops new holders rather than admitting unchecked ones.
+
+A **blocklist** defaults to permitted: anyone holds the token unless excluded.
+This suits a broadly circulating asset where the obligation is to exclude
+specific addresses rather than to vet every holder. It fails open, so the
+list's completeness and freshness determine whether it works.
+
+## Split authorities from the start
+
+Token-2022 lets each power sit on a different key. If one key holds the mint,
+pause, and permanent delegate authorities, one compromise exposes all three.
+
+| Authority              | What it can do                                  | Suggested holder                                   |
+| ---------------------- | ----------------------------------------------- | -------------------------------------------------- |
+| Mint                   | Create new supply                               | Treasury quorum, offline                           |
+| Metadata               | Change name, symbol, URI, and additional fields | Operations, low privilege                          |
+| Pausable               | Halt all mint, burn, and transfer activity      | Incident response, reachable 24/7                  |
+| Permanent delegate     | Move or burn any holder's balance               | Legal and compliance quorum, offline               |
+| Permissioned burn      | Co-sign redemptions                             | Redemption operations                              |
+| Confidential Balances  | Configure confidential transfer settings        | Same quorum as mint                                |
+| Freeze (via Token ACL) | Freeze and thaw accounts                        | Delegated to the Token ACL program, with issuer override |
+
+```mermaid
+flowchart LR
+  accTitle: Token-2022 authorities and a suggested holder for each
+  accDescr: The mint carries seven authorities. Mint goes to a treasury quorum, metadata to operations, pausable to incident response, permanent delegate to a legal and compliance quorum, permissioned burn to redemption operations, Confidential Balances to the mint quorum, and freeze is delegated to the Token ACL program with an issuer override.
+  M["Token-2022 mint"]
+  M --> A1["Mint<br/>Treasury quorum, offline"]
+  M --> A2["Metadata<br/>Operations, low privilege"]
+  M --> A3["Pausable<br/>Incident response, reachable 24/7"]
+  M --> A4["Permanent delegate<br/>Legal and compliance quorum, offline"]
+  M --> A5["Permissioned burn<br/>Redemption operations"]
+  M --> A6["Confidential Balances<br/>Same quorum as mint"]
+  M --> A7["Freeze<br/>Token ACL program, issuer override"]
+  class M focal
+```
+
+<div className="sol-mermaid" data-fallback="mermaid" data-mermaid="1dc7353e8d19">
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/1dc7353e8d19-light.svg" alt="Token-2022 authorities and a suggested holder for each. The mint carries seven authorities. Mint goes to a treasury quorum, metadata to operations, pausable to incident response, permanent delegate to a legal and compliance quorum, permissioned burn to redemption operations, Confidential Balances to the mint quorum, and freeze is delegated to the Token ACL program with an issuer override." />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/1dc7353e8d19.svg" alt="Token-2022 authorities and a suggested holder for each. The mint carries seven authorities. Mint goes to a treasury quorum, metadata to operations, pausable to incident response, permanent delegate to a legal and compliance quorum, permissioned burn to redemption operations, Confidential Balances to the mint quorum, and freeze is delegated to the Token ACL program with an issuer override." />
+
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/1dc7353e8d19-sm-light.svg" alt="Token-2022 authorities and a suggested holder for each. The mint carries seven authorities. Mint goes to a treasury quorum, metadata to operations, pausable to incident response, permanent delegate to a legal and compliance quorum, permissioned burn to redemption operations, Confidential Balances to the mint quorum, and freeze is delegated to the Token ACL program with an issuer override." />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/1dc7353e8d19-sm.svg" alt="Token-2022 authorities and a suggested holder for each. The mint carries seven authorities. Mint goes to a treasury quorum, metadata to operations, pausable to incident response, permanent delegate to a legal and compliance quorum, permissioned burn to redemption operations, Confidential Balances to the mint quorum, and freeze is delegated to the Token ACL program with an issuer override." />
+</div>
+
+A permanent delegate reaches only the public balance of a confidential
+account; see
+[privacy and transfer controls](/developers/docs/tokenization/compliance/privacy-and-transfer-controls#which-controls-still-work).
+Extension references:
+[permanent delegate](/developers/docs/tokens/extensions/permanent-delegate),
+[permissioned burn](/developers/docs/tokens/extensions/permissioned-burn), and
+[Confidential Balances](/developers/docs/tokens/extensions/confidential-transfer).
+
+[Program and authority design](/developers/docs/tokenization/design/program-and-authority-design)
+covers which option holds each authority (a program-derived address, an
+onchain multisig, or a single custodied key), along with rotation and the audit
+and upgrade risk carried by every program in your transfer path.
+
+## Related
+
+- [Program and authority design](/developers/docs/tokenization/design/program-and-authority-design):
+  which key or multisig holds each authority the controls create
+- [Issue a gated token](/developers/docs/tokenization/tutorials/issuing): build
+  a mint that carries these controls
+- [Gate the holders](/developers/docs/tokenization/tutorials/issuing/gate-the-holders):
+  Token ACL end to end
+- [Choosing the cash leg](/developers/docs/defi/cash-leg): what the controls
+  chosen here let the asset settle against

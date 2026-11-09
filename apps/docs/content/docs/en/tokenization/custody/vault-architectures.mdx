@@ -1,0 +1,141 @@
+---
+title: Vault architectures
+sidebarTitle: "Vault architectures"
+description:
+  How an asset manager's vault holds a gated token, synchronous versus
+  request-and-settle designs, and why funds priced at a periodic valuation
+  point need the request-and-settle design.
+type: conceptual
+prerequisites:
+  - /developers/docs/tokenization/custody/custody-integration
+related:
+  - /developers/docs/tokenization/nav-strikes
+  - /developers/docs/defi/dvp-program
+  - /developers/docs/tokenization/design/choosing-controls
+  - /developers/docs/tokenization/tutorials/vault
+"og:title": Vault Architectures for Tokenized Funds on Solana
+"twitter:title": Vault Architectures for Tokenized Funds on Solana
+---
+
+<Info>
+A vault is a program that holds assets and issues claims against them. The
+central design question is whether a deposit or withdrawal can complete in the
+same transaction. If the asset's price is struck periodically rather than
+continuously, it cannot, and you need a request-and-settle (asynchronous)
+design.
+</Info>
+
+## Synchronous or asynchronous
+
+**A synchronous vault** settles a deposit or withdrawal in one transaction. The
+depositor sends assets and receives shares immediately, priced from state the
+program can read at that moment.
+
+This works when the price is knowable onchain at transaction time, as in a
+vault over liquid onchain assets with a reliable oracle. It does not work when
+an administrator strikes the price offchain, periodically.
+
+**An asynchronous vault** splits the operation in two. The participant submits
+a _request_; later, at a valuation point, the operator _settles_ it at the
+struck price. Between the two, the participant holds a claim, not shares.
+
+This matches existing fund dealing: subscriptions and redemptions accepted
+against a cut-off, priced at the next valuation point, and settled after. See
+[NAV strikes](/developers/docs/tokenization/nav-strikes) for a worked
+implementation of this pattern for money market funds, including the delegated
+authority pattern and the subscription and redemption flows.
+
+## The request-and-settle lifecycle
+
+Four stages, each with a decision attached.
+
+| Stage       | What happens                                                                                                              | Decide                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Request** | A participant commits assets (or shares, for a redemption) and receives a claim to be settled at the next valuation point | Escrowed or only pledged; escrow reduces failure modes at settlement               |
+| **Cut-off** | Requests after a point in time roll to the following valuation                                                            | How it is enforced; an offchain cut-off does not stop onchain requests             |
+| **Strike**  | The valuation is determined and published                                                                                 | Who publishes it, under what constraints; it sets every request's settlement price |
+| **Settle**  | Requests execute at the struck price; shares are minted or burned and assets move                                         | Reject and return, hold pending, or settle to a restricted state                   |
+
+A request can fail for lack of redemption liquidity, or because a participant
+was removed from the allowlist before settlement. Define the behavior so a
+failure does not strand the assets.
+
+## A reference implementation
+
+The Solana Foundation publishes the
+[Vault Standard Suite](https://github.com/solana-foundation/vault), an
+open-source Anchor program that implements the request-and-settle design
+described above. A vault authority settles queued requests once a valuation is
+published; shares and assets do not move atomically at request time.
+
+The extension modules are opt-in: subscription and redemption queues, pausable
+flows, fees, and minimum subscription and redemption sizes. The issuer supplies
+the share mint rather than the program creating it, and the program is designed
+to pair with Token-2022 and sRFC-37 access control lists, so it can hold a
+gated token.
+
+The program rejects an asset mint whose transfer fee is nonzero for the current
+epoch, checked at vault creation and on deposit, but it does not reject a
+permanent delegate, a mint close authority, or a freeze authority, which the
+[issuing tutorials](/developers/docs/tokenization/tutorials/issuing) enable.
+Vet those against the vault's assumptions.
+
+<Warning>
+**Reference implementation**
+
+As of October 2026, the repository describes the program as a reference
+implementation, not audited for mainnet use, and deployed on devnet only. It
+publishes a review and an audit status file covering scope and the reviewed
+commit. Treat it as a reference to read and adapt, and run an independent
+review before deploying anything derived from it.
+</Warning>
+
+## Interaction with the token's controls
+
+A vault over a gated token is subject to that gate like any other holder:
+
+- **Under an allowlist gate, the vault's owner address must be allowlisted.**
+  It is an address holding the token; the gate does not exempt programs.
+  Allowlist the vault's owner address as part of deployment.
+- **Frozen-by-default applies to the vault too.** Its account is created frozen
+  and must be thawed against the gate before it can receive anything.
+- **A pause halts the vault.** If you pause the token, requests in progress
+  cannot settle.
+- **The permanent delegate can move assets out of the vault's account.** The
+  vault's accounting must allow for it.
+- **Share tokens may be gated too.** If the fund's shares are themselves a
+  restricted token, the participant's share account needs the same treatment as
+  the vault's asset account, and both gates have to be satisfied for a
+  subscription to complete. See
+  [choosing token controls](/developers/docs/tokenization/design/choosing-controls).
+
+## Settlement against cash
+
+A subscription is an exchange of cash for shares and a redemption is the
+reverse, so both settle as delivery versus payment, which is atomic when both
+legs move in one transaction; see
+[choosing the cash leg](/developers/docs/defi/cash-leg).
+
+In a request-and-settle vault, the request and the settlement are separate
+transactions, so atomicity applies to the settlement leg only. Between request
+and settlement, the participant's committed assets and the fund's obligation to
+settle are an open position.
+
+## Open operational questions
+
+- What is the recovery procedure if settlement fails partway through a batch?
+- How does the vault's position reconcile against the register of record? See
+  [transfer agent responsibilities](/developers/docs/tokenization/custody/transfer-agent-responsibilities).
+
+## Related
+
+- [Prepare a vault for a gated token](/developers/docs/tokenization/tutorials/vault):
+  allowlist and verify the vault's accounts
+- [Vault Standard Suite](https://github.com/solana-foundation/vault): the
+  Foundation's open-source request-and-settle vault program; devnet only, not
+  audited for mainnet
+- [NAV strikes](/developers/docs/tokenization/nav-strikes): a full
+  implementation of the request-and-settle pattern for a fund priced
+  periodically
+- [DvP program](/developers/docs/defi/dvp-program): settling both legs through
+  program-owned escrow

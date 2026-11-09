@@ -75,7 +75,7 @@ export default async function Page(_props: Props) {
         title: t("graveyardHack.resources.items.docs.title"),
         description: t("graveyardHack.resources.items.docs.description"),
         category: t("graveyardHack.resources.items.docs.category"),
-        url: "https://solana.com/docs",
+        url: "https://solana.com/developers/docs",
       },
       {
         title: t("graveyardHack.resources.items.templates.title"),

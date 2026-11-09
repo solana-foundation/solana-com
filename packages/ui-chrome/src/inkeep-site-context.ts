@@ -25,12 +25,79 @@ function translate(key: string): string {
   return typeof result === "string" ? result : "";
 }
 
+// The header's Build dropdown became the Developers link and the docs tab bar
+// (docs redesign), so its destinations are listed here, at their current URLs,
+// to keep them in site search.
+const DEVELOPER_ITEMS: {
+  titleKey: string;
+  descriptionKey?: string;
+  href: string;
+}[] = [
+  {
+    titleKey: "nav.build.start.items.hub.title",
+    descriptionKey: "nav.build.start.items.hub.description",
+    href: "/developers",
+  },
+  {
+    titleKey: "nav.build.start.items.docs.title",
+    descriptionKey: "nav.build.start.items.docs.description",
+    href: "/developers/docs",
+  },
+  {
+    titleKey: "nav.build.start.items.quickstart.title",
+    descriptionKey: "nav.build.start.items.quickstart.description",
+    href: "/developers/docs/quickstart",
+  },
+  {
+    titleKey: "nav.build.resources.items.cookbook.title",
+    href: "/developers/cookbook",
+  },
+  {
+    titleKey: "nav.developers.tutorials.chain-migration",
+    href: "/developers/migrate-to-solana",
+  },
+  {
+    titleKey: "nav.build.resources.items.templates.title",
+    href: "/developers/templates",
+  },
+  {
+    titleKey: "nav.build.resources.items.data.title",
+    href: "/data",
+  },
+  {
+    titleKey: "nav.build.resources.items.rpcDocs.title",
+    href: "/developers/docs/rpc",
+  },
+  {
+    titleKey: "nav.build.resources.items.rpcProviders.title",
+    href: "/rpc",
+  },
+  {
+    titleKey: "nav.build.useCases.items.payments.title",
+    href: "/developers/payments",
+  },
+  {
+    titleKey: "nav.build.useCases.items.defi.title",
+    href: "/developers/defi",
+  },
+  {
+    titleKey: "nav.build.useCases.items.gaming.title",
+    href: "/developers/gaming",
+  },
+  {
+    titleKey: "nav.build.useCases.items.tokenExtensions.title",
+    href: "/solutions/token-extensions",
+  },
+  {
+    titleKey: "nav.build.useCases.items.ai.title",
+    href: "/solutions/ai",
+  },
+];
+
 const navigationItems = [
   ...navigation.useSolanaWalletItems,
   ...navigation.useSolanaSafetyItems,
-  ...navigation.buildStartItems,
-  ...navigation.buildResourceItems,
-  ...navigation.buildUseCaseItems,
+  ...DEVELOPER_ITEMS,
   ...navigation.enterpriseBusinessColumns.flat(),
   ...navigation.enterpriseProofItems,
   ...navigation.productSurfaceItems,

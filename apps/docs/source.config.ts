@@ -1,92 +1,87 @@
-import { defineConfig, defineDocs } from "fumadocs-mdx/config";
-import { recmaCodeHike, remarkCodeHike } from "codehike/mdx";
-import { rehypeToc } from "fumadocs-core/mdx-plugins";
-import remarkIncludeCode from "@devrelkit/remark-include-code";
-import remarkExampleOutput from "./src/lib/remark-example-output.mjs";
-import remarkWeb3jsSpecifier from "./src/lib/remark-web3js-specifier.mjs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
+/**
+ * Fumadocs MDX collections for the developer docs, over apps/docs/content:
+ * - docs/<locale>/**: /developers/docs (English under `en`, translations
+ *   under their locale);
+ * - cookbook/**: /developers/cookbook (English only).
+ * `learn` reads the English /learn articles from apps/web for the agent
+ * indexes only.
+ * English and the cookbook (`docs`) compile with the app. Translations
+ * (`translations`) compile on their first request, with the same MDX
+ * options, so the build does not grow with the number of locales.
+ * src/lib/docs/source.ts maps these files to their URLs. Snippets
+ * (content/snippets) are not a collection: remark-docs-compat inlines every
+ * `import X from "/snippets/..."` into the page that uses it, so they
+ * compile with the page and appear in its Markdown.
+ *
+ * Pages are `async` (frontmatter eagerly, bodies on demand), so a route
+ * only loads the page it renders.
+ */
+import { defineCollections, defineConfig } from "fumadocs-mdx/config";
+import { pageSchema } from "fumadocs-core/source/schema";
 import { z } from "zod";
+import {
+  docsSlug,
+  remarkDocsCompat,
+} from "./src/lib/docs/remark-docs-compat.mjs";
+import { rehypeDocsCompat } from "./src/lib/docs/rehype-docs-compat.mjs";
+import { codeBlockOptions } from "./src/lib/docs/code-options.mjs";
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+/** Frontmatter used by the docs (kept as written). */
+const schema = pageSchema
+  .extend({
+    sidebarTitle: z.string().optional(),
+    mode: z.string().optional(),
+    hideFooterPagination: z.boolean().optional(),
+    noindex: z.boolean().optional(),
+    keywords: z.array(z.string()).optional(),
+    tags: z.array(z.string()).optional(),
+    url: z.string().optional(),
+  })
+  // og:*, twitter:*, type, related, prerequisites, date, ... pass through.
+  .loose();
 
-const schema = z.custom<{
-  title: string;
-  h1?: string;
-  seoTitle?: string;
-  description?: string;
-  hideTableOfContents?: boolean;
-  hidePageNavigation?: boolean;
-  full?: boolean;
-  author?: string;
-  tags?: string[];
-  documentationTags?: string[];
-  date?: string;
-  difficulty?: string;
-  index?: boolean;
-  featured?: boolean;
-  href?: string;
-}>();
+const postprocess = { includeProcessedMarkdown: { headingIds: false } };
 
-const docsData = defineDocs({
-  dir: "content/docs",
-  docs: { schema, async: true },
+export const docs = defineCollections({
+  type: "doc",
+  dir: "content",
+  files: ["docs/en/**/*.mdx", "cookbook/**/*.mdx"],
+  schema,
+  async: true,
+  postprocess,
 });
 
-export const docs = docsData.docs;
-export const docsMeta = docsData.meta;
-
-const cookbookData = defineDocs({
-  dir: "content/cookbook",
-  docs: { schema, async: true },
+export const translations = defineCollections({
+  type: "doc",
+  dir: "content",
+  files: ["docs/!(en)/**/*.mdx"],
+  schema,
+  dynamic: true,
+  postprocess,
 });
 
-export const cookbook = cookbookData.docs;
-export const cookbookMeta = cookbookData.meta;
-
-// Learn is rendered by apps/web, but remains part of the shared documentation
-// indexes served by this app.
-const learnData = defineDocs({
-  dir: "../web/content/learn",
-  docs: { schema, async: true },
+// Learn is rendered by apps/web, but its English articles remain part of
+// the agent indexes served by this app (/llms.txt, /llms-full.txt).
+export const learn = defineCollections({
+  type: "doc",
+  dir: "../web/content/learn/en",
+  files: ["**/*.mdx"],
+  schema,
+  async: true,
+  postprocess,
 });
-
-export const learn = learnData.docs;
-export const learnMeta = learnData.meta;
-
-const developersLearnData = defineDocs({
-  dir: "content/developers-learn",
-  docs: { schema, async: true },
-});
-
-export const developersLearn = developersLearnData.docs;
-export const developersLearnMeta = developersLearnData.meta;
-
-const chConfig = {
-  components: { code: "Code", inlineCode: "InlineCode" },
-};
-
-// Resolves `file=` paths against the workspace root so MDX authors can write
-// `file=packages/docs-examples/cookbook/...` regardless of which content
-// directory the doc lives in. Uses process.cwd() because fumadocs bundles
-// this file to .source/source.config.mjs at build time, breaking __dirname
-// resolution. cwd reliably points at apps/docs when next/fumadocs runs.
-const includeRoot = resolve(process.cwd(), "..", "..");
 
 export default defineConfig({
   mdxOptions: {
+    // Our plugin first, so inlined snippets get headings, TOC and structure.
+    remarkPlugins: (v) => [remarkDocsCompat, ...v],
+    // Ours before rehype-code (Shiki), so it sees the plain fences.
+    rehypePlugins: (v) => [rehypeDocsCompat, ...v],
+    remarkHeadingOptions: { slug: docsSlug },
+    // Content images are plain URLs under /docs-assets (public/docs-assets).
     remarkImageOptions: false,
-    recmaPlugins: [[recmaCodeHike, chConfig]],
-    remarkPlugins: (v) => [
-      // Runs first: it reads the `file=` token that remarkIncludeCode consumes.
-      [remarkExampleOutput, { rootDir: includeRoot }],
-      [remarkIncludeCode, { rootDir: includeRoot, highlightStyle: "codehike" }],
-      // Runs after the include: it rewrites specifiers in the inlined source.
-      remarkWeb3jsSpecifier,
-      [remarkCodeHike, chConfig],
-      ...v,
-    ],
-    rehypePlugins: [rehypeToc],
+    remarkCodeTabOptions: false,
+    remarkNpmOptions: false,
+    rehypeCodeOptions: codeBlockOptions,
   },
 });

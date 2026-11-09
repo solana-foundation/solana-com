@@ -1,5 +1,6 @@
 ---
 title: Deferred Execution
+sidebarTitle: "Deferred execution"
 description:
   Sign transactions now, execute later—enabling approval workflows, treasury
   operations, and secure signing
@@ -7,22 +8,22 @@ description:
 
 Every Solana transaction includes a recent blockhash—a reference to a recent
 network state that proves the transaction was created "now." The network rejects
-any transaction with a blockhash older than ~150 blocks (~60-90 seconds),
+any transaction with a blockhash older than 150 blocks (about 30 seconds at 200ms slots),
 preventing replay attacks and stale submissions. This works perfectly for
 real-time payments. But it breaks workflows that need a gap between signing and
 submission, such as:
 
 | Scenario                   | Why Standard Transactions Fail                                            |
 | -------------------------- | ------------------------------------------------------------------------- |
-| **Treasury operations**    | CFO in Tokyo signs, Controller in NYC approves—90 seconds isn't enough    |
+| **Treasury operations**    | CFO in Tokyo signs, Controller in NYC approves—30 seconds isn't enough    |
 | **Compliance workflows**   | Transactions need legal/compliance review before execution                |
 | **Cold storage signing**   | Air-gapped machines require manual transfer of signed transactions        |
 | **Batch preparation**      | Prepare payroll or disbursements during business hours, execute overnight |
 | **Multi-sig coordination** | Multiple approvers across time zones                                      |
 | **Scheduled payments**     | Schedule payments to be executed at a future date                         |
 
-In traditional finance, a signed check doesn't expire in 90 seconds. Certain
-blockchain operations shouldn't either. **Durable nonces** solve this by
+In traditional finance, a signed check doesn't expire in 30 seconds. Certain
+onchain operations shouldn't either. **Durable nonces** solve this by
 replacing the recent blockhash with a stored, persistent value that only
 advances when you use it—giving you transactions that stay valid until you're
 ready to submit.
@@ -34,23 +35,47 @@ a special account that stores a _unique_ value which can be used in place of a
 blockhash. Each transaction using this nonce must "advance" it as the first
 instruction. Each nonce value can only be used for one transaction.
 
-```mermaid title="Durable Nonce"
+```mermaid
 flowchart LR
     D1[Sign] --> D2[Store] --> D3[Submit]
     D3 -. "✓ No time limit" .-> D4[Success]
 ```
 
-```mermaid title="Standard Blockhash"
+<div className="sol-mermaid" data-fallback="mermaid" data-mermaid="f4ea42c74587">
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/f4ea42c74587-light.svg" alt="Durable Nonce" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/f4ea42c74587.svg" alt="Durable Nonce" />
+
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/f4ea42c74587-sm-light.svg" alt="Durable Nonce" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/f4ea42c74587-sm.svg" alt="Durable Nonce" />
+</div>
+
+<p className="sol-caption">Durable Nonce</p>
+
+```mermaid
 flowchart LR
     S1[Sign] --> S2[Submit]
     S2 -. "⏱️ ~90 sec limit" .-> S3[Expires]
 ```
 
-<Callout type="info">
+<div className="sol-mermaid" data-fallback="mermaid" data-mermaid="1dab11cbf7b4">
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/1dab11cbf7b4-light.svg" alt="Standard Blockhash" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/1dab11cbf7b4.svg" alt="Standard Blockhash" />
+
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/1dab11cbf7b4-sm-light.svg" alt="Standard Blockhash" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/1dab11cbf7b4-sm.svg" alt="Standard Blockhash" />
+</div>
+
+<p className="sol-caption">Standard Blockhash</p>
+
+<Info>
   The nonce account costs ~0.0015 SOL for rent exemption. One nonce account =
   one pending transaction at a time. For parallel workflows, create multiple
   nonce accounts.
-</Callout>
+</Info>
 
 ### Create a Nonce Account
 
@@ -60,341 +85,298 @@ Creating a nonce account requires two instructions in a single transaction:
    Program
 2. **Initialize it as a nonce** using `getInitializeNonceAccountInstruction`
 
-<ScrollyCoding>
+<Steps codePanel>
+  <Step title="Generate Keypair">
+    Generate a new keypair to use as the nonce account address and calculate the
+    required space and rent.
 
-## !!steps Generate Keypair
+    ```ts title="Create Nonce Account"
+    const nonceKeypair = await generateKeyPairSigner();
+    const nonceSpace = BigInt(getNonceSize());
+    const nonceRent = await rpc
+      .getMinimumBalanceForRentExemption(nonceSpace)
+      .send();
+    ```
+  </Step>
 
-Generate a new keypair to use as the nonce account address and calculate the
-required space and rent.
+  <Step title="Create Account Instruction">
+    Create the account owned by the System Program with enough lamports for rent
+    exemption.
 
-<CodePlaceholder title="Create Nonce Account" />
+    ```ts title="Create Nonce Account" focus={7-13}
+    const nonceKeypair = await generateKeyPairSigner();
+    const nonceSpace = BigInt(getNonceSize());
+    const nonceRent = await rpc
+      .getMinimumBalanceForRentExemption(nonceSpace)
+      .send();
 
-```ts !! title="Create Nonce Account"
-const nonceKeypair = await generateKeyPairSigner();
-const nonceSpace = BigInt(getNonceSize());
-const nonceRent = await rpc
-  .getMinimumBalanceForRentExemption(nonceSpace)
-  .send();
-```
+    const createNonceAccountIx = getCreateAccountInstruction({
+      payer: sender,
+      newAccount: nonceKeypair,
+      lamports: nonceRent,
+      space: nonceSpace,
+      programAddress: SYSTEM_PROGRAM_ADDRESS
+    });
+    ```
+  </Step>
 
-## !!steps Create Account Instruction
+  <Step title="Initialize Nonce Instruction">
+    Initialize the account as a nonce account, setting the authority that can
+    advance it.
 
-Create the account owned by the System Program with enough lamports for rent
-exemption.
+    ```ts title="Create Nonce Account" focus={15-18}
+    const nonceKeypair = await generateKeyPairSigner();
+    const nonceSpace = BigInt(getNonceSize());
+    const nonceRent = await rpc
+      .getMinimumBalanceForRentExemption(nonceSpace)
+      .send();
 
-<CodePlaceholder title="Create Nonce Account" />
+    const createNonceAccountIx = getCreateAccountInstruction({
+      payer: sender,
+      newAccount: nonceKeypair,
+      lamports: nonceRent,
+      space: nonceSpace,
+      programAddress: SYSTEM_PROGRAM_ADDRESS
+    });
 
-```ts !! title="Create Nonce Account"
-const nonceKeypair = await generateKeyPairSigner();
-const nonceSpace = BigInt(getNonceSize());
-const nonceRent = await rpc
-  .getMinimumBalanceForRentExemption(nonceSpace)
-  .send();
+    const initNonceIx = getInitializeNonceAccountInstruction({
+      nonceAccount: nonceKeypair.address,
+      nonceAuthority: sender.address
+    });
+    ```
+  </Step>
 
-// !focus(1:7)
-const createNonceAccountIx = getCreateAccountInstruction({
-  payer: sender,
-  newAccount: nonceKeypair,
-  lamports: nonceRent,
-  space: nonceSpace,
-  programAddress: SYSTEM_PROGRAM_ADDRESS
-});
-```
+  <Step title="Build Transaction">
+    Build a transaction with both instructions.
 
-## !!steps Initialize Nonce Instruction
+    ```ts title="Create Nonce Account" focus={20-26}
+    const nonceKeypair = await generateKeyPairSigner();
+    const nonceSpace = BigInt(getNonceSize());
+    const nonceRent = await rpc
+      .getMinimumBalanceForRentExemption(nonceSpace)
+      .send();
 
-Initialize the account as a nonce account, setting the authority that can
-advance it.
+    const createNonceAccountIx = getCreateAccountInstruction({
+      payer: sender,
+      newAccount: nonceKeypair,
+      lamports: nonceRent,
+      space: nonceSpace,
+      programAddress: SYSTEM_PROGRAM_ADDRESS
+    });
 
-<CodePlaceholder title="Create Nonce Account" />
+    const initNonceIx = getInitializeNonceAccountInstruction({
+      nonceAccount: nonceKeypair.address,
+      nonceAuthority: sender.address
+    });
 
-```ts !! title="Create Nonce Account"
-const nonceKeypair = await generateKeyPairSigner();
-const nonceSpace = BigInt(getNonceSize());
-const nonceRent = await rpc
-  .getMinimumBalanceForRentExemption(nonceSpace)
-  .send();
+    const { value: blockhash } = await rpc.getLatestBlockhash().send();
+    const createNonceTx = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+      (tx) =>
+        appendTransactionMessageInstructions(
+          [createNonceAccountIx, initNonceIx],
+          tx
+        )
+    );
+    ```
+  </Step>
 
-const createNonceAccountIx = getCreateAccountInstruction({
-  payer: sender,
-  newAccount: nonceKeypair,
-  lamports: nonceRent,
-  space: nonceSpace,
-  programAddress: SYSTEM_PROGRAM_ADDRESS
-});
+  <Step title="Sign and Send">
+    Sign and send the transaction to create and initialize the nonce account.
 
-// !focus(1:4)
-const initNonceIx = getInitializeNonceAccountInstruction({
-  nonceAccount: nonceKeypair.address,
-  nonceAuthority: sender.address
-});
-```
+    ```ts title="Create Nonce Account" focus={32-37}
+    const nonceKeypair = await generateKeyPairSigner();
+    const nonceSpace = BigInt(getNonceSize());
+    const nonceRent = await rpc
+      .getMinimumBalanceForRentExemption(nonceSpace)
+      .send();
 
-## !!steps Build Transaction
+    const createNonceAccountIx = getCreateAccountInstruction({
+      payer: sender,
+      newAccount: nonceKeypair,
+      lamports: nonceRent,
+      space: nonceSpace,
+      programAddress: SYSTEM_PROGRAM_ADDRESS
+    });
 
-Build a transaction with both instructions.
+    const initNonceIx = getInitializeNonceAccountInstruction({
+      nonceAccount: nonceKeypair.address,
+      nonceAuthority: sender.address
+    });
 
-<CodePlaceholder title="Create Nonce Account" />
+    const { value: blockhash } = await rpc.getLatestBlockhash().send();
+    const createNonceTx = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+      (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
+      (tx) =>
+        appendTransactionMessageInstructions(
+          [createNonceAccountIx, initNonceIx],
+          tx
+        )
+    );
 
-```ts !! title="Create Nonce Account"
-const nonceKeypair = await generateKeyPairSigner();
-const nonceSpace = BigInt(getNonceSize());
-const nonceRent = await rpc
-  .getMinimumBalanceForRentExemption(nonceSpace)
-  .send();
+    const signedCreateNonceTx =
+      await signTransactionMessageWithSigners(createNonceTx);
 
-const createNonceAccountIx = getCreateAccountInstruction({
-  payer: sender,
-  newAccount: nonceKeypair,
-  lamports: nonceRent,
-  space: nonceSpace,
-  programAddress: SYSTEM_PROGRAM_ADDRESS
-});
-
-const initNonceIx = getInitializeNonceAccountInstruction({
-  nonceAccount: nonceKeypair.address,
-  nonceAuthority: sender.address
-});
-
-// !focus(1:7)
-const { value: blockhash } = await rpc.getLatestBlockhash().send();
-const createNonceTx = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
-  (tx) =>
-    appendTransactionMessageInstructions(
-      [createNonceAccountIx, initNonceIx],
-      tx
-    )
-);
-```
-
-## !!steps Sign and Send
-
-Sign and send the transaction to create and initialize the nonce account.
-
-<CodePlaceholder title="Create Nonce Account" />
-
-```ts !! title="Create Nonce Account"
-const nonceKeypair = await generateKeyPairSigner();
-const nonceSpace = BigInt(getNonceSize());
-const nonceRent = await rpc
-  .getMinimumBalanceForRentExemption(nonceSpace)
-  .send();
-
-const createNonceAccountIx = getCreateAccountInstruction({
-  payer: sender,
-  newAccount: nonceKeypair,
-  lamports: nonceRent,
-  space: nonceSpace,
-  programAddress: SYSTEM_PROGRAM_ADDRESS
-});
-
-const initNonceIx = getInitializeNonceAccountInstruction({
-  nonceAccount: nonceKeypair.address,
-  nonceAuthority: sender.address
-});
-
-const { value: blockhash } = await rpc.getLatestBlockhash().send();
-const createNonceTx = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
-  (tx) =>
-    appendTransactionMessageInstructions(
-      [createNonceAccountIx, initNonceIx],
-      tx
-    )
-);
-
-// !focus(1:6)
-const signedCreateNonceTx =
-  await signTransactionMessageWithSigners(createNonceTx);
-
-await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
-  signedCreateNonceTx,
-  { commitment: "confirmed" }
-);
-```
-
-</ScrollyCoding>
+    await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+      signedCreateNonceTx,
+      { commitment: "confirmed" }
+    );
+    ```
+  </Step>
+</Steps>
 
 ### Build a Deferred Transaction
 
 Instead of a recent blockhash, use the nonce account's `blockhash` as the
 transaction's lifetime.
 
-<ScrollyCoding>
+<Steps codePanel>
+  <Step title="Fetch the Nonce">
+    Fetch the data from the nonce account. Use the `blockhash` from the nonce
+    account as the transaction's lifetime.
 
-## !!steps Fetch the Nonce
+    ```sh title="Example Nonce Account Data" highlight={5}
+    {
+      version: 1,
+      state: 1,
+      authority: 'HgjaL8artMtmntaQDVM2UBk3gppsYYERS4PkUhiaLZD1',
+      blockhash: '5U7seXqfgZx1uh5DFhdH1vyBhr7XGRrKxBAnJJTbbUa',
+      lamportsPerSignature: 5000n
+    }
+    ```
 
-Fetch the data from the nonce account. Use the `blockhash` from the nonce
-account as the transaction's lifetime.
+    ```ts title="Build Deferred Transaction" focus={1} panel
+    const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+    ```
+  </Step>
 
-```sh title="Example Nonce Account Data"
-{
-  version: 1,
-  state: 1,
-  authority: 'HgjaL8artMtmntaQDVM2UBk3gppsYYERS4PkUhiaLZD1',
-  # !mark
-  blockhash: '5U7seXqfgZx1uh5DFhdH1vyBhr7XGRrKxBAnJJTbbUa',
-  lamportsPerSignature: 5000n
-}
-```
+  <Step title="Create Transfer Instruction">
+    Create the instruction for your payment. This example shows a token transfer.
 
-<CodePlaceholder title="Build Deferred Transaction" />
+    ```ts title="Build Deferred Transaction" focus={3-8} panel
+    const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
 
-```ts !! title="Build Deferred Transaction"
-// !focus(1:1)
-const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
-```
+    const transferInstruction = getTransferInstruction({
+      source: senderAta,
+      destination: recipientAta,
+      authority: sender.address,
+      amount: 250_000n
+    });
+    ```
+  </Step>
 
-## !!steps Create Transfer Instruction
+  <Step title="Build Transaction with Durable Nonce">
+    Use `setTransactionMessageLifetimeUsingDurableNonce` which sets the nonce as the
+    blockhash and automatically prepends the advance nonce instruction.
 
-Create the instruction for your payment. This example shows a token transfer.
+    ```ts title="Build Deferred Transaction" highlight={14-21} focus={10-23} panel
+    const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
 
-<CodePlaceholder title="Build Deferred Transaction" />
+    const transferInstruction = getTransferInstruction({
+      source: senderAta,
+      destination: recipientAta,
+      authority: sender.address,
+      amount: 250_000n
+    });
 
-```ts !! title="Build Deferred Transaction"
-const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+      (tx) =>
+        setTransactionMessageLifetimeUsingDurableNonce(
+          {
+            nonce: nonceData.blockhash as Nonce,
+            nonceAccountAddress: nonceKeypair.address,
+            nonceAuthorityAddress: nonceData.authority
+          },
+          tx
+        ),
+      (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+    );
+    ```
+  </Step>
 
-// !focus(1:6)
-const transferInstruction = getTransferInstruction({
-  source: senderAta,
-  destination: recipientAta,
-  authority: sender.address,
-  amount: 250_000n
-});
-```
+  <Step title="Sign Transaction">
+    Sign the transaction. It now uses the durable nonce instead of a standard
+    blockhash.
 
-## !!steps Build Transaction with Durable Nonce
+    ```ts title="Build Deferred Transaction" focus={25-26} panel
+    const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
 
-Use `setTransactionMessageLifetimeUsingDurableNonce` which sets the nonce as the
-blockhash and automatically prepends the advance nonce instruction.
+    const transferInstruction = getTransferInstruction({
+      source: senderAta,
+      destination: recipientAta,
+      authority: sender.address,
+      amount: 250_000n
+    });
 
-<CodePlaceholder title="Build Deferred Transaction" />
+    const transactionMessage = pipe(
+      createTransactionMessage({ version: 0 }),
+      (tx) => setTransactionMessageFeePayerSigner(sender, tx),
+      (tx) =>
+        setTransactionMessageLifetimeUsingDurableNonce(
+          {
+            nonce: nonceData.blockhash as Nonce,
+            nonceAccountAddress: nonceKeypair.address,
+            nonceAuthorityAddress: nonceData.authority
+          },
+          tx
+        ),
+      (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
+    );
 
-```ts !! title="Build Deferred Transaction"
-const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
-
-const transferInstruction = getTransferInstruction({
-  source: senderAta,
-  destination: recipientAta,
-  authority: sender.address,
-  amount: 250_000n
-});
-
-// !focus(1:14)
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) =>
-    // !mark(1:8)
-    setTransactionMessageLifetimeUsingDurableNonce(
-      {
-        nonce: nonceData.blockhash as Nonce,
-        nonceAccountAddress: nonceKeypair.address,
-        nonceAuthorityAddress: nonceData.authority
-      },
-      tx
-    ),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
-);
-```
-
-## !!steps Sign Transaction
-
-Sign the transaction. It now uses the durable nonce instead of a standard
-blockhash.
-
-<CodePlaceholder title="Build Deferred Transaction" />
-
-```ts !! title="Build Deferred Transaction"
-const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
-
-const transferInstruction = getTransferInstruction({
-  source: senderAta,
-  destination: recipientAta,
-  authority: sender.address,
-  amount: 250_000n
-});
-
-const transactionMessage = pipe(
-  createTransactionMessage({ version: 0 }),
-  (tx) => setTransactionMessageFeePayerSigner(sender, tx),
-  (tx) =>
-    setTransactionMessageLifetimeUsingDurableNonce(
-      {
-        nonce: nonceData.blockhash as Nonce,
-        nonceAccountAddress: nonceKeypair.address,
-        nonceAuthorityAddress: nonceData.authority
-      },
-      tx
-    ),
-  (tx) => appendTransactionMessageInstructions([transferInstruction], tx)
-);
-
-// !focus(1:2)
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-```
-
-</ScrollyCoding>
+    const signedTransaction =
+      await signTransactionMessageWithSigners(transactionMessage);
+    ```
+  </Step>
+</Steps>
 
 ### Store or Send Transaction
 
 After signing, encode the transaction for storage. When ready, send it to the
 network.
 
-<ScrollyCoding>
+<Steps codePanel>
+  <Step title="Encode for Storage">
+    Encode the signed transaction to base64. Store this value in your database.
 
-## !!steps Encode for Storage
+    ```ts title="Store and Execute" focus={4-5}
+    const signedTransaction =
+      await signTransactionMessageWithSigners(transactionMessage);
 
-Encode the signed transaction to base64. Store this value in your database.
+    const base64EncodedTransaction =
+      getBase64EncodedWireTransaction(signedTransaction);
 
-<CodePlaceholder title="Store and Execute" />
+    // Store base64EncodedTransaction in your database
+    ```
+  </Step>
 
-```ts !! title="Store and Execute"
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
+  <Step title="Send Transaction">
+    Send the signed transaction when ready. The transaction remains valid until the
+    nonce is advanced.
 
-// !focus(1:2)
-const base64EncodedTransaction =
-  getBase64EncodedWireTransaction(signedTransaction);
+    ```ts title="Store and Execute" focus={8-10}
+    const signedTransaction =
+      await signTransactionMessageWithSigners(transactionMessage);
 
-// Store base64EncodedTransaction in your database
-```
+    const base64EncodedTransaction =
+      getBase64EncodedWireTransaction(signedTransaction);
 
-## !!steps Send Transaction
-
-Send the signed transaction when ready. The transaction remains valid until the
-nonce is advanced.
-
-<CodePlaceholder title="Store and Execute" />
-
-```ts !! title="Store and Execute"
-const signedTransaction =
-  await signTransactionMessageWithSigners(transactionMessage);
-
-const base64EncodedTransaction =
-  getBase64EncodedWireTransaction(signedTransaction);
-
-// When ready to execute (could be days later):
-// !focus(1:3)
-await rpc
-  .sendTransaction(base64EncodedTransaction, { encoding: "base64" })
-  .send();
-```
-
-</ScrollyCoding>
+    // When ready to execute (could be days later):
+    await rpc
+      .sendTransaction(base64EncodedTransaction, { encoding: "base64" })
+      .send();
+    ```
+  </Step>
+</Steps>
 
 ### Demo
 
-<CodeTabs flags="r">
-
-```ts !! title="Demo"
-// !collapse(1:39) collapsed
+```ts Demo highlight={54,57-60,63-69,72-75,106,139-146,156-157,161-166} expandable
 // Click ">" icon on left to expand demo imports
 import {
   airdropFactory,
@@ -448,18 +430,15 @@ const { rpc, rpcSubscriptions, mint } = await demoSetup(sender, recipient);
 // Step 1: Create a Nonce Account
 // =============================================================================
 
-// !mark
 const nonceKeypair = await generateKeyPairSigner();
 console.log("\nNonce Account Address:", nonceKeypair.address);
 
-// !mark(1:4)
 const nonceSpace = BigInt(getNonceSize());
 const nonceRent = await rpc
   .getMinimumBalanceForRentExemption(nonceSpace)
   .send();
 
 // Instruction to create new account for the nonce
-// !mark(1:7)
 const createNonceAccountIx = getCreateAccountInstruction({
   payer: sender,
   newAccount: nonceKeypair,
@@ -469,7 +448,6 @@ const createNonceAccountIx = getCreateAccountInstruction({
 });
 
 // Instruction to initialize the nonce account
-// !mark(1:4)
 const initNonceIx = getInitializeNonceAccountInstruction({
   nonceAccount: nonceKeypair.address,
   nonceAuthority: sender.address
@@ -504,7 +482,6 @@ console.log("Nonce Account created.");
 // =============================================================================
 
 // Fetch current nonce value from the nonce account
-// !mark
 const { data: nonceData } = await fetchNonce(rpc, nonceKeypair.address);
 console.log("Nonce Account data:", nonceData);
 
@@ -538,7 +515,6 @@ const transactionMessage = pipe(
   createTransactionMessage({ version: 0 }),
   (tx) => setTransactionMessageFeePayerSigner(sender, tx),
   (tx) =>
-    // !mark(1:8)
     setTransactionMessageLifetimeUsingDurableNonce(
       {
         nonce: nonceData.blockhash as string as Nonce,
@@ -556,13 +532,11 @@ assertIsTransactionWithDurableNonceLifetime(signedTransaction);
 const transactionSignature = getSignatureFromTransaction(signedTransaction);
 
 // Encode the transaction to base64, optionally save and send at a later time
-// !mark(1:2)
 const base64EncodedTransaction =
   getBase64EncodedWireTransaction(signedTransaction);
 console.log("\nBase64 Encoded Transaction:", base64EncodedTransaction);
 
 // Send the encoded transaction, blockhash does not expire
-// !mark(1:6)
 await rpc
   .sendTransaction(base64EncodedTransaction, {
     encoding: "base64",
@@ -576,7 +550,6 @@ console.log("Transaction Signature:", transactionSignature);
 // =============================================================================
 // Demo Setup Helper Function
 // =============================================================================
-// !collapse(1:1000) collapsed
 
 /**
  * Sets up for a token transfer demo:
@@ -679,8 +652,6 @@ async function demoSetup(sender: KeyPairSigner, recipient: KeyPairSigner) {
 }
 ```
 
-</CodeTabs>
-
 ## Invalidate a Pending Transaction
 
 Each nonce account `blockhash` can only be used once. To invalidate a pending
@@ -706,19 +677,20 @@ for storage or submission:
 
 ```ts
 import {
-  getBase64Decoder,
+  getBase64Encoder,
   getTransactionDecoder,
   getBase64EncodedWireTransaction,
   partiallySignTransaction
 } from "@solana/kit";
 
 // Deserialize the stored transaction
-const txBytes = getBase64Decoder().decode(serializedString);
+const txBytes = getBase64Encoder().encode(serializedString);
 const partiallySignedTx = getTransactionDecoder().decode(txBytes);
 
-// Each approver adds their signature
+// Each approver adds their signature. partiallySignTransaction takes
+// CryptoKeyPairs, so pass the KeyPairSigner's `keyPair`
 const fullySignedTx = await partiallySignTransaction(
-  [newSigner],
+  [newKeyPairSigner.keyPair],
   partiallySignedTx
 );
 
@@ -746,4 +718,4 @@ all required signatures are collected, submit to the network.
 
 ## Related Resources
 
-- [Introduction to Durable Nonces](https://solana.com/developers/cookbook/transactions/durable-nonces)
+- [Introduction to Durable Nonces](/developers/cookbook/transactions/durable-nonces)

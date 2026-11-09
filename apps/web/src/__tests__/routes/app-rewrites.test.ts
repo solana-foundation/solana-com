@@ -82,6 +82,39 @@ describe("Cross-app rewrites", () => {
     );
   });
 
+  it("proxies every docs-app path to the same path on the docs app", () => {
+    for (const source of [
+      "/docs-assets/:path+",
+      "/opengraph/:path+",
+      "/llms.txt",
+      "/llms-full.txt",
+      "/api/demo/:path+",
+      "/api/devnet-airdrop",
+      "/api/slot-time/tip",
+      "/api/docs-search",
+      ...["", "/:locale"].flatMap((prefix) =>
+        [
+          "/docs",
+          "/docs/:path*.md",
+          "/docs/:path*",
+          "/developers",
+          "/developers/:path*.md",
+          "/developers/docs",
+          "/developers/docs/:path*",
+          "/developers/cookbook",
+          "/developers/cookbook/:path*",
+          "/developers/guides",
+          "/developers/guides/:path*",
+          "/developers/bootcamp",
+          "/developers/bootcamp/:path*",
+        ].map((path) => `${prefix}${path}`),
+      ),
+      "/docs.md",
+    ]) {
+      expectBeforeFileRewrite(source, `${DOCS_APP_URL}${source}`);
+    }
+  });
+
   it("keeps templates rewrites before generic developer docs rewrites", () => {
     expect(expectSourceIndex("/developers/templates")).toBeLessThan(
       expectSourceIndex("/developers"),

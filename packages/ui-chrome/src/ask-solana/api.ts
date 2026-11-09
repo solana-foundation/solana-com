@@ -479,9 +479,11 @@ function toDonePayload(done: DonePayload): AskChatDonePayload {
     runId:
       typeof done.run_id === "string"
         ? done.run_id
-        : typeof done.runId === "string"
-          ? done.runId
-          : null,
+        : typeof done.run_id === "number"
+          ? String(done.run_id)
+          : typeof done.runId === "string"
+            ? done.runId
+            : null,
     conversationId:
       toConversationId(done.conversation_id) ??
       toConversationId(done.conversationId),

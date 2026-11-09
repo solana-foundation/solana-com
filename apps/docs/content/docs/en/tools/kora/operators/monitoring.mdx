@@ -11,7 +11,9 @@ provides comprehensive metrics collection and monitoring for the Kora RPC
 server.
 
 Kora exposes a `/metrics` endpoint that provides real-time performance data in
-Prometheus format.
+Prometheus format. Metrics are served by a separate listener on the port set in
+`[metrics]`, not on the RPC port. The examples on this page use `8081` for
+metrics and `8080` for the RPC server.
 
 ## Configuration
 
@@ -23,7 +25,7 @@ is optional and by default, metrics are disabled.
 [metrics]
 enabled = true
 endpoint = "/metrics"
-port = 8080
+port = 8081  # Must differ from the RPC port (8080 by default)
 scrape_interval = 60
 
 [metrics.fee_payer_balance]
@@ -31,12 +33,12 @@ enabled = true
 expiry_seconds = 30
 ```
 
-| Option            | Description                              | Required | Type    |
-| ----------------- | ---------------------------------------- | -------- | ------- |
-| `enabled`         | Enable metrics collection                | ✅       | boolean |
-| `endpoint`        | Custom metrics endpoint path             | ✅       | string  |
-| `port`            | Metrics endpoint port                    | ✅       | number  |
-| `scrape_interval` | Frequency of Prometheus scrape (seconds) | ✅       | number  |
+| Option            | Description                                           | Required | Type    |
+| ----------------- | ----------------------------------------------------- | -------- | ------- |
+| `enabled`         | Enable metrics collection                             | ✅       | boolean |
+| `endpoint`        | Custom metrics endpoint path                          | ✅       | string  |
+| `port`            | Metrics listener port (must differ from the RPC port) | ✅       | number  |
+| `scrape_interval` | Frequency of Prometheus scrape (seconds)              | ✅       | number  |
 
 ### Fee Payer Balance Tracking
 
@@ -49,7 +51,8 @@ your fee payer's SOL balance:
 | `expiry_seconds` | Background tracking interval in seconds | ❌ (default: 30)    | number  |
 
 When enabled, Kora automatically tracks your fee payer's SOL balance and exposes
-it via the `fee_payer_balance_lamports` Prometheus gauge. This helps with
+it via the `signer_balance_lamports` Prometheus gauge, labeled with
+`signer_name` and `signer_pubkey`. This helps with
 capacity planning and low-balance alerting.
 
 ## Quick Start
@@ -57,7 +60,7 @@ capacity planning and low-balance alerting.
 **Access metrics:**
 
 ```bash
-curl http://localhost:8080/metrics
+curl http://localhost:8081/metrics
 ```
 
 ## What You'll See
@@ -69,8 +72,11 @@ The metrics show how your RPC server is performing:
 kora_http_requests_total{method="signTransaction",status="200"} 42
 kora_http_requests_total{method="signTransaction",status="400"} 3
 
-# Request duration (in seconds) by method
-kora_http_request_duration_seconds{method="signTransaction"} 0.045
+# Request duration (in seconds) by method, as a Prometheus histogram
+kora_http_request_duration_seconds_bucket{method="signTransaction",le="0.05"} 40
+kora_http_request_duration_seconds_bucket{method="signTransaction",le="+Inf"} 45
+kora_http_request_duration_seconds_sum{method="signTransaction"} 1.9
+kora_http_request_duration_seconds_count{method="signTransaction"} 45
 
 # Signer balances (for multi-signer setups)
 signer_balance_lamports{signer_name="primary_signer",signer_pubkey="4gBe...xyz"} 500000000
@@ -89,7 +95,7 @@ curl -X POST http://localhost:8080 \
 and then check the metrics:
 
 ```bash
-curl http://localhost:8080/metrics
+curl http://localhost:8081/metrics
 ```
 
 ## Key Metrics Explained
@@ -100,7 +106,8 @@ curl http://localhost:8080/metrics
    - Use this to track usage patterns and error rates
 
 2. **`kora_http_request_duration_seconds`** - How fast your requests are
-   - Shows percentiles (p50, p95, p99) for response times
+   - A Prometheus histogram with bucket, sum, and count series; compute p50,
+     p95, and p99 response times with `histogram_quantile()`
    - Use this to identify slow endpoints
 
 3. **`signer_balance_lamports`** - Current SOL balance of each signer
@@ -116,10 +123,10 @@ curl http://localhost:8080/metrics
 
 ```bash
 # See all metrics
-curl http://localhost:8080/metrics
+curl http://localhost:8081/metrics
 
 # Check specific method performance
-curl http://localhost:8080/metrics | grep signTransaction
+curl http://localhost:8081/metrics | grep signTransaction
 ```
 
 ### Option 2: Prometheus + Grafana (Recommended)
@@ -128,7 +135,7 @@ For graphs and alerts, run the full monitoring stack:
 
 ```bash
 # from kora root directory
-just run-metrics
+make run-metrics   # on main or beta tags: just run-metrics
 ```
 
 Then visit:
@@ -140,7 +147,7 @@ Then visit:
 
 ### Option 3: Your Own Monitoring
 
-Point any Prometheus-compatible tool at `http://your-server:8080/metrics`:
+Point any Prometheus-compatible tool at `http://your-server:8081/metrics`:
 
 - Datadog
 - New Relic
@@ -154,7 +161,7 @@ Point any Prometheus-compatible tool at `http://your-server:8080/metrics`:
 rate(kora_http_requests_total[1m])
 
 # 95th percentile response time
-histogram_quantile(0.95, kora_http_request_duration_seconds_bucket)
+histogram_quantile(0.95, sum by (le) (rate(kora_http_request_duration_seconds_bucket[5m])))
 
 # Error rate
 rate(kora_http_requests_total{status!="200"}[5m])
@@ -181,10 +188,10 @@ aggregate metrics:
 
 ```bash
 # Check balance of specific signer
-curl http://localhost:8080/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
+curl http://localhost:8081/metrics | grep 'signer_balance_lamports{signer_name="primary_signer"}'
 
 # View all signer balances
-curl http://localhost:8080/metrics | grep signer_balance_lamports
+curl http://localhost:8081/metrics | grep signer_balance_lamports
 ```
 
 ### Prometheus Queries for Multi-Signer Setups

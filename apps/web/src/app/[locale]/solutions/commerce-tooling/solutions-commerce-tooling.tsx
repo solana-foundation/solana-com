@@ -98,7 +98,7 @@ export function SolutionsCommerceToolingPage({
           {
             hierarchy: "outline",
             size: "lg",
-            url: "/docs/tools/solana-pay",
+            url: "/developers/docs/tools/solana-pay",
             label: t("buttons.explorePayments"),
           },
         ]}
