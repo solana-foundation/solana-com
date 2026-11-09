@@ -5,6 +5,7 @@ const CACHE_SECONDS = 300;
 const MAX_BYTES = 15 * 1024 * 1024;
 const IMAGE_TYPES = /^image\/(?:avif|gif|jpeg|png|webp)(?:;|$)/i;
 const PUBLIC_MEDIA_URL = "https://solana-com-media.vercel.app";
+const UPLOADS_PREFIX = "/uploads/";
 const FETCH_OPTIONS = { redirect: "manual", cache: "no-store" } as const;
 
 const normalizePath = (input: string) => {
@@ -39,24 +40,29 @@ export async function GET(request: NextRequest) {
 
   // Resolve first, then check: `/uploads/../api/...` would pass a prefix test
   // on the raw string but normalises to a different path on the media app.
-  let upstreamUrl: URL;
+  const mediaOrigin = new URL(MEDIA_APP_URL).origin;
+  let resolved: URL;
   try {
-    upstreamUrl = new URL(normalizePath(path), MEDIA_APP_URL);
+    resolved = new URL(normalizePath(path), MEDIA_APP_URL);
   } catch {
     return NextResponse.json({ error: "Invalid path" }, { status: 400 });
   }
   if (
-    upstreamUrl.origin !== new URL(MEDIA_APP_URL).origin ||
-    !upstreamUrl.pathname.startsWith("/uploads/") ||
-    upstreamUrl.pathname.includes("/../")
+    resolved.origin !== mediaOrigin ||
+    !resolved.pathname.startsWith(UPLOADS_PREFIX) ||
+    resolved.pathname.includes("/../")
   ) {
     return NextResponse.json(
       { error: "Only media upload assets are supported" },
       { status: 400 },
     );
   }
-  upstreamUrl.search = "";
-  upstreamUrl.hash = "";
+
+  // Rebuild the request URL from the configured origin and the validated path
+  // below /uploads/, dropping query and hash. The request can only ever name
+  // an upload on a Media origin, never a host or route the caller chose.
+  const uploadPath = resolved.pathname.slice(UPLOADS_PREFIX.length);
+  const upstreamUrl = new URL(`${mediaOrigin}${UPLOADS_PREFIX}${uploadPath}`);
 
   let upstreamResponse = await fetch(upstreamUrl, FETCH_OPTIONS);
 
@@ -67,8 +73,9 @@ export async function GET(request: NextRequest) {
     MEDIA_APP_URL !== PUBLIC_MEDIA_URL &&
     !isServableImage(upstreamResponse)
   ) {
-    const publicUrl = new URL(PUBLIC_MEDIA_URL);
-    publicUrl.pathname = upstreamUrl.pathname;
+    const publicUrl = new URL(
+      `${PUBLIC_MEDIA_URL}${UPLOADS_PREFIX}${uploadPath}`,
+    );
     upstreamResponse = await fetch(publicUrl, FETCH_OPTIONS);
   }
 
