@@ -4,7 +4,7 @@ use solana_sdk::{signature::Keypair, signer::Signer};
 
 fn main() -> Result<()> {
     let keypair_base58 =
-        "4UzFMkVbk1q6ApxvDS8inUxg4cMBxCQRVXRx5msqQyktbi1QkJkt574Jda6BjZThSJi54CHfVoLFdVFX8XFn233L";
+        "5MaiiCavjCmn9Hs1o3eznqDEhRwxo7pXiAYez7keQUviUkauRiTMD8DrESdrNjN8zd9mTmVhRvBJeg5vhyvgrAhG";
 
     let keypair = Keypair::from_base58_string(keypair_base58);
     println!("{:?}", keypair.pubkey());

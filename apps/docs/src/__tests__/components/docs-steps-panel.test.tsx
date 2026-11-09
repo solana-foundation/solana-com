@@ -86,6 +86,30 @@ describe("<Steps> without codePanel", () => {
   });
 });
 
+describe("<Step> anchor aliases", () => {
+  it("renders a target for each older id of the step", () => {
+    const div = document.createElement("div");
+    div.innerHTML = renderToStaticMarkup(
+      <Steps>
+        <Step
+          title="Set up instance management tooling"
+          {...{
+            "data-step-id": "set-up-instance-management-tooling",
+            "data-anchor-aliases": "set-up-the-admin-ui older-id",
+          }}
+        >
+          <p>Text</p>
+        </Step>
+      </Steps>,
+    );
+    const step = div.querySelector(".step")!;
+    expect(step.id).toBe("set-up-instance-management-tooling");
+    expect(
+      [...step.querySelectorAll(":scope > span[aria-hidden]")].map((s) => s.id),
+    ).toEqual(["set-up-the-admin-ui", "older-id"]);
+  });
+});
+
 describe("<Steps codePanel>", () => {
   it("puts each step's one code element in a panel rail", () => {
     const container = ssr(

@@ -463,6 +463,8 @@ interface StepProps {
   children?: ReactNode;
   /** Set by rehype-docs-compat for Steps whose titles are headings. */
   "data-step-id"?: string;
+  /** Older ids of this step (rehype-docs-compat's anchorAliases). */
+  "data-anchor-aliases"?: string;
 }
 
 function StepItem({
@@ -482,6 +484,7 @@ function StepItem({
   panel?: { marked: boolean; active: boolean; shown: boolean };
 }) {
   const id = rest["data-step-id"] ?? rest.id;
+  const aliases = rest["data-anchor-aliases"];
   const Title = (titleSize === "h2" || titleSize === "h3" ? titleSize : "p") as
     | "h2"
     | "h3"
@@ -521,6 +524,14 @@ function StepItem({
       role="listitem"
       data-active={panel?.active ? "" : undefined}
     >
+      {aliases?.split(" ").map((alias) => (
+        <span
+          key={alias}
+          id={alias}
+          aria-hidden="true"
+          className="pointer-events-none absolute top-0 scroll-mt-24"
+        />
+      ))}
       <div
         data-component-part="step-line"
         className={
@@ -922,7 +933,14 @@ export function CodeBlock(pre: PreProps) {
   const title = pre.title;
   return (
     <div
-      className="code-block not-prose"
+      // Untitled blocks: the Copy and Ask buttons float over the first line,
+      // so pad that line's end by the fade overlay's width. A first line that
+      // reaches the buttons then scrolls clear of them.
+      className={
+        title
+          ? "code-block not-prose"
+          : "code-block not-prose [&_pre_code>.line:first-child]:pr-[8.25rem]"
+      }
       data-has-header={title ? "" : undefined}
       data-has-floating-buttons={title ? undefined : ""}
       data-language={pre["data-language"]}
@@ -1198,8 +1216,13 @@ function Heading({
   as: Tag,
   id,
   children,
+  "data-anchor-aliases": aliases,
   ...rest
-}: ComponentProps<"h2"> & { as: "h1" | "h2" | "h3" | "h4" | "h5" | "h6" }) {
+}: ComponentProps<"h2"> & {
+  as: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
+  // Older ids of this heading (rehype-docs-compat's anchorAliases).
+  "data-anchor-aliases"?: string;
+}) {
   if ("data-step-title" in rest) return <>{children}</>;
   if (!id) return <Tag {...rest}>{children}</Tag>;
   return (
@@ -1208,6 +1231,14 @@ function Heading({
       {...rest}
       className={["heading", rest.className].filter(Boolean).join(" ")}
     >
+      {aliases?.split(" ").map((alias) => (
+        <span
+          key={alias}
+          id={alias}
+          aria-hidden="true"
+          className="pointer-events-none absolute top-0 scroll-mt-24"
+        />
+      ))}
       <a
         href={`#${id}`}
         className="heading-anchor"

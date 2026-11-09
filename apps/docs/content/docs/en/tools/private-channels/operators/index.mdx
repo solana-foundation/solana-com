@@ -1,6 +1,8 @@
 ---
 title: Operators
 description: Deploy and operate a Private Channels instance with Docker Compose
+anchorAliases:
+  set-up-the-admin-ui: set-up-instance-management-tooling
 ---
 
 ## What is a Private Channels Operator?
@@ -23,6 +25,17 @@ and controlled access via RBAC.
 
 ## Before You Start
 
+<Info>
+  This guide targets solana-private-channels commit `c9e2240`, the source of
+  the escrow program deployed to devnet at
+  `9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU`. Upstream `main` has moved
+  on: it renames `ESCROW_INSTANCE_ID` to `COMMON_ESCROW_INSTANCE_ID`, requires
+  permanent-delegate keys and more secrets, adds arguments to `allow_mint`, and
+  replaces the Sparse Merkle Tree with an onchain withdrawal bitmap. The devnet
+  program still runs the `c9e2240` code, so follow this guide from a `c9e2240`
+  checkout.
+</Info>
+
 ### Prerequisites
 
 Pin these versions on the host to match the Docker images:
@@ -31,18 +44,22 @@ Pin these versions on the host to match the Docker images:
   Virtual Machine Options)
 - Node.js **24** and pnpm **10.15.1**, the versions the repository's
   Dockerfile and `versions.env` use
-- Solana CLI **3.1.13** (Agave; upstream `main` uses 4.2.2)
-- Rust **1.91.0** (upstream `main` uses 1.96+)
+- Solana CLI **3.1.13** (Agave)
+- Rust **1.91.0**
 - A Yellowstone gRPC endpoint for Devnet (available from Helius, Triton,
   QuickNode)
 
 For network requirements and default port assignments, see
-[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/TECHNICAL_REQUIREMENTS.md)
+[`docs/TECHNICAL_REQUIREMENTS.md`](https://github.com/solana-foundation/solana-private-channels/blob/c9e2240/docs/TECHNICAL_REQUIREMENTS.md)
 in the repository.
 
-Install the pinned Solana toolchain and warm the SBF cache:
+Clone the repository at the commit this guide targets, then install the pinned
+Solana toolchain and warm the SBF cache:
 
 ```bash
+git clone https://github.com/solana-foundation/solana-private-channels.git
+cd solana-private-channels
+git checkout c9e2240
 make install-toolchain
 ```
 
@@ -58,13 +75,13 @@ each handled by dedicated containers in the Docker Compose stack:
    channel every second for `WithdrawFunds` burn events and writes pending
    withdrawal records to the database
 3. **Release funds on Mainnet** - `operator-private-channel` picks up pending
-   records and calls `ReleaseFunds` on the Escrow Program, which consumes the
-   withdrawal's nonce in the instance's withdrawal bitmap
-4. **Rotate the withdrawal bitmap** - `operator-private-channel` calls
-   `RotateBitmap` to move the bitmap to the next generation of 65,536 nonces;
-   the onchain bitmap check, which releases each nonce at most once and only
-   within the current generation, is the last line of defense against replayed
-   withdrawals
+   records and calls `ReleaseFunds` on the Escrow Program with a
+   [Sparse Merkle Tree](/developers/docs/tools/private-channels/concepts/smt)
+   exclusion proof for the withdrawal's nonce
+4. **Rotate the Sparse Merkle Tree** - when a tree's 65,536 nonces are used,
+   `operator-private-channel` calls `ResetSmtRoot` to start a new tree; the
+   onchain proof check, which releases each nonce at most once, is the last
+   line of defense against replayed withdrawals
 5. **Run the gateway and auth service** - the gateway is the single public
    endpoint for all client traffic; the auth service (optional) enforces
    JWT/RBAC when `JWT_SECRET` is set
@@ -73,8 +90,8 @@ For the full service inventory and port assignments, see the
 [Configuration reference](/developers/docs/tools/private-channels/operators/configuration).
 
 > **Security note:** Write-node and read-node ports are bound to loopback
-> (`127.0.0.1`) only, as is Grafana, but several other services (gateway, auth,
-> operator metrics, Prometheus, cAdvisor) are published to all network
+> (`127.0.0.1`) only, but several other services (gateway, auth, operator
+> metrics, Grafana, Prometheus, cAdvisor) are published to all network
 > interfaces by default. See the
 > [Configuration reference](/developers/docs/tools/private-channels/operators/configuration#service-port-reference)
 > for the full port table and firewall these before any public-facing
@@ -111,7 +128,12 @@ non-secret variables go in `.env.devnet`.
 ```bash
 POSTGRES_PASSWORD=<openssl rand -hex 32>
 POSTGRES_REPLICATION_PASSWORD=<openssl rand -hex 32>
+GF_ADMIN_PASSWORD=<openssl rand -hex 16>
 ```
+
+`make docker-devnet-up` refuses to start without the two PostgreSQL passwords.
+`GF_ADMIN_PASSWORD` isn't checked, but `.env.devnet` sets it to `admin`, so
+override it here.
 
 **Variables obtained during deployment:**
 
@@ -154,7 +176,7 @@ takes 30 minutes to an hour.
 
 You create and configure the escrow instance (`CreateInstance`, `AllowMint`,
 `AddOperator`) with the CLI binaries in
-[`scripts/devnet`](https://github.com/solana-foundation/solana-private-channels/tree/main/scripts/devnet),
+[`scripts/devnet`](https://github.com/solana-foundation/solana-private-channels/tree/c9e2240/scripts/devnet),
 run from the repository root. They read their signers from keypair files, so
 create those first:
 
@@ -175,20 +197,22 @@ make install
 make generate-clients
 ```
 
-The scripts build their instructions from the current program source, so the
-escrow program they call must be built from the same source. Check when the
-devnet program was last deployed:
+The scripts build their instructions from the program source you checked out,
+so the escrow program they call must match it. At `c9e2240` the program differs
+from the source of the devnet deploy only in its `declare_id!` line (the
+retarget to `9tgHa1`), so the deployed program is current for this commit. To
+confirm it hasn't been redeployed since June 23, 2026:
 
 ```bash
 solana program show 9tgHa1DcnaSSUtmMsst8ovKTe1Gfxzezn27KnH9xXYeU --url devnet   # note "Last Deployed In Slot"
 solana block-time <LAST_DEPLOYED_SLOT> --url devnet
-git log -1 --format="%ci %s" -- private-channel-escrow-program/program
 ```
 
-If the source changed after the deploy, `create_instance` fails (for example
-with `NotEnoughAccountKeys`). Redeploy the programs from your checkout as
-described in
-[Step 0 of the devnet quickstart](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/DEVNET_QUICKSTART.md#step-0-check-the-on-chain-programs-are-current-upgrade-if-stale).
+If the program was redeployed from a newer commit, or you change the program
+source, the scripts and the program disagree and `create_instance` can fail
+(for example with `NotEnoughAccountKeys`). Redeploy the programs from your
+checkout as described in
+[Step 0 of the devnet quickstart](https://github.com/solana-foundation/solana-private-channels/blob/c9e2240/docs/DEVNET_QUICKSTART.md#step-0-check-the-on-chain-programs-are-current-upgrade-if-stale).
 
 </Step>
 
@@ -225,8 +249,8 @@ pubkey in the "Configure the instance" step below.
 
 Update `.env.devnet` with `ESCROW_INSTANCE_ID`, `DEVNET_RPC_URL`,
 `DEVNET_YELLOWSTONE_ENDPOINT`, and `INDEXER_YELLOWSTONE_TOKEN`. Put secrets
-(`POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD`, `ADMIN_PRIVATE_KEY`) in
-the gitignored `.env` file.
+(`POSTGRES_PASSWORD`, `POSTGRES_REPLICATION_PASSWORD`, `GF_ADMIN_PASSWORD`,
+`ADMIN_PRIVATE_KEY`) in the gitignored `.env` file.
 
 If you decided to enable RBAC
 ([Access Control: Open vs. RBAC](#access-control-open-vs-rbac)), also add
@@ -309,27 +333,18 @@ This guide targets Solana devnet. For Mainnet:
 
 ### Instance Administration
 
-The escrow admin keypair manages the instance after setup. `scripts/devnet`
-covers mint gating as well as the setup commands above. `block_mint` sets the
-deposit and withdrawal gates for an allowed mint; both flags are absolute, so
-passing `false` re-opens that gate, and blocking deposits leaves escrowed
-balances withdrawable:
-
-```bash
-cargo run --bin block_mint -- \
-  https://api.devnet.solana.com \
-  ./keypairs/escrow-admin.json \
-  <INSTANCE_ID> \
-  <MINT_ADDRESS> \
-  <BLOCK_DEPOSITS> \
-  <BLOCK_WITHDRAWALS>
-```
-
-Revoking an operator and transferring the admin role have no CLI script; send
-the [RemoveOperator](/developers/docs/tools/private-channels/instructions/remove-operator)
+The escrow admin keypair manages the instance after setup. At `c9e2240`,
+`scripts/devnet` has only the setup commands above plus test `deposit` and
+`withdraw` commands. Blocking a mint, revoking an operator and transferring the
+admin role have no CLI script; send the
+[BlockMint](/developers/docs/tools/private-channels/instructions/block-mint),
+[RemoveOperator](/developers/docs/tools/private-channels/instructions/remove-operator)
 and [SetNewAdmin](/developers/docs/tools/private-channels/instructions/set-new-admin)
 instructions with the generated
-[escrow program clients](https://github.com/solana-foundation/solana-private-channels/tree/main/private-channel-escrow-program/clients).
+[escrow program clients](https://github.com/solana-foundation/solana-private-channels/tree/c9e2240/private-channel-escrow-program/clients).
+`BlockMint` closes the mint's `AllowedMint` account. New deposits of that mint
+fail, and so does `ReleaseFunds`, which reads the same account: withdrawals of
+that mint can't settle until you run `allow_mint` for it again.
 
 ### Useful Commands
 
@@ -350,11 +365,12 @@ make docker-devnet-clean
 ### Observability
 
 The stack includes Prometheus, Grafana, and cAdvisor for metrics and container
-monitoring. Grafana is accessible on port `37429` (bound to `127.0.0.1` only).
+monitoring. Grafana is on port `37429`, published on all network interfaces.
 
 <Warning>
-  The default Grafana password is `admin`. Change it before exposing port 37429
-  to any network beyond localhost.
+  `.env.devnet` sets the Grafana admin password (`GF_ADMIN_PASSWORD`) to
+  `admin`. Override it in `.env` before you start the stack, and firewall port
+  37429 from networks beyond localhost.
 </Warning>
 
 ## Troubleshooting
@@ -379,10 +395,10 @@ monitoring. Grafana is accessible on port `37429` (bound to `127.0.0.1` only).
    `docker compose -f docker-compose.devnet.yml --env-file versions.env --env-file .env.devnet logs -f operator-private-channel`
 3. Confirm the operator keypair in `ADMIN_PRIVATE_KEY` matches the key
    registered with `AddOperator` onchain
-4. If `operator-private-channel` exits at startup with
-   `Withdrawal bitmap divergence` in its logs, the database records a release
-   that the onchain bitmap does not. Follow the upstream
-   [withdrawal pipeline halt runbook](https://github.com/solana-foundation/solana-private-channels/blob/main/docs/runbooks/withdrawal_pipeline_halt_runbook.md)
+4. If `operator-private-channel` exits at startup with `SMT root mismatch` in
+   its logs, the SMT root rebuilt from the database doesn't match the onchain
+   `withdrawal_transactions_root`. Follow the repository's
+   [withdrawal pipeline halt runbook](https://github.com/solana-foundation/solana-private-channels/blob/c9e2240/docs/runbooks/withdrawal_pipeline_halt_runbook.md)
    before restarting
 
 ### JWT authentication failures (401 on all requests)

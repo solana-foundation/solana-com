@@ -12,6 +12,8 @@
  *   the title becomes a real heading, so it is listed in "On this page"
  *   under its section, as before. The Step component renders that heading
  *   as its title.
+ * - Anchor aliases: headings also answer to the ids older links use (see
+ *   anchorAliases below).
  */
 import { docsSlugBase } from "./remark-docs-compat.mjs";
 import { smartPunctuation, smartQuotes } from "./smart-quotes.mjs";
@@ -159,10 +161,125 @@ function markMarkdown(node) {
   for (const child of node.children ?? []) markMarkdown(child);
 }
 
+/**
+ * A heading's id as github-slugger makes it (before repeats are numbered):
+ * lower case, every character but letters, marks, digits, `_`, `-` and
+ * spaces dropped, spaces turned into hyphens. solana.com/docs published its
+ * heading ids this way before this app, as GitHub does for Markdown.
+ */
+const GITHUB_STRIP = /[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu;
+
+export function githubSlugBase(text) {
+  return text.toLowerCase().replace(GITHUB_STRIP, "").replace(/ /g, "-");
+}
+
+/** github-slugger's numbering: repeats get -1, -2, ... (skipping taken ids). */
+function githubSlugger() {
+  const seen = new Map();
+  return (text) => {
+    const base = githubSlugBase(text);
+    let slug = base;
+    while (seen.has(slug)) {
+      const n = seen.get(base) + 1;
+      seen.set(base, n);
+      slug = `${base}-${n}`;
+    }
+    seen.set(slug, 0);
+    return slug;
+  };
+}
+
+/** The heading's text as Markdown had it (text and inline code). */
+function plainText(node) {
+  if (node.type === "text") return node.value;
+  if (node.type === "mdxFlowExpression" || node.type === "mdxTextExpression")
+    return "";
+  return (node.children ?? []).map(plainText).join("");
+}
+
+function isHeading(node) {
+  return node.type === "element" && /^h[1-6]$/.test(node.tagName);
+}
+
+/**
+ * Anchor aliases: ids that older links use for a heading, written to the
+ * heading as `data-anchor-aliases` (the Heading component renders an empty
+ * target for each, so `#alias` scrolls to the heading).
+ *
+ * - The github-slugger id, where it differs from the heading's id: the docs
+ *   published "Fees & compute" as #fees--compute, so external deep links
+ *   keep landing on their section. (Repeats are numbered -1, -2 by both, see
+ *   docsSlug.)
+ * - `anchorAliases` in the page's frontmatter (`old-id: current-id`), for
+ *   headings and steps that were renamed. A `<Step>` target gets the
+ *   attribute too (StepItem renders the targets).
+ *
+ * An alias that any element on the page already uses as its id is skipped,
+ * so aliases never take an anchor from another section. Step titles were
+ * not headings before, so they get no github-slugger alias.
+ */
+function anchorAliases(tree, file) {
+  const taken = new Set();
+  const headings = [];
+  // id -> the heading or <Step> that renders aliases for it.
+  const owners = new Map();
+  walk(tree, (node) => {
+    const id =
+      node.type === "element"
+        ? node.properties?.id
+        : (attr(node, "id") ?? attr(node, "data-step-id"));
+    if (typeof id === "string") taken.add(id);
+    if (isHeading(node)) {
+      headings.push(node);
+      if (typeof id === "string" && !("dataStepTitle" in node.properties))
+        owners.set(id, node);
+    }
+    if (
+      node.type === "mdxJsxFlowElement" &&
+      node.name === "Step" &&
+      typeof id === "string"
+    )
+      owners.set(id, node);
+  });
+  const aliases = new Map();
+  const add = (heading, alias) => {
+    if (!alias || taken.has(alias)) return;
+    taken.add(alias);
+    aliases.set(heading, [...(aliases.get(heading) ?? []), alias]);
+  };
+  const slug = githubSlugger();
+  for (const heading of headings) {
+    const id = heading.properties?.id;
+    if (typeof id !== "string" || "dataStepTitle" in heading.properties)
+      continue;
+    const alias = slug(plainText(heading).trim());
+    if (alias !== id) add(heading, alias);
+  }
+  const renamed = file?.data?.frontmatter?.anchorAliases;
+  if (renamed && typeof renamed === "object") {
+    for (const [alias, target] of Object.entries(renamed)) {
+      const owner = owners.get(target);
+      if (owner) add(owner, alias);
+    }
+  }
+  for (const [owner, ids] of aliases) {
+    if (owner.type === "element")
+      owner.properties.dataAnchorAliases = ids.join(" ");
+    else
+      owner.attributes.push({
+        type: "mdxJsxAttribute",
+        name: "data-anchor-aliases",
+        value: ids.join(" "),
+      });
+  }
+}
+
 export function rehypeDocsCompat() {
-  return (tree) => {
+  return (tree, file) => {
     strip(tree);
     stepTitles(tree);
+    // Before quotes(): the github-slugger ids come from the source text.
+    anchorAliases(tree, file);
     quotes(tree);
     markMarkdown(tree);
   };

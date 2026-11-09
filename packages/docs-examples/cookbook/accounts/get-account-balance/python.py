@@ -1,12 +1,18 @@
 # #region balance
-from solana.rpc.api import Client
+import asyncio
+
+from solana.rpc.async_api import AsyncClient
 from solana.rpc.commitment import Confirmed
 from solders.pubkey import Pubkey
 
-client = Client("http://localhost:8899", commitment=Confirmed)
 
-address = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
-balance = client.get_balance(address)
+async def main():
+    async with AsyncClient("http://localhost:8899", commitment=Confirmed) as client:
+        address = Pubkey.from_string("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+        balance = await client.get_balance(address)
 
-print(f"Balance: {balance.value / 1_000_000_000} SOL")
+        print(f"Balance: {balance.value / 1_000_000_000} SOL")
+
+
+asyncio.run(main())
 # #endregion balance

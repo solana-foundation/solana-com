@@ -6,13 +6,15 @@
  * (apps/docs/content), so the landing cannot drift from the docs:
  * - tabs, their order, icons and first pages: navigation/en.json
  *   (hidden tabs are skipped, as in the docs);
- * - tab labels: the English tab names (English in every locale);
+ * - tab labels: the locale's tab names (navigation/<locale>/labels.json,
+ *   from Lingo), English where a locale has none;
  * - the search prompt and the footer columns and socials: docs.json.
  * Hrefs are localized with `localizedHref`, like the rest of the landing.
  */
 import docsConfig from "@@/content/docs.json";
 import enNav from "@@/content/navigation/en.json";
 import { localizedHref } from "./hub";
+import { labelSlug, navLabel } from "@/lib/docs/nav-labels";
 
 /** Lucide icon names used by the docs tabs (navigation/en.json `icon`). */
 export type DocsTabIcon =
@@ -46,18 +48,7 @@ type NavNode = {
   group?: string;
 };
 
-/** Slug of an English tab name, e.g. "Video tutorials" -> "video-tutorials". */
-export function labelSlug(s: string): string {
-  return (
-    s
-      .toLowerCase()
-      .normalize("NFKD")
-      .replace(/[̀-ͯ]/g, "")
-      .replace(/&/g, " and ")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "x"
-  );
-}
+export { labelSlug } from "@/lib/docs/nav-labels";
 
 /**
  * First page of a tab, as the docs tab bar links it
@@ -106,7 +97,7 @@ export const DOCS_TAB_DIVIDER_AFTER = 3;
 export function getDocsTabs(locale: string): DocsTab[] {
   return EN_TABS.map(({ english, ...tab }) => ({
     ...tab,
-    label: english,
+    label: navLabel(locale, "tabs", english),
     href: localizedHref(locale, tab.href),
   }));
 }

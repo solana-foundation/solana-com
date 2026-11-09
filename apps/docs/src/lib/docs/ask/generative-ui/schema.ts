@@ -27,6 +27,7 @@
  *   url|href|source, description}]`; the answer's citations cover these
  */
 import type { AskGenerativeUi } from "@solana-com/ui-chrome/ask-solana/api";
+import { askLinkTarget } from "../safe-link";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -333,31 +334,24 @@ function sentence(text: string) {
 const SOLANA_ORIGIN = /^https:\/\/(?:www\.)?solana\.com(?=[/?#]|$)/i;
 
 /**
- * A link the visuals may render: a same-site path or an http(s) URL, never
- * `javascript:` or a protocol-relative `//host` (or `/\host`, which browsers
- * read the same way). Old `/docs/...` paths become `/developers/docs/...`,
- * the docs' home since the move, so they navigate client-side.
+ * A link the visuals may render, as `askLinkTarget` (../safe-link.ts)
+ * allows and writes it: a same-site path or an https link to an allowed
+ * site, never `javascript:`, another site or a protocol-relative `//host`
+ * (or `/\host`, which browsers read the same way). Old `/docs/...` paths
+ * become `/developers/docs/...`, the docs' home since the move, so they
+ * navigate client-side.
  */
 export function safeHref(value: unknown): string | null {
   const raw = toText(value);
   if (!raw) return null;
-  const href = raw.replace(SOLANA_ORIGIN, "") || "/";
-  if (href.startsWith("/")) {
-    if (href.startsWith("//") || href.startsWith("/\\")) return null;
-    return href.replace(
-      /^\/(?:([a-z]{2})\/)?docs(?=[/?#.]|$)/,
-      (_, locale?: string) =>
-        locale && locale !== "en"
-          ? `/${locale}/developers/docs`
-          : "/developers/docs",
-    );
-  }
-  try {
-    const url = new URL(href);
-    return url.protocol === "http:" || url.protocol === "https:" ? href : null;
-  } catch {
-    return null;
-  }
+  const href = (raw.replace(SOLANA_ORIGIN, "") || "/").replace(
+    /^\/(?:([a-z]{2})\/)?docs(?=[/?#.]|$)/,
+    (_, locale?: string) =>
+      locale && locale !== "en"
+        ? `/${locale}/developers/docs`
+        : "/developers/docs",
+  );
+  return askLinkTarget(href)?.href ?? null;
 }
 
 function normalizeLinks(value: unknown): VisualLink[] {

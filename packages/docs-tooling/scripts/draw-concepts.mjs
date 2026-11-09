@@ -497,6 +497,46 @@ function programAccount(p, name, label) {
   });
 }
 
+/** The program and program data cards of an upgradeable program. */
+const upgradeableCards = (title) => [
+  {
+    title,
+    tag: "program account",
+    rows: [
+      ["owner", "Upgradeable Loader"],
+      ["executable", "true"],
+      ["lamports", "u64"],
+      ["data", "programdata address"],
+    ],
+  },
+  {
+    title: "Program Data",
+    tag: "account",
+    accent: true,
+    rows: [
+      ["owner", "Upgradeable Loader"],
+      ["executable", "false"],
+      ["lamports", "u64"],
+      ["data", "program code"],
+    ],
+  },
+];
+
+/** An upgradeable program: its account points to a program data account. */
+function upgradeableProgram(p, title, label) {
+  const [progCard, pdCard] = upgradeableCards(title);
+  const prog = p.card({ x: 24, y: 24, w: 272, ...progCard });
+  const pd = p.card({ x: 392, y: 24, w: 272, ...pdCard });
+  p.edge(
+    [
+      [prog.right, prog.rows[3].y],
+      [pd.x, pd.rows[3].y],
+    ],
+    { dashed: true, label: "points to" },
+  );
+  return [W, pd.bottom + 24, label];
+}
+
 /** The Ed25519 sketch shared by the on- and off-curve figures. */
 function ed25519(p, { x0, y0, x1, y1 }) {
   // A 1/x-like branch: steep at the top left, flat at the bottom right.
@@ -795,47 +835,12 @@ const FIGURES = {
     ];
   },
 
-  "core/accounts/program-account-expanded": (p) => {
-    const prog = p.card({
-      x: 24,
-      y: 24,
-      w: 272,
-      title: "Program",
-      tag: "program account",
-      rows: [
-        ["owner", "Upgradeable Loader"],
-        ["executable", "true"],
-        ["lamports", "u64"],
-        ["data", "programdata address"],
-      ],
-    });
-    const pd = p.card({
-      x: 392,
-      y: 24,
-      w: 272,
-      title: "Program Data",
-      tag: "account",
-      accent: true,
-      rows: [
-        ["owner", "Upgradeable Loader"],
-        ["executable", "false"],
-        ["lamports", "u64"],
-        ["data", "program code"],
-      ],
-    });
-    p.edge(
-      [
-        [prog.right, prog.rows[3].y],
-        [pd.x, pd.rows[3].y],
-      ],
-      { dashed: true, label: "points to" },
-    );
-    return [
-      W,
-      pd.bottom + 24,
+  "core/accounts/program-account-expanded": (p) =>
+    upgradeableProgram(
+      p,
+      "Program",
       "An upgradeable program: the program account stores the address of a separate program data account, which holds the code",
-    ];
-  },
+    ),
 
   "core/accounts/program-account-simple": (p) =>
     programAccount(
@@ -2146,10 +2151,10 @@ const FIGURES = {
   /* -------------------------------------------------------- tokens */
 
   "core/tokens/token-program": (p) =>
-    programAccount(
+    upgradeableProgram(
       p,
       "Token Program",
-      "The Token Program account: owned by a loader, executable, with program code as its data",
+      "The Token Program is an upgradeable program: its executable account stores the address of a program data account, which holds the code",
     ),
 
   "core/tokens/mint-account": (p) =>
@@ -2728,16 +2733,14 @@ const SM = {
         "A program account: owned by a loader, executable, with program code as its data",
     }),
 
-  "core/tokens/token-program@sm": (p) =>
-    ownedAccountSm(p, {
-      name: "Token Program",
-      owner: "BPF Loader",
-      executable: "true",
-      data: "Program code",
-      fields: [["format", "sBPF ELF"]],
-      label:
-        "The Token Program account: owned by a loader, executable, with program code as its data",
-    }),
+  "core/tokens/token-program@sm": (p) => {
+    const [progCard, pdCard] = upgradeableCards("Token Program");
+    return chainSm(
+      p,
+      [progCard, { edge: "points to", dashed: true, ...pdCard }],
+      "The Token Program is an upgradeable program: its executable account stores the address of a program data account, which holds the code",
+    );
+  },
 
   "core/tokens/mint-account@sm": (p) =>
     ownedAccountSm(p, {
@@ -2820,36 +2823,14 @@ const SM = {
     ];
   },
 
-  "core/accounts/program-account-expanded@sm": (p) =>
-    chainSm(
+  "core/accounts/program-account-expanded@sm": (p) => {
+    const [progCard, pdCard] = upgradeableCards("Program");
+    return chainSm(
       p,
-      [
-        {
-          title: "Program",
-          tag: "program account",
-          rows: [
-            ["owner", "Upgradeable Loader"],
-            ["executable", "true"],
-            ["lamports", "u64"],
-            ["data", "programdata address"],
-          ],
-        },
-        {
-          edge: "points to",
-          dashed: true,
-          title: "Program Data",
-          tag: "account",
-          accent: true,
-          rows: [
-            ["owner", "Upgradeable Loader"],
-            ["executable", "false"],
-            ["lamports", "u64"],
-            ["data", "program code"],
-          ],
-        },
-      ],
+      [progCard, { edge: "points to", dashed: true, ...pdCard }],
       "An upgradeable program: the program account stores the address of a separate program data account, which holds the code",
-    ),
+    );
+  },
 
   "core/transactions/transaction-simple@sm": (p) => {
     const c = p.c;

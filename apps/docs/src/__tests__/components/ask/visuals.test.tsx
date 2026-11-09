@@ -553,6 +553,9 @@ describe("links", () => {
               { title: "Accounts", url: "/docs/core/accounts" },
               { title: "Anchor", url: "https://www.anchor-lang.com/docs" },
               { title: "Bad", url: "javascript:alert(1)" },
+              { title: "Phish", url: "https://evil.example/login" },
+              { title: "Proto", url: "//evil.example/login" },
+              { title: "Repo", url: "https://github.com/evil-org/phish" },
             ],
           },
         ],
@@ -564,8 +567,10 @@ describe("links", () => {
     );
     const anchor = screen.getByRole("link", { name: "Anchor" });
     expect(anchor).toHaveAttribute("target", "_blank");
-    expect(anchor).toHaveAttribute("rel", "noreferrer");
-    expect(screen.queryByText("Bad")).toBeNull();
+    expect(anchor).toHaveAttribute("rel", "noopener noreferrer");
+    for (const name of ["Bad", "Phish", "Proto", "Repo"]) {
+      expect(screen.queryByText(name)).toBeNull();
+    }
   });
 });
 

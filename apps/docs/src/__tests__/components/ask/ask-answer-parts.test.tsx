@@ -205,6 +205,37 @@ describe("AskSources", () => {
     );
     expect(external!.textContent).toBe("Anza docsdocs.anza.xyz");
     expect(external).toHaveAttribute("target", "_blank");
+    expect(external).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("lists a source off the allowlist by its title, unlinked", () => {
+    render(
+      withIntl(
+        <AskSources
+          citations={[
+            { title: "Agave", url: "https://github.com/anza-xyz/agave" },
+            { title: "Claim page", url: "https://evil.example/claim" },
+            { title: "Proto", url: "//evil.example/login" },
+            { title: "Look-alike", url: "https://solana.com.evil.example/x" },
+            { title: "", url: "mailto:hello@solana.org" },
+          ]}
+        />,
+      ),
+    );
+    const nav = screen.getByRole("navigation", { name: "Sources" });
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "https://github.com/anza-xyz/agave",
+    ]);
+    for (const text of ["Claim page", "Proto", "Look-alike"]) {
+      const row = within(nav).getByText(text);
+      expect(row.closest("a")).toBeNull();
+      // No other site's host beside it, no new-tab arrow.
+      expect(row.closest("li")!.textContent).toBe(text);
+    }
+    expect(within(nav).getByText("mailto:hello@solana.org").closest("a")).toBe(
+      null,
+    );
   });
 
   it("leaves out a host the title already says", () => {

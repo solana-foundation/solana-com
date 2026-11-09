@@ -556,7 +556,11 @@ describe("safeHref", () => {
     ["https://solana.com/docs/core/fees", "/developers/docs/core/fees"],
     ["https://www.solana.com", "/"],
     ["https://www.anchor-lang.com/docs", "https://www.anchor-lang.com/docs"],
-    ["http://localhost:3000/x", "http://localhost:3000/x"],
+    ["https://explorer.solana.com/tx/1", "https://explorer.solana.com/tx/1"],
+    [
+      "https://github.com/solana-program/token",
+      "https://github.com/solana-program/token",
+    ],
   ])("keeps %s as %s", (input, expected) => {
     expect(safeHref(input)).toBe(expected);
   });
@@ -568,6 +572,13 @@ describe("safeHref", () => {
     "mailto:hello@solana.org",
     "//evil.example",
     "/\\evil.example",
+    "https://solana.com//evil.example",
+    "https://evil.example/x",
+    "https://solana.com@evil.example/x",
+    "https://solana.com.evil.example/x",
+    "https://github.com/evil-org/x",
+    "http://localhost:3000/x",
+    "http://solana.com/news",
     "relative/path",
     "",
     "   ",

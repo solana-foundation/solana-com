@@ -64,13 +64,26 @@ project. If you're new to Solana Playground, you'll also need to create a
 Playground Wallet.
 
 <Note>
-  The program code in this tutorial targets Anchor 0.29.x (`anchor-lang = "=0.29.0"`),
-  the version used by Solana Playground. If you build locally with a newer Anchor
-  release, pin that version in `Cargo.toml` and `Anchor.toml` (`anchor_version = "0.29.0"`).
-  Newer releases moved `native_token` out of `anchor_lang::solana_program` and
-  changed the `CpiContext::new` signature, so the code needs adjusting.
-  The code also uses `init_if_needed`, which needs Anchor's `init-if-needed`
-  feature: `anchor-lang = { version = "=0.29.0", features = ["init-if-needed"] }`.
+  The program code in this tutorial targets Anchor 0.29 (`anchor-lang = "=0.29.0"`),
+  the version Solana Playground uses. To build it locally with Anchor CLI 1.1.2,
+  the version the [Solana installer](/developers/docs/intro/installation/dependencies)
+  sets up, create a project with `anchor init` and make three changes:
+
+  - In `programs/<name>/Cargo.toml`, enable Anchor's `init-if-needed` feature,
+    which the `init_if_needed` constraint needs:
+    `anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }`.
+  - Anchor 1 no longer re-exports `native_token`. Replace
+    `use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;` with
+    `const LAMPORTS_PER_SOL: u64 = 1_000_000_000;`.
+  - Anchor 1 changed the first argument of `CpiContext::new` to the program ID.
+    Pass `ctx.accounts.system_program.key()` instead of
+    `ctx.accounts.system_program.to_account_info()`.
+
+  Then run `anchor keys sync` so `declare_id!` matches your program keypair, and
+  `anchor build`. Don't install Anchor 0.29 with avm for a local build: for 0.29
+  projects, avm's `anchor` command switches your Solana CLI to a 1.17 or 1.18
+  release, whose build tools can't compile current versions of the program's
+  dependencies.
 </Note>
 
 After creating a new project, replace the default starter code with the code
@@ -261,9 +274,9 @@ of 0.1 SOL.
 
 The `reset_level_and_spawn_chest` instruction requires 4 accounts:
 
-- `new_game_data_account` - the `GameDataAccount` storing the player's position
+- `payer` - the player providing the SOL reward for the chest
 - `chest_vault` - the `ChestVaultAccount` storing the SOL reward
-- `signer` - the player providing the SOL reward for the chest
+- `game_data_account` - the `GameDataAccount` storing the player's position
 - `system_program` - the program we'll be invoking to transfer SOL using a
   cross-program invocation (CPI), more on this shortly
 
@@ -336,9 +349,9 @@ will be "gib".
 
 The `move_right` instruction requires 3 accounts:
 
-- `new_game_data_account` - the `GameDataAccount` storing the player's position
 - `chest_vault` - the `ChestVaultAccount` storing the SOL reward
-- `player_wallet` - the wallet of the player invoking the instruction and the
+- `game_data_account` - the `GameDataAccount` storing the player's position
+- `player` - the wallet of the player invoking the instruction and the
   potential recipient of SOL reward
 
 ```rust
@@ -406,20 +419,22 @@ pub enum MyError {
 ```
 
 To transfer lamports from the reward chest to the player account, we can't use a
-Cross-Program Invocation (CPI) as we did previously, since the
-`ChestVaultAccount` isn't owned by the system program. Instead, we directly
-modify the lamports within the accounts by using `try_borrow_mut_lamports`. Keep
-in mind that the account you deduct lamports from must be a signer, and the
-runtime always makes sure that the total account balances stay equal after a
-transaction.
+Cross-Program Invocation (CPI) to the System Program as we did previously, since
+the `ChestVaultAccount` isn't owned by the System Program. Instead, we directly
+modify the lamports within the accounts by using `try_borrow_mut_lamports`.
 
-Note that Program Derived Accounts (PDAs) offer two main features:
+The program can subtract lamports from `ChestVaultAccount` because the program
+owns that account: the runtime only lets an account's owner program debit it,
+and no signature is involved. Any program can add lamports to a writable
+account, so crediting the player works too. After each instruction, the runtime
+also checks that the total balance across all accounts is unchanged (see the
+[account modification rules](/developers/docs/core/accounts/modification-rules)).
 
-1. Provide a deterministic way to find an account's address
-2. Allow the program from which a PDA is derived to "sign" for them
-
-This is the reason we are able to deduct lamports from the `ChestVaultAccount`
-without explicitly requiring an extra signer for the instruction.
+PDA signing (`invoke_signed`, or `CpiContext::new_with_signer` in Anchor) is
+only needed when a CPI requires the PDA as a signer, for example a System
+Program transfer out of a PDA that the System Program owns. Here, the PDA gives
+the chest a deterministic address that every client can derive from the
+`chestVault` seed.
 
 ### Build and Deploy
 
@@ -585,9 +600,11 @@ Now that the program is complete, let's build and deploy it using the Solana
 Playground.
 
 If you're new to the Solana Playground, start by creating a Playground wallet
-and make sure you're connected to a devnet endpoint. Next,
-run `solana airdrop 2` until you have 6 SOL. Once you have enough SOL, build and
-deploy the program. If your airdrop fails you can find other way
+and make sure you're connected to a devnet endpoint. Next, copy your Playground
+wallet address and request 5 devnet SOL for it from the
+[Solana Faucet](https://faucet.solana.com). The devnet RPC faucet that
+`solana airdrop` uses is closed, so the command fails on devnet. Once you have
+enough SOL, build and deploy the program. For other ways to get devnet SOL, see
 [how to get devnet SOL](/developers/cookbook/development/airdrops-and-faucets).
 
 ### Get Started with the Client

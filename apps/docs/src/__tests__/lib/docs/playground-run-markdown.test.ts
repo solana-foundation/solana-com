@@ -65,9 +65,10 @@ describe("Run in Playground in the Markdown output", () => {
     expect(markdown).toContain(
       "Run in Playground: open https://solana.com/developers/docs/quickstart in a browser.",
     );
-    // The block's note and the rest of the page are unchanged.
+    // The block's lead and note and the rest of the page are unchanged.
+    expect(markdown).toContain("Try it in your browser");
     expect(markdown).toContain(
-      "Playground runs this tutorial's code in your browser as one file",
+      "It runs on devnet from your Playground wallet, with nothing to install.",
     );
     expect(markdown).toContain("## Follow along locally");
     expect(markdown.length).toBeLessThan(10_000);

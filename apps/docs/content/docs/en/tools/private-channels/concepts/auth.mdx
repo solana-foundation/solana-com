@@ -68,19 +68,14 @@ Returns `{ "token": "<jwt>" }`. Both wrong username and wrong password return
 ### `POST /auth/challenge-wallet`
 
 Request a signing challenge to prove ownership of a Solana wallet. Requires a
-valid JWT and a JSON body (`Content-Type: application/json`); a request without
-a body returns `415 Unsupported Media Type`.
+valid JWT; the request has no body.
 
-```json
-{ "pubkey": "<base58 pubkey>" }
-```
-
-Returns a message, nonce, and expiry. The challenge expires in 10 minutes. The
-`message` is multi-line text that names the account and wallet:
+Returns a message, nonce, and expiry. The challenge expires in 10 minutes. Sign
+the `message` exactly as returned; it names the user id and the nonce:
 
 ```json
 {
-  "message": "PrivateChannel wallet verification\n\nAccount: alice (id: <uuid>)\nWallet: <pubkey>\n\nOnly sign this if \"alice\" is YOUR PrivateChannel account.\n\nnonce: <uuid>\nexpires: <unix>",
+  "message": "PrivateChannel wallet verification\nuser: <uuid>\nnonce: <uuid>\nexpires: <unix>",
   "nonce": "<uuid>",
   "expires_at": "<iso8601>"
 }
@@ -157,22 +152,17 @@ Default role on registration.
 Elevated role. Must be provisioned directly; there is no self-service path to
 escalate from `user` to `operator`.
 
-**Grant the role** with the Admin CLI (`auth-admin`). Provision by user id, not
-by username. The id is returned by the registration response and is the `sub`
-claim of the user's JWT. The CLI connects as the `private_channel_auth_owner`
-database login and requires `AUTH_ADMIN_ACTOR` (an audit identity). It prompts
-for a typed `yes` unless you pass `--yes`.
+**Grant the role** with the Admin CLI (`auth-admin`, installed in the services'
+Docker image). It reads the auth database URL from `AUTH_DATABASE_URL` and
+identifies users by username:
 
 ```bash
-export AUTH_DATABASE_URL=postgres://private_channel_auth_owner:<password>@<host>/<db>
-export AUTH_ADMIN_ACTOR=you@example.com
+export AUTH_DATABASE_URL=postgres://<user>:<password>@<host>/<db>
 
-auth-admin migrate                                   # apply auth schema migrations
-auth-admin show-user --user-id <uuid>                # inspect a user
-auth-admin set-role --user-id <uuid> --role operator
+auth-admin set-role --username alice --role operator
 ```
 
-Direct SQL also works, but prefer the CLI because it records the actor:
+Direct SQL also works:
 
 <Warning>
   This is a privileged database operation. Restrict access to the Auth Service
@@ -187,7 +177,7 @@ UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice'
 same environment variables as above):**
 
 ```bash
-auth-admin attach-wallet --user-id <uuid> --pubkey <base58-pubkey>
+auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
 ```
 
 This inserts a verified wallet directly into the `verified_wallets` table,
@@ -242,7 +232,23 @@ sequenceDiagram
 
 ## Making Authenticated Requests
 
+Send the token with every gateway request. This example reads the balance of
+the user's channel token account, which the `user` role may query because the
+account's owner is one of the user's verified wallets:
+
 ```typescript
+import { address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(walletAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
 const response = await fetch("http://localhost:8899/", {
   method: "POST",
   headers: {
@@ -252,12 +258,16 @@ const response = await fetch("http://localhost:8899/", {
   body: JSON.stringify({
     jsonrpc: "2.0",
     id: 1,
-    method: "getBalance",
-    params: [walletAddress]
+    method: "getTokenAccountBalance",
+    params: [channelAta]
   })
 });
 const data = await response.json();
 ```
+
+The channel's RPC serves only the methods in the
+[access matrix](#rpc-method-access-matrix) below. It has no `getBalance`, so
+read token balances with `getTokenAccountBalance`.
 
 ## Gateway Endpoints
 
@@ -286,8 +296,8 @@ access depends on JWT role:
 | `getTransactionCount`         | Read node  | ✓      | ✓                | ✓          |
 | `getFirstAvailableBlock`      | Read node  | ✓      | ✓                | ✓          |
 | `getBlocks`                   | Read node  | ✓      | ✓                | ✓          |
-| `getBlocksWithLimit`          | Read node  | ✓      | ✓                | ✓          |
-| `getBlockHeight`              | Read node  | ✓      | ✓                | ✓          |
+| `getBlocksWithLimit`²         | Read node  | ✓      | ✓                | ✓          |
+| `getBlockHeight`²             | Read node  | ✓      | ✓                | ✓          |
 | `getEpochInfo`                | Read node  | ✓      | ✓                | ✓          |
 | `getEpochSchedule`            | Read node  | ✓      | ✓                | ✓          |
 | `getRecentPerformanceSamples` | Read node  | ✓      | ✓                | ✓          |
@@ -310,3 +320,6 @@ wallets. For any other account type (a System Program wallet, or an unknown
 PDA), it instead checks whether the queried pubkey itself is one of the user's
 verified wallets, since such accounts have no owner/delegate field to inspect.
 Either check failing returns 403.
+
+² Not served at commit `c9e2240`, the version these docs target; upstream
+`main` adds it.

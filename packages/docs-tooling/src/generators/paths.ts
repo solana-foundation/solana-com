@@ -47,15 +47,18 @@
  *   tutorial's example folder (`tutorialDir`: the folder the demo outputs
  *   live in, else the one `packages/docs-examples/paths/<domain>/<key>`)
  *   is one of (examples/playground.ts):
- *   - a program the playground can import (PLAYGROUND_KINDS: Anchor/Native):
+ *   - a program Playground can import (PLAYGROUND_KINDS: Anchor/Native):
  *     "Open tutorial in Playground", a button playground.js points at the
- *     GitHub import of the folder (`_ui.playground`, `playgroundNote`);
+ *     GitHub import of the folder (`_ui.playgroundLead`, `playgroundNote`,
+ *     `playground`). Only while PLAYGROUND_PROGRAMS is on, which it is not
+ *     for now (the programs don't build in Playground): a program tutorial
+ *     gets no block, not even the Run link;
  *   - a TypeScript folder with a `playground.ts` (PLAYGROUND_RUN_FILE):
  *     "Run in Playground", a plain link that opens that one file in the new
- *     Playground, the file in the link (`_ui.playgroundRun`,
- *     `playgroundRunNote`, `playgroundNewTab`). The file must pass
- *     `playgroundScriptProblems` (an error otherwise). The link's origin is
- *     playground.js `CONFIG.runOrigin`, its `from` the intro page on
+ *     Playground, the file in the link (`_ui.playgroundRunLead`,
+ *     `playgroundRunNote`, `playgroundRun`, `playgroundNewTab`). The file
+ *     must pass `playgroundScriptProblems` (an error otherwise). The link's
+ *     origin is playground.js `CONFIG.origin`, its `from` the intro page on
  *     solana.com (playground.js swaps in the reader's page), its `name`
  *     `<key>.ts`, its `title` the path's `name`, its `sol` PLAYGROUND_SOL.
  *   Other tutorials get no block. The wording is shared by every tutorial;
@@ -89,9 +92,10 @@ import {
   PG_PATH,
   PLAYGROUND_FROM_SITE,
   PLAYGROUND_KINDS,
+  PLAYGROUND_PROGRAMS,
   PLAYGROUND_RUN_FILE,
+  playgroundOrigin,
   playgroundRunHref,
-  playgroundRunOrigin,
   playgroundScriptProblems,
   type PlaygroundKind,
 } from "../examples/playground.ts";
@@ -153,11 +157,13 @@ export const PATH_UI = {
   demoCopied: DEFAULT_TERM_LABELS.copied,
   demoOutput: DEFAULT_TERM_LABELS.output,
   playground: "Open tutorial in Playground",
+  playgroundLead: "Build it in your browser",
   playgroundNote:
-    "Playground runs in your browser, with nothing to install. It opens every step of this tutorial in one project, and its built-in AI can explain each step, change the code, and interact with the program.",
+    "Playground opens this program's source so you can build it, deploy it to devnet, and call its instructions, with nothing to install. If the wallet needs devnet SOL to deploy, Playground shows how much and links you to the free faucet.",
   playgroundRun: "Run in Playground",
+  playgroundRunLead: "Try it in your browser",
   playgroundRunNote:
-    "Playground runs this tutorial's code in your browser as one file, with nothing to install. It runs on devnet from your Playground wallet. If the wallet doesn't hold enough devnet SOL, Playground links you to the free devnet faucet first.",
+    "It runs on devnet from your Playground wallet, with nothing to install. If the wallet needs devnet SOL, Playground links you to the free faucet first.",
   playgroundNewTab: "(opens in a new tab)",
 };
 export type PathUi = typeof PATH_UI;
@@ -702,9 +708,11 @@ export function tutorialSource(
 
 /**
  * `playground.mdx` for a program tutorial: the "Open tutorial in Playground"
- * block, for the top of its intro page. styles/playground.css draws the
- * button and its icon; /docs-assets/scripts/playground.js links it to the
- * playground's import of `data-pg-open`.
+ * block, for the top of its intro page: a bold lead, one line, and the
+ * button. styles/playground.css draws the panel, the button and its icon;
+ * /docs-assets/scripts/playground.js links it to Playground's GitHub import
+ * of `data-pg-open`. gen:paths writes it only while PLAYGROUND_PROGRAMS is
+ * on.
  */
 export function renderPlaygroundBlock(
   src: PathsSource,
@@ -714,7 +722,10 @@ export function renderPlaygroundBlock(
   const { ui, lang } = src;
   return `${hdr(lang)}
 <div className="sol-pg-tutorial not-prose" data-path="${p.key}">
+<div className="sol-pg-tutorial-copy">
+<p className="sol-pg-tutorial-lead">${mdText(ui.playgroundLead)}</p>
 <p className="sol-pg-tutorial-text">${mdText(ui.playgroundNote)}</p>
+</div>
 <a className="sol-pg-tut" ${attr("data-pg-open", pg.open)}>${mdText(ui.playground)}</a>
 </div>
 `;
@@ -722,8 +733,9 @@ export function renderPlaygroundBlock(
 
 /**
  * `playground.mdx` for a TypeScript tutorial with a `playground.ts`: "Run in
- * Playground", a plain link (new tab) that opens the file in the new
- * Playground, so it works without JavaScript. The link carries the file;
+ * Playground" (a bold lead, one line, and the button), a plain link (new
+ * tab) that opens the file in the new Playground, so it works without
+ * JavaScript. The link carries the file;
  * `from` is the intro page in the snippet's language (playground.js sets it
  * to the page the reader is on). The accessible name says it opens a new tab.
  */
@@ -732,7 +744,7 @@ export function renderPlaygroundRunBlock(
   src: PathsSource,
   p: PathDef,
   run: PlaygroundRunFile,
-  origin = playgroundRunOrigin(),
+  origin = playgroundOrigin(),
 ) {
   const { ui, lang } = src;
   const href = playgroundRunHref(origin, {
@@ -741,9 +753,12 @@ export function renderPlaygroundRunBlock(
     from: `${PLAYGROUND_FROM_SITE}${localizeHref(docsRoot, p.intro, lang)}`,
     code: run.code,
   });
-  return `${header(GEN, [`paths/paths.${lang}.json`, run.file, "playground.js CONFIG.runOrigin"], "gen:paths")}
+  return `${header(GEN, [`paths/paths.${lang}.json`, run.file, "playground.js CONFIG.origin"], "gen:paths")}
 <div className="sol-pg-tutorial not-prose" data-path="${p.key}">
+<div className="sol-pg-tutorial-copy">
+<p className="sol-pg-tutorial-lead">${mdText(ui.playgroundRunLead)}</p>
 <p className="sol-pg-tutorial-text">${mdText(ui.playgroundRunNote)}</p>
+</div>
 <a className="sol-pg-tut" data-pg-run="" ${attr("href", href)} target="_blank" rel="noopener noreferrer">${mdText(ui.playgroundRun)}<span className="sol-vh"> ${mdText(ui.playgroundNewTab)}</span></a>
 </div>
 `;
@@ -931,12 +946,16 @@ function renderPanel(
   return `${hdr(lang).trimEnd()}\n\n${panel}\n`;
 }
 
-/** Every generated file for every language. */
+/**
+ * Every generated file for every language. `programs` turns on the program
+ * tutorials' Playground block (default PLAYGROUND_PROGRAMS, off for now).
+ */
 export function buildPathOutputs(
   docsRoot: string,
   sources: PathsSource[],
   problems: Problem[],
   outputsRoot = examplesRoot,
+  { programs = PLAYGROUND_PROGRAMS }: { programs?: boolean } = {},
 ) {
   const files = new Map<string, string>();
   let origin: string | undefined;
@@ -949,14 +968,16 @@ export function buildPathOutputs(
           path.join(dir, `stepper-${n}.mdx`),
           renderStepper(docsRoot, src, p, n),
         );
-      // One Playground block per tutorial: the GitHub import of a program,
-      // else the Run link of a TypeScript tutorial's playground.ts.
-      if (pg && PLAYGROUND_KINDS.includes(pg.kind))
-        files.set(
-          path.join(dir, "playground.mdx"),
-          renderPlaygroundBlock(src, p, pg),
-        );
-      else if (pg?.run) {
+      // One Playground block per tutorial: the GitHub import of a program
+      // (none while `programs` is off), else the Run link of a TypeScript
+      // tutorial's playground.ts.
+      if (pg && PLAYGROUND_KINDS.includes(pg.kind)) {
+        if (programs)
+          files.set(
+            path.join(dir, "playground.mdx"),
+            renderPlaygroundBlock(src, p, pg),
+          );
+      } else if (pg?.run) {
         const bad = playgroundScriptProblems(pg.run.code);
         if (src.lang === DEFAULT_LOCALE)
           for (const message of bad)
@@ -973,7 +994,7 @@ export function buildPathOutputs(
               src,
               p,
               pg.run,
-              (origin ??= playgroundRunOrigin()),
+              (origin ??= playgroundOrigin()),
             ),
           );
       }

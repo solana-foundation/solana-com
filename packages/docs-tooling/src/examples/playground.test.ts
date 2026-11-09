@@ -16,8 +16,10 @@ import {
   encodePlaygroundCode,
   folderKind,
   PLAYGROUND_MAX_BYTES,
+  PLAYGROUND_PROGRAMS,
   PLAYGROUND_RUN_FILE,
-  playgroundRunOrigin,
+  PLAYGROUND_SCRIPT,
+  playgroundOrigin,
   playgroundScriptProblems,
 } from "./playground.ts";
 import {
@@ -33,21 +35,28 @@ import {
 import type { Problem } from "../generators/_lib.ts";
 import { docsRoot } from "../lib/paths.ts";
 
-describe("playground kinds (mirror of the playground's GitHub import)", () => {
-  it("detects Native and Anchor programs like the playground does", () => {
+describe("playground kinds (mirror of Playground's GitHub import)", () => {
+  it("detects Native and Anchor programs like Playground does", () => {
     const native = "use solana_program::entrypoint;\nentrypoint!(process);";
     const anchor = "use anchor_lang::prelude::*;\n#[program]\npub mod x {}";
     expect(detectProgramKind([["src/lib.rs", native]])).toBe("native");
     expect(detectProgramKind([["programs/x/src/lib.rs", anchor]])).toBe(
       "anchor",
     );
-    // Anchor is rejected when any Python file is present.
+    // A Python script next to the program (fuzzing, tooling) keeps Anchor;
+    // only a Seahorse program (`seahorse.prelude`) rules it out.
     expect(
       detectProgramKind([
         ["programs/x/src/lib.rs", anchor],
         ["x.py", "print()"],
       ]),
-    ).toBeUndefined();
+    ).toBe("anchor");
+    expect(
+      detectProgramKind([
+        ["programs/x/src/lib.rs", anchor],
+        ["src/x.py", "from seahorse.prelude import *"],
+      ]),
+    ).toBe("seahorse");
     // Detected, but convertToPlayground keeps nothing outside src/: fails.
     expect(detectProgramKind([["lib.rs", native]])).toBeUndefined();
   });
@@ -167,9 +176,14 @@ describe("Open tutorial in Playground (gen:paths)", () => {
     const block = renderPlaygroundBlock(src, p, pg);
     expect(block).toContain('<div className="sol-pg-tutorial not-prose"');
     expect(block).toContain(
+      `<p className="sol-pg-tutorial-lead">${PATH_UI.playgroundLead}</p>`,
+    );
+    expect(block).toContain(
       '<a className="sol-pg-tut" data-pg-open="packages/docs-examples/paths/a/b">Open tutorial in Playground</a>',
     );
     expect(block).toContain(PATH_UI.playgroundNote);
+    // No href in the markup: playground.js builds it from CONFIG.
+    expect(block).not.toMatch(/href=|solpg|github\.com/);
   });
 });
 
@@ -207,7 +221,7 @@ describe("no Playground control outside the tutorial block", () => {
     expect(withPg).toEqual([]);
   });
 
-  it("program (Anchor/Native) tutorials get one, in playground.mdx", () => {
+  it("program (Anchor/Native) tutorials get one in playground.mdx, only while PLAYGROUND_PROGRAMS is on", () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "pg-prog-"));
     try {
       const lib = path.join(root, "paths/programs/prog/src/lib.rs");
@@ -224,14 +238,51 @@ describe("no Playground control outside the tutorial block", () => {
         steps: [{ href: "/developers/docs/programs/prog/a", title: "A" }],
       };
       const src = { lang: "en", ui: PATH_UI, paths: [p] };
-      const files = buildPathOutputs("/nonexistent", [src], [], root);
-      const withPg = [...files]
-        .filter(([, text]) => /sol-pg|data-pg-/.test(text))
-        .map(([f]) => path.basename(f));
-      expect(withPg).toEqual(["playground.mdx"]);
+      const withPg = (programs?: boolean) =>
+        [...buildPathOutputs("/nonexistent", [src], [], root, { programs })]
+          .filter(([, text]) => /sol-pg|data-pg-/.test(text))
+          .map(([f]) => path.basename(f));
+      expect(withPg(true)).toEqual(["playground.mdx"]);
+      expect(withPg(false)).toEqual([]);
+      // The default: off while Playground builds Anchor 0.29 only.
+      expect(PLAYGROUND_PROGRAMS).toBe(false);
+      expect(withPg()).toEqual([]);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  it("no docs page has a program button while PLAYGROUND_PROGRAMS is off", () => {
+    if (PLAYGROUND_PROGRAMS) return;
+    const pages = readdirSync(docsRoot, { recursive: true, encoding: "utf8" })
+      .filter((f) => f.endsWith(".mdx"))
+      .filter((f) =>
+        readFileSync(path.join(docsRoot, f), "utf8").includes("data-pg-open"),
+      );
+    expect(pages).toEqual([]);
+  });
+});
+
+describe("playground.js (one Playground origin, its /github/ import)", () => {
+  const script = readFileSync(PLAYGROUND_SCRIPT, "utf8");
+
+  it("sets one origin for both kinds of button", () => {
+    expect(playgroundOrigin()).toMatch(/^https:\/\/[a-z0-9.-]+$/);
+    expect(script.match(/^\s*origin:/gm)).toHaveLength(1);
+    expect(script).not.toMatch(/runOrigin|beta\.solpg\.io/);
+    expect(script).toContain('CONFIG.origin + "/open#"');
+  });
+
+  it("builds program links as <origin>/github/<owner>/<repo>/tree/<ref>/<folder>", () => {
+    // The old Playground's `/github.com/<source>` form is a 404 on the new one.
+    expect(script).toContain(
+      'CONFIG.origin + "/github/" + CONFIG.source + "/" + open',
+    );
+    expect(script).not.toContain('"/github.com/"');
+    const source = /^\s*source:\s*"([^"]+)",?\s*$/m.exec(script)?.[1];
+    // GitHub's path without the host; the ref has no "/" (Playground's
+    // parser stops there).
+    expect(source).toMatch(/^[\w-]+\/[\w-]+\/tree\/[\w.-]+$/);
   });
 });
 
@@ -297,7 +348,7 @@ describe("Run in Playground (TypeScript tutorials with a playground.ts)", () => 
   });
 
   it("every playground.ts runs from a link, far under the 100 KiB cap", () => {
-    const origin = playgroundRunOrigin();
+    const origin = playgroundOrigin();
     expect(origin).toMatch(/^https:\/\/[a-z0-9.-]+$/);
     const files = readdirSync(path.join(examplesRoot, "paths"), {
       recursive: true,
@@ -350,13 +401,16 @@ describe("Run in Playground (TypeScript tutorials with a playground.ts)", () => 
       const withPg = [...files].filter(([, t]) => /sol-pg|data-pg-/.test(t));
       expect(withPg.map(([f]) => path.basename(f))).toEqual(["playground.mdx"]);
       const block = withPg[0]![1];
+      expect(block).toContain(
+        `<p className="sol-pg-tutorial-lead">${PATH_UI.playgroundRunLead}</p>`,
+      );
       expect(block).toContain(PATH_UI.playgroundRunNote);
       expect(block).not.toContain("data-pg-open");
       expect(block).toContain(
         ' target="_blank" rel="noopener noreferrer">Run in Playground<span className="sol-vh"> (opens in a new tab)</span></a>',
       );
       const { href, params } = runParams(block);
-      expect(href.startsWith(`${playgroundRunOrigin()}/open#`)).toBe(true);
+      expect(href.startsWith(`${playgroundOrigin()}/open#`)).toBe(true);
       expect([...params.keys()]).toEqual([
         "v",
         "name",
@@ -418,7 +472,7 @@ describe("Run in Playground (TypeScript tutorials with a playground.ts)", () => 
     }
   });
 
-  it("a program tutorial keeps its GitHub import, even with a playground.ts", () => {
+  it("a program tutorial never gets the Run link, even with a playground.ts", () => {
     const root = mkdtempSync(path.join(os.tmpdir(), "pg-prog-run-"));
     try {
       const dir = path.join(root, "paths/programs/prog");
@@ -438,15 +492,20 @@ describe("Run in Playground (TypeScript tutorials with a playground.ts)", () => 
         intro: "/developers/docs/programs/prog",
         steps: [{ href: "/developers/docs/programs/prog/a", title: "A" }],
       };
-      const files = buildPathOutputs(
-        "/nonexistent",
-        [{ lang: "en", ui: PATH_UI, paths: [p] }],
-        [],
-        root,
-      );
-      const block = [...files].find(([f]) => f.endsWith("playground.mdx"))![1];
-      expect(block).toContain("data-pg-open=");
-      expect(block).not.toContain("data-pg-run");
+      const block = (programs: boolean) =>
+        [
+          ...buildPathOutputs(
+            "/nonexistent",
+            [{ lang: "en", ui: PATH_UI, paths: [p] }],
+            [],
+            root,
+            { programs },
+          ),
+        ].find(([f]) => f.endsWith("playground.mdx"))?.[1];
+      // On: its GitHub import. Off (for now): no block at all.
+      expect(block(true)).toContain("data-pg-open=");
+      expect(block(true)).not.toContain("data-pg-run");
+      expect(block(false)).toBeUndefined();
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

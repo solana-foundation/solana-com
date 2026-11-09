@@ -1,38 +1,44 @@
 /**
- * "Open tutorial in Playground": which tutorials get a Playground block, and
- * what it opens.
+ * "Open tutorial in Playground" and "Run in Playground": which tutorials get
+ * a Playground block, and what it opens.
  *
  * A tutorial has at most one Playground entry point: the block gen:paths
  * writes as its `playground.mdx`, for the top of its intro page. Code
  * blocks, demo terminals, the stepper and step pages have no Playground
- * control. The block is one of two kinds, from the tutorial's example folder:
+ * control. Both kinds open the new Solana Playground at `CONFIG.origin` in
+ * playground.js (`playgroundOrigin`). The block is one of two kinds, from the
+ * tutorial's example folder:
  *
  * - Program tutorials (Anchor/Native, PLAYGROUND_KINDS): "Open tutorial in
- *   Playground" imports the folder from GitHub into Solana Playground.
+ *   Playground" imports the folder from GitHub.
  *   /docs-assets/scripts/playground.js points the button at
- *   `https://beta.solpg.io/github.com/<owner>/<repo>/tree/<ref>/<data-pg-open>`.
+ *   `<origin>/github/<owner>/<repo>/tree/<ref>/<data-pg-open>` (GitHub's own
+ *   path after `/github/`; the old `beta.solpg.io/github.com/…` form is a 404
+ *   there). Off for now (PLAYGROUND_PROGRAMS): the imported programs don't
+ *   build in Playground.
  * - TypeScript tutorials whose folder has a `playground.ts`
- *   (PLAYGROUND_RUN_FILE): "Run in Playground" opens that one file in the new
- *   Playground with a link (`<origin>/open#v=1&name=…&title=…&from=…&sol=…&code=…`,
- *   its docs/open-in-playground-link.md). The file must follow the rules of
+ *   (PLAYGROUND_RUN_FILE): "Run in Playground" opens that one file with a
+ *   link (`<origin>/open#v=1&name=…&title=…&from=…&sol=…&code=…`, its
+ *   docs/open-in-playground-link.md). The file must follow the rules of
  *   `playgroundScriptProblems` (only PLAYGROUND_PACKAGES, no relative or
  *   Node.js imports, no `process`, none of PLAYGROUND_BLOCKED_WORDS even in
- *   a comment, at most 100 KiB). The origin is `CONFIG.runOrigin` in
- *   playground.js (`playgroundRunOrigin`).
+ *   a comment, at most 100 KiB).
  *
- * The program kind mirrors the playground's own GitHub import pipeline
- * (verified against the deployed bundle of https://beta.solpg.io,
- * 2026-10-24): `/{githubUrl}` lists the path with the GitHub contents API,
- * keeps only .js/.json/.py/.rs/.ts files, then requires a framework:
- *   - Anchor:   no .py file, and a `lib.rs` containing `#[program]`
+ * The program kind mirrors Playground's own GitHub import (client-v2
+ * `utils/github.ts` and `frameworks/`, solana-playground master 58bed70e,
+ * 2026-11-10): `/github/{path}` lists the repository at the ref with one Git
+ * Trees API request, keeps the folder's .js/.json/.py/.rs/.ts files, then
+ * picks a framework:
+ *   - Anchor:   a `lib.rs` containing `#[program]`, and no .py file
+ *               containing `seahorse.prelude`
  *   - Native:   any .rs containing `entrypoint!`
  *   - Seahorse: any .py containing `seahorse.prelude`
- * and finally keeps only `src/**.rs`, `client/**.{js,ts}` and
- * `tests/**.{js,ts}` (Anchor/Native). Anything else fails with "Could not
- * identify framework" / "Could not convert files". So client code (TS, JS,
- * Rust binaries, Python) gets a language kind (`ts`, `js`, `rust`, `py`),
- * which the GitHub import can't open; a `ts` folder gets the Run block when
- * it has a `playground.ts`.
+ * and keeps only `src/**.rs`, `client/**.{js,ts}` and `tests/**.{js,ts}`
+ * (Anchor/Native: no Cargo.toml, Anchor.toml or Rust tests). A folder with
+ * no program opens as a TypeScript project instead; the docs give
+ * TypeScript tutorials the Run link, so client code (TS, JS, Rust binaries,
+ * Python) gets a language kind (`ts`, `js`, `rust`, `py`), and a `ts` folder
+ * gets the Run block when it has a `playground.ts`.
  *
  * Pure apart from reading the committed example tree and playground.js;
  * deterministic.
@@ -53,13 +59,30 @@ export type PlaygroundKind =
   | "py"
   | "other";
 
-/** Kinds the playground's GitHub import opens: "Open tutorial in Playground". */
+/** Kinds Playground's GitHub import opens: "Open tutorial in Playground". */
 export const PLAYGROUND_KINDS: readonly PlaygroundKind[] = ["anchor", "native"];
 
-/** File types the playground's GitHub import loads (its language list). */
+/**
+ * Whether program tutorials (PLAYGROUND_KINDS) get "Open tutorial in
+ * Playground". Off: Playground's hosted build server compiles every program
+ * against its own manifest, anchor-lang 0.29.0 and solana-program 1.16.24
+ * (it never reads the folder's Cargo.toml; its Anchor 1.1.2 template is only
+ * on the server's /unstable routes, which no hosted server serves), and the
+ * docs' programs use Anchor 1.x, whose `CpiContext::new` takes the program
+ * id where 0.29 takes an `AccountInfo`. So `programs/build-first-program`
+ * fails to build there (E0308 in initialize.rs, tested 2026-11-10). While off, gen:paths writes
+ * no block for a program tutorial and no page may hand-write one
+ * (playground.test.ts checks both). To turn it on once the build server
+ * builds Anchor 1.x: open each program folder at `<origin>/github/…`, build,
+ * deploy and call it on devnet, set this to true, run gen:paths, and add the
+ * hand-written buttons back (AUTHORING.md, "Open tutorial in Playground").
+ */
+export const PLAYGROUND_PROGRAMS = false;
+
+/** File types Playground's GitHub import loads (its language list). */
 const PG_EXTENSIONS = new Set([".js", ".json", ".py", ".rs", ".ts"]);
 const SKIP_DIRS = new Set(["node_modules", "target", ".git"]);
-/** Characters the playground's GitHub URL parser accepts in a path. */
+/** Characters Playground's GitHub URL parser accepts in a path. */
 export const PG_PATH = /^[\w\-/.]+$/;
 
 function listFiles(absDir: string): string[] {
@@ -76,18 +99,18 @@ function listFiles(absDir: string): string[] {
   return out;
 }
 
-/** The playground's framework detection + layout conversion, as a kind. */
+/** Playground's framework detection + layout conversion, as a kind. */
 export function detectProgramKind(
   files: [path: string, content: string][],
 ): PlaygroundKind | undefined {
+  const isSeahorse = files.some(
+    ([p, c]) => p.endsWith(".py") && c.includes("seahorse.prelude"),
+  );
   const isAnchor =
-    !files.some(([p]) => p.endsWith(".py")) &&
+    !isSeahorse &&
     files.some(([p, c]) => p.endsWith("lib.rs") && c.includes("#[program]"));
   const isNative = files.some(
     ([p, c]) => p.endsWith(".rs") && c.includes("entrypoint!"),
-  );
-  const isSeahorse = files.some(
-    ([p, c]) => p.endsWith(".py") && c.includes("seahorse.prelude"),
   );
   const kind: PlaygroundKind | undefined = isAnchor
     ? "anchor"
@@ -129,7 +152,7 @@ const LANG_ORDER: PlaygroundKind[] = ["ts", "js", "rust", "py"];
 const folderKinds = new Map<string, PlaygroundKind>();
 
 /**
- * The kind of a whole folder (`absDir`), as the playground would import it:
+ * The kind of a whole folder (`absDir`), as Playground would import it:
  * its framework when the folder is a program, else the language most of its
  * source files are in (ties: ts, js, rust, py), else "other". Cached per
  * folder (the example tree does not change during a run).
@@ -240,7 +263,7 @@ export const PLAYGROUND_SOL = "0.02";
  */
 export const PLAYGROUND_FROM_SITE = "https://solana.com";
 
-/** The script whose `CONFIG.runOrigin` is the new Playground's origin. */
+/** The script whose `CONFIG.origin` is the new Playground's origin. */
 export const PLAYGROUND_SCRIPT = path.join(
   docsPublicAssets,
   "scripts",
@@ -248,18 +271,19 @@ export const PLAYGROUND_SCRIPT = path.join(
 );
 
 /**
- * The new Playground's origin, read from `CONFIG.runOrigin` in
- * playground.js: the one place it is set. playground.js applies it to links
- * in the browser; gen:paths writes it into the generated href so the link
- * also works without JavaScript (change it there, then run gen:paths).
+ * The new Playground's origin, read from `CONFIG.origin` in playground.js:
+ * the one place it is set, for both kinds of button. playground.js applies
+ * it to links in the browser; gen:paths writes it into the generated Run
+ * href so the link also works without JavaScript (change it there, then run
+ * gen:paths).
  */
-export function playgroundRunOrigin(script = PLAYGROUND_SCRIPT): string {
-  const m = /^\s*runOrigin:\s*"(https:\/\/[a-z0-9.-]+)",?\s*$/m.exec(
+export function playgroundOrigin(script = PLAYGROUND_SCRIPT): string {
+  const m = /^\s*origin:\s*"(https:\/\/[a-z0-9.-]+)",?\s*$/m.exec(
     readFileSync(script, "utf8"),
   );
   if (!m)
     throw new Error(
-      `${script}: CONFIG.runOrigin must be "https://<host>" on a line of its own`,
+      `${script}: CONFIG.origin must be "https://<host>" on a line of its own`,
     );
   return m[1]!;
 }

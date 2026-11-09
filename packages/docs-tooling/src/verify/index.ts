@@ -35,6 +35,11 @@ export const GENERATOR_CHECKS: [string, string[]][] = [
   ["gen:concepts --check", ["src/generators/concepts.ts", "--check"]],
   ["gen:addresses --check", ["src/generators/addresses.ts", "--check"]],
   ["gen:tags --check", ["src/generators/tags.ts", "--check"]],
+  ["gen:nav-labels --check", ["src/generators/nav-labels.ts", "--check"]],
+  [
+    "gen:legacy-anchors --check",
+    ["src/generators/legacy-anchors.ts", "--check"],
+  ],
 ];
 
 interface Check {

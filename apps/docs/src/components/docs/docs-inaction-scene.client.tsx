@@ -46,6 +46,14 @@ const EXPLORER = "https://explorer.solana.com";
 type Sent = { signature: string; ms: number; mint?: string } | null | undefined;
 
 /**
+ * BotID's challenge script (instrumentation-client.ts protects the demo
+ * routes). When it fails to load, botid 1.5 leaves the failed <script> in
+ * the page and, on the next request, takes it as loaded and waits for a
+ * challenge that never comes. Removing it lets the next tap load it again.
+ */
+const CHALLENGE_SCRIPT = 'script[src*="a-4-a/c.js"]';
+
+/**
  * POST to a demo route. The route streams NDJSON: `{ step: "sent" }` once
  * the transaction is out, then the result. Calls `onSent` on the first.
  */
@@ -81,9 +89,28 @@ async function postDemo(path: string, onSent: () => void): Promise<Sent> {
     return typeof signature === "string" && typeof ms === "number"
       ? { signature, ms, ...(typeof mint === "string" ? { mint } : {}) }
       : null;
-  } catch {
+  } catch (error) {
+    // botid rejects with the script's error event when it can't load it.
+    if (typeof Event !== "undefined" && error instanceof Event)
+      document.querySelector(CHALLENGE_SCRIPT)?.remove();
     return null;
   }
+}
+
+/**
+ * `postDemo`, given up on after TIMEOUT_MS. The fetch's own timeout aborts
+ * only the request BotID's wrapper sends, and the wrapper can wait forever
+ * for its challenge before sending it; then the scene still ends, without a
+ * link.
+ */
+function postDemoWithin(path: string, onSent: () => void): Promise<Sent> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), TIMEOUT_MS);
+  });
+  return Promise.race([postDemo(path, onSent), late]).finally(() =>
+    clearTimeout(timer),
+  );
 }
 
 /** Seconds with one decimal, never "0.0". */
@@ -173,7 +200,7 @@ function useDemo(path: string) {
     setPhase("sign");
     let markSent = () => {};
     const isSent = new Promise<void>((r) => (markSent = r));
-    const request = postDemo(path, markSent);
+    const request = postDemoWithin(path, markSent);
     await Promise.all([wait(STEP_MS), Promise.race([isSent, request])]);
     if (!alive.current) return;
     setPhase("send");

@@ -103,9 +103,14 @@ function redirectWithEffectiveOrigin(
 // routingWithoutDetection: prevents redirects based on Accept-Language that would leak Vercel URL
 // preserveProxiedLocaleCookie: prevents overwriting the main app's NEXT_LOCALE cookie
 // when requests come through the web app's rewrite (fixes "random language" bug)
-const handleI18nRouting = createMiddleware(routingWithoutDetection, {
-  preserveProxiedLocaleCookie: true,
-});
+// alternateLinks: false: no hreflang Link header for every locale. Most locale
+// URLs answer with the English page, so each page's <head> lists its own
+// alternates instead: English, x-default and the locales that translate it
+// (lib/docs/metadata.ts; the /developers landing lists every locale).
+const handleI18nRouting = createMiddleware(
+  { ...routingWithoutDetection, alternateLinks: false },
+  { preserveProxiedLocaleCookie: true },
+);
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;

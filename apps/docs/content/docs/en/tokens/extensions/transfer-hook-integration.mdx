@@ -204,9 +204,12 @@ export async function sendTokenTransfer({
     )
     .send();
   if (simulation.value.err) {
+    // The error can contain bigints, which JSON.stringify can't serialize.
+    const err = JSON.stringify(simulation.value.err, (_, value) =>
+      typeof value === "bigint" ? value.toString() : value
+    );
     throw new Error(
-      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
-        simulation.value.logs?.join("\n")
+      `Transfer simulation failed: ${err}\n` + simulation.value.logs?.join("\n")
     );
   }
 
@@ -312,9 +315,12 @@ export async function sendTokenTransfer({
   // anyone signs or pays a fee.
   const simulation = await connection.simulateTransaction(transaction);
   if (simulation.value.err) {
+    // The error can contain bigints, which JSON.stringify can't serialize.
+    const err = JSON.stringify(simulation.value.err, (_, value) =>
+      typeof value === "bigint" ? value.toString() : value
+    );
     throw new Error(
-      `Transfer simulation failed: ${JSON.stringify(simulation.value.err)}\n` +
-        simulation.value.logs?.join("\n")
+      `Transfer simulation failed: ${err}\n` + simulation.value.logs?.join("\n")
     );
   }
 
@@ -454,26 +460,69 @@ because a client invoked `Execute` directly.
 
 Every hook-enabled transfer needs the standard four transfer accounts (source,
 mint, destination, owner/authority) plus whatever the `ExtraAccountMetaList`
-account for that mint specifies. The list is a PDA derived from the hook
-program:
+account for that mint specifies. The list is a PDA derived from the mint and
+the hook program. Web3.js v3 apps can use the Kit code (convert a `PublicKey`
+with `address(mint.toBase58())`):
 
-```ts derive-extra-account-meta-list.ts
-// Kit and web3.js v3 with @solana-program/token-2022
-import { findExtraAccountMetaListPda } from "@solana-program/token-2022";
+<CodeGroup>
+
+```ts Kit
+import { address, createSolanaRpc, unwrapOption } from "@solana/kit";
+import {
+  fetchMint,
+  findExtraAccountMetaListPda,
+  isExtension
+} from "@solana-program/token-2022";
+
+const rpc = createSolanaRpc("https://api.devnet.solana.com");
+const mintAddress = address("<MINT_ADDRESS>"); // A mint with a transfer hook
+
+// Read the hook program from the mint's TransferHook extension.
+const mint = await fetchMint(rpc, mintAddress);
+const transferHook = (unwrapOption(mint.data.extensions) ?? []).find(
+  (extension) => isExtension("TransferHook", extension)
+);
+if (!transferHook) throw new Error("The mint has no transfer hook");
 
 const [extraAccountMetaListPda] = await findExtraAccountMetaListPda(
   { mint: mintAddress },
   { programAddress: transferHook.programId }
 );
+console.log("ExtraAccountMetaList:", extraAccountMetaListPda);
+```
 
-// Web3.js (legacy) with @solana/spl-token
-import { getExtraAccountMetaAddress } from "@solana/spl-token";
+<LegacyWeb3jsNotice />
+
+```ts title="Web3.js (legacy)"
+import { Connection, PublicKey } from "@solana/web3.js";
+import {
+  getExtraAccountMetaAddress,
+  getMint,
+  getTransferHook,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+const mintAddress = new PublicKey("<MINT_ADDRESS>"); // A mint with a transfer hook
+
+// Read the hook program from the mint's TransferHook extension.
+const mint = await getMint(
+  connection,
+  mintAddress,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const transferHook = getTransferHook(mint);
+if (!transferHook) throw new Error("The mint has no transfer hook");
 
 const extraAccountMetaListPda = getExtraAccountMetaAddress(
   mintAddress,
   transferHook.programId
 );
+console.log("ExtraAccountMetaList:", extraAccountMetaListPda.toBase58());
 ```
+
+</CodeGroup>
 
 Each entry in that account resolves to a concrete `AccountMeta` one of four
 ways: a fixed pubkey, a PDA off the hook program, a PDA off a different program

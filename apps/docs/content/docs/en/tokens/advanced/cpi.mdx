@@ -32,13 +32,43 @@ accounts and an authority, and invoke. The example below transfers tokens with
 `TransferChecked`, which verifies the mint and decimals as part of the
 transfer.
 
+To build the Anchor example in a project created with `anchor init`, add
+`anchor-spl` from the program's folder (`programs/<program-name>`):
+
+```bash Terminal
+cargo add anchor-spl
+```
+
+Then add `anchor-spl/idl-build` to the `idl-build` feature in the program's
+`Cargo.toml`. Without it, `anchor build` fails with `Building IDL failed`:
+
+```toml Cargo.toml
+[features]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+```
+
+After you paste the example into `src/lib.rs`, run `anchor keys sync` to write
+your program's address into `declare_id!`. `anchor build` also compiles the
+tests that `anchor init` created for its template program in
+`programs/<program-name>/tests`, so delete them or rewrite them for this
+program. If `anchor build` stops with `Platform tools v1.52 is incompatible with
+SBPFv3` (Anchor 1.1 with a recent Solana CLI), see the workaround in
+[Build your first program](/developers/docs/programs/build-first-program).
+
+The Pinocchio examples on this page use `pinocchio` 0.12 and `pinocchio-token`
+0.8:
+
+```bash Terminal
+cargo add pinocchio@0.12 pinocchio-token@0.8
+```
+
 <CodeGroup>
 
 ```rust Anchor
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{transfer_checked, Mint, TokenAccount, TokenInterface, TransferChecked};
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("YOUR_PROGRAM_ID");
 
 #[program]
 pub mod token_cpi {
@@ -135,11 +165,12 @@ running several token operations in one batch CPI uses fewer
 operation — see the [CPI cost model](/developers/docs/core/cpi/cpi-cost-model) for how
 per-CPI costs add up.
 
-Lower compute usage reduces the [priority fees](/developers/docs/core/fees) a transaction
-pays per compute unit and improves its chance of landing — which matters most
-for programs that perform many token operations in a single instruction. Common
-uses include fanning out a transfer to many recipients, or running a multi-step
-token flow (for example sync, transfer, and close) in a single CPI.
+Lower compute usage lets you request a smaller compute-unit limit, which lowers
+the total [priority fee](/developers/docs/core/fees) at a given compute-unit
+price. This matters most for programs that perform many token operations in a
+single instruction. Common uses include fanning out a transfer to many
+recipients, or running a multi-step token flow (for example sync, transfer, and
+close) in a single CPI.
 
 <Info>
 
@@ -162,7 +193,7 @@ are owned by the Token Program before executing them.
 The [`pinocchio-token`](https://crates.io/crates/pinocchio-token) crate exposes
 a `Batch` builder under `pinocchio_token::instructions::Batch`. You
 stage each child instruction into the batch's buffers and then issue a single
-CPI with `invoke`.
+CPI with `invoke_unchecked`. The example below uses `pinocchio-token` 0.8.
 
 A `Batch` is backed by three caller-provided buffers: one for the serialized
 instruction data, one for the per-child instruction account metas, and one for
@@ -225,7 +256,9 @@ pub fn process(accounts: &[AccountView], data: &[u8]) -> ProgramResult {
     Transfer::new(source_a, source_b, authority_a, amount_a_to_b).into_batch(&mut batch)?;
     Transfer::new(source_b, source_a, authority_b, amount_b_to_a).into_batch(&mut batch)?;
 
-    batch.invoke()?;
+    // SAFETY: `into_batch` checked that the accounts weren't borrowed, and
+    // nothing borrows their data or lamports before the batch is invoked.
+    unsafe { batch.invoke_unchecked() }?;
 
     Ok(())
 }
@@ -236,8 +269,16 @@ buffer and returns a `Batch` that tracks how much of each buffer has been
 used. Every Token Program instruction builder (such as `Transfer`,
 `TransferChecked`, `MintTo`, and `Burn`) implements the
 `IntoBatch` trait, so `into_batch` appends that instruction's data,
-account metas, and account views to the batch. Calling `invoke` issues the
-assembled batch as one CPI into the Token Program.
+account metas, and account views to the batch. Calling `invoke_unchecked`
+issues the assembled batch as one CPI into the Token Program.
+
+From `pinocchio-token` 0.8, the batch invoke methods are `unsafe`. `into_batch`
+checks that a child's accounts aren't borrowed when you add it, but nothing
+checks again when the batch is invoked. Between adding the first child and
+invoking the batch, don't borrow the data or lamports of any account in the
+batch; otherwise the CPI can change them while a reference is still alive.
+Versions 0.6 and 0.7 have safe `invoke` and `invoke_signed` batch methods
+instead.
 
 The buffers bound the batch's capacity. Size the data buffer to
 `1 + Σ(2 + child_data_len)` bytes (the discriminator, plus a 2-byte header and
@@ -252,8 +293,8 @@ feature and use `BatchState::new(accounts_len, data_len)` to allocate the
 buffers on the heap, then call `as_batch` to obtain a `Batch`.
 
 When a child instruction's authority is a PDA owned by your program, sign the
-CPI with `invoke_signed` instead of `invoke`, passing the PDA seeds as
-`Signer` entries.
+CPI with `invoke_signed_unchecked` instead of `invoke_unchecked`, passing the
+PDA seeds as `Signer` entries.
 
 ### Instruction data layout
 

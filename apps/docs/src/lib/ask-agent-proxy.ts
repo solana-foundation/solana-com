@@ -1,6 +1,11 @@
+import { clientIpFromHeaders } from "@solana-com/ui-chrome/client-ip";
+
 const DEFAULT_ASK_AGENT_URL =
   "https://web-prd-492045163003.us-central1.run.app";
 const ASK_PROXY_SECRET_HEADER = "X-Ask-Proxy-Secret";
+// The agent's per-IP limits key on this header (ASK_CLIENT_IP_HEADER there);
+// without it every visitor shares this proxy's address.
+const ASK_CLIENT_IP_HEADER = "x-ask-client-ip";
 
 const REQUEST_HEADER_ALLOWLIST = [
   "accept",
@@ -55,6 +60,10 @@ function requestHeaders(request: Request, proxySecret: string): Headers {
     if (value) headers.set(key, value);
   }
 
+  // The visitor's IP, read only from headers Vercel sets (a client can't
+  // supply them), the same way every rate limit in the monorepo reads it.
+  const ip = clientIpFromHeaders(request.headers);
+  if (ip !== "unknown") headers.set(ASK_CLIENT_IP_HEADER, ip);
   headers.set(ASK_PROXY_SECRET_HEADER, proxySecret);
   return headers;
 }

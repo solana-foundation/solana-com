@@ -59,7 +59,9 @@ describe("Surfpool snippets", () => {
     const headings = new Set<string>();
     for (const s of snippets.values())
       for (const m of s.matchAll(/^## (.+)$/gm))
-        headings.add(m[1]!.replace(/\\_/g, "_"));
+        headings.add(
+          m[1]!.replace(/\\_/g, "_").replace(/\s*\\?\[#[^\]]*\]$/, ""),
+        );
     const expected = new Set<string>();
     for (const [k, g] of Object.entries(schemas.rpc.$defs ?? {})) {
       if (!/^endpoints\d*$/.test(k)) continue;

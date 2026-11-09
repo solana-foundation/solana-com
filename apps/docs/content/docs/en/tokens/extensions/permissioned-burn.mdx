@@ -13,6 +13,8 @@ related:
   - /developers/docs/tokens/extensions/permanent-delegate
   - /developers/docs/tokens/extensions/pausable
   - /developers/docs/tokens/extensions
+anchorAliases:
+  typescript: kit
 ---
 
 ## What Is Permissioned Burn?
@@ -43,14 +45,24 @@ The burn authority can be rotated later with `SetAuthority` using
 permissioned burning and re-enables the standard burn instructions. The
 extension data itself stays on the mint.
 
-A local test validator also bundles an older Token-2022 build, so to run the
-examples on this page, load the v11.0.0 program from devnet into your test
-validator:
+## Before you start
+
+The examples on this page run against a local validator at
+`http://localhost:8899` (WebSocket `ws://localhost:8900`) and fund their
+accounts with airdrops from it. Start one in a separate terminal with
+[Surfpool](https://surfpool.run) (`surfpool start`), which loads the current
+Token-2022 program from mainnet. `solana-test-validator` bundles an older
+Token-2022 build without permissioned burn, so to use it instead, load the
+current program (v11.0.0 or later) from devnet:
 
 ```shell Terminal
 solana program dump -u devnet TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb token_2022.so
 solana-test-validator --reset --bpf-program TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb token_2022.so
 ```
+
+Each code section below lists the packages or crates it needs. The TypeScript
+examples use top-level `await`, so run them as ES modules, for example with
+`npx tsx index.ts` in a project whose `package.json` sets `"type": "module"`.
 
 ## How to Create a Mint and Burn With Permission
 
@@ -441,13 +453,13 @@ To create a mint with permissioned burn and burn tokens:
 | `process_burn`                             | Processor logic that rejects standard burns when the burn authority is set and verifies the authority's signature. | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/program/src/processor.rs#L1114-L1179)                             |
 | `process_set_authority`                    | Processor logic that validates and rotates the burn authority when `AuthorityType::PermissionedBurn` is used.      | [Source](https://github.com/solana-program/token-2022/blob/program%40v11.0.0/program/src/processor.rs#L996-L1008)                              |
 
-### Typescript
+### Kit
 
-The `Kit` example below uses the generated instructions directly. The published
-legacy `@solana/spl-token` package does not include permissioned burn support
-yet, so no legacy example is included.
+These examples use the generated Token-2022 instructions directly.
 
-#### Kit
+```bash Terminal
+npm install @solana/kit @solana/kit-plugin-rpc @solana/kit-plugin-signer @solana-program/system @solana-program/token-2022
+```
 
 ```ts Instructions highlight={58-61,110-117,121-126}
 import {
@@ -600,7 +612,225 @@ console.log("Source Amount After Burns:", sourceAccount.data.amount);
 console.log("Extension After Disable:", permissionedBurnConfig);
 ```
 
+### Web3.js v3
+
+These examples use the class-based `@solana/web3.js` v3 API with
+`@solana-program` instruction builders.
+
+```bash Terminal
+npm install @solana/web3.js@3 @solana/kit @solana-program/token-2022
+```
+
+```ts Instructions highlight={62-65,130-137,146-151}
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction
+} from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
+import {
+  AuthorityType,
+  findAssociatedTokenPda,
+  getBurnCheckedInstruction,
+  getCreateAssociatedTokenInstruction,
+  getInitializeMint2Instruction,
+  getInitializePermissionedBurnInstruction,
+  getMintDecoder,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getPermissionedBurnCheckedInstruction,
+  getSetAuthorityInstruction,
+  getTokenDecoder,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = await Keypair.generate();
+const mint = await Keypair.generate();
+const burnAuthority = await Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintSpace = getMintSize([
+  {
+    __kind: "PermissionedBurn",
+    authority: burnAuthority.publicKey.toBase58()
+  }
+]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      space: mintSpace, // Account size in bytes for the mint plus PermissionedBurnConfig.
+      lamports: mintRent, // Lamports funding the mint account rent.
+      programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
+    }),
+    getInitializePermissionedBurnInstruction({
+      mint: mint.publicKey, // Mint account that stores the PermissionedBurnConfig extension.
+      authority: burnAuthority.publicKey.toBase58() // Authority required to co-sign every burn for the mint.
+    }),
+    getInitializeMint2Instruction({
+      mint: mint.publicKey, // Mint account to initialize.
+      decimals: 0, // Number of decimals for the token.
+      mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+      freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+    })
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
+);
+
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: feePayer.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding the associated token account creation.
+      ata: sourceToken, // Associated token account address to create.
+      owner: feePayer.publicKey, // Owner of the associated token account.
+      mint: mint.publicKey // Mint for the associated token account.
+    }),
+    getMintToCheckedInstruction({
+      mint: mint.publicKey, // Mint account that issues the tokens.
+      token: sourceToken, // Token account receiving the newly minted tokens.
+      mintAuthority: feePayer, // Signer authorized to mint new tokens.
+      amount: 2, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+let standardBurnFailure: string | undefined;
+try {
+  await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      getBurnCheckedInstruction({
+        account: sourceToken, // Token account to burn from.
+        mint: mint.publicKey, // Mint with the permissioned burn configuration.
+        authority: feePayer, // Token account owner signing the burn.
+        amount: 1, // Token amount in base units.
+        decimals: 0 // Decimals defined on the mint.
+      })
+    ),
+    [feePayer],
+    { commitment: "confirmed" }
+  );
+} catch (error) {
+  standardBurnFailure = error instanceof Error ? error.message : String(error);
+}
+if (!standardBurnFailure) {
+  throw new Error("Expected the standard burn to fail");
+}
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getPermissionedBurnCheckedInstruction({
+      account: sourceToken, // Token account to burn from.
+      mint: mint.publicKey, // Mint with the permissioned burn configuration.
+      permissionedBurnAuthority: burnAuthority, // Burn authority co-signing the burn.
+      authority: feePayer, // Token account owner signing the burn.
+      amount: 1, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
+  ),
+  [feePayer, burnAuthority],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getSetAuthorityInstruction({
+      owned: mint.publicKey, // Mint with the permissioned burn configuration.
+      owner: burnAuthority, // Current burn authority signing the update.
+      authorityType: AuthorityType.PermissionedBurn, // Authority type to update.
+      newAuthority: null // Setting the authority to None disables permissioned burning.
+    })
+  ),
+  [feePayer, burnAuthority],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    getBurnCheckedInstruction({
+      account: sourceToken, // Token account to burn from.
+      mint: mint.publicKey, // Mint with permissioned burning disabled.
+      authority: feePayer, // Token account owner signing the burn.
+      amount: 1, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const sourceAccountInfo = await connection.getAccountInfo(
+  new PublicKey(sourceToken),
+  "confirmed"
+);
+const sourceAccount = getTokenDecoder().decode(sourceAccountInfo!.data);
+const mintAccountInfo = await connection.getAccountInfo(
+  mint.publicKey,
+  "confirmed"
+);
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+const permissionedBurnConfig = (unwrapOption(mintAccount.extensions) ?? []).find(
+  (extension) => extension.__kind === "PermissionedBurn"
+);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Error From Failed Standard Burn:", standardBurnFailure);
+console.log("Source Amount After Burns:", sourceAccount.amount);
+console.log("Extension After Disable:", permissionedBurnConfig);
+```
+
 ### Rust
+
+Add these dependencies to `Cargo.toml` (tested with Rust 1.98 and 1.99).
+Permissioned burn needs `spl-token-2022-interface` 3 or later, which uses the
+newer Solana crates. Keep `solana-client` on the 4.3 line (Rust 1.97.1 or
+later): 4.4 moved to `solana-transaction` 5, which `solana-sdk` 4 doesn't use.
+
+```toml Cargo.toml
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["full"] }
+solana-client = "~4.3"
+solana-commitment-config = "3"
+solana-sdk = "4"
+solana-system-interface = "3"
+spl-associated-token-account-interface = "2"
+spl-token-2022-interface = "3"
+```
 
 ```rust Rust highlight={60-64,137-145,160-167}
 use anyhow::{anyhow, Result};
@@ -818,4 +1048,219 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+```
+
+### Web3.js (legacy)
+
+These examples use legacy `@solana/web3.js` with `@solana/spl-token` 0.4.15 or
+later, which added the permissioned burn helpers.
+
+<LegacyWeb3jsNotice />
+
+```bash Terminal
+npm install @solana/web3.js@1 @solana/spl-token@^0.4.15
+```
+
+```ts Instructions highlight={58-62,136-145,154-161}
+import {
+  Connection,
+  Keypair,
+  LAMPORTS_PER_SOL,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  AuthorityType,
+  createAssociatedTokenAccountInstruction,
+  createBurnCheckedInstruction,
+  createInitializeMintInstruction,
+  createInitializePermissionedBurnInstruction,
+  createMintToCheckedInstruction,
+  createPermissionedBurnCheckedInstruction,
+  createSetAuthorityInstruction,
+  ExtensionType,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  getMint,
+  getMintLen,
+  getPermissionedBurn,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+const mint = Keypair.generate();
+const burnAuthority = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const mintSpace = getMintLen([ExtensionType.PermissionedBurn]);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintSpace);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    SystemProgram.createAccount({
+      fromPubkey: feePayer.publicKey, // Account funding account creation.
+      newAccountPubkey: mint.publicKey, // New mint account to create.
+      space: mintSpace, // Account size in bytes for the mint plus PermissionedBurnConfig.
+      lamports: mintRent, // Lamports funding the mint account rent.
+      programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    }),
+    createInitializePermissionedBurnInstruction(
+      mint.publicKey, // Mint account that stores the PermissionedBurnConfig extension.
+      burnAuthority.publicKey, // Authority required to co-sign every burn for the mint.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+    ),
+    createInitializeMintInstruction(
+      mint.publicKey, // Mint account to initialize.
+      0, // Number of decimals for the token.
+      feePayer.publicKey, // Authority allowed to mint new tokens.
+      feePayer.publicKey, // Authority allowed to freeze token accounts.
+      TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+    )
+  ),
+  [feePayer, mint],
+  { commitment: "confirmed" }
+);
+
+const sourceToken = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  feePayer.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey, // Account funding the associated token account creation.
+      sourceToken, // Associated token account address to create.
+      feePayer.publicKey, // Owner of the associated token account.
+      mint.publicKey, // Mint for the associated token account.
+      TOKEN_2022_PROGRAM_ID, // Token program that owns the account.
+      ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
+    ),
+    createMintToCheckedInstruction(
+      mint.publicKey, // Mint account that issues the tokens.
+      sourceToken, // Token account receiving the newly minted tokens.
+      feePayer.publicKey, // Signer authorized to mint new tokens.
+      2, // Token amount in base units.
+      0, // Decimals defined on the mint.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+    )
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+let standardBurnFailure: string | undefined;
+try {
+  await sendAndConfirmTransaction(
+    connection,
+    new Transaction().add(
+      createBurnCheckedInstruction(
+        sourceToken, // Token account to burn from.
+        mint.publicKey, // Mint with the permissioned burn configuration.
+        feePayer.publicKey, // Token account owner signing the burn.
+        1, // Token amount in base units.
+        0, // Decimals defined on the mint.
+        [], // Additional multisig signers.
+        TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+      )
+    ),
+    [feePayer],
+    { commitment: "confirmed" }
+  );
+} catch (error) {
+  standardBurnFailure = error instanceof Error ? error.message : String(error);
+}
+if (!standardBurnFailure) {
+  throw new Error("Expected the standard burn to fail");
+}
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createPermissionedBurnCheckedInstruction(
+      sourceToken, // Token account to burn from.
+      mint.publicKey, // Mint with the permissioned burn configuration.
+      feePayer.publicKey, // Token account owner signing the burn.
+      burnAuthority.publicKey, // Burn authority co-signing the burn.
+      1, // Token amount in base units.
+      0, // Decimals defined on the mint.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+    )
+  ),
+  [feePayer, burnAuthority],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createSetAuthorityInstruction(
+      mint.publicKey, // Mint with the permissioned burn configuration.
+      burnAuthority.publicKey, // Current burn authority signing the update.
+      AuthorityType.PermissionedBurn, // Authority type to update.
+      null, // Setting the authority to None disables permissioned burning.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+    )
+  ),
+  [feePayer, burnAuthority],
+  { commitment: "confirmed" }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createBurnCheckedInstruction(
+      sourceToken, // Token account to burn from.
+      mint.publicKey, // Mint with permissioned burning disabled.
+      feePayer.publicKey, // Token account owner signing the burn.
+      1, // Token amount in base units.
+      0, // Decimals defined on the mint.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+    )
+  ),
+  [feePayer],
+  { commitment: "confirmed" }
+);
+
+const sourceAccount = await getAccount(
+  connection,
+  sourceToken,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const permissionedBurnConfig = getPermissionedBurn(mintAccount);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Error From Failed Standard Burn:", standardBurnFailure);
+console.log("Source Amount After Burns:", sourceAccount.amount);
+console.log("Extension After Disable:", permissionedBurnConfig);
 ```

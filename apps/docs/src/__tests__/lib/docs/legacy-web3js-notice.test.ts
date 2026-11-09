@@ -47,13 +47,15 @@ async function compile(value: string, page = "docs/en/core/example.mdx") {
 }
 
 describe("legacy web3.js notice", () => {
-  it("is a Warning with the status, Kit and both migration guides", () => {
+  it("is a Warning with the status, Kit, both migration guides and the 1.x install", () => {
     expect(LEGACY_WEB3JS_NOTICE_SOURCE).toBe(
       [
         "<Warning>",
         "  **`@solana/web3.js` 1.x is no longer actively maintained**",
         "",
         "  It receives critical fixes only. Use [Kit](/developers/docs/clients/official/javascript#solana-kit) for new code. To migrate existing code, follow the [Kit upgrade guide](https://www.solanakit.com/docs/upgrade-guide), or the [web3.js v3 migration guide](https://github.com/solana-foundation/solana-web3.js/blob/main/docs/web3js-v1-to-v3-migration.md) to keep the class-based API.",
+        "",
+        "  To run this code, install 1.x with `npm install @solana/web3.js@1`. A plain `npm install @solana/web3.js` installs v3, which this code doesn't run on.",
         "</Warning>",
       ].join("\n"),
     );

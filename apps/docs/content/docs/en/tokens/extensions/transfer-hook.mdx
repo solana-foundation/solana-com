@@ -28,7 +28,7 @@ This enables new use cases for token transfers, such as:
 - And many more
 
 To achieve this, developers must build a program that implements the
-[Transfer Hook Interface](https://github.com/solana-program/token-2022/tree/main/interface/src/extension/transfer_hook)
+[Transfer Hook Interface](https://www.solana-program.com/docs/transfer-hook-interface)
 and initialize a Mint Account with the Transfer Hook extension enabled.
 
 For every token transfer involving tokens from the Mint Account, the Token
@@ -50,6 +50,18 @@ however, it is possible to implement the Transfer Hook Interface using a native
 program as well. Learn more about Anchor framework here:
 [Anchor Framework](https://www.anchor-lang.com/)
 
+<Info>
+
+The examples in this guide run in [Solana Playground](https://beta.solpg.io),
+which builds programs with Anchor 0.29 (`anchor-lang` and `anchor-spl` 0.29.0).
+The program code targets that version. Anchor 0.30 and later changed how a
+program handles the interface's instructions; see
+[Fallback Instruction](#fallback-instruction). Playground deploys to devnet, so
+fund the Playground wallet address with devnet SOL from the
+[Solana faucet](https://faucet.solana.com) before you deploy.
+
+</Info>
+
 ## Transfer Hook Interface Overview
 
 The Transfer Hook Interface provides a way for developers to implement custom
@@ -57,7 +69,7 @@ instruction logic that is executed on every token transfer for a specific Mint
 Account.
 
 The Transfer Hook Interface specifies the following
-[instructions](https://github.com/solana-program/token-2022/blob/main/interface/src/extension/transfer_hook/instruction.rs):
+[instructions](https://github.com/solana-program/transfer-hook/blob/main/interface/src/instruction.rs):
 
 - `Execute`: An instruction that the Token Extension program invokes on every
   token transfer.
@@ -117,8 +129,8 @@ This program will only include 3 instructions:
 1. `initialize_extra_account_meta_list`: Creates an account that stores a list
    of extra accounts required by the `transfer_hook` instruction. In the hello
    world we leave this empty.
-2. `transfer_hook`: This instruction is invoked via CPI on every token transfer
-   to perform a wrapped SOL token transfer.
+2. `transfer_hook`: This instruction is invoked via CPI on every token transfer.
+   In the hello world it only logs a message.
 3. `fallback`: Because we are using Anchor and the token program is a native
    program we need to add a fallback instruction to manually match the
    instruction discriminator and invoke our custom `transfer_hook` instruction.
@@ -137,8 +149,10 @@ pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
 ```
 
 In this function you can now add your additional logic. For example, you could
-let the transfer fail whenever an amount is transferred that is bigger than 50
-like so:
+let the transfer fail whenever more than 50 tokens are transferred. `amount` is
+in base units, so scale the limit by the mint's decimals: the example test mints
+a token with 9 decimals and transfers `1 * 10 ** decimals` (one token), which a
+plain `amount > 50` check would reject.
 
 ```rust
 #[error_code]
@@ -151,7 +165,9 @@ pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
 
     msg!("Hello Transfer Hook!");
 
-    if amount > 50 {
+    // `amount` is in base units: 50 tokens = 50 * 10^decimals
+    let max_amount = 50 * 10u64.pow(ctx.accounts.mint.decimals as u32);
+    if amount > max_amount {
         return err!(MyError::AmountTooBig);
     }
 
@@ -164,7 +180,7 @@ To run the example in Playground, follow this link:
 
 In Playground's terminal, run the `build` command which will update the value of
 `declare_id` in the `lib.rs` file with a newly generated program ID. Then run
-the `deploy` command to deploy your program to devnet. When when the program is
+the `deploy` command to deploy your program to devnet. When the program is
 deployed you can run the test file by using the `test` command in the terminal.
 
 This will then give you the output similar to this:
@@ -289,7 +305,7 @@ time it gets called:
 ```rust
 pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
 
-    ctx.accounts.counter_account.counter.checked_add(1).unwrap();
+    ctx.accounts.counter_account.counter = ctx.accounts.counter_account.counter.checked_add(1).unwrap();
     msg!("This token has been transferred {0} times", ctx.accounts.counter_account.counter);
 
     Ok(())
@@ -345,9 +361,18 @@ let transferInstructionWithHelper =
 To run the example in Playground, follow this link:
 [link](https://beta.solpg.io/github.com/solana-developers/anchor-transfer-hook/tree/counter)
 
+<Warning>
+
+In the Playground project, the `TransferHook` struct declares `counter_account`
+without `mut`. Anchor only saves changes to accounts marked `mut`, so the count
+never persists and every transfer logs "1 times". Before you build, add `mut` to
+`counter_account` in `TransferHook`, as in the struct above.
+
+</Warning>
+
 And then in there type `build` which will update the value of `declare_id` in
 the `lib.rs` file with a newly generated program ID. Then type `deploy` to
-deploy your program to devnet. When when the program is deployed you can run the
+deploy your program to devnet. When the program is deployed you can run the
 test file by typing `test` in the terminal.
 
 This will then give you the following output. In last transaction you will then
@@ -385,14 +410,28 @@ transfer hooks.
 
 </Warning>
 
-You can add the check like this:
+The source token account carries a `TransferHookAccount` extension whose
+`transferring` flag Token-2022 sets only while it runs a transfer. You can check
+it like this (this version builds with Anchor 0.29 in Playground; add the `use`
+lines at the top of `lib.rs` and the function outside the `#[program]` module):
 
 ```rust
+use anchor_spl::token_2022::spl_token_2022::{
+    extension::{transfer_hook::TransferHookAccount, BaseStateWithExtensions, StateWithExtensions},
+    state::Account as Token2022Account,
+};
+
+#[error_code]
+pub enum TransferError {
+    #[msg("The token is not currently transferring")]
+    IsNotCurrentlyTransferring,
+}
+
 fn assert_is_transferring(ctx: &Context<TransferHook>) -> Result<()> {
     let source_token_info = ctx.accounts.source_token.to_account_info();
-    let mut account_data_ref: RefMut<&mut [u8]> = source_token_info.try_borrow_mut_data()?;
-    let mut account = PodStateWithExtensionsMut::<PodAccount>::unpack(*account_data_ref)?;
-    let account_extension = account.get_extension_mut::<TransferHookAccount>()?;
+    let account_data = source_token_info.try_borrow_data()?;
+    let account = StateWithExtensions::<Token2022Account>::unpack(&account_data)?;
+    let account_extension = account.get_extension::<TransferHookAccount>()?;
 
     if !bool::from(account_extension.transferring) {
         return err!(TransferError::IsNotCurrentlyTransferring);
@@ -405,23 +444,19 @@ fn assert_is_transferring(ctx: &Context<TransferHook>) -> Result<()> {
 And then call it at the start of your `transfer_hook` function:
 
 ```rust
-    #[error_code]
-    pub enum TransferError {
-        #[msg("The token is not currently transferring")]
-        IsNotCurrentlyTransferring,
-    }
-
-    #[interface(spl_transfer_hook_interface::execute)]
     pub fn transfer_hook(ctx: Context<TransferHook>, _amount: u64) -> Result<()> {
         // Fail this instruction if it is not called from within a transfer hook
         assert_is_transferring(&ctx)?;
 
-        ctx.accounts.counter_account.counter.checked_add(1).unwrap();
+        ctx.accounts.counter_account.counter = ctx.accounts.counter_account.counter.checked_add(1).unwrap();
         msg!("This token has been transferred {0} times", ctx.accounts.counter_account.counter);
 
         Ok(())
     }
 ```
+
+A direct call to the hook (outside a transfer) now fails with
+`IsNotCurrentlyTransferring`.
 
 ## Transfer Hook with wSOl Transfer fee (advanced example)
 
@@ -610,7 +645,7 @@ pub fn initialize_extra_account_meta_list(
                     bytes: "delegate".as_bytes().to_vec(),
                 }],
                 false, // is_signer
-                false,  // is_writable
+                true,  // is_writable
             )?,
             // index 9, delegate wrapped SOL token account
             ExtraAccountMeta::new_external_pda_with_seeds(
@@ -755,7 +790,7 @@ ExtraAccountMeta::new_with_seeds(
         bytes: "delegate".as_bytes().to_vec(),
     }],
     false, // is_signer
-    false,  // is_writable
+    true,  // is_writable
 )?,
 
 ```
@@ -900,6 +935,7 @@ pub struct TransferHook<'info> {
     pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     #[account(
+        mut,
         seeds = [b"delegate"],
         bump
     )]
@@ -1073,15 +1109,35 @@ our Anchor program.
 
 <Info>
 
-Currently, there is an unreleased Anchor feature that simplifies this process.
-It would remove the need for the fallback instruction.
+This guide targets Anchor 0.29 (Solana Playground), which needs the fallback.
+Anchor 0.31 and later let you set the interface discriminator on the handler
+itself, so you don't need a fallback:
+
+```rust
+use spl_discriminator::SplDiscriminate;
+use spl_transfer_hook_interface::instruction::ExecuteInstruction;
+
+#[instruction(discriminator = ExecuteInstruction::SPL_DISCRIMINATOR_SLICE)]
+pub fn transfer_hook(ctx: Context<TransferHook>, amount: u64) -> Result<()> {
+    // ...
+}
+```
+
+Anchor 0.30 had an `#[interface(spl_transfer_hook_interface::execute)]`
+attribute for this; Anchor 0.31 deprecated it and Anchor 1.0 removed it. The
+rest of this program also needs changes before it builds on Anchor 1.x. For an
+Anchor 1.x version, see the
+[transfer hook examples](https://github.com/solana-foundation/program-examples/tree/main/tokens/token-2022/transfer-hook)
+in `program-examples`.
 
 </Info>
 
 ### Build and Deploy Program
 
 The Transfer Hook program is now complete. Ensure that you have enough Devnet
-SOL in your Playground wallet to deploy the program.
+SOL in your Playground wallet to deploy the program. To get some, copy the
+wallet address from Playground and request devnet SOL from the
+[Solana faucet](https://faucet.solana.com).
 
 To build the program, use the following command:
 
@@ -1498,7 +1554,18 @@ instruction, there are a few additional instructions that need to be included.
 - The token transfer instruction must include all the extra accounts required by
   the transfer hook instruction.
 
-Replace the placeholder test:
+The test builds the transfer with
+`createTransferCheckedWithTransferHookInstruction`, which the starter file
+doesn't import. Add it to the `@solana/spl-token` import at the top of the file:
+
+```js
+import {
+  // ...the existing imports
+  createTransferCheckedWithTransferHookInstruction
+} from "@solana/spl-token";
+```
+
+Then replace the placeholder test:
 
 ```js
 it("Transfer Hook with Extra Account Meta", async () => {});
@@ -1665,10 +1732,13 @@ counter account that is derived from the sender token account owner and the
 string 'counter'. When the PDA counter account is initialized we will be able to
 use it within the transfer hook to increment the value in every transfer.
 
-````rust
-struct.
+Add the counter account to the `InitializeExtraAccountMetaList` struct. The
+struct uses `Program<'info, Token2022>`, so also import `Token2022` from
+`anchor_spl`:
 
 ```rust
+use anchor_spl::token_2022::Token2022;
+
 #[derive(Accounts)]
 pub struct InitializeExtraAccountMetaList<'info> {
     #[account(mut)]
@@ -1692,13 +1762,15 @@ pub struct InitializeExtraAccountMetaList<'info> {
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
-````
+```
 
 We also need to define this extra counter account in the TransferHook struct.
 These are the accounts that are passed to our TransferHook program every time a
 transfer is done. The client gets these additional accounts from the
 ExtraAccountsMetaList PDA and includes them in token transfer instruction, but
-here in the program we still need to define it.
+here in the program we still need to define it. Mark `counter_account` as `mut`:
+Anchor only writes back accounts marked `mut`, so without it the new count is
+never saved.
 
 ```rust
 #[derive(Accounts)]
@@ -1713,14 +1785,29 @@ pub struct TransferHook<'info> {
     /// CHECK: ExtraAccountMetaList Account,
     #[account(seeds = [b"extra-account-metas", mint.key().as_ref()], bump)]
     pub extra_account_meta_list: UncheckedAccount<'info>,
-    #[account(seeds = [b"counter", owner.key().as_ref()], bump)]
+    #[account(mut, seeds = [b"counter", owner.key().as_ref()], bump)]
     pub counter_account: Account<'info, CounterAccount>,
+}
+```
+
+The hook then increments the owner's counter on every transfer:
+
+```rust
+pub fn transfer_hook(ctx: Context<TransferHook>, _amount: u64) -> Result<()> {
+    ctx.accounts.counter_account.counter =
+        ctx.accounts.counter_account.counter.checked_add(1).unwrap();
+    msg!(
+        "{0} has transferred this token {1} times",
+        ctx.accounts.owner.key(),
+        ctx.accounts.counter_account.counter
+    );
+    Ok(())
 }
 ```
 
 In the client this account is auto generated and you can use it as follows.
 
-```rust
+```ts
 const transferInstructionWithHelper =
 await createTransferCheckedWithTransferHookInstruction(
     connection,
