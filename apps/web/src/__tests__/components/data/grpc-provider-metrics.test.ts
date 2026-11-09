@@ -30,11 +30,11 @@ describe("gRPC provider overview metrics", () => {
     );
     const helius = items.find((item) => item.provider === "Helius")!;
     expect(helius.values).toEqual({
+      Avg: null,
       P50: 0,
       P95: 2,
       P99: null,
-      Avg: null,
-      "Missed Updates": null,
+      "Miss Rate": null,
       Downtime: null,
       Reconnects: null,
     });
@@ -81,44 +81,75 @@ describe("gRPC provider overview metrics", () => {
     expect(formatGrpcDowntime(7200, "en")).toBe("2h");
   });
 
-  it("keeps whole-period missed totals separate from trends and preserves unknown values", () => {
-    const rows = [
-      grpcRow("Helius", "gRPC Missed Updates", 0),
-      grpcRow("Alchemy", "gRPC Missed Updates", 10),
-      grpcRow("Alchemy", "gRPC Missed Updates Trend", 3),
-      grpcRow(
-        "Alchemy",
-        "gRPC Missed Updates Trend",
-        7,
-        "2026-10-26T20:02:00.000Z",
+  it("ranks by miss rate, then average lag, by default and sorts columns alone", () => {
+    const items = getGrpcProviderItems(
+      [
+        grpcRow("A", "gRPC Miss Rate", 0.5),
+        grpcRow("A", "gRPC Avg Lag Entire Period", 1),
+        grpcRow("B", "gRPC Miss Rate", 0),
+        grpcRow("B", "gRPC Avg Lag Entire Period", 20),
+        grpcRow("C", "gRPC Miss Rate", 0),
+        grpcRow("C", "gRPC Avg Lag Entire Period", 5),
+        grpcRow("D", "gRPC Avg Lag Entire Period", 0),
+      ],
+      60,
+    );
+    expect(
+      sortGrpcProviderItems(items, "ranking", "ascending").map(
+        (item) => item.provider,
       ),
+    ).toEqual(["C", "B", "A", "D"]);
+    expect(
+      sortGrpcProviderItems(items, "Avg", "ascending").map(
+        (item) => item.provider,
+      ),
+    ).toEqual(["D", "A", "C", "B"]);
+    expect(
+      sortGrpcProviderItems(items, "Avg", "descending").map(
+        (item) => item.provider,
+      ),
+    ).toEqual(["B", "C", "A", "D"]);
+    expect(
+      sortGrpcProviderItems(items, "Miss Rate", "ascending").map(
+        (item) => item.provider,
+      ),
+    ).toEqual(["C", "B", "A", "D"]);
+    expect(
+      sortGrpcProviderItems(items, "Miss Rate", "descending").map(
+        (item) => item.provider,
+      ),
+    ).toEqual(["A", "C", "B", "D"]);
+  });
+
+  it("keeps whole-period miss rates separate from trends and preserves unknown values", () => {
+    const rows = [
+      grpcRow("Helius", "gRPC Miss Rate", 0),
+      grpcRow("Alchemy", "gRPC Miss Rate", 10),
+      grpcRow("Alchemy", "gRPC Miss Rate Trend", 3),
+      grpcRow("Alchemy", "gRPC Miss Rate Trend", 7, "2026-10-26T20:02:00.000Z"),
       grpcRow("Other", "gRPC P50 Lag Entire Period", 1),
     ];
     const items = getGrpcProviderItems(rows, 60);
     expect(
-      items.find((item) => item.provider === "Alchemy")?.values[
-        "Missed Updates"
-      ],
+      items.find((item) => item.provider === "Alchemy")?.values["Miss Rate"],
     ).toBe(10);
     expect(
       items.find((item) => item.provider === "Alchemy")?.values.P50,
     ).toBeNull();
     expect(
-      items.find((item) => item.provider === "Helius")?.values[
-        "Missed Updates"
-      ],
+      items.find((item) => item.provider === "Helius")?.values["Miss Rate"],
     ).toBe(0);
     expect(
-      items.find((item) => item.provider === "Other")?.values["Missed Updates"],
+      items.find((item) => item.provider === "Other")?.values["Miss Rate"],
     ).toBeNull();
     expect(
-      sortGrpcProviderItems(items, "Missed Updates", "descending").map(
+      sortGrpcProviderItems(items, "Miss Rate", "descending").map(
         (item) => item.provider,
       ),
     ).toEqual(["Alchemy", "Helius", "Other"]);
     const series = getGrpcTrendSeries(
       rows,
-      "Missed Updates",
+      "Miss Rate",
       new Set(["Alchemy"]),
       60,
     );

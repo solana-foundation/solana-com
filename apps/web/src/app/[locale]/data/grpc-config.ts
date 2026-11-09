@@ -34,7 +34,7 @@ export const grpcPercentiles = ["P50", "P95", "P99", "P99.9"] as const;
 export type GrpcPercentile = (typeof grpcPercentiles)[number];
 export const grpcChartMetrics = [
   ...grpcPercentiles,
-  "Missed Updates",
+  "Miss Rate",
   "Uptime",
 ] as const;
 export type GrpcChartMetric = (typeof grpcChartMetrics)[number];
@@ -43,8 +43,8 @@ export const grpcMetricNames = [
     `gRPC ${label} Lag`,
     `gRPC ${label} Lag Entire Period`,
   ]),
-  "gRPC Missed Updates",
-  "gRPC Missed Updates Trend",
+  "gRPC Miss Rate",
+  "gRPC Miss Rate Trend",
   "gRPC Downtime",
   "gRPC Reconnects",
   "gRPC Downtime Trend",
@@ -54,8 +54,7 @@ export const grpcMetricNames = [
 
 export function parseGrpcStream(value: string | null) {
   return (
-    grpcStreamOptions.find((option) => option.value === value)?.value ??
-    "transaction"
+    grpcStreamOptions.find((option) => option.value === value)?.value ?? "all"
   );
 }
 

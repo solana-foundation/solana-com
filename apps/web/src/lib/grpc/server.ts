@@ -122,7 +122,7 @@ export function buildGrpcDataQuery() {
       if(sum(delivered) > 0, quantiles[6] / 1e6, NULL) AS p99_ms,
       if(sum(delivered) > 0, quantiles[7] / 1e6, NULL) AS p999_ms,
       toFloat64(sum(lag_sum)) / nullIf(sum(delivered), 0) / 1e6 AS avg_ms,
-      toFloat64(sum(missed)) AS missed_updates
+      toFloat64(sum(missed)) / (sum(delivered) + sum(missed)) * 100 AS miss_rate
     FROM (SELECT toStartOfInterval(bucket, INTERVAL {step:UInt32} SECOND) AS bucket,
       provider, delivered, missed, lag_sum, percentiles FROM selected)
     GROUP BY GROUPING SETS ((provider, bucket), (provider))
@@ -139,7 +139,7 @@ type GrpcResult = {
   p99_ms: number | null;
   p999_ms: number | null;
   avg_ms: number | null;
-  missed_updates: number;
+  miss_rate: number;
 };
 
 const grpcMetricFields = [
@@ -194,17 +194,21 @@ export async function getGrpcMetricRows(
         ];
       },
     );
-    if (Number.isInteger(row.missed_updates) && row.missed_updates >= 0) {
+    if (
+      Number.isFinite(row.miss_rate) &&
+      row.miss_rate >= 0 &&
+      row.miss_rate <= 100
+    ) {
       metricRows.push({
         date: new Date(
           (row.entire_period ? end : row.timestamp) * 1000,
         ).toISOString(),
         providerName: normalizeProviderName(row.provider),
         metricName: row.entire_period
-          ? "gRPC Missed Updates"
-          : "gRPC Missed Updates Trend",
-        unit: "Count",
-        value: row.missed_updates,
+          ? "gRPC Miss Rate"
+          : "gRPC Miss Rate Trend",
+        unit: "Percent",
+        value: row.miss_rate,
       });
     }
     return metricRows;
@@ -224,7 +228,7 @@ export async function getGrpcMetricRows(
       providers.set(row.providerName, { downtime: 0, reconnects: 0 });
       if (
         row.metricName === "gRPC P50 Lag" ||
-        row.metricName === "gRPC Missed Updates Trend"
+        row.metricName === "gRPC Miss Rate Trend"
       ) {
         const providerBuckets = buckets.get(row.providerName) ?? new Map();
         providerBuckets.set(Date.parse(row.date) / 1000, {

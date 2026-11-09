@@ -3,16 +3,19 @@ import { getProviderColor } from "./dashboard-providers";
 import type { ChartSeries, SeriesPoint } from "./time-series-chart";
 
 export const grpcTableMetrics = [
+  "Avg",
   "P50",
   "P95",
   "P99",
-  "Avg",
-  "Missed Updates",
+  "Miss Rate",
   "Downtime",
   "Reconnects",
 ] as const;
 export type GrpcTableMetric = (typeof grpcTableMetrics)[number];
 export type GrpcSortKey = "provider" | GrpcTableMetric;
+// The default ranking has no column of its own, so no header shows a sort arrow.
+export type GrpcSortState = GrpcSortKey | "ranking";
+export const defaultGrpcSortKey: GrpcSortState = "ranking";
 export type GrpcProviderItem = {
   provider: string;
   values: Record<GrpcTableMetric, number | null>;
@@ -34,7 +37,7 @@ export function getGrpcTrendSeries(
       row.metricName !==
         (metric === "Downtime" ||
         metric === "Reconnects" ||
-        metric === "Missed Updates"
+        metric === "Miss Rate"
           ? `gRPC ${metric} Trend`
           : `gRPC ${metric} Lag`) ||
       !selectedProviders.has(provider) ||
@@ -78,9 +81,7 @@ export function getGrpcProviderItems(
     const metric = grpcTableMetrics.find(
       (label) =>
         row.metricName ===
-        (label === "Downtime" ||
-        label === "Reconnects" ||
-        label === "Missed Updates"
+        (label === "Downtime" || label === "Reconnects" || label === "Miss Rate"
           ? `gRPC ${label}`
           : `gRPC ${label} Lag Entire Period`),
     );
@@ -89,11 +90,11 @@ export function getGrpcProviderItems(
     const item = providers.get(provider) ?? {
       provider,
       values: {
+        "Miss Rate": null,
+        Avg: null,
         P50: null,
         P95: null,
         P99: null,
-        Avg: null,
-        "Missed Updates": null,
         Downtime: null,
         Reconnects: null,
       },
@@ -129,22 +130,41 @@ export function formatGrpcDowntime(seconds: number, locale: string) {
   }).format(value);
 }
 
+function compareNullableValues(first: number | null, second: number | null) {
+  if (first === null) return second === null ? 0 : 1;
+  if (second === null) return -1;
+  return first - second;
+}
+
+// The default ranking orders by miss rate, then average lag, so a provider that
+// drops updates never ranks above one that delivers them all. A column sort uses
+// only that column, falling back to the ranking when values tie.
 export function sortGrpcProviderItems(
   items: readonly GrpcProviderItem[],
-  key: GrpcSortKey,
+  key: GrpcSortState,
   direction: "ascending" | "descending",
 ) {
   const multiplier = direction === "ascending" ? 1 : -1;
   return [...items].sort((a, b) => {
     if (key === "provider")
       return a.provider.localeCompare(b.provider) * multiplier;
+    if (key === "ranking")
+      return (
+        compareNullableValues(a.values["Miss Rate"], b.values["Miss Rate"]) ||
+        compareNullableValues(a.values.Avg, b.values.Avg) ||
+        a.provider.localeCompare(b.provider)
+      );
     const first = a.values[key],
       second = b.values[key];
-    if (first === null)
-      return second === null ? a.provider.localeCompare(b.provider) : 1;
-    if (second === null) return -1;
+    // Providers without a value always sink, whichever way the column sorts.
+    if (first === null || second === null) {
+      const missing = compareNullableValues(first, second);
+      if (missing) return missing;
+    } else if (first !== second) return (first - second) * multiplier;
     return (
-      (first - second) * multiplier || a.provider.localeCompare(b.provider)
+      compareNullableValues(a.values["Miss Rate"], b.values["Miss Rate"]) ||
+      compareNullableValues(a.values.Avg, b.values.Avg) ||
+      a.provider.localeCompare(b.provider)
     );
   });
 }

@@ -129,7 +129,7 @@ export function getDashboardDataUrl({
   rpcTimeframe,
   grpcRegion = "all",
   grpcCloudProvider = "all",
-  grpcStream = "transaction",
+  grpcStream = "all",
   grpcCommitment = "processed",
 }: {
   activeTab: DashboardTab;

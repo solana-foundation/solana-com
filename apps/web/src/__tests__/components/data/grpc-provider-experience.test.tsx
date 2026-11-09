@@ -49,17 +49,17 @@ const rows: MetricRow[] = ["Helius", "Alchemy"].flatMap(
     ]),
     {
       providerName,
-      metricName: "gRPC Missed Updates",
-      value: index * 10,
+      metricName: "gRPC Miss Rate",
+      value: index * 0.25,
       date: "2026-10-26T20:10:00.000Z",
-      unit: "Count",
+      unit: "Percent",
     },
     {
       providerName,
-      metricName: "gRPC Missed Updates Trend",
-      value: index * 3,
+      metricName: "gRPC Miss Rate Trend",
+      value: index * 0.5,
       date: "2026-10-26T20:00:00.000Z",
-      unit: "Count",
+      unit: "Percent",
     },
     {
       providerName,
@@ -161,10 +161,22 @@ describe("gRPC provider experience", () => {
       name: "gRPC provider latency for the selected region and time frame",
     });
     expect(within(table).getAllByRole("row")).toHaveLength(3);
-    expect(
-      within(table).getByRole("columnheader", { name: "P50" }),
-    ).toHaveAttribute("aria-sort", "ascending");
+    for (const header of within(table).getAllByRole("columnheader"))
+      expect(header).not.toHaveAttribute("aria-sort");
     expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Helius");
+    expect(
+      screen.getByText(
+        "By default, we sort providers by miss rate, then by average lag. Select a column header to sort by that column alone.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "How we measure" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "By default, we sort by miss rate first, then average lag, so a fast stream that drops updates ranks below one that delivers everything.",
+      ),
+    ).toBeInTheDocument();
     expect(
       within(table).getByRole("columnheader", { name: "Downtime" }),
     ).toBeInTheDocument();
@@ -174,7 +186,22 @@ describe("gRPC provider experience", () => {
     expect(within(table).getAllByRole("row")[1]).toHaveTextContent("0s");
     expect(within(table).getAllByRole("row")[2]).toHaveTextContent("1.5m");
     fireEvent.click(within(table).getByRole("button", { name: "P50" }));
+    expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Helius");
+    fireEvent.click(within(table).getByRole("button", { name: "P50" }));
     expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Alchemy");
+  });
+
+  it("explains what each column measures in a tooltip", async () => {
+    renderExperience();
+    const table = screen.getByRole("table");
+    fireEvent.focus(within(table).getByRole("button", { name: "P95" }));
+    expect(
+      (
+        await screen.findAllByText(
+          "95% of delivered updates arrived within this many milliseconds of the first provider. Shows how far the slower deliveries trail. Lower is better.",
+        )
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("shows all slot statuses without a commitment selector when viewing slots", () => {
@@ -218,37 +245,32 @@ describe("gRPC provider experience", () => {
     );
   });
 
-  it("shows missed-update totals and switches the comparison to missed counts", () => {
+  it("shows miss rates and switches the comparison to miss rate over time", () => {
     renderExperience();
     const table = screen.getByRole("table");
-    expect(
-      within(table).getByRole("columnheader", { name: "Missed updates" }),
-    ).toBeInTheDocument();
     const providerRows = within(table).getAllByRole("row").slice(1);
     expect(within(providerRows[0]).getAllByRole("cell")[5]).toHaveTextContent(
-      /^0$/,
+      /^0%$/,
     );
     expect(within(providerRows[1]).getAllByRole("cell")[5]).toHaveTextContent(
-      /^10$/,
+      /^0\.25%$/,
     );
-    fireEvent.click(
-      within(table).getByRole("button", { name: "Missed updates" }),
-    );
+    fireEvent.click(within(table).getByRole("button", { name: "Miss rate" }));
     expect(
-      within(table).getByRole("columnheader", { name: "Missed updates" }),
+      within(table).getByRole("columnheader", { name: "Miss rate" }),
     ).toHaveAttribute("aria-sort", "ascending");
     const controls = screen.getByRole("group", { name: "Chart metric" });
     fireEvent.click(
-      within(controls).getByRole("button", { name: "Missed updates" }),
+      within(controls).getByRole("button", { name: "Miss rate" }),
     );
     expect(
-      screen.getByRole("heading", { name: "Missed updates over time" }),
+      screen.getByRole("heading", { name: "Miss rate over time" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "Missed updates over time" }),
+      screen.getByRole("img", { name: "Miss rate over time" }),
     ).toBeInTheDocument();
     expect(
-      within(controls).getByRole("button", { name: "Missed updates" }),
+      within(controls).getByRole("button", { name: "Miss rate" }),
     ).toHaveAttribute("aria-pressed", "true");
   });
 

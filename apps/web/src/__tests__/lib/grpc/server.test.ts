@@ -50,7 +50,7 @@ describe("gRPC benchmark", () => {
     ).toEqual({
       region: "all",
       cloudProvider: "all",
-      stream: "transaction",
+      stream: "all",
       commitment: "processed",
       timeframe: "6h",
     });
@@ -197,7 +197,7 @@ describe("gRPC benchmark", () => {
     ).toEqual([13, 18]);
   });
 
-  it("returns missed counts for each bucket and the whole period, including providers with no deliveries", async () => {
+  it("returns miss rates for each bucket and the whole period, including providers with no deliveries", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -207,35 +207,35 @@ describe("gRPC benchmark", () => {
               timestamp: now / 1000 - 120,
               entire_period: 0,
               p50_ms: 1,
-              missed_updates: 3,
+              miss_rate: 0.3,
             },
             {
               provider: "alchemy",
               timestamp: now / 1000 - 60,
               entire_period: 0,
               p50_ms: 2,
-              missed_updates: 7,
+              miss_rate: 0.7,
             },
             {
               provider: "alchemy",
               timestamp: 0,
               entire_period: 1,
               p50_ms: 1.5,
-              missed_updates: 10,
+              miss_rate: 0.5,
             },
             {
               provider: "helius",
               timestamp: 0,
               entire_period: 1,
               p50_ms: 0,
-              missed_updates: 0,
+              miss_rate: 0,
             },
             {
               provider: "missed-only",
               timestamp: 0,
               entire_period: 1,
               p50_ms: null,
-              missed_updates: 12,
+              miss_rate: 100,
             },
           ],
         }),
@@ -249,27 +249,29 @@ describe("gRPC benchmark", () => {
     );
     expect(
       result.rows
-        .filter((row) => row.metricName === "gRPC Missed Updates")
+        .filter((row) => row.metricName === "gRPC Miss Rate")
         .map((row) => [row.providerName, row.value, row.unit]),
     ).toEqual([
-      ["Alchemy", 10, "Count"],
-      ["Helius", 0, "Count"],
-      ["missed-only", 12, "Count"],
+      ["Alchemy", 0.5, "Percent"],
+      ["Helius", 0, "Percent"],
+      ["missed-only", 100, "Percent"],
     ]);
     expect(
       result.rows
-        .filter((row) => row.metricName === "gRPC Missed Updates Trend")
+        .filter((row) => row.metricName === "gRPC Miss Rate Trend")
         .map((row) => row.value),
-    ).toEqual([3, 7]);
+    ).toEqual([0.3, 0.7]);
     expect(
       result.rows.filter((row) => row.providerName === "missed-only"),
     ).toHaveLength(1);
     expect(
-      result.rows.find((row) => row.metricName === "gRPC Missed Updates")?.date,
+      result.rows.find((row) => row.metricName === "gRPC Miss Rate")?.date,
     ).toBe("2026-10-26T17:30:00.000Z");
     const [url, init] = fetchMock.mock.calls[0];
     expect(url.searchParams.get("param_cloudProvider")).toBe("Teraswitch");
-    expect(init.body).toContain("toFloat64(sum(missed)) AS missed_updates");
+    expect(init.body).toContain(
+      "toFloat64(sum(missed)) / (sum(delivered) + sum(missed)) * 100 AS miss_rate",
+    );
     expect(init.body).toContain("HAVING sum(delivered) + sum(missed) > 0");
     expect(init.body).toContain(
       "if(sum(delivered) > 0, quantiles[4] / 1e6, NULL)",
