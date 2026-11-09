@@ -1,8 +1,10 @@
 import { describe, it } from "vitest";
-import { expectExampleLogsSignature } from "../../../test/assert-signature";
+import { runExample } from "../../../test/record";
 
 describe("cookbook/transactions/pay-fees-with-any-token/web3v3", () => {
   it("creates a mint, transfers, and pays fees in tokens", async () => {
-    await expectExampleLogsSignature(() => import("./web3v3"));
+    await runExample(() => import("./web3v3"), {
+      output: new URL("./web3v3.output.txt", import.meta.url),
+    });
   });
 });

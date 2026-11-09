@@ -1,8 +1,10 @@
 import { describe, it } from "vitest";
-import { expectExampleLogsSignature } from "../../../test/assert-signature";
+import { runExample } from "../../../test/record";
 
 describe("cookbook/transactions/fee-sponsorship/web3v3-helper", () => {
   it("uses @solana-program/token helpers, fees paid by separate signer", async () => {
-    await expectExampleLogsSignature(() => import("./web3v3-helper"));
+    await runExample(() => import("./web3v3-helper"), {
+      output: new URL("./web3v3-helper.output.txt", import.meta.url),
+    });
   });
 });
