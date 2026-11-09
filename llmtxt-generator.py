@@ -118,7 +118,6 @@ CURATED_SECTIONS = {
         ("Kora", "docs/tools/kora", "Solana signing infrastructure"),
         ("Keychain", "docs/tools/keychain", "Unified Solana signing across key management backends"),
         ("Choosing a Signing Backend", "docs/tools/keychain/choosing-a-backend", "Compare custody models and pick a Keychain backend"),
-        ("Commerce Kit", "docs/tools/commerce-kit", "Commerce primitives for Solana payment experiences"),
         ("Solana Pay", "docs/tools/solana-pay", "Standard protocol for decentralized payments on Solana"),
         ("Attestations", "docs/tools/attestations", "Verifiable claims and credentials on Solana"),
         ("Private Channels", "docs/tools/private-channels", "Enterprise layer for internet capital markets"),
