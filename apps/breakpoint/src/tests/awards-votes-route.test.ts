@@ -127,6 +127,32 @@ describe("awards voting route", () => {
       ).toBe(403);
     }
     expect(createVote).not.toHaveBeenCalled();
+    expect(upsertUser).not.toHaveBeenCalled();
+  });
+
+  it("rejects a submission when voting closes during verification", async () => {
+    votingStatus.mockReturnValueOnce("open").mockReturnValue("closed");
+    const response = await POST(
+      submission({ categoryId, twitterHandle: "@candidate_one" }),
+    );
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "Voting is closed." });
+    expect(createVote).not.toHaveBeenCalled();
+  });
+
+  it("returns closed status while preserving stored votes", async () => {
+    votingStatus.mockReturnValue("closed");
+    const response = await GET(
+      new NextRequest("http://localhost:3005/breakpoint/api/votes"),
+    );
+    expect(await response.json()).toMatchObject({
+      votingStatus: "closed",
+      votes: [
+        { ...savedVote, submittedAt: savedVote.submittedAt.toISOString() },
+      ],
+    });
+    expect(createVote).not.toHaveBeenCalled();
+    expect(upsertUser).not.toHaveBeenCalled();
   });
 
   it("rejects unapproved category and finalist pairs", async () => {

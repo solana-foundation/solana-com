@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
 import AwardsPage from "@/components/pages/awards/AwardsPage";
 import { getPageMetadata } from "@/app/metadata";
-import { getAwardsCampaignStatus } from "@/lib/awards-campaign";
+import {
+  getAwardsCampaignStatus,
+  getAwardsVotingStatus,
+} from "@/lib/awards-campaign";
 
 export const dynamic = "force-dynamic";
 
@@ -14,11 +17,16 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "breakpoint.awards" });
   const nominationsActive = getAwardsCampaignStatus() !== "closed";
+  const votingClosed = getAwardsVotingStatus() === "closed";
   return getPageMetadata(locale, {
     path: "/awards",
-    title: t("metadata.title"),
+    title: t(votingClosed ? "closed.metadataTitle" : "metadata.title"),
     description: t(
-      nominationsActive ? "metadata.description" : "voting.metadataDescription",
+      votingClosed
+        ? "closed.metadataDescription"
+        : nominationsActive
+          ? "metadata.description"
+          : "voting.metadataDescription",
     ),
   });
 }
