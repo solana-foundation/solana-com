@@ -1,4 +1,5 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
+import { DatabaseSync } from "node:sqlite";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -14,10 +15,6 @@ const MAX_ATTEMPTS = 3;
 
 type State = { nextRequestAt: number; cooldownUntil: number };
 
-function isMissing(error: unknown) {
-  return (error as NodeJS.ErrnoException).code === "ENOENT";
-}
-
 /**
  * One conservative queue for all bases on this host, including separate Next.js
  * build workers and apps. /tmp is writable in deploy builds and Node functions.
@@ -25,55 +22,43 @@ function isMissing(error: unknown) {
  * Only timestamps are persisted, never tokens, URLs, or Airtable records.
  */
 export function createAirtableClient({
-  directory = join(tmpdir(), "solana-com-airtable-v1"),
+  directory = join(tmpdir(), "solana-com-airtable-v2"),
   now = Date.now,
   sleep = (ms: number) =>
     new Promise<void>((resolve) => setTimeout(resolve, ms)),
   random = Math.random,
 } = {}) {
-  const lockPath = join(directory, "lock");
-  const statePath = join(directory, "state.json");
-
   async function updateState<T>(update: (state: State) => T): Promise<T> {
     await mkdir(directory, { recursive: true });
-    const deadline = now() + 65_000;
-    while (true) {
-      try {
-        await mkdir(lockPath);
-        break;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-        try {
-          // Recover a worker that died during the short timestamp-only update.
-          if (now() - (await stat(lockPath)).mtimeMs > 60_000) {
-            await rm(lockPath, { recursive: true, force: true });
-            continue;
-          }
-        } catch (error) {
-          if (!isMissing(error)) throw error;
-          continue;
-        }
-        if (now() >= deadline)
-          throw new Error("Airtable pacing lock timed out");
-        await sleep(25 + Math.floor(random() * 25));
-      }
-    }
-
+    // SQLite owns the inter-process lock and releases it if a worker dies. Never
+    // delete a lock based on its age: another worker may already have replaced it.
+    const database = new DatabaseSync(join(directory, "pacing.sqlite"), {
+      timeout: 10_000,
+    });
     try {
-      let state: State = { nextRequestAt: 0, cooldownUntil: 0 };
-      try {
-        state = JSON.parse(await readFile(statePath, "utf8")) as State;
-      } catch (error) {
-        if (!isMissing(error)) throw error;
-      }
+      database.exec(`
+        CREATE TABLE IF NOT EXISTS pacing (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          nextRequestAt INTEGER NOT NULL,
+          cooldownUntil INTEGER NOT NULL
+        );
+        BEGIN IMMEDIATE;
+        INSERT OR IGNORE INTO pacing VALUES (1, 0, 0);
+      `);
+      const state = database
+        .prepare("SELECT nextRequestAt, cooldownUntil FROM pacing WHERE id = 1")
+        .get() as State;
       const result = update(state);
-      // Rename avoids leaving a partial state file if a worker exits mid-write.
-      const temporaryPath = join(directory, "state.tmp");
-      await writeFile(temporaryPath, JSON.stringify(state));
-      await rename(temporaryPath, statePath);
+      database
+        .prepare(
+          "UPDATE pacing SET nextRequestAt = ?, cooldownUntil = ? WHERE id = 1",
+        )
+        .run(state.nextRequestAt, state.cooldownUntil);
+      database.exec("COMMIT");
       return result;
     } finally {
-      await rm(lockPath, { recursive: true, force: true });
+      // Closing rolls back an incomplete transaction, including on errors.
+      database.close();
     }
   }
 
