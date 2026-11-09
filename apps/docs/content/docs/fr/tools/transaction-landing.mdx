@@ -1,0 +1,377 @@
+---
+title: Inclusion des transactions
+description:
+  Bonnes pratiques pour améliorer le taux d'inclusion des transactions de votre application Solana sur Mainnet
+---
+
+## Infrastructure RPC
+
+Les [endpoints publics](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet.solana.com`) sont soumis à des limites de débit et ne sont couverts
+par aucun SLA. Ils conviennent au développement, mais feront échouer les flux de
+paiement en production, un peu comme si vous tentiez de faire tourner un
+processeur de paiement via une API partagée sans garantie de disponibilité.
+
+<Callout type="caution" title="N'utilisez jamais un RPC public en production">
+  Utilisez un [fournisseur RPC privé](https://solana.com/rpc) pour bénéficier d'un accès
+  fiable et à faible latence.
+</Callout>
+
+Lorsque vous choisissez un fournisseur RPC, tenez compte des critères suivants :
+
+- **Fiabilité** : des SLA avec garantie de disponibilité (99,9 % et plus)
+- **Latence** : proximité géographique avec vos utilisateurs
+- **Fonctionnalités** : fonctionnalités d'inclusion des transactions, indexation, API de frais de priorité
+
+Pour consulter la liste complète des fournisseurs RPC, reportez-vous au guide
+[Fournisseurs d'infrastructure RPC](https://solana.com/rpc).
+
+### Configuration RPC redondante
+
+Comme tout fournisseur de services réseau, les fournisseurs RPC peuvent subir
+des interruptions ou des périodes de performances dégradées. Pour garantir la
+résilience de votre application, vous devez la configurer afin qu'elle utilise
+plusieurs fournisseurs RPC.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+fournit une bibliothèque permettant de personnaliser les transports RPC, ce qui
+vous permet de créer votre propre client RPC redondant. Voici un exemple de la
+manière dont vous pouvez l'utiliser pour construire un client RPC redondant :
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Si vous préférez ne pas créer vos propres outils de routage, vous pouvez
+vous appuyer sur un service tiers comme [Iron Forge](https://www.ironforge.sanctum.so/) pour
+gérer le routage à votre place.
+
+## Inclusion des transactions
+
+Sur Devnet, les transactions sont incluses assez facilement. Sur Mainnet, vous
+êtes en concurrence pour l'espace dans les blocs. Pour augmenter les chances que
+votre transaction soit incluse dans un bloc, vous devez vous assurer de l'avoir
+correctement assemblée. Cela signifie :
+
+- inclure un blockhash récent avant d'envoyer la transaction
+- inclure dans la transaction une instruction de frais de priorité avec des frais
+  de priorité compétitifs
+- inclure dans la transaction une instruction de limite d'unités de calcul, avec
+  une limite basée sur le nombre estimé d'unités de calcul requises pour la
+  transaction
+
+Vous devriez en outre envisager d'autres outils, comme les Jito Bundles, pour
+augmenter les chances que votre transaction soit incluse dans un bloc.
+Examinons ces outils plus en détail.
+
+### Configuration d'envoi des transactions
+
+Lorsque vous envoyez des transactions sur Mainnet, configurez ces paramètres
+pour obtenir des taux d'inclusion optimaux :
+
+**Gestion du blockhash :**
+
+- Récupérez-le avec l'engagement `confirmed`
+- Conservez la valeur `lastValidBlockHeight` renvoyée par `getLatestBlockhash` :
+  elle indique quand votre transaction expire
+- Les blockhashes expirent après un délai défini par le protocole, qui dépend de
+  la durée du slot.
+
+**Options d'envoi :**
+
+- `maxRetries: 0` — Désactive les nouvelles tentatives automatiques du RPC. Gérez
+  les nouvelles tentatives vous-même afin de pouvoir actualiser le blockhash
+  si nécessaire.
+- `skipPreflight: true` — Contourne la simulation avant l'envoi. Utilisez cette
+  option lorsque vous avez déjà validé la transaction et souhaitez la latence
+  la plus faible. Laissez-la à `false` pendant le développement pour détecter
+  les erreurs au plus tôt.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Utiliser les frais de priorité
+
+Chaque transaction Solana nécessite des frais de transaction, payés en SOL. Les
+frais de transaction se divisent en deux parties : les frais de base et les
+frais de priorité. Les frais de base rémunèrent les validators pour le
+traitement de la transaction. Les frais de priorité sont facultatifs et
+augmentent les chances que le leader actuel traite votre transaction.
+Pensez-y comme à une livraison express : vous payez plus cher pour une
+livraison plus rapide et plus fiable.
+
+**Comment fonctionnent les frais :**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,000) lamports
+Priority fee (v1 only) = Absolute total in lamports set in the message config
+```
+
+**Coûts réels :**
+
+- Transfert USDC simple : ~0,001-0,005 $ dans des conditions normales
+- En cas de congestion : ~0,01-0,05 $
+- Pic de congestion : les frais peuvent grimper encore plus haut
+
+**Exemple d'implémentation :**
+
+Le package
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+fournit une fonction utilitaire pour mettre à jour ou ajouter facilement à une
+transaction l'instruction de prix de l'unité de calcul (en micro-lamports).
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Obtenir des estimations de frais :** la plupart des fournisseurs RPC proposent des API de frais de priorité :
+
+- [API Helius Priority Fee](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [Module complémentaire QuickNode Priority Fee](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [API Triton Priority Fees](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Pour connaître le détail du fonctionnement des frais, consultez [Frais de transaction](/docs/core/fees) et notre
+guide :
+[Comment ajouter des frais de priorité à une transaction](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Optimiser les unités de calcul
+
+Sur Solana, le calcul se mesure en unités de calcul (CU), qui constituent une
+estimation approximative de la quantité de travail effectuée par le programme.
+Les limites de calcul actuelles sont de 50 millions de CU par bloc et de
+1,4 million de CU par transaction. Lorsque vous soumettez une transaction, vous
+devez estimer la quantité de calcul qui sera utilisée et définir la limite
+d'unités de calcul en conséquence : il s'agit en pratique d'une demande portant
+sur la part de la capacité totale à réserver pour votre transaction. Concrètement,
+estimer correctement les unités de calcul requises par votre transaction est
+décisif pour qu'elle soit incluse dans un bloc (et important pour gérer vos frais
+de priorité). Les limites de calcul par transaction et par bloc sont déterminées
+par le protocole.
+
+L'API JSON RPC de Solana propose une méthode
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction) qui permet d'estimer
+les unités de calcul requises pour une transaction. [`@solana/kit`](https://github.com/anza-xyz/kit) fournit des fonctions utilitaires
+qui estiment les limites de ressources d'une transaction et les définissent sur
+le message en une seule étape (en s'appuyant en interne sur la méthode
+`simulatetransaction`). Pour les transactions de version 1, ces fonctions
+estiment également la limite de taille des données des comptes chargés.
+
+```ts
+import {
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
+
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
+);
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
+```
+
+<Callout type="info">
+  Si vous créez et envoyez vos transactions avec un client à plugins du kit, vous
+  n'avez généralement pas besoin de cette étape : le client ajoute pour vous les
+  instructions de budget de calcul lors de l'envoi (`.sendTransaction()`). Le
+  flux manuel ci-dessus s'adresse aux cas où vous assemblez directement les
+  transactions avec `@solana/kit`.
+</Callout>
+
+En production, si vous répétez plusieurs fois le même type de transaction,
+envisagez de mettre en cache l'estimation de calcul pour ce type de transaction
+afin d'éviter le surcoût lié à l'estimation des unités de calcul à chaque fois.
+
+### Jito Bundles
+
+Les Jito Bundles sont un outil permettant de gérer l'exécution atomique de
+plusieurs transactions. Pour cela, on envoie plusieurs transactions au réseau
+Jito avec un pourboire. Les pourboires peuvent servir à inciter le réseau Jito à
+inclure vos transactions dans un bloc.
+
+**Ressources :**
+
+- [Documentation Jito](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Vidéo : Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [Guide QuickNode sur les Jito Bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Stratégies de nouvelle tentative
+
+Les transactions peuvent échouer pour de nombreuses raisons. Contrairement aux
+API de paiement traditionnelles, qui renvoient immédiatement un succès ou un
+échec, les transactions blockchain nécessitent un suivi de la confirmation.
+
+**Concepts clés :**
+
+- **Expiration du blockhash** : expiration du blockhash : les blockhashes des
+  transactions restent valides pendant 150 slots (environ 30 secondes avec des
+  slots de 200 ms). La durée d'expiration réelle peut varier selon la vitesse de
+  production des blocs. Utilisez lastValidBlockHeight pour déterminer quand un
+  blockhash a expiré.
+- **Idempotence** : une même transaction signée produit toujours la même
+  signature, ce qui permet de la soumettre à nouveau sans risque
+- **Backoff exponentiel** : évitez de saturer le réseau avec des nouvelles tentatives trop rapprochées
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+La fonction `sendAndConfirmTransactionFactory` de `@solana/kit` gère
+automatiquement le polling de confirmation et le suivi de la hauteur de bloc.
+Elle lève l'erreur `SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` lorsque le blockhash de
+la transaction expire, ce qui indique qu'il faut reconstruire la transaction
+avec un blockhash récent.
+
+### Ressources supplémentaires
+
+- [Helius: How to Land Transactions on Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Strategies to Optimize Solana Transactions](https://www.quicknode.com/docs/solana/transactions)
+
+## Gestion des erreurs
+
+Solana Kit fournit des erreurs typées via `isSolanaError()`. Utilisez des codes
+d'erreur spécifiques plutôt qu'une correspondance de chaînes :
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Codes d'erreur courants :**
+
+| Code d'erreur                   | Cause                 | Résolution                                                                                                 |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash expiré     | Reconstruire avec un blockhash récent                                                                             |
+| `BLOCKHASH_NOT_FOUND`        | Blockhash introuvable   | Reconstruire avec un blockhash récent                                                                             |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL insuffisants        | Approvisionner le payeur de frais ou utiliser l'[abstraction des frais](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Jetons insuffisants     | L'utilisateur doit augmenter son solde                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | token account manquant | Créer l'ATA dans la transaction                                                                                |
+
+## Transactions sans frais de gas
+
+Les utilisateurs s'attendent à payer en stablecoins, pas à acquérir des SOL pour
+les frais de réseau. Les transactions sans frais de gas résolvent ce problème,
+un peu comme les utilisateurs de Venmo ne se soucient pas des frais ACH.
+Consultez
+[Abstraction des frais](/docs/payments/send-payments/payment-processing/fee-abstraction)
+pour l'implémentation complète.

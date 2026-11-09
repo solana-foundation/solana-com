@@ -1,85 +1,73 @@
 ---
-title: "Jito DontFrontによるMEV対策"
+title: "Jito DontFront によるMEV対策"
 description:
-  Jitoのdontfront機能を使用して、サンドイッチ攻撃からSolanaトランザクションを保護する方法を学びます。このガイドでは、サンドイッチ攻撃の仕組み、dontfrontによるフロントランニング防止、バンドルの順序ルール、チップ戦略、TypeScriptおよびRustでの統合例について説明します。
+  "Jito の dontfront 機能を使って、Solana トランザクションをサンドイッチ攻撃から守る方法を解説します。サンドイッチ攻撃の仕組み、dontfront がフロントランを防ぐ仕組み、バンドルの順序ルール、チップ戦略、TypeScript と Rust での統合例を紹介します。"
 ---
 
-# Jito DontFrontによるMEV対策
+# Jito DontFront によるMEV対策
 
-Maximal Extractable Value（MEV）とは、ブロック内のトランザクションを並べ替え、含める、または除外することで得られる価値のことです。MEVは特定のチェーンに固有のものではなく、ブロック生成者がトランザクションの順序を制御するあらゆるブロックチェーンの基本的な特性です。裁定取引のように、DEX間の価格差を修正することで市場効率を高めるMEVの形態もあります。一方、サンドイッチ攻撃のように、ユーザーから直接価値を搾取するものもあります。DeFiアプリケーションを構築する開発者にとって、これはトレード実行の悪化や利益損失を意味する可能性があります。
+Maximal Extractable Value(MEV、最大抽出可能価値)とは、ブロック内のトランザクションの並べ替え、挿入、除外によって獲得できる価値を指します。MEV は特定のチェーンに固有のものではなく、ブロックプロデューサーがトランザクションの順序を制御するあらゆるブロックチェーンに共通する本質的な性質です。アービトラージのように、DEX 間の価格差を是正して市場の効率性を保つ助けとなる MEV もあります。一方、サンドイッチ攻撃のように、ユーザーから直接価値を奪うものもあります。DeFi アプリケーションを構築する開発者にとっては、取引の約定条件の悪化や利益の損失につながる可能性があります。
 
-このガイドでは、有害なMEVの一般的な形態であるサンドイッチ攻撃と、Jitoの`dontfront`機能を使ってそれを軽減する方法に焦点を当てます。
+このガイドでは、有害な MEV の代表例であるサンドイッチ攻撃と、Jito の `dontfront` 機能を使ってそれを軽減する方法に焦点を当てます。
 
-事前に読むことを推奨します：
-[Jito Bundles](https://solana.com/docs/tools/transaction-landing#jito-bundles)
+事前に読んでおくことをおすすめします:
+[Jito バンドル](https://solana.com/docs/tools/transaction-landing#jito-bundles)
 
-## SolanaにおけるMEV
+## Solana における MEV
 
-Solanaのアーキテクチャは、パブリックメンプールを持つチェーンと比較して、すでにMEVの攻撃対象領域を縮小しています。トランザクションは共有メンプールに置かれるのではなく、次のブロックリーダーに直接転送され、未処理のトランザクションはおよそ150ブロック（約1分）後に期限切れになります。これにより、サーチャーが保留中のトランザクションを観察して対応できる時間帯が大幅に狭まります。
+Solana のアーキテクチャは、パブリックな mempool を持つチェーンと比べて、MEV の攻撃対象領域をすでに小さくしています。トランザクションは共有の mempool に留まらず、次のブロックリーダーに直接転送されます。また、未処理のトランザクションは約150ブロック(約1分)後に期限切れとなります。これにより、サーチャーが保留中のトランザクションを観測して対応できる時間枠が大幅に狭まります。
 
-それでも、MEVの搾取は発生します。最適化されたインフラと直接的なvalidator接続を持つサーチャーは、トランザクションフローを観察してそれに対応できます。Solana上のMEV活動の多くはアトミック裁定取引です。つまり、単一のトランザクションでDEX間の価格差を修正するボットです。このタイプのMEVは市場全体の価格一貫性を向上させるため、一般的に有益とみなされています。
+とはいえ、MEV の抽出は依然として行われています。最適化されたインフラと validator への直接接続を持つサーチャーは、トランザクションフローを観測し、それに対応できます。Solana における MEV 活動の多くは、単一のトランザクションで DEX 間の価格差を是正するボットによるアトミックなアービトラージです。この種の MEV は、市場間の価格の一貫性を高めるため、一般的に有益です。
 
-開発者が積極的に対策すべき有害な種類は、サンドイッチ攻撃です。
+開発者が積極的に防御すべきなのは、有害な種類であるサンドイッチ攻撃です。
 
-## サンドイッチ攻撃とは？
+## サンドイッチ攻撃とは?
 
-サンドイッチ攻撃は、サーチャーが保留中のスワップを検知し、トランザクションの順序を悪用することで発生します：
+サンドイッチ攻撃は、サーチャーが保留中のスワップを検知し、トランザクションの順序を悪用することで発生します:
 
-1. **フロントラン**：サーチャーがあなたのトレードより先にトークンを購入し、価格を
-   引き上げる
-2. **あなたのトレードが実行**され、予想より悪い価格になる
-3. **バックラン**：サーチャーがあなたのトレードの後にトークンを売却し、
-   差額を手に入れる
+1. **フロントラン**: サーチャーがあなたの取引の前にトークンを購入し、価格を押し上げます
+2. **あなたの取引が実行される**: 想定よりも不利な価格で約定します
+3. **バックラン**: サーチャーがあなたの取引の後にトークンを売却し、差額を手にします
 
-Solanaでは、これは
-[Jitoバンドル](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles)を通じて発生する可能性があります。
-サーチャーは`[frontrun_tx, your_tx, backrun_tx]`のようなトランザクションのバンドルを送信し、ブロックエンジンがそれらをアトミックに順番に実行します。被害者は実行価格が悪化し、サーチャーはスプレッドから利益を得ます。
+Solana では、[Jito バンドル](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles)を通じてこれが可能になります。サーチャーは `[frontrun_tx, your_tx, backrun_tx]` のようなトランザクションのバンドルを送信し、ブロックエンジンはそれらを順序どおりにアトミックに実行します。被害者は不利な約定価格となり、サーチャーはスプレッドから利益を得ます。
 
-## DontFrontの仕組み
+## DontFront の仕組み
 
-[DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)は、
-Jitoブロックエンジンの機能であり、サーチャーがバンドル内であなたのトランザクションより前にトランザクションを配置することを防ぎます。
+[DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation) は、Jito ブロックエンジンの機能で、バンドル内であなたのトランザクションより前にサーチャーがトランザクションを配置することを防ぎます。
 
-仕組み：`jitodontfront`で始まる有効なSolanaの公開鍵をトランザクションの任意のinstructionsに追加します。ブロックエンジンはこのプレフィックスを認識し、**あなたのトランザクションを含むバンドルはそれをインデックス0に配置しなければならない**というルールを適用します。
+仕組みは次のとおりです。`jitodontfront` で始まる有効な Solana 公開鍵を、トランザクション内の任意の instruction に追加します。ブロックエンジンはこのプレフィックスを認識し、**あなたのトランザクションを含むバンドルでは、そのトランザクションを必ずインデックス0に配置する**というルールを適用します。
 
 ```
 Without dontfront:  [frontrun_tx, your_tx, backrun_tx]  ← sandwich possible
 With dontfront:     [your_tx, ...]                       ← your tx must be first
 ```
 
-### ステップバイステップ
+### ステップごとの手順
 
-1. **有効なアドレスを選択する**（例：`jitodontfront111111111111111111111111111111`のように`jitodontfront`で始まるもの）。アカウントはオンチェーンに存在する必要はなく、読み取りも書き込みもされません。文字列が有効なアドレスであるかどうかは、@solana/kitの
-   [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)
-   関数を使用して確認するか、Solana Explorerにアドレスを入力して解決するかどうかを確認できます。こちらは
-   [無効なアドレス](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID)の例です。
+1. **有効なアドレスを選ぶ**: `jitodontfront` で始まるアドレス(例: `jitodontfront111111111111111111111111111111`)を選びます。このアカウントがオンチェーンに存在している必要はなく、読み取りも書き込みも行われません。文字列が有効なアドレスかどうかは、@solana/kit の [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress) 関数で確認できます。または、Solana Explorer にアドレスを入力して解決されるかどうかを確認することもできます。こちらは[無効なアドレス](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID)の例です。
 
-2. **読み取り専用の非署名者アカウントとして**トランザクションの任意のinstructionsに追加します。最適なランディング速度のために読み取り専用としてマークしてください。ほとんどのプログラム（System Programを含む）は、想定外の追加アカウントを無視します。
+2. **読み取り専用かつ非署名者のアカウントとして追加する**: トランザクション内の任意の instruction に追加します。ランディング速度を最適にするため、読み取り専用にしてください。ほとんどのプログラム(System Program を含む)は、想定している以外の余分なアカウントを無視します。
 
-3. **Jitoブロックエンジン経由で送信する**：
-   - `sendTransaction`:
-     `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
+3. **Jito ブロックエンジン経由で送信する**:
+   - `sendTransaction`: `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
    - `sendBundle`: `https://mainnet.block-engine.jito.wtf/api/v1/bundles`
 
-   ドキュメント：
-   [sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
-   および [sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+   ドキュメント: [sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction) および [sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
 
-4. ブロックエンジンが`jitodontfront`プレフィックスを検出し、順序ルールを適用します。
+4. ブロックエンジンは `jitodontfront` プレフィックスを検出し、順序ルールを適用します。
 
 ### ブロックエンジンでの処理
 
-ブロックエンジンが`jitodontfront`アカウントを含むトランザクションを検出した場合：
+ブロックエンジンは、`jitodontfront` アカウントを含むトランザクションを検出すると、次のように処理します:
 
-- `sendTransaction`経由：トランザクションは保護されます。どのバンドルも
-  その前に別のトランザクションを配置できません
-- `sendBundle`経由：トランザクションはインデックス0に配置されなければならず、そうでない場合はバンドル全体が拒否されます
+- `sendTransaction` 経由の場合: トランザクションは保護されます。どのバンドルも、他のトランザクションをその前に配置することはできません
+- `sendBundle` 経由の場合: トランザクションはインデックス0に配置されている必要があり、そうでない場合はバンドル全体が拒否されます
 
-`jitodontfront`アカウントを含まないトランザクションおよびバンドルには影響しません。
+`jitodontfront` アカウントを含まないトランザクションとバンドルは影響を受けません。
 
 ## バンドルの順序ルール
 
-これらのルールは、バンドル内に`jitodontfront`トランザクションが存在する場合に適用されます。
+これらのルールは、`jitodontfront` トランザクションがバンドル内に含まれる場合に適用されます。
 
 ### 許可されるパターン
 
@@ -89,12 +77,12 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 [tx_with_dontfront_signer1, tx_with_dontfront_signer1_and_signer2, tip]
 ```
 
-### 1つのバンドル内の複数のDontFrontトランザクション
+### 1つのバンドル内に複数の DontFront トランザクションがある場合
 
-1つのバンドル内に複数のdontfrontトランザクションを含めることは、**両方の**条件が満たされる場合に許可されます：
+1つのバンドル内に複数の dontfront トランザクションを含めることは、**両方**の条件を満たす場合に許可されます:
 
-1. すべてのdontfrontトランザクションがバンドルの**先頭に連続して**配置されている
-2. 各dontfrontトランザクションが最初のdontfrontトランザクションと**少なくとも1つの署名者**を共有している
+1. すべての dontfront トランザクションが、バンドルの**先頭に連続して**配置されている
+2. 各 dontfront トランザクションが、最初の dontfront トランザクションと**少なくとも1つの署名者**を共有している
 
 ```
 ✅ [txA_df, txB_df, txC_df, arbitrage, tip]
@@ -119,12 +107,11 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 
 ## 統合例
 
-クイックコードレシピについては、
-[MEV保護クックブックエントリ](/developers/cookbook/transactions/mev-protection)を参照してください。
+手早くコードのレシピを確認したい場合は、[MEV 対策のクックブックエントリ](/developers/cookbook/transactions/mev-protection)を参照してください。
 
-### TypeScript（@solana/kit）
+### TypeScript(@solana/kit)
 
-核となるアイデアは、dontfrontアカウントを任意のinstructionsに追加するヘルパーです：
+中心となるのは、任意の instruction に dontfront アカウントを追加するヘルパーです:
 
 <CodeTabs storage="guide-mev">
 
@@ -173,7 +160,7 @@ fn with_dontfront(ix: &mut Instruction) {
 
 </CodeTabs>
 
-次に、署名済みトランザクションを標準のRPCノードではなくJitoブロックエンジンに送信します。常にbase64エンコーディングを使用してください。Base58はJitoのAPIでは非推奨です。
+その後、署名済みのトランザクションを、標準の RPC ノードではなく Jito ブロックエンジンに送信します。エンコーディングには必ず base64 を使用してください。Jito の API では Base58 は非推奨です。
 
 <CodeTabs storage="guide-mev">
 
@@ -218,44 +205,39 @@ let response = client
 
 ## ベストプラクティス
 
-DontFrontは保護の1つのレイヤーです。堅牢なMEV軽減戦略は複数のアプローチを組み合わせます：
+DontFront は保護レイヤーの1つにすぎません。堅牢な MEV 対策戦略では、複数のアプローチを組み合わせます:
 
 ### トランザクションレベルの保護
 
-- **スリッページ許容値を厳しく設定する。** サンドイッチ攻撃に対して最も効果的な防御策は、スワップの許容スリッページを制限することです。スリッページ幅が小さいほど、攻撃者が得られる利益マージンが減少し、サンドイッチの標的として魅力が薄れます。
+- **スリッページ許容値を厳しく設定する**: サンドイッチ攻撃に対する最も効果的な防御策は、スワップで許容するスリッページを制限することです。スリッページの許容幅が小さいほど、攻撃者が得られる利益幅が減り、あなたのトランザクションはサンドイッチの標的として魅力が低くなります。
 
-- **適切なチップと優先手数料を設定する。** 混雑時には、チップと優先手数料を高くすることでトランザクション/バンドルが迅速にランディングする可能性が高まり、サーチャーが対応できる時間帯を縮小します。適切なチップの設定方法については、Jitoのドキュメント
-  [Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)を参照してください。
+- **適切なチップと優先手数料を設定する**: 混雑時には、チップと優先手数料を高くすることで、トランザクションやバンドルが素早くランディングする可能性が高まり、サーチャーが介入できる時間枠が狭まります。適切なチップの設定方法の詳細については、Jito のドキュメント[Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)を参照してください。
 
-- **コンピュートユニットの使用量を最適化する。** 各ブロックには利用可能なコンピュートユニット数に上限があります（アカウントごとにもブロック単位での上限があります）。トランザクション/バンドルがブロックに含まれる可能性を最大化するために、コンピュートユニットの使用量を最適化する必要があります。詳細については、
-  [SolanaでのコンピュートUsageの最適化方法](/developers/cookbook/transactions/optimize-compute)
-  ガイドを参照してください。
+- **コンピュートユニットの使用量を最適化する**: 各ブロックで利用可能なコンピュートユニットの数には上限があります(アカウントごとにもブロックあたりの上限があります)。トランザクションやバンドルがブロックに含まれる可能性を最大化するには、コンピュートユニットの使用量を最適化する必要があります。詳細は[Solana でコンピュート使用量を最適化する方法](/developers/cookbook/transactions/optimize-compute)ガイドを参照してください。
 
-### DontFront固有の設定
+### DontFront 固有の注意点
 
-1. **dontfrontアカウントを読み取り専用としてマークする。** 書き込み可能としてマークしても機能しますが、読み取り専用の方が
-   [ランディング速度を最適化](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)できます。
+1. **dontfront アカウントを読み取り専用にする**: 書き込み可能として指定しても動作しますが、読み取り専用にすると[ランディング速度が最適化されます](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)。
 
-2. **アプリケーションごとに固有のdontfront pubkeyを使用する。** `jitodontfront`で始まるどのpubkeyでも機能します。固有のバリアント（例：`jitodontfront111111111111111111111111111123`）を使用すると、オンチェーンデータを検査する際にアプリごとの使用状況を区別できます。
+2. **アプリケーションごとに固有の dontfront pubkey を使用する**: `jitodontfront` で始まる pubkey であればどれでも動作します。固有のバリエーション(例: `jitodontfront111111111111111111111111111123`)を使用すると、オンチェーンデータを調べる際に、アプリごとの利用状況を区別できます。
 
-3. **DontFrontはAddress Lookup Tablesをサポートしています。** dontfrontアカウントはALT経由で含めることができます。ただし、チップアカウントにはALTを使用しないでください。
+3. **DontFront は Address Lookup Table をサポートしています**: dontfront アカウントは ALT 経由で含めることができます。ただし、チップアカウントには ALT を使用しないでください。
 
 ## 制限事項
 
-- **ブロックエンジンのみ。** DontFrontはJitoブロックエンジンによって強制されます。
-  validatorに直接送信されたトランザクション（Jitoをバイパスするもの）は保護されません。
+- **ブロックエンジンのみ**: DontFront は Jito ブロックエンジンによって適用されます。Jito を経由せず validator に直接送信されたトランザクションは保護されません。
 
-- **保証ではありません。** Jitoのドキュメントより：_「この機能はサンドイッチ攻撃の軽減に役立つ可能性がありますが、保証されるものではなく、第三者が実施する順序付けを含む、トランザクション順序のすべてのバリエーションに対する解決策でもありません。」_
+- **保証ではない**: Jito のドキュメントには次のとおり記載されています: _「この機能はサンドイッチ攻撃の軽減に役立つ可能性がありますが、その効果は保証されておらず、第三者が行うものを含め、トランザクション順序のあらゆるバリエーションに対する解決策でもありません。」_
 
-- **メインネット/テストネットのみ。** これはJitoブロックエンジンの機能です。devnetやlocalhostでは動作しません。
+- **Mainnet/Testnet のみ**: これは Jito ブロックエンジンの機能です。devnet や localhost では動作しません。
 
 ## 参考資料
 
-- [Jitoドキュメント：サンドイッチ軽減](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
-- [Jitoドキュメント：sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
-- [Jitoドキュメント：sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
-- [Jitoドキュメント：チップアカウント](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
-- [Jitoドキュメント：チップ金額](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
+- [Jito Docs: Sandwich Mitigation](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
+- [Jito Docs: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+- [Jito Docs: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+- [Jito Docs: Tip Accounts](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
+- [Jito Docs: Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
 - [Tip Floor API](https://bundles.jito.wtf/api/v1/bundles/tip_floor)
-- [GitHubの@solana/kit](https://github.com/anza-xyz/kit)
-- [crates.ioのsolana-sdk](https://crates.io/crates/solana-sdk)
+- [GitHub 上の @solana/kit](https://github.com/anza-xyz/kit)
+- [crates.io 上の solana-sdk](https://crates.io/crates/solana-sdk)

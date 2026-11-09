@@ -1,0 +1,294 @@
+---
+title: إدراج المعاملات
+description:
+  أفضل الممارسات لتحسين معدل إدراج المعاملات في تطبيق سولانا الخاص بك على Mainnet
+---
+
+## البنية التحتية لـ RPC
+
+[نقاط النهاية العامة](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints) (`api.mainnet.solana.com`) محدودة المعدل وبدون اتفاقية مستوى خدمة (SLA). لا بأس بها للتطوير، لكنها ستفشل في تدفقات الدفع الإنتاجية — تمامًا مثل محاولة تشغيل معالج مدفوعات عبر واجهة API مشتركة بلا أي ضمان لوقت التشغيل.
+
+<Callout type="caution" title="لا تستخدم RPC العام في بيئة الإنتاج">
+  استخدم [مزود RPC خاصًا](https://solana.com/rpc) للحصول على وصول موثوق ومنخفض زمن الاستجابة.
+</Callout>
+
+عند اختيار مزود RPC، ابحث عن:
+
+- **الموثوقية**: اتفاقيات مستوى خدمة (SLA) مع ضمانات لوقت التشغيل (99.9%+)
+- **زمن الاستجابة**: القرب الجغرافي من مستخدميك
+- **الميزات**: ميزات إدراج المعاملات، والفهرسة، وواجهات API لرسوم الأولوية
+
+للاطلاع على القائمة الكاملة لمزودي RPC، راجع دليل [مزودو البنية التحتية لـ RPC](https://solana.com/rpc).
+
+### تهيئة RPC الاحتياطية المتكررة
+
+مثل أي مزود خدمة شبكة، قد يتعرض مزودو RPC لفترات تعطل أو تدهور في الأداء. ولضمان مرونة تطبيقك، يجب أن تهيئه لاستخدام عدة مزودي RPC.
+
+توفر [سولانا Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http) مكتبة لتخصيص وسائل نقل RPC، مما يتيح لك بناء عميل RPC احتياطي خاص بك. إليك مثالًا على كيفية استخدامها لبناء عميل RPC احتياطي:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+إذا كنت لا تفضّل بناء أدوات التوجيه بنفسك، يمكنك الاستعانة بخدمة جهة خارجية مثل [Iron Forge](https://www.ironforge.sanctum.so/) لتتولى التوجيه نيابةً عنك.
+
+## إدراج المعاملات
+
+على Devnet، تُدرج المعاملات بسهولة نسبية. أما على Mainnet فأنت تتنافس على مساحة الكتلة. ولزيادة فرص إدراج معاملتك في كتلة، يجب أن تتأكد من تجميعها بشكل صحيح. ويعني ذلك:
+
+- تضمين blockhash حديث قبل إرسال المعاملة
+- تضمين تعليمة رسوم الأولوية في المعاملة مع رسوم أولوية تنافسية
+- تضمين تعليمة حد وحدات الحوسبة في المعاملة بحد يعتمد على وحدات الحوسبة المقدَّرة اللازمة للمعاملة
+
+بالإضافة إلى ذلك، ينبغي أن تفكر في أدوات أخرى مثل Jito Bundles لزيادة فرص تضمين معاملتك في كتلة. لنستعرض هذه الأدوات بمزيد من التفصيل.
+
+### إعدادات إرسال المعاملة
+
+عند إرسال المعاملات على Mainnet، اضبط هذه المعلمات للحصول على أفضل معدلات الإدراج:
+
+**إدارة blockhash:**
+
+- اجلبه باستخدام مستوى التأكيد `confirmed`
+- احتفظ بالقيمة `lastValidBlockHeight` التي تعيدها `getLatestBlockhash` — فهي تخبرك متى تنتهي صلاحية معاملتك
+- تنتهي صلاحية Blockhashes بعد مدة يحددها البروتوكول بحسب طول الـ slot.
+
+**خيارات الإرسال:**
+
+- `maxRetries: 0` — عطّل إعادة المحاولة التلقائية لـ RPC. تولَّ إعادة المحاولات بنفسك لتتمكن من تحديث blockhash عند الحاجة.
+- `skipPreflight: true` — تجاوز المحاكاة قبل الإرسال. استخدمه عندما تكون قد تحققت من المعاملة بالفعل وتريد أقل زمن استجابة. أبقه `false` أثناء التطوير لاكتشاف الأخطاء مبكرًا.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### استخدم رسوم الأولوية
+
+تتطلب كل معاملة على سولانا رسم معاملة يُدفع بعملة SOL. تنقسم رسوم المعاملات إلى جزأين: الرسوم الأساسية ورسوم الأولوية. تعوّض الرسوم الأساسية الـ validators عن معالجة المعاملة. أما رسوم الأولوية فهي رسوم اختيارية لزيادة احتمال أن يعالج القائد الحالي معاملتك. فكّر فيها كالشحن السريع: تدفع أكثر مقابل تسليم أسرع وأكثر موثوقية.
+
+**كيف تعمل الرسوم:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,000) lamports
+Priority fee (v1 only) = Absolute total in lamports set in the message config
+```
+
+**التكاليف الفعلية:**
+
+- تحويل USDC بسيط: ~0.001-0.005 دولار في الظروف العادية
+- أثناء الازدحام: ~0.01-0.05 دولار
+- ذروة الازدحام: قد ترتفع التكلفة أكثر
+
+**مثال على التنفيذ:**
+
+توفر حزمة [`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget) دالة مساعدة لتحديث تعليمة سعر وحدة الحوسبة (بالـ micro-lamports) أو إلحاقها بالمعاملة بسهولة.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**الحصول على تقديرات الرسوم:** يقدم معظم مزودي RPC واجهات API لرسوم الأولوية:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+للاطلاع على آلية الرسوم كاملة، راجع [رسوم المعاملات](/docs/core/fees) ودليلنا: [كيفية إضافة رسوم الأولوية إلى معاملة](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### تحسين وحدات الحوسبة
+
+تُقاس الحوسبة على سولانا بوحدات الحوسبة (CUs)، وهي تقدير تقريبي لحجم العمل الذي يؤديه البرنامج. حدود الحوسبة حاليًا هي 50 مليون CU لكل كتلة و1.4 مليون CU لكل معاملة. عند إرسال معاملة، عليك تقدير مقدار الحوسبة التي ستُستخدم وضبط حد وحدات الحوسبة وفقًا لذلك — وهذا في الواقع طلب لحجز جزء من السعة الإجمالية لمعاملتك. عمليًا، يعني ذلك أن تقدير وحدات الحوسبة اللازمة لمعاملتك بشكل صحيح أمر حاسم لإدراجها في كتلة (ومهم أيضًا لإدارة رسوم الأولوية). ويحدد البروتوكول حدّي الحوسبة للمعاملة وللكتلة.
+
+تحتوي واجهة سولانا JSON RPC API على طريقة [`simulatetransaction`](/docs/rpc/http/simulatetransaction) يمكن استخدامها لتقدير وحدات الحوسبة اللازمة للمعاملة، وتتضمن تقديرًا لوحدات الحوسبة التي ستُستخدم. وتوفر [`@solana/kit`](https://github.com/anza-xyz/kit) دوال مساعدة تقدّر حدود موارد المعاملة وتضبطها على الرسالة في خطوة واحدة (باستخدام طريقة `simulatetransaction` خلف الكواليس). وبالنسبة لمعاملات الإصدار 1، تقدّر هذه الدوال أيضًا حد حجم بيانات الحسابات المحمّلة.
+
+```ts
+import {
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
+
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
+);
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
+```
+
+<Callout type="info">
+  إذا كنت تبني المعاملات وترسلها باستخدام عميل kit plugin، فلن تحتاج عادةً إلى هذه الخطوة — إذ يضيف العميل تعليمات ميزانية الحوسبة نيابةً عنك عند الإرسال (`.sendTransaction()`). أما التدفق اليدوي أعلاه فهو للحالات التي تجمّع فيها المعاملات مباشرةً باستخدام `@solana/kit`.
+</Callout>
+
+في بيئة الإنتاج، إذا كنت تكرر النوع نفسه من المعاملات عدة مرات، ففكّر في تخزين تقدير الحوسبة مؤقتًا لهذا النوع من المعاملات لتجنب كلفة تقدير وحدات الحوسبة في كل مرة.
+
+### Jito Bundles
+
+حزم Jito أداة لإدارة التنفيذ الذري لعدة معاملات. ويتحقق ذلك بإرسال عدة معاملات إلى شبكة Jito مع إكرامية (tip). ويمكن استخدام الإكراميات لتحفيز شبكة Jito على تضمين معاملاتك في كتلة.
+
+**المراجع:**
+
+- [وثائق Jito](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 فيديو: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [دليل QuickNode حول Jito Bundles](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### استراتيجيات إعادة المحاولة
+
+قد تفشل المعاملات لأسباب عديدة. فعلى عكس واجهات API التقليدية للدفع التي تعيد النجاح أو الفشل فورًا، تتطلب معاملات البلوكشين تتبع التأكيد.
+
+**المفاهيم الأساسية:**
+
+- **انتهاء صلاحية blockhash**: تظل blockhashes المعاملات صالحة لمدة 150 slot (نحو 30 ثانية عند 200 ملي ثانية لكل slot). وقد يختلف وقت انتهاء الصلاحية الفعلي بحسب سرعة إنتاج الكتل. استخدم lastValidBlockHeight لتحديد متى انتهت صلاحية blockhash.
+- **عدم التأثر بالتكرار (Idempotency)**: تنتج المعاملة الموقّعة نفسها التوقيع نفسه دائمًا — لذا فإعادة إرسالها آمنة
+- **التراجع الأسي (Exponential backoff)**: تجنّب إغراق الشبكة بإعادة محاولات سريعة
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+تتولى `sendAndConfirmTransactionFactory` من `@solana/kit` استطلاع التأكيد وتتبع ارتفاع الكتلة تلقائيًا. وتُطلق الخطأ `SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` عند انتهاء صلاحية blockhash الخاص بالمعاملة، مشيرةً إلى أنك بحاجة إلى إعادة بناء المعاملة باستخدام blockhash جديد.
+
+### موارد إضافية
+
+- [Helius: كيف تُدرج المعاملات على سولانا](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: استراتيجيات لتحسين معاملات سولانا](https://www.quicknode.com/docs/solana/transactions)
+
+## معالجة الأخطاء
+
+توفر سولانا Kit أخطاءً مُنمَّطة عبر `isSolanaError()`. استخدم رموز أخطاء محددة بدلًا من مطابقة النصوص:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**رموز الأخطاء الشائعة:**
+
+| رمز الخطأ                   | السبب                 | طريقة المعالجة                                                                                                 |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | انتهت صلاحية blockhash     | أعد البناء باستخدام blockhash جديد                                                                             |
+| `BLOCKHASH_NOT_FOUND`        | لم يُعثر على blockhash   | أعد البناء باستخدام blockhash جديد                                                                             |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | لا يوجد SOL كافٍ        | موّل حساب دافع الرسوم أو استخدم [تجريد الرسوم](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | لا توجد رموز كافية     | يحتاج المستخدم إلى رصيد أكبر                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | token account مفقود | أنشئ ATA ضمن المعاملة                                                                                |
+
+## المعاملات بدون رسوم غاز
+
+يتوقع المستخدمون الدفع بالعملات المستقرة، لا الحصول على SOL لدفع رسوم الشبكة. وتحل المعاملات بدون رسوم غاز هذه المشكلة — على غرار مستخدمي Venmo الذين لا يفكرون في رسوم ACH. راجع [تجريد الرسوم](/docs/payments/send-payments/payment-processing/fee-abstraction) للاطلاع على التنفيذ الكامل.

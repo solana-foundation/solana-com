@@ -1,0 +1,177 @@
+---
+title: Zasoby wdrożeniowe
+description: Przygotowanie kompilacji programu do wdrożenia w sieci Mainnet
+---
+
+Przed wdrożeniem aplikacji w sieci Mainnet upewnij się, że masz następujące elementy:
+
+- Plik ELF programu – zazwyczaj wynik polecenia `anchor build` lub
+  `cargo-build-sbf`, z rozszerzeniem `.so`
+- Keypair programu – plik JSON zawierający tablicę liczb całkowitych
+
+W tej sekcji opisujemy, gdzie znaleźć te zasoby i jak je
+przygotować.
+
+## Przygotowanie pliku ELF
+
+Plik ELF zawiera skompilowany bytecode, informacje o układzie pamięci oraz
+metadane potrzebne wirtualnej maszynie Solana (SVM), aby wiedziała, jak załadować
+i uruchomić Twój program. Plik ELF powstaje podczas kompilacji kodu źródłowego.
+
+Aby utworzyć plik ELF w przypadku Anchor, możesz uruchomić następujące polecenie:
+
+```bash
+anchor build
+```
+
+lub poniższe w przypadku innych frameworków:
+
+```bash
+cargo build-sbf
+```
+
+Plik ELF znajdziesz następnie w katalogu takim jak
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Twój program jest gotowy, gdy plik ELF jest skompilowany do
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). Aby
+sprawdzić program, możesz uruchomić w systemie Linux następujące polecenie:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Oraz następujące polecenia w systemie macOS:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Jeśli zobaczysz dane wyjściowe podobne do poniższych, Twój program jest gotowy:
+
+```
+  Flags:                             0x3
+```
+
+Jeśli nie, skorzystaj z przewodnika migracji dostępnego
+[tutaj](https://solana.com/upgrades/sbpfv3-programs).
+
+## Przygotowanie adresu programu
+
+Adres programu to identyfikator programu (program ID), którego użyjesz do wywoływania instrukcji
+programu. Możesz 1) użyć keypair programu wygenerowanego podczas
+kompilacji, 2) wygenerować (grind) nowy keypair, którego adres zaczyna się od własnego prefiksu, lub 3)
+wyprowadzić adres konta z adresu bazowego i seed. Pierwsze dwie opcje
+tworzą keypair, który może podpisywać w imieniu program account. Konto utworzone z
+seed nie ma własnego klucza prywatnego – kontroluje je konto bazowe.
+
+### Użyj wygenerowanego keypair
+
+Domyślnie `anchor build` i `cargo build-sbf` umieszczają keypair programu w:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Zrób kopię zapasową tego pliku przed wyczyszczeniem katalogu kompilacji. Każdy, kto ma dostęp do
+keypair, może podpisywać w imieniu program account, więc nie dodawaj go do systemu kontroli wersji.
+
+### Wygeneruj keypair z własnym prefiksem
+
+Użyj [`vanity`](https://github.com/cavemanloverboy/vanity), aby wyszukać
+keypair Ed25519, którego klucz publiczny zaczyna się od określonego prefiksu base58. Zainstaluj
+wersję CPU z crates.io:
+
+```bash
+cargo install vanity
+```
+
+Projekt udostępnia też wersje CUDA, Metal i OpenCL do wyszukiwania
+przyspieszanego przez GPU. Wymagania każdego z backendów znajdziesz w instrukcji instalacji `vanity`.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Gdy `vanity` znajdzie dopasowanie, wyświetla klucz publiczny, prywatny seed w zapisie szesnastkowym
+oraz tablicę JSON keypair zgodną z Solaną. Zapisz plik JSON w bezpiecznym
+miejscu, a następnie sprawdź, czy zawiera oczekiwany klucz publiczny:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Traktuj dane wyjściowe polecenia i zapisany plik JSON jako materiał klucza prywatnego.
+
+### Utwórz konto z seed
+
+Aby przyspieszyć wyszukiwanie, `vanity grind` przeszukuje ciągi seed dla
+`CreateAccountWithSeed` zamiast generować keypair Ed25519. Podaj
+klucz publiczny konta bazowego, które autoryzuje utworzenie, właściciela konta
+oraz prefiks do wyszukania. W przypadku aktualizowalnego program account użyj
+aktualizowalnego loadera BPF jako właściciela:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+Wynik zawiera wyprowadzony adres oraz ciąg seed. Zweryfikuj je przed
+utworzeniem konta:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Użyj tego samego adresu bazowego, seed i właściciela, aby wyprowadzić adres za pomocą
+`Pubkey::create_with_seed`, a następnie wyślij instrukcję System Program
+`create_account_with_seed`. Konto bazowe i konto finansujące
+muszą podpisać transakcję. Ponieważ wyprowadzone konto nie ma samodzielnego
+keypair, ta opcja wymaga przepływu tworzenia konta i wdrożenia, który wykorzystuje
+konto bazowe zamiast pliku keypair programu.
+
+### Zaktualizuj adres programu w kodzie źródłowym
+
+Po wybraniu keypair lub konta z seed użyj jego adresu publicznego jako
+program ID wszędzie tam, gdzie projekt go deklaruje. Jeśli kod źródłowy nadal zawiera
+stary adres, klienci mogą wysyłać instrukcje do niewłaściwego programu, a kontrole ID
+w środowisku uruchomieniowym mogą się nie powieść.
+
+W workspace Anchor zaktualizuj zarówno wpis programu w głównym pliku `Anchor.toml`,
+jak i wywołanie `declare_id!` w `programs/<PROGRAM_NAME>/src/lib.rs`. Klucz
+w `[programs.<CLUSTER>]` to nazwa programu w workspace. Zaktualizuj każdą
+tabelę klastra, w której zamierzasz używać nowego adresu; poniższy przykład aktualizuje
+Mainnet.
+
+W Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+W `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio nie używa `Anchor.toml`. Zaktualizuj wywołanie `declare_id!` w pliku
+`src/lib.rs` crate'a programu. Obecne projekty Pinocchio importują makro z
+`pinocchio::address`.
+
+Quasar również deklaruje adres w pliku `src/lib.rs` crate'a programu onchain i
+nie używa `Anchor.toml`. Makro `declare_id!` jest dostępne przez
+`quasar_lang::prelude::*`.
+
+Po zmianie adresu przebuduj program i wygeneruj ponownie wszystkie artefakty IDL lub klienta.
+Przeszukaj też skrypty wdrożeniowe, testy i konfigurację aplikacji
+pod kątem starego program ID i zastąp wszystkie zakodowane na stałe odwołania.
