@@ -17,6 +17,10 @@ import {
 } from "./dashboard-query";
 import { getUtcToday, parseDashboardRange } from "./date-range";
 import type { QueryUpdates } from "./dashboard-types";
+import {
+  defaultSendLandingRegion,
+  parseSendLandingRegion,
+} from "./send-landing-config";
 
 export function useDashboardQueryParams() {
   const [queryString, setQueryString] = useState("");
@@ -58,6 +62,10 @@ export function useDashboardQueryParams() {
     rpcMethod: parseRpcMethod(searchParams.get("method")),
     rpcRegion: parseRpcRegion(searchParams.get("region"), rpcInfra),
     rpcTimeframe: parseRpcTimeframe(searchParams.get("timeframe")),
+    landingRegion: parseSendLandingRegion(
+      searchParams.get("region"),
+      defaultSendLandingRegion,
+    ),
     setQueryString,
   };
 }

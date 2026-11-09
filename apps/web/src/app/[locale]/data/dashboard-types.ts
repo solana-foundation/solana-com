@@ -17,6 +17,8 @@ export type DataFetchErrorMessages = {
 };
 
 export type QueryUpdates = {
+  /** The Senders tab landing section's region, written to `region`. */
+  landingRegion?: string;
   days?: number;
   infra?: RpcLatencyInfra;
   method?: RpcLatencyMethod;

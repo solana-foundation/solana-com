@@ -3,6 +3,36 @@ import {
   type DataApiResponse,
 } from "./data-config";
 import type { DataFetchErrorMessages } from "./dashboard-types";
+import {
+  isSendLandingFiltersResponse,
+  isSendLandingResponse,
+} from "./send-landing-config";
+
+/** 503 when the deployment has no send benchmark credentials. */
+export class SendLandingUnavailableError extends Error {
+  constructor(readonly status: number) {
+    super("Send benchmark data is unavailable");
+  }
+}
+
+async function fetchSendLanding<T>(
+  url: string,
+  isValid: (_value: unknown) => _value is T,
+) {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) throw new SendLandingUnavailableError(response.status);
+  const payload: unknown = await response.json();
+  if (!isValid(payload)) throw new Error("Invalid send benchmark response");
+  return payload;
+}
+
+export function fetchSendLandingData(url: string) {
+  return fetchSendLanding(url, isSendLandingResponse);
+}
+
+export function fetchSendLandingFilters(url: string) {
+  return fetchSendLanding(url, isSendLandingFiltersResponse);
+}
 
 type DataErrorPayload = {
   detail?: string;
