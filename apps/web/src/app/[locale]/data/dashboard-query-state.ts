@@ -17,12 +17,6 @@ import {
 } from "./dashboard-query";
 import { getUtcToday, parseDashboardRange } from "./date-range";
 import type { QueryUpdates } from "./dashboard-types";
-import {
-  parseGrpcRegion,
-  parseGrpcStream,
-  parseGrpcCommitment,
-  parseGrpcTimeframe,
-} from "./grpc-config";
 
 export function useDashboardQueryParams() {
   const [queryString, setQueryString] = useState("");
@@ -63,14 +57,7 @@ export function useDashboardQueryParams() {
     rpcInfra,
     rpcMethod: parseRpcMethod(searchParams.get("method")),
     rpcRegion: parseRpcRegion(searchParams.get("region"), rpcInfra),
-    rpcTimeframe:
-      parseTab(searchParams.get("tab")) === "grpc"
-        ? parseGrpcTimeframe(searchParams.get("timeframe"))
-        : parseRpcTimeframe(searchParams.get("timeframe")),
-    grpcRegion: parseGrpcRegion(searchParams.get("region")),
-    grpcCloudProvider: searchParams.get("cloud") || "all",
-    grpcStream: parseGrpcStream(searchParams.get("stream")),
-    grpcCommitment: parseGrpcCommitment(searchParams.get("commitment")),
+    rpcTimeframe: parseRpcTimeframe(searchParams.get("timeframe")),
     setQueryString,
   };
 }
