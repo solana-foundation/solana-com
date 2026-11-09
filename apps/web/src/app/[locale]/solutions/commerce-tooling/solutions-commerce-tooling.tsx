@@ -15,15 +15,21 @@ import {
   HERO_IMAGE,
   SWITCHBACK_IMAGES,
   TRUSTBAR_LOGOS,
-  STATS,
 } from "@/data/solutions/commerce-tooling";
 import { ResponsiveBox } from "@/component-library/responsive-box";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
-export function SolutionsCommerceToolingPage() {
+export function SolutionsCommerceToolingPage({
+  statsMetrics,
+}: {
+  /** Registry figures for STATS_METRICS, in display order. */
+  statsMetrics: DisplayMetric[];
+}) {
   const t = useTranslations("commerce-tooling-solution");
 
-  const stats = STATS.map((stat, index) => ({
-    ...stat,
+  const stats = statsMetrics.map((metric, index) => ({
+    stat: metric.value,
     description: t(`stats.${index}.description`),
   }));
 
@@ -103,6 +109,14 @@ export function SolutionsCommerceToolingPage() {
       />
 
       <Stats stats={stats} contained />
+      <div className="mx-auto -mt-8 mb-8 max-w-screen-xl px-4 sm:-mt-12 sm:px-6 lg:-mt-16 lg:px-8">
+        <MetricSourcesFootnote
+          items={statsMetrics.map((metric, index) => ({
+            label: stats[index].description,
+            source: metric.source,
+          }))}
+        />
+      </div>
 
       <Trustbar
         variant="grid"

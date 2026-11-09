@@ -5,24 +5,36 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/helium.webp",
     key: "helium",
+    metric: "depin.helium.daily-users",
   },
   {
     src: "/src/img/logos-eco/hivemapper.webp",
     key: "hivemapper",
+    metric: "depin.hivemapper.road-coverage",
   },
   {
     src: "/src/img/logos-eco/render.webp",
     key: "render",
+    metric: "depin.render.frames-rendered",
   },
   {
     src: "/src/img/logos-eco/grass.webp",
     key: "grass",
+    metric: "depin.grass.data-per-day",
   },
   {
     src: "/src/img/logos-eco/geodnet.webp",
     key: "geodnet",
+    metric: "depin.geodnet.stations",
   },
-];
+] as const;
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "depin.rewards-12m",
+  "depin.transactions-30d",
+  "depin.peak-users",
+] as const;
 
 export const LOGOS = [
   {

@@ -1,0 +1,134 @@
+---
+title: Chương trình Rewards
+seoTitle: Chương trình Rewards của Solana cho vesting token và phân phối Merkle
+description:
+  Phân phối token SPL Token và Token-2022 theo lịch vesting, sử dụng tài khoản riêng cho từng người nhận hoặc merkle root, với tùy chọn thu hồi và clawback.
+---
+
+Chương trình Rewards phân phối token từ một vault do chương trình sở hữu đến một nhóm
+người nhận, mỗi người theo một lịch vesting riêng. Một authority nạp token vào vault và xác định
+ai nhận bao nhiêu. Người nhận claim số token đã vest theo thời gian, và
+authority có thể thu hồi quyền của người nhận hoặc lấy lại số token còn dư khi cấu hình phân phối
+cho phép. Chương trình được xây dựng bằng Pinocchio, do Solana
+Foundation duy trì, và hoạt động với cả mint SPL Token lẫn Token-2022, ngoại trừ
+các mint Token-2022 có extension transfer hook.
+
+Program ID (mainnet và devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  Chương trình đã được OtterSec kiểm toán. Xem
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)
+  để biết commit đã được kiểm toán.
+</Callout>
+
+## Chọn loại phân phối
+
+Chương trình hỗ trợ hai loại phân phối. Cả hai dùng chung lịch vesting
+và các chế độ thu hồi.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Cách hoạt động** | Tạo một tài khoản onchain cho mỗi người nhận     | Lưu một merkle root duy nhất onchain; người nhận cung cấp proof để claim  |
+| **Chi phí ban đầu** | Bên trả phí chi trả rent cho mọi tài khoản người nhận | Không có tài khoản riêng cho từng người nhận cho đến khi có người claim                           |
+| **Quy mô**        | Phù hợp thực tế với tối đa vài nghìn người nhận  | Mở rộng đến hàng triệu người nhận; dung lượng lưu trữ chỉ tăng khi người nhận claim |
+| **Khả năng thay đổi**   | Có thể thêm người nhận sau khi tạo       | Danh sách người nhận được cố định khi tạo                                       |
+| **Dùng cho**   | Các đợt phân phối nhỏ thay đổi theo thời gian    | Các đợt phân phối lớn, cố định như airdrop                              |
+
+## Lịch vesting
+
+Mỗi phần phân bổ áp dụng một trong bốn lịch. Timestamp tính theo giây Unix.
+
+| Lịch      | Hành vi                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | Toàn bộ token có thể claim ngay lập tức                                                                                    |
+| `Linear`      | Token được mở khóa theo tỷ lệ giữa `startTs` và `endTs`                                                             |
+| `Cliff`       | Không có gì được mở khóa cho đến `cliffTs`, sau đó toàn bộ được mở khóa cùng một lúc                                                       |
+| `CliffLinear` | Vesting tuyến tính từ `startTs` đến `endTs`, không thể claim gì cho đến `cliffTs`; phần tích lũy trước đó được mở khóa tại cliff |
+
+## Tài khoản
+
+| Tài khoản              | PDA seeds                                        | Lưu trữ                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Authority, mint và tổng số phân bổ       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | Phần phân bổ và vesting của một người nhận       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Authority, mint, tổng số và merkle root |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Số lượng một claimant đã claim cho đến nay        |
+| `Revocation`         | `["revocation", distribution, user]`             | Marker chặn một claimant merkle đã bị thu hồi |
+
+`seed` là địa chỉ của một signer bổ sung được truyền vào khi tạo, để một
+authority có thể chạy nhiều đợt phân phối cho cùng một mint. Vault của mỗi đợt phân phối
+là associated token account của PDA phân phối tương ứng với mint của nó.
+
+## Các instruction
+
+### Phân phối Direct
+
+1. Authority gọi `CreateDirectDistribution` để tạo PDA phân phối
+   và vault của nó.
+2. Authority gọi `AddDirectRecipient` một lần cho mỗi người nhận, kèm số lượng
+   và lịch vesting. Mỗi lần gọi chuyển số lượng đó từ
+   token account của authority vào vault.
+3. Người nhận gọi `ClaimDirect` để rút số token đã vest. Truyền `amount: 0` để
+   claim toàn bộ số token hiện đã vest.
+4. Khi người nhận đã claim hết, hoặc đợt phân phối đã đóng,
+   `CloseDirectRecipient` đóng tài khoản người nhận và hoàn lại rent cho
+   tài khoản đã trả khoản đó.
+5. Authority gọi `CloseDirectDistribution` để thu hồi số dư vault còn lại
+   và rent. Nếu đặt `clawbackTs`, chỉ được đóng sau thời điểm
+   đó.
+
+### Phân phối Merkle
+
+1. Authority xây dựng một cây merkle offchain. Mỗi leaf cam kết một claimant,
+   tổng số lượng của claimant đó và một lịch vesting.
+2. Authority gọi `CreateMerkleDistribution` với root, tổng số lượng
+   có thể claim và `clawbackTs`, đồng thời nạp token vào vault trong cùng một
+   instruction.
+3. Claimant gọi `ClaimMerkle` kèm dữ liệu leaf và proof của mình. Lần claim đầu tiên
+   tạo tài khoản `MerkleClaim` của claimant. Truyền `amount: 0` để claim
+   toàn bộ số token hiện đã vest.
+4. Sau `clawbackTs`, authority gọi `CloseMerkleDistribution` để thu hồi
+   số dư vault còn lại và rent.
+5. Sau khi đợt phân phối đóng, claimant gọi `CloseMerkleClaim` để
+   thu hồi rent của tài khoản claim của mình.
+
+Chương trình băm các leaf bằng Keccak-256 theo công thức
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, trong đó
+`totalAmount` là `u64` little-endian và `schedule` dùng cùng cách mã hóa với
+đối số `VestingSchedule` của instruction. Các proof node được băm theo
+từng cặp đã sắp xếp, hash nhỏ hơn đứng trước.
+
+### Thu hồi
+
+Thu hồi là tùy chọn chủ động bật. Bitmask `revocable` được đặt khi tạo quyết định authority
+được dùng chế độ nào: bit 0 bật `NonVested`, bit 1 bật `Full`,
+và `0` tắt tính năng thu hồi.
+
+| Chế độ        | Instruction                                    | Kết quả                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` hoặc `RevokeMerkleClaim` | Token đã vest nhưng chưa claim được chuyển cho người dùng; token chưa vest được trả về authority |
+| `Full`      | `RevokeDirectRecipient` hoặc `RevokeMerkleClaim` | Toàn bộ token chưa claim, cả đã vest lẫn chưa vest, được trả về authority               |
+
+Thu hồi một claimant merkle sẽ tạo một marker `Revocation` chặn các lần
+claim sau này, kể cả khi họ chưa từng claim. Thu hồi một người nhận direct sẽ đóng
+tài khoản `DirectRecipient` của họ và hoàn lại rent của tài khoản đó.
+
+## Client
+
+Repository bao gồm các client [`@solana/kit`](/docs/clients/official/javascript) và
+Rust được tạo từ IDL của chương trình bằng Codama, trong
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+Client này chưa được xuất bản lên npm. Hãy build từ mã nguồn bằng
+`just generate-clients`.
+
+## Tài nguyên
+
+- [Mã nguồn](https://github.com/solana-foundation/rewards)
+- [Báo cáo kiểm toán của OtterSec](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Báo cáo sự cố](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), thẻ
+  `rewards-program`

@@ -90,3 +90,10 @@ export const VIDEOS = (
     badge: VideoBadge.Originals,
   },
 ];
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "stablecoins.circulating-supply",
+  "stablecoins.transfer-volume-30d",
+  "network.average-fee-30d",
+] as const;

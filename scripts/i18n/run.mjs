@@ -2,6 +2,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -162,6 +163,23 @@ function verifyTargetCoverage(scope, missingOnly = false) {
   ]);
 }
 
+// The final coverage guard compares the lock Lingo wrote against the lock
+// this run started from, so it can tell a target Lingo failed to deliver
+// from one a human edited while its source stayed unchanged.
+function snapshotLock() {
+  const lockPath = path.join(rootDir, ".lingo/lock.json");
+  if (!fs.existsSync(lockPath)) {
+    return null;
+  }
+
+  const baselinePath = path.join(
+    fs.mkdtempSync(path.join(os.tmpdir(), "lingo-lock-baseline-")),
+    "lock.json",
+  );
+  fs.copyFileSync(lockPath, baselinePath);
+  return baselinePath;
+}
+
 function staleJsonSources(scope) {
   const result = spawnSync(
     "node",
@@ -194,6 +212,8 @@ async function main() {
     );
     process.exit(1);
   }
+
+  const lockBaseline = snapshotLock();
 
   // A partial Lingo run can leave only a few MDX targets with incompatible
   // structure. Backfill those exact files, preserving other translations and
@@ -238,7 +258,22 @@ async function main() {
     runLingo(["push", ...staleSources, "--force", "--yes", "--wait"]);
   }
 
-  runOrExit("node", ["./scripts/i18n/verify-target-coverage.mjs", scope]);
+  // intl-messageformat reads an ASCII apostrophe before a tag as a quote, so
+  // normalize Lingo's catalog output before locking it in.
+  if (scope !== "docs") {
+    runOrExit("node", [
+      "./scripts/i18n/verify-icu-apostrophes.mjs",
+      "--fix",
+      "--scope",
+      scope,
+    ]);
+  }
+
+  runOrExit("node", [
+    "./scripts/i18n/verify-target-coverage.mjs",
+    scope,
+    ...(lockBaseline ? ["--lock-baseline", lockBaseline] : []),
+  ]);
 
   if (scope === "all" || scope === "docs") {
     runOrExit("node", ["./scripts/i18n/sanitize-docs-frontmatter.mjs"]);

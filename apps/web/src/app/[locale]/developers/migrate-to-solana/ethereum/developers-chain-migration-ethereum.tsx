@@ -8,35 +8,22 @@ import { MigrationDocsLayout } from "../components/migration-docs-layout";
 
 const COURSE_URL = "https://rareskills.io/solana-tutorial";
 
-const RESOURCE_CARDS = [
-  {
-    heading: "Intro to Solana Development",
-    body: "Browse official Solana development documentation.",
-    url: "https://solana.com/docs",
-    ctaLabel: "Open the docs",
-  },
-  {
-    heading: "Solana AI Agent Skills",
-    body: "Use pre-built skills you can drop into your AI agents to interact with Solana.",
-    url: "https://solana.com/skills",
-    ctaLabel: "View skills",
-  },
-  {
-    heading: "Solana Bootcamp",
-    body: "Watch a structured video series that walks through setup and day-one development workflows.",
-    url: "https://solana.com/developers/bootcamp",
-    ctaLabel: "Watch the bootcamp",
-  },
-  {
-    heading: "More Solana Developer Tools",
-    body: "Browse docs, guides, cookbook recipes, tools, and ecosystem support channels.",
-    url: "/developers",
-    ctaLabel: "Browse developer tools",
-  },
+const RESOURCE_CARD_URLS = [
+  "https://solana.com/docs",
+  "https://solana.com/skills",
+  "https://solana.com/developers/bootcamp",
+  "/developers",
 ];
 
 export function DevelopersChainMigrationEthereumPage() {
   const t = useTranslations("developers-evm-to-svm");
+
+  const resourceCards = RESOURCE_CARD_URLS.map((url, index) => ({
+    heading: t(`evmOverview.resourceCards.${index}.heading`),
+    body: t(`evmOverview.resourceCards.${index}.body`),
+    ctaLabel: t(`evmOverview.resourceCards.${index}.ctaLabel`),
+    url,
+  }));
 
   const guides = PRIMARY_CARD_DECK.cards.map((card, index) => ({
     heading: t(`primaryCardDeck.cards.${index}.heading`),
@@ -57,16 +44,12 @@ export function DevelopersChainMigrationEthereumPage() {
         },
         { url: COURSE_URL, label: t("evmGuidesHeading.buttons.1.label") },
       ]}
-      tocHeadline="On this page"
-      resourceCards={RESOURCE_CARDS}
-      resourceHeadline="Resources for Solana Developers"
+      tocHeadline={t("evmOverview.tocHeadline")}
+      resourceCards={resourceCards}
+      resourceHeadline={t("evmOverview.resourceHeadline")}
     >
-      <h2 id="guides">Migration guides</h2>
-      <p>
-        Each guide maps an Ethereum concept or token standard to its Solana
-        equivalent. Start with the complete guide, then open the standard you
-        are porting.
-      </p>
+      <h2 id="guides">{t("evmOverview.guidesHeading")}</h2>
+      <p>{t("evmOverview.guidesBody")}</p>
       <ul className="!my-6 grid !list-none gap-3 !pl-0 sm:grid-cols-2">
         {guides.map((guide) => (
           <li key={guide.url} className="!my-0">
@@ -89,12 +72,8 @@ export function DevelopersChainMigrationEthereumPage() {
         ))}
       </ul>
 
-      <h2 id="course">RareSkills Solana course</h2>
-      <p>
-        RareSkills&apos; Solana tutorial teaches Solana program development with
-        Anchor to developers who already write Solidity. Work through its
-        lessons alongside these guides.
-      </p>
+      <h2 id="course">{t("evmOverview.courseHeading")}</h2>
+      <p>{t("evmOverview.courseBody")}</p>
       <p>
         <a
           href={COURSE_URL}
@@ -102,7 +81,7 @@ export function DevelopersChainMigrationEthereumPage() {
           rel="noreferrer noopener"
           className="inline-flex items-center gap-1.5"
         >
-          Open the RareSkills tutorial
+          {t("evmOverview.courseLink")}
           <ExternalLink className="size-3.5" aria-hidden />
         </a>
       </p>

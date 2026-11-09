@@ -1,3 +1,5 @@
+import { clientIpFromHeaders as sharedClientIp } from "@solana-com/ui-chrome/client-ip";
+
 const MINUTE_MS = 60_000;
 const CLEANUP_INTERVAL_MS = 5 * MINUTE_MS;
 
@@ -40,26 +42,13 @@ const state: RateLimitState = {
   lastPrunedAt: 0,
 };
 
+/**
+ * Client IP for keying the limiter. Only Vercel-set headers are consulted;
+ * `cf-connecting-ip`, `true-client-ip` and `forwarded` pass through from the
+ * caller untouched and would let it choose a fresh bucket per request.
+ */
 export function clientIpFromHeaders(headers: Headers): string {
-  const direct =
-    headers.get("cf-connecting-ip") ??
-    headers.get("true-client-ip") ??
-    headers.get("x-real-ip");
-
-  if (direct?.trim()) {
-    return direct.trim();
-  }
-
-  const forwardedFor = headers.get("x-forwarded-for");
-  const firstForwardedFor = forwardedFor?.split(",")[0]?.trim();
-  if (firstForwardedFor) {
-    return firstForwardedFor;
-  }
-
-  const forwarded = headers.get("forwarded");
-  const forwardedMatch = forwarded?.match(/(?:^|;)\s*for="?([^;,"]+)/i);
-
-  return forwardedMatch?.[1]?.trim() || "unknown";
+  return sharedClientIp(headers);
 }
 
 export function checkEpoch1000LookupRateLimit({

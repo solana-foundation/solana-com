@@ -37,6 +37,13 @@ export default async function Page() {
             ),
           })}
           description={t("description")}
+          copy={{
+            reached: t("reached"),
+            odometerLabel: t("odometerLabel"),
+            checkerCue: t("checkerCue"),
+            timelineTitle: t("timelineTitle"),
+            timelineRange: t("timelineRange"),
+          }}
         />
       </main>
     </>

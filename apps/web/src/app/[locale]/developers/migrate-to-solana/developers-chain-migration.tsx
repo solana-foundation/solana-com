@@ -108,12 +108,17 @@ export function DevelopersChainMigrationPage() {
   const t = useTranslations("developers-evm-to-svm");
 
   const chainCards = MIGRATION_NAV.map((group, index) => ({
-    title: group.label,
+    title: t(`docsLayout.groups.${group.key}.label`),
     body: t(`chainSelector.cards.${index}.body`),
     url: group.url,
     ctaLabel: t(`chainSelector.cards.${index}.button.label`),
     // The Ethereum overview is the hub itself; don't list it as a guide.
-    guides: group.guides.filter((guide) => !("isOverview" in guide)),
+    guides: group.guides
+      .filter((guide) => !("isOverview" in guide))
+      .map((guide) => ({
+        url: guide.url,
+        label: t(`docsLayout.guides.${guide.key}`),
+      })),
   }));
 
   const secondaryCards = SECONDARY_CARD_DECK.cards.map((card, index) => ({
@@ -132,7 +137,7 @@ export function DevelopersChainMigrationPage() {
         body={t.raw("hero.body")}
         buttons={[
           {
-            label: "View Guides",
+            label: t("hero.viewGuides"),
             url: "#choose-your-chain",
             hierarchy: "outline",
           },

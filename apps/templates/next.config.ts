@@ -1,10 +1,15 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { securityHeadersRoute } from "@workspace/security-headers";
 
 const assetPrefix = "/templates-assets";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  async headers() {
+    return [securityHeadersRoute()];
+  },
   reactStrictMode: true,
   trailingSlash: false,
   assetPrefix,

@@ -2,12 +2,17 @@ import type { Metadata } from "next";
 import { getBaseMetadata } from "@/app/metadata";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "@workspace/i18n/server";
+import { getDisplayMetrics } from "@/lib/metrics/present";
+import { PRIVACY_METRICS } from "@/data/solutions/privacy";
 import { PrivacyPage } from "./privacy-page";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export default function Page() {
-  return <PrivacyPage />;
+export const revalidate = 60;
+
+export default async function Page() {
+  const metrics = await getDisplayMetrics(PRIVACY_METRICS);
+  return <PrivacyPage metrics={metrics} />;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
