@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { LoaderLines } from "@boxicons/react/LoaderLines";
 
-function getYoutubeVideoId(url: string) {
+export function getYoutubeVideoId(url: string) {
   const match = url.match(/[=/]([\w\d_-]{10,12})/);
   if (!match) {
     throw new Error(`${url} is not a YouTube URL or regex couldn't find id`);
@@ -9,8 +9,18 @@ function getYoutubeVideoId(url: string) {
   return match[1];
 }
 
-function getYoutubeThumbnail(id: string) {
-  return `https://i.ytimg.com/vi_webp/${id}/maxresdefault.webp`;
+/**
+ * `maxresdefault` isn't generated for every upload (older or unusually
+ * encoded videos may not have one), which renders as a broken image with no
+ * warning. Callers should fall back to `"high"` (always present) on error.
+ */
+export function getYoutubeThumbnail(
+  id: string,
+  quality: "max" | "high" = "max",
+) {
+  return quality === "max"
+    ? `https://i.ytimg.com/vi_webp/${id}/maxresdefault.webp`
+    : `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 }
 
 function getYoutubeEmbedUrl(id: string, { autoplay }: { autoplay: boolean }) {

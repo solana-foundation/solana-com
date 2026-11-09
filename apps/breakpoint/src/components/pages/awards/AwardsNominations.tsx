@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
 import Button, { useButtonScramble } from "@/components/Button";
-import { publicAssetPath } from "@/config";
+import { config, publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
 // import { resolveSponsorLogo } from "@/lib/sponsors";
 
@@ -90,7 +90,6 @@ export default function AwardsNominations() {
   const [editing, setEditing] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [campaignStatus, setCampaignStatus] = useState<CampaignStatus>();
-  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const activeCategory = awardCategories[activeIndex]!;
   const activeCategoryCopy = t.raw(
@@ -176,18 +175,23 @@ export default function AwardsNominations() {
         body: JSON.stringify({
           categoryId: activeCategory.id,
           twitterHandle: normalized,
-          website,
         }),
       });
-      const data = (await response.json()) as {
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
         nomination?: {
           category: string;
           twitterHandle: string;
           submittedAt: string;
         };
-      };
-      if (!response.ok || !data.nomination) {
-        setError(t("nominations.errors.save"));
+      } | null;
+      if (!response.ok || !data?.nomination) {
+        setError(
+          data?.error ||
+            (response.status === 429
+              ? "Too many requests. Please try again shortly."
+              : t("nominations.errors.save")),
+        );
         return;
       }
       const next = {
@@ -209,6 +213,7 @@ export default function AwardsNominations() {
   const nomination = nominations[activeCategory.id];
   const share = () => {
     const text = t("nominations.shareText", {
+      eventHandle: config.event.twitterHandle,
       handle: nomination?.handle ?? "",
       category: activeCategoryCopy.name,
     });
@@ -223,6 +228,7 @@ export default function AwardsNominations() {
     <section
       className="bg-black pb-3xl pt-2xl md:pb-4xl md:pt-3xl"
       aria-labelledby="nominations-title"
+      id="nominations"
     >
       <div className="mx-auto w-full max-w-[1440px] px-4 md:px-8">
         <header className="grid gap-m border-t border-stroke-primary pt-m md:grid-cols-bp-desktop md:gap-x-s md:pt-l">
@@ -490,16 +496,6 @@ export default function AwardsNominations() {
                     }}
                   >
                     <div className="flex flex-col gap-s md:flex-row md:items-end md:justify-between">
-                      <input
-                        aria-hidden="true"
-                        autoComplete="off"
-                        className="sr-only"
-                        name="website"
-                        onChange={(event) => setWebsite(event.target.value)}
-                        tabIndex={-1}
-                        type="text"
-                        value={website}
-                      />
                       <div className="w-full md:max-w-[520px]">
                         <label
                           className="mb-2xs block font-mono text-button-small uppercase"

@@ -21,7 +21,11 @@ const projects: readonly Project[] = [
     name: "Auron",
     href: "https://auron-mocha.vercel.app/",
   },
-  { image: "project-03.webp", name: "P-Loop" },
+  {
+    image: "project-03.webp",
+    name: "JulyFi",
+    href: "https://github.com/Magouo/JulyFi",
+  },
   { image: "project-04.webp", name: "ZKGate" },
   { image: "project-05.webp", name: "ZKGate" },
   {

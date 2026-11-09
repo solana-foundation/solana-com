@@ -2,6 +2,7 @@
 
 import React from "react";
 import { BigBoard } from "./BigBoard";
+import { blockAgeAtReceipt } from "./blockAge";
 import { Blockspace } from "./Blockspace";
 import { ClientClock } from "./ClientClock";
 import { FooterBar } from "./FooterBar";
@@ -17,6 +18,14 @@ import { useLeaderSchedule } from "./useLeaderSchedule";
 import { usePolled, type BlockSample } from "./usePolled";
 import { useSlotFeed } from "./useSlotFeed";
 
+function withBlockAge(block: BlockSample, response: Response): BlockSample {
+  return {
+    ...block,
+    ageAtReceiptMs: blockAgeAtReceipt(block.serverTime, response.headers),
+    receivedAtMonotonicMs: performance.now(),
+  };
+}
+
 /**
  * The /200ms situation room: one live slot feed (server-side slotSubscribe
  * bridge) drives every instrument; the leader schedule attributes each block
@@ -26,7 +35,11 @@ export default function Slot200Experience() {
   const { feed, subscribe } = useSlotFeed();
   const { network, lookup } = useLeaderSchedule();
   const attribution = useAttribution(subscribe, lookup);
-  const block = usePolled<BlockSample>("/api/slot-time/block", 5_000);
+  const block = usePolled<BlockSample>(
+    "/api/slot-time/block",
+    30_000,
+    withBlockAge,
+  );
 
   return (
     <main className="s2-root">

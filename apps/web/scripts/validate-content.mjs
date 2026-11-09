@@ -1,0 +1,800 @@
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+import ts from "typescript";
+
+const webRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
+const repoRoot = path.resolve(webRoot, "../..");
+const auditedFiles = [
+  "src/data/developers/defi.ts",
+  "src/data/developers/payments.ts",
+  "src/data/pyusd.ts",
+  "src/data/solutions/financial-institutions.ts",
+];
+const requiredExports = {
+  "src/data/developers/defi.ts": [
+    "HERO_BUTTONS",
+    "STATS",
+    "NETWORK_PROPERTIES",
+    "STACK_STEPS",
+    "TEMPLATES",
+    "PRIMITIVES",
+    "LANDING_STEPS",
+    "SECURITY_ITEMS",
+    "READING",
+    "COMMUNITY_LINKS",
+  ],
+  "src/data/developers/payments.ts": [
+    "HERO_LINKS",
+    "PAYMENT_PATHS",
+    "BUILD_OPTIONS",
+    "SHOPIFY_LINKS",
+    "SHOPIFY_PAYMENTS_LINK",
+    "RELATED_LINKS",
+    "PRODUCTION_LINK",
+  ],
+  "src/data/pyusd.ts": [
+    "HERO_BUTTONS",
+    "STATS",
+    "TRUST_ITEMS",
+    "MINT_EXTENSIONS",
+    "BUILD_STEPS",
+    "RESOURCES",
+    "RELATED_LINKS",
+  ],
+  "src/data/solutions/financial-institutions.ts": ["PROJECTS"],
+};
+const requiredClaimPaths = [
+  "financial-institutions-solution.projects.citi.stat",
+  "financial-institutions-solution.projects.societeGenerale.stat",
+  "financial-institutions-solution.projects.stateStreet.description",
+  "pyusd.hero.body",
+  "pyusd.stats.items.backing.value",
+  "pyusd.trust.items.issuer.body",
+  "pyusd.mint.extensions.transferFee.body",
+];
+
+const redirectSources = new Set();
+const redirectPatterns = [];
+const redirectsFile = path.join(webRoot, "rewrites-redirects.ts");
+const redirectsSource = ts.createSourceFile(
+  redirectsFile,
+  readFileSync(redirectsFile, "utf8"),
+  ts.ScriptTarget.Latest,
+  true,
+);
+function collectRedirectSources(node) {
+  if (
+    ts.isPropertyAssignment(node) &&
+    node.name.getText(redirectsSource) === "source" &&
+    ts.isStringLiteral(node.initializer)
+  ) {
+    const source = node.initializer.text;
+    redirectSources.add(source);
+    if (source.includes(":")) redirectPatterns.push(sourcePattern(source));
+  }
+  ts.forEachChild(node, collectRedirectSources);
+}
+collectRedirectSources(redirectsSource);
+
+// Next.js path params: `:slug` is one segment, `:slug+` one or more and
+// `:slug*` zero or more.
+function sourcePattern(source) {
+  const pattern = source
+    .split("/")
+    .map((segment) => {
+      const param = segment.match(/^:\w+([*+?])?$/);
+      if (!param) return segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      if (param[1] === "*") return "(?:/.*)?";
+      if (param[1] === "+") return "/.+";
+      if (param[1] === "?") return "(?:/[^/]+)?";
+      return "/[^/]+";
+    })
+    .reduce((joined, part) =>
+      part.startsWith("/") || part.startsWith("(?:/")
+        ? joined + part
+        : `${joined}/${part}`,
+    );
+  return new RegExp(`^${pattern}$`);
+}
+
+function routeExists(pathname) {
+  // The web app uses trailingSlash: false, so Next redirects a trailing slash
+  // to the same route without it.
+  if (pathname.length > 1 && pathname.endsWith("/"))
+    pathname = pathname.slice(0, -1);
+  if (redirectSources.has(pathname)) return true;
+  if (pathname.startsWith("/ecosystem/")) return true; // web rewrite to /ecosystem
+  if (pathname.startsWith("/news/")) {
+    const slug = pathname.slice("/news/".length);
+    return existsSync(
+      path.join(repoRoot, "apps/media/content/posts", `${slug}.mdx`),
+    );
+  }
+  if (pathname.startsWith("/developers/cookbook/")) {
+    const slug = pathname.slice("/developers/cookbook/".length);
+    const base = path.join(repoRoot, "apps/docs/content/cookbook", slug);
+    return (
+      existsSync(`${base}.mdx`) || existsSync(path.join(base, "index.mdx"))
+    );
+  }
+  if (pathname.startsWith("/docs/")) {
+    const slug = pathname.slice("/docs/".length);
+    const base = path.join(repoRoot, "apps/docs/content/docs/en", slug);
+    return (
+      existsSync(`${base}.mdx`) || existsSync(path.join(base, "index.mdx"))
+    );
+  }
+  if (pathname.startsWith("/developers/bootcamp/")) {
+    const segments = pathname.slice("/developers/bootcamp/".length).split("/");
+    const [courseSlug, lessonSlug] = segments;
+    const course = bootcampCourses.find((item) => item.slug === courseSlug);
+    if (!course || segments.length > 2) return false;
+    const contentRoot = path.join(
+      repoRoot,
+      "apps/docs/content/developers-learn/en",
+      courseSlug,
+    );
+    if (segments.length === 1)
+      return existsSync(path.join(contentRoot, "index.mdx"));
+    return (
+      course.lessons.includes(lessonSlug) &&
+      existsSync(path.join(contentRoot, `${lessonSlug}.mdx`))
+    );
+  }
+  // Checked after content-backed prefixes so a catch-all rewrite such as
+  // /docs/:path* cannot hide a missing page.
+  if (redirectPatterns.some((pattern) => pattern.test(pathname))) return true;
+  for (const app of ["web", "docs", "media"]) {
+    const base = path.join(repoRoot, `apps/${app}/src/app/[locale]`, pathname);
+    if (existsSync(path.join(base, "page.tsx"))) return true;
+  }
+  return false;
+}
+
+export function validateUrl(value, location) {
+  const errors = [];
+  if (typeof value !== "string" || !value.trim()) {
+    return [`${location}: URL is empty`];
+  }
+  if (value !== value.trim())
+    errors.push(`${location}: URL has surrounding whitespace`);
+  try {
+    const url = new URL(value, "https://solana.com");
+    if (
+      value.startsWith("//") ||
+      (!value.startsWith("/") && !/^https?:\/\//.test(value))
+    ) {
+      errors.push(`${location}: URL must be absolute or root-relative`);
+    }
+    if (!["http:", "https:"].includes(url.protocol)) {
+      errors.push(`${location}: unsupported URL protocol`);
+    }
+    if (
+      (value.startsWith("/") ||
+        url.hostname === "solana.com" ||
+        url.hostname === "www.solana.com") &&
+      !routeExists(url.pathname)
+    ) {
+      errors.push(`${location}: no local destination for ${url.pathname}`);
+    }
+  } catch {
+    errors.push(`${location}: invalid URL ${value}`);
+  }
+  return errors;
+}
+
+export function validateLinks(record, location) {
+  const errors = [];
+  if (!record || typeof record !== "object") return errors;
+  if (Array.isArray(record)) {
+    record.forEach((item, index) =>
+      errors.push(...validateLinks(item, `${location}[${index}]`)),
+    );
+    return errors;
+  }
+  if (
+    (location.endsWith(".button") ||
+      location.endsWith(".callToAction") ||
+      "hierarchy" in record) &&
+    !("url" in record)
+  ) {
+    errors.push(`${location}: actionable object requires a URL`);
+  }
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "url" || key === "href" || key === "statSource") {
+      errors.push(...validateUrl(value, `${location}.${key}`));
+    } else {
+      errors.push(...validateLinks(value, `${location}.${key}`));
+    }
+  }
+  return errors;
+}
+
+function staticValue(node, declarations) {
+  if (ts.isStringLiteral(node)) return node.text;
+  if (ts.isIdentifier(node) && declarations.has(node.text))
+    return staticValue(declarations.get(node.text), declarations);
+  if (ts.isArrayLiteralExpression(node))
+    return node.elements.flatMap((element) => {
+      if (ts.isSpreadElement(element)) {
+        const value = staticValue(element.expression, declarations);
+        if (!Array.isArray(value))
+          throw new Error("Cannot resolve array spread");
+        return value;
+      }
+      return [staticValue(element, declarations)];
+    });
+  if (ts.isObjectLiteralExpression(node)) {
+    return Object.fromEntries(
+      node.properties.flatMap((property) => {
+        if (ts.isSpreadAssignment(property)) {
+          const value = staticValue(property.expression, declarations);
+          if (!value || typeof value !== "object" || Array.isArray(value))
+            throw new Error("Cannot resolve object spread");
+          return Object.entries(value);
+        }
+        if (ts.isShorthandPropertyAssignment(property)) {
+          const value = staticValue(property.name, declarations);
+          if (value === undefined)
+            throw new Error("Cannot resolve shorthand property");
+          return [[property.name.text, value]];
+        }
+        if (!ts.isPropertyAssignment(property)) return [];
+        const name = property.name.getText().replace(/^['"]|['"]$/g, "");
+        // Dynamic values such as logo lookups are irrelevant to link validation.
+        const value = staticValue(property.initializer, declarations);
+        if (
+          ["url", "href", "button", "callToAction"].includes(name) &&
+          value === undefined
+        )
+          throw new Error(`Cannot resolve ${name} property`);
+        return [[name, value]];
+      }),
+    );
+  }
+  if (
+    ts.isAsExpression(node) ||
+    ts.isSatisfiesExpression(node) ||
+    ts.isParenthesizedExpression(node)
+  )
+    return staticValue(node.expression, declarations);
+  return undefined;
+}
+
+function readStaticExport(sourceText, relativePath, exportName) {
+  const source = ts.createSourceFile(
+    relativePath,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const declarations = new Map();
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer)
+        declarations.set(declaration.name.text, declaration.initializer);
+    }
+  }
+  const initializer = declarations.get(exportName);
+  return initializer ? staticValue(initializer, declarations) : undefined;
+}
+
+const bootcampCurriculumPath = path.join(
+  repoRoot,
+  "apps/docs/src/utils/developers-learn-curriculum.ts",
+);
+function readBootcampCourses() {
+  const source = ts.createSourceFile(
+    bootcampCurriculumPath,
+    readFileSync(bootcampCurriculumPath, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const courses = source.statements
+    .filter(ts.isVariableStatement)
+    .flatMap((statement) => [...statement.declarationList.declarations])
+    .find(
+      (declaration) =>
+        declaration.name.getText(source) === "developersLearnCourses",
+    )?.initializer;
+  if (!courses || !ts.isArrayLiteralExpression(courses))
+    throw new Error("Cannot resolve the bootcamp course registry");
+  function property(object, name) {
+    if (!ts.isObjectLiteralExpression(object))
+      throw new Error(`Cannot resolve bootcamp ${name}`);
+    const value = object.properties.find(
+      (item) =>
+        ts.isPropertyAssignment(item) && item.name.getText(source) === name,
+    );
+    if (!value || !ts.isPropertyAssignment(value))
+      throw new Error(`Cannot resolve bootcamp ${name}`);
+    return value.initializer;
+  }
+  return courses.elements.map((course) => {
+    const slug = property(course, "slug");
+    const lessons = property(course, "lessons");
+    if (!ts.isStringLiteral(slug) || !ts.isArrayLiteralExpression(lessons))
+      throw new Error("Cannot resolve bootcamp course or lessons");
+    return {
+      slug: slug.text,
+      lessons: lessons.elements.map((lesson) => {
+        const lessonSlug = property(lesson, "slug");
+        if (!ts.isStringLiteral(lessonSlug))
+          throw new Error("Cannot resolve bootcamp lesson slug");
+        return lessonSlug.text;
+      }),
+    };
+  });
+}
+const bootcampCourses = readBootcampCourses();
+
+export function validateSource(sourceText, relativePath) {
+  const source = ts.createSourceFile(
+    relativePath,
+    sourceText,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const errors = [];
+  const declarations = new Map();
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer)
+        declarations.set(declaration.name.text, declaration.initializer);
+    }
+  }
+  for (const name of requiredExports[relativePath] ?? []) {
+    if (!declarations.has(name))
+      errors.push(`${relativePath}: missing audited export ${name}`);
+  }
+  for (const statement of source.statements) {
+    if (!ts.isVariableStatement(statement)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!declaration.initializer) continue;
+      const location = `${relativePath}:${declaration.name.getText(source)}`;
+      try {
+        const value = staticValue(declaration.initializer, declarations);
+        if (
+          value === undefined &&
+          requiredExports[relativePath]?.includes(
+            declaration.name.getText(source),
+          )
+        )
+          errors.push(`${location}: cannot resolve audited export`);
+        else errors.push(...validateLinks(value, location));
+      } catch (error) {
+        errors.push(`${location}: ${error.message}`);
+      }
+    }
+  }
+  return errors;
+}
+
+function validateFile(relativePath) {
+  return validateSource(
+    readFileSync(path.join(webRoot, relativePath), "utf8"),
+    relativePath,
+  );
+}
+
+function messageAtPath(messages, dottedPath) {
+  return dottedPath
+    .split(".")
+    .reduce((current, part) => current?.[part], messages);
+}
+
+export function validateClaims(
+  claims,
+  messages,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  const errors = [];
+  for (const requiredPath of requiredClaimPaths) {
+    if (!claims.some((entry) => entry.path === requiredPath)) {
+      errors.push(`claims/prose.json: missing required claim ${requiredPath}`);
+    }
+  }
+  for (const entry of claims) {
+    const location = `claims/prose.json:${entry.path}`;
+    const copy = messageAtPath(messages, entry.path);
+    if (
+      !entry.claim ||
+      typeof copy !== "string" ||
+      !copy.includes(entry.claim)
+    ) {
+      errors.push(`${location}: claim text is absent from English content`);
+    }
+    if (!entry.owner?.trim()) errors.push(`${location}: owner is required`);
+    try {
+      const sourceUrl = new URL(entry.sourceUrl);
+      if (sourceUrl.protocol !== "https:" || !sourceUrl.hostname)
+        errors.push(`${location}: valid HTTPS source is required`);
+    } catch {
+      errors.push(`${location}: valid HTTPS source is required`);
+    }
+    for (const field of ["asOf", "reviewBy"]) {
+      const date = entry[field];
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(date ?? "") ||
+        Number.isNaN(Date.parse(date)) ||
+        new Date(date).toISOString().slice(0, 10) !== date
+      ) {
+        errors.push(`${location}: valid ${field} date is required`);
+      }
+    }
+    if (entry.asOf > today) errors.push(`${location}: asOf is in the future`);
+    if (entry.reviewBy < today)
+      errors.push(`${location}: review deadline has passed`);
+    if (entry.reviewBy < entry.asOf)
+      errors.push(`${location}: review deadline precedes asOf`);
+  }
+  return errors;
+}
+
+// A card with `metric` shows that registry key, so it must not also carry a
+// message value or a hardcoded stat. A card without one shows a qualitative
+// claim that must match its audited English claim, source, and date.
+export function validateFinancialProjectStats(
+  projects,
+  claims,
+  messages,
+  registry,
+) {
+  if (!Array.isArray(projects))
+    return ["financial institutions: PROJECTS must be a static array"];
+  const errors = [];
+  for (const project of projects) {
+    const path = `financial-institutions-solution.projects.${project.key}.stat`;
+    if (project.metric !== undefined) {
+      if (!(project.metric in registry))
+        errors.push(`${path}: unknown registry metric ${project.metric}`);
+      if (messageAtPath(messages, path) !== undefined)
+        errors.push(`${path}: registry stats must not keep a message value`);
+      if (
+        project.statValue !== undefined ||
+        project.statSource !== undefined ||
+        project.statSourceNote !== undefined
+      )
+        errors.push(
+          `${path}: registry stats must not hardcode a value, source, or date`,
+        );
+      if (claims.some((entry) => entry.path === path))
+        errors.push(`${path}: registry stats must not keep a prose claim`);
+      continue;
+    }
+    const claim = claims.find((entry) => entry.path === path);
+    const message = messageAtPath(messages, path);
+    if (
+      !project.statValue ||
+      project.statValue !== message ||
+      project.statValue !== claim?.claim
+    )
+      errors.push(
+        `${path}: displayed stat must match the audited English claim`,
+      );
+    if (!project.statSource || project.statSource !== claim?.sourceUrl)
+      errors.push(`${path}: displayed source must match the audited source`);
+    if (!project.statSourceNote || project.statSourceNote !== claim?.asOf)
+      errors.push(`${path}: displayed date must match the audited asOf`);
+  }
+  return errors;
+}
+
+const metricUnits = new Set([
+  "usd",
+  "count",
+  "ms",
+  "percent",
+  "sol",
+  "bytes",
+  "wh",
+  "kwh",
+]);
+const metricRollups = new Set(["sum", "avg", "last"]);
+const defiLlamaQueries = new Set([
+  "chain-tvl",
+  "protocol-tvl",
+  "aggregator-volume",
+  "chain-dex-volume-30d",
+  "stablecoin-chain-supply",
+]);
+const solanaRpcQueries = new Set(["nakamoto-coefficient", "token-supply-sum"]);
+const x402scanQueries = new Set([
+  "transactions",
+  "volume-usd",
+  "buyers",
+  "sellers",
+  "buyers-and-sellers",
+  "transaction-share",
+  "volume-share",
+]);
+const climateFields = new Set([
+  "electricityTx",
+  "electricity365",
+  "emissionsTx",
+  "emissions365",
+]);
+const rwaXyzFields = new Set([
+  "distributedValueUSD",
+  "assetCount",
+  "holderCount",
+]);
+
+function isIsoDate(value) {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(value ?? "") &&
+    !Number.isNaN(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
+  );
+}
+
+/**
+ * Reads every src/data/metrics/*.json file into one registry. Each file holds
+ * the keys for its prefix (defi.json holds defi.*), so a key has one home.
+ */
+export function readMetricRegistry(directory) {
+  const registry = {};
+  const errors = [];
+  for (const file of readdirSync(directory).filter((name) =>
+    name.endsWith(".json"),
+  )) {
+    const prefix = file.replace(/\.json$/, "");
+    const entries = JSON.parse(
+      readFileSync(path.join(directory, file), "utf8"),
+    );
+    for (const [key, metric] of Object.entries(entries)) {
+      if (key.split(".")[0] !== prefix)
+        errors.push(
+          `metrics registry:${key}: belongs in ${key.split(".")[0]}.json, not ${file}`,
+        );
+      if (key in registry)
+        errors.push(`metrics registry:${key}: defined more than once`);
+      registry[key] = metric;
+    }
+  }
+  return { registry, errors };
+}
+
+/**
+ * Checks the src/data/metrics/*.json registry: every published metric needs a
+ * definition, HTTPS source, period, owner, dated snapshot (the published value
+ * or the live fallback), verification date, and an unexpired review deadline.
+ */
+export function validateMetricRegistry(
+  registry,
+  today = new Date().toISOString().slice(0, 10),
+) {
+  const errors = [];
+  for (const [key, metric] of Object.entries(registry)) {
+    const location = `metrics registry:${key}`;
+    if (!/^[a-z][a-z0-9]*(\.[a-z0-9-]+)+$/.test(key))
+      errors.push(`${location}: key must be dotted kebab-case`);
+    if (!metricUnits.has(metric.unit))
+      errors.push(`${location}: unit must be one of ${[...metricUnits]}`);
+    if (!metric.definition?.trim())
+      errors.push(`${location}: definition is required`);
+    if (!metric.owner?.trim()) errors.push(`${location}: owner is required`);
+    if (metric.verification === "unverified") {
+      if (!metric.note?.trim())
+        errors.push(`${location}: unverified figures need a note`);
+      if (metric.live)
+        errors.push(`${location}: unverified figures cannot be live`);
+    } else if (metric.verification !== undefined) {
+      errors.push(`${location}: verification must be "unverified" or absent`);
+    }
+    if (metric.source !== undefined || metric.verification !== "unverified") {
+      if (!metric.source?.name?.trim())
+        errors.push(`${location}: source name is required`);
+      try {
+        const sourceUrl = new URL(metric.source?.url);
+        if (sourceUrl.protocol !== "https:")
+          errors.push(`${location}: valid HTTPS source is required`);
+      } catch {
+        errors.push(`${location}: valid HTTPS source is required`);
+      }
+    }
+    const period = metric.period;
+    if (
+      period?.kind !== "point" &&
+      !(
+        period?.kind === "trailing" &&
+        Number.isInteger(period.days) &&
+        period.days > 0
+      )
+    )
+      errors.push(`${location}: period must be point or trailing days`);
+    if (!Number.isFinite(metric.snapshot?.value))
+      errors.push(`${location}: snapshot value must be a number`);
+    if (!isIsoDate(metric.snapshot?.asOf))
+      errors.push(`${location}: valid snapshot asOf date is required`);
+    for (const field of ["verifiedAt", "reviewBy"]) {
+      if (!isIsoDate(metric[field]))
+        errors.push(`${location}: valid ${field} date is required`);
+    }
+    if (metric.snapshot?.asOf > today || metric.verifiedAt > today)
+      errors.push(
+        `${location}: snapshot or verification date is in the future`,
+      );
+    if (metric.snapshot?.asOf > metric.verifiedAt)
+      errors.push(`${location}: snapshot is newer than its verification`);
+    if (metric.reviewBy < today)
+      errors.push(`${location}: review deadline has passed`);
+    if (
+      metric.display !== undefined &&
+      (typeof metric.display !== "object" ||
+        Object.keys(metric.display).some(
+          (field) =>
+            !["prefix", "suffix"].includes(field) ||
+            typeof metric.display[field] !== "string" ||
+            metric.display[field].length > 3,
+        ))
+    )
+      errors.push(`${location}: display allows a short prefix and suffix only`);
+    const live = metric.live;
+    if (live?.provider === "data-api") {
+      if (
+        !Array.isArray(live.metrics) ||
+        live.metrics.length === 0 ||
+        !metricRollups.has(live.rollup) ||
+        !Number.isInteger(live.days) ||
+        live.days < 1
+      )
+        errors.push(`${location}: data-api spec needs metrics, rollup, days`);
+      if (
+        period?.kind === "trailing" &&
+        (period.days !== live.days || live.rollup === "last")
+      )
+        errors.push(`${location}: trailing period must match the live window`);
+    } else if (live?.provider === "rwa-xyz") {
+      if (!rwaXyzFields.has(live.field))
+        errors.push(`${location}: unknown RWA.xyz field ${live.field}`);
+    } else if (live?.provider === "defillama") {
+      if (!defiLlamaQueries.has(live.query) || !live.slug?.trim())
+        errors.push(`${location}: defillama spec needs a known query and slug`);
+      if (live.query === "stablecoin-chain-supply" && !live.chain?.trim())
+        errors.push(`${location}: stablecoin-chain-supply needs a chain`);
+    } else if (live?.provider === "solana-rpc") {
+      if (!solanaRpcQueries.has(live.query))
+        errors.push(`${location}: unknown solana-rpc query ${live.query}`);
+      if (
+        live.query === "token-supply-sum" &&
+        !(Array.isArray(live.mints) && live.mints.length > 0)
+      )
+        errors.push(`${location}: token-supply-sum needs mints`);
+    } else if (live?.provider === "x402scan") {
+      if (
+        !x402scanQueries.has(live.query) ||
+        ![0, 7, 30].includes(live.timeframe)
+      )
+        errors.push(
+          `${location}: x402scan spec needs a known query and timeframe 0, 7, or 30`,
+        );
+      if (period?.kind === "trailing" && period.days !== live.timeframe)
+        errors.push(
+          `${location}: trailing period must match the x402scan timeframe`,
+        );
+    } else if (live?.provider === "climate") {
+      if (!climateFields.has(live.field))
+        errors.push(`${location}: unknown climate field ${live.field}`);
+    } else if (live !== undefined) {
+      errors.push(`${location}: unknown live provider`);
+    }
+  }
+  return errors;
+}
+
+// Pages whose STATS export renders `<namespace>.stats.items.<id>`. A stat
+// with `metric` shows that registry key, so its number must not also live in
+// the messages. A stat without one shows its English value, which must be an
+// audited claim with a matching `statSource` and `statAsOf`.
+const statPages = [
+  { namespace: "developers-defi", file: "src/data/developers/defi.ts" },
+  { namespace: "pyusd", file: "src/data/pyusd.ts" },
+];
+
+export function validatePageStats(
+  namespace,
+  stats,
+  claims,
+  messages,
+  registry,
+) {
+  if (!Array.isArray(stats))
+    return [`${namespace}: STATS must be a static array`];
+  const errors = [];
+  for (const stat of stats) {
+    const path = `${namespace}.stats.items.${stat.id}.value`;
+    if (
+      typeof messageAtPath(
+        messages,
+        `${namespace}.stats.items.${stat.id}.label`,
+      ) !== "string"
+    )
+      errors.push(
+        `${namespace}.stats.items.${stat.id}.label: label is missing`,
+      );
+    if (stat.metric !== undefined) {
+      if (!(stat.metric in registry))
+        errors.push(`${path}: unknown registry metric ${stat.metric}`);
+      if (messageAtPath(messages, path) !== undefined)
+        errors.push(`${path}: registry stats must not keep a message value`);
+      continue;
+    }
+    const claim = claims.find((entry) => entry.path === path);
+    if (!claim || messageAtPath(messages, path) !== claim.claim)
+      errors.push(
+        `${path}: displayed stat must match the audited English claim`,
+      );
+    if (!stat.statSource || stat.statSource !== claim?.sourceUrl)
+      errors.push(`${path}: displayed source must match the audited source`);
+    if (!stat.statAsOf || stat.statAsOf !== claim?.asOf)
+      errors.push(`${path}: displayed date must match the audited asOf`);
+  }
+  return errors;
+}
+
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  const claims = JSON.parse(
+    readFileSync(
+      path.join(webRoot, "src/data/metrics/claims/prose.json"),
+      "utf8",
+    ),
+  );
+  const messages = JSON.parse(
+    readFileSync(
+      path.join(repoRoot, "packages/i18n/messages/web/en/common.json"),
+      "utf8",
+    ),
+  );
+  const { registry: metricRegistry, errors: registryFileErrors } =
+    readMetricRegistry(path.join(webRoot, "src/data/metrics"));
+  const errors = [
+    ...registryFileErrors,
+    ...auditedFiles.flatMap(validateFile),
+    ...validateClaims(claims, messages),
+    ...validateMetricRegistry(metricRegistry),
+    ...validateFinancialProjectStats(
+      readStaticExport(
+        readFileSync(
+          path.join(webRoot, "src/data/solutions/financial-institutions.ts"),
+          "utf8",
+        ),
+        "src/data/solutions/financial-institutions.ts",
+        "PROJECTS",
+      ),
+      claims,
+      messages,
+      metricRegistry,
+    ),
+    ...statPages.flatMap(({ namespace, file }) =>
+      validatePageStats(
+        namespace,
+        readStaticExport(
+          readFileSync(path.join(webRoot, file), "utf8"),
+          file,
+          "STATS",
+        ),
+        claims,
+        messages,
+        metricRegistry,
+      ),
+    ),
+  ];
+  if (errors.length) {
+    console.error(errors.join("\n"));
+    process.exitCode = 1;
+  } else {
+    console.log(
+      `Validated links in ${auditedFiles.length} page data files, ${claims.length} dated claims, and ${Object.keys(metricRegistry).length} registry metrics.`,
+    );
+  }
+}

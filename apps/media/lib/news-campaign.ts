@@ -48,7 +48,6 @@ export const NEWS_CAMPAIGNS: NewsCampaign[] = [
   {
     id: "breakpoint-2026",
     primaryCtaUrl: "https://solana.com/breakpoint/registration",
-    secondaryCtaUrl: "https://solanafoundation.typeform.com/bp26sponsorform",
     targetSurfaces: [
       "news-front",
       "category:breakpoint",

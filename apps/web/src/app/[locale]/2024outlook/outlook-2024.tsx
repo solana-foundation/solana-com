@@ -24,7 +24,7 @@ import {
   Heading,
   Hero,
   Switchback,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 
 interface Outlook2024PageProps {
   translations: {
@@ -133,8 +133,6 @@ export function Outlook2024Page({ translations }: Outlook2024PageProps) {
         body={translations.featureHighlightBody}
         headingAs={FEATURE_HIGHLIGHT_CONFIG.headingAs}
         cards={featureCards}
-        // Check if it exists in @solana-foundation/solana-lib after the upstream fix.
-        valueOf={() => false}
       />
 
       <ConversionPanel

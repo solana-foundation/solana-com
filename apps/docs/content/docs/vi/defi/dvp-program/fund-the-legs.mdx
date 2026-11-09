@@ -1,0 +1,242 @@
+---
+title: Nạp vốn cho các leg
+description:
+  Xác minh các điều khoản đã lưu của một giao dịch DvP, sau đó nạp vốn cho một leg bằng lệnh TransferChecked thông thường vào tài khoản escrow của leg đó.
+seoTitle: Nạp vốn cho giao dịch DvP trên Solana
+url: /docs/defi/dvp-program/fund-the-legs
+type: tutorial
+prerequisites:
+  - /docs/defi/dvp-program/create-a-trade
+related:
+  - /docs/defi/dvp-program/settle-the-trade
+  - /docs/defi/dvp-program/unwind-a-trade
+---
+
+Nạp vốn chỉ là một lệnh `TransferChecked` thông thường vào escrow của leg, vì vậy bất kỳ ví hoặc
+hệ thống lưu ký nào có thể gửi chuyển token đều có thể nạp vốn cho một leg. Chỉ bước đọc
+bản ghi giao dịch trước khi nạp vốn mới cần đến DvP client. Chương trình chỉ kiểm tra
+số dư escrow tại thời điểm quyết toán; không có gì kiểm tra giao dịch chuyển khi nó được ghi nhận,
+nên mỗi bên cần đọc bản ghi giao dịch trước khi chuyển.
+
+Trang này tiếp nối phần
+[tạo giao dịch](/docs/defi/dvp-program/create-a-trade); client và các signer
+được giữ nguyên.
+
+## Xác minh các điều khoản
+
+Việc tạo bản ghi không cần cấp quyền, và các địa chỉ escrow được suy ra
+chỉ từ bản ghi và mint, không bao giờ từ các điều khoản. Do đó, một giao dịch chuyển vào escrow có thể
+được ghi nhận theo những điều khoản mà bạn chưa từng đồng ý, bao gồm các đích quyết toán
+chuyển hướng số tiền thu được của đối tác của bạn sang một địa chỉ thứ ba.
+Trước khi nạp vốn, hãy đọc tài khoản `SwapDvp` và đối chiếu với giao dịch
+đã thỏa thuận.
+
+`verifySwapDvp` trong TypeScript và `verify::decode_swap_dvp_account` trong Rust
+xác nhận rằng tài khoản thuộc sở hữu của chương trình DvP, có kích thước đúng 458 byte, và
+nằm tại địa chỉ được suy ra từ chính các trường của nó (`fetchSwapDvpChecked` chỉ thực hiện
+hai kiểm tra đầu tiên). Các hàm đọc thông thường `fetchSwapDvp` và `decodeSwapDvp`
+không thực hiện kiểm tra nào trong số này. Việc kiểm tra các bên, số lượng, thời gian và đích đến
+do bên gọi thực hiện, đối chiếu với giao dịch đã thỏa thuận.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    ```ts
+    import { unwrapOption } from "@solana/kit";
+    import { verifySwapDvp } from "./dvp";
+
+    const trade = await verifySwapDvp(client.rpc, swapDvp);
+    const t = trade.data;
+
+    const expectedAmountA = 1_000_000_000n;
+    const expectedAmountB = 998_500_000n;
+    const expectedEarliestSettlement: bigint | null = null; // as agreed
+    const expectedExpiry = 1_798_761_600n; // as agreed, unix seconds
+
+    if (
+      t.userA !== userA ||
+      t.userB !== userB ||
+      t.mintA !== mintA ||
+      t.mintB !== mintB ||
+      t.settlementAuthority !== settlementAuthority ||
+      t.tokenProgramA !== tokenProgramA ||
+      t.tokenProgramB !== tokenProgramB ||
+      t.amountA !== expectedAmountA ||
+      t.amountB !== expectedAmountB ||
+      unwrapOption(t.earliestSettlementTimestamp) !== expectedEarliestSettlement ||
+      t.expiryTimestamp !== expectedExpiry ||
+      t.userASettlementDestination !== userA ||
+      t.userBSettlementDestination !== userB
+    ) {
+      throw new Error("Stored terms do not match the agreed trade; do not fund");
+    }
+
+    if (t.expiryTimestamp <= BigInt(Math.floor(Date.now() / 1000)) + 60n) {
+      throw new Error("Trade expires too soon to fund safely");
+    }
+    ```
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use dvp_swap_program_client::verify::decode_swap_dvp_account;
+    use solana_client::rpc_client::RpcClient;
+    use solana_commitment_config::CommitmentConfig;
+
+    // Read at confirmed: a record created moments ago is not visible at finalized yet.
+    let rpc = RpcClient::new_with_commitment(
+        "https://api.devnet.solana.com".to_string(),
+        CommitmentConfig::confirmed(),
+    );
+    let account = rpc.get_account(&swap_dvp)?;
+    let trade = decode_swap_dvp_account(&swap_dvp, &account)?;
+
+    let expected_amount_a: u64 = 1_000_000_000;
+    let expected_amount_b: u64 = 998_500_000;
+    let expected_earliest_settlement: Option<i64> = None; // as agreed
+    let expected_expiry: i64 = 1_798_761_600; // as agreed, unix seconds
+
+    if trade.user_a != user_a
+        || trade.user_b != user_b
+        || trade.mint_a != mint_a
+        || trade.mint_b != mint_b
+        || trade.settlement_authority != settlement_authority
+        || trade.token_program_a != token_program_a
+        || trade.token_program_b != token_program_b
+        || trade.amount_a != expected_amount_a
+        || trade.amount_b != expected_amount_b
+        || trade.earliest_settlement_timestamp != expected_earliest_settlement
+        || trade.expiry_timestamp != expected_expiry
+        || trade.user_a_settlement_destination != user_a
+        || trade.user_b_settlement_destination != user_b
+    {
+        return Err("stored terms do not match the agreed trade; do not fund".into());
+    }
+
+    let now_seconds: i64 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)?
+        .as_secs() as i64;
+    if trade.expiry_timestamp <= now_seconds + 60 {
+        return Err("trade expires too soon to fund safely".into());
+    }
+    ```
+
+  </Tab>
+</Tabs>
+
+Nếu bản ghi do đối tác của bạn hoặc cơ quan quyết toán tạo ra,
+hãy so sánh từng trường với các điều khoản mà bạn đã thỏa thuận ngoài sổ cái. Nếu bạn tự tạo
+bản ghi, lần đọc này xác nhận rằng nó đã được ghi nhận đúng như khi gửi.
+
+## Chuyển vào escrow
+
+Hãy nạp vốn cho leg đúng bằng số lượng đã thỏa thuận. Chương trình giới hạn quyết toán ở
+`amount_x` và trả lại phần dư cho bên của leg, vì vậy phần dư không bị mất,
+nhưng nó làm phát sinh thêm một giao dịch chuyển tại thời điểm quyết toán và có thể thất bại với một số transfer
+hook (xem phần ghi chú bên dưới).
+
+Hãy dùng `TransferChecked`, không dùng `Transfer` không kiểm tra. Các mint Token-2022 có
+các extension phụ thuộc vào mint account, chẳng hạn như Pausable, sẽ từ chối giao dịch chuyển
+nếu không cung cấp nó, và mint có transfer hook cần các tài khoản của hook
+được phân giải và thêm vào theo cách tương tự như với bất kỳ giao dịch chuyển nào khác của token
+đó.
+
+<Tabs items={["TypeScript", "Rust"]}>
+  <Tab value="TypeScript">
+    Bên nắm leg tài sản, ký bằng `userASigner`, nạp vốn cho escrow A:
+
+    ```ts
+    import {
+      findAssociatedTokenPda,
+      getTransferCheckedInstruction,
+    } from "@solana-program/token-2022";
+
+    const [userAAtaA] = await findAssociatedTokenPda({
+      mint: mintA,
+      owner: userA,
+      tokenProgram: tokenProgramA,
+    });
+    const [userBAtaB] = await findAssociatedTokenPda({
+      mint: mintB,
+      owner: userB,
+      tokenProgram: tokenProgramB,
+    });
+
+    const fundAssetLeg = getTransferCheckedInstruction({
+      source: userAAtaA,
+      mint: mintA,
+      destination: escrowA,
+      authority: userASigner,
+      amount: t.amountA,
+      decimals: 6,
+    }, { programAddress: tokenProgramA });
+
+    await client.sendTransaction([fundAssetLeg]);
+    ```
+
+    Bên nắm leg tiền mặt thực hiện tương tự cho escrow B với `userBAtaB`, `mintB`,
+    `userBSigner`, `t.amountB` và `{ programAddress: tokenProgramB }`.
+
+  </Tab>
+
+  <Tab value="Rust">
+    ```rust
+    use spl_associated_token_account_client::address::get_associated_token_address_with_program_id;
+    use spl_token_2022_interface::instruction::transfer_checked;
+
+    let user_a_ata_a =
+        get_associated_token_address_with_program_id(&user_a, &mint_a, &token_program_a);
+
+    let fund_asset_leg = transfer_checked(
+        &token_program_a,
+        &user_a_ata_a,
+        &mint_a,
+        &escrow_a,
+        &user_a,
+        &[],
+        trade.amount_a,
+        6,
+    )?;
+    ```
+
+    Bên nắm leg tiền mặt tạo lệnh tương tự cho escrow B với `mint_b`,
+    `user_b` và `trade.amount_b`.
+
+  </Tab>
+</Tabs>
+
+Một giao dịch chuyển nạp vốn được thấy ở trạng thái [`confirmed`](/docs/rpc#configuring-state-commitment)
+vẫn có thể bị thay thế. Chương trình đọc số dư escrow onchain tại thời điểm
+quyết toán, nên lệnh Settle gửi dựa trên một giao dịch chuyển nạp vốn chưa được ghi nhận sẽ thất bại
+với lỗi `LegNotFunded` và không có gì được di chuyển; cái giá phải trả là một lệnh Settle thất bại và phải thử lại.
+Chỉ coi một leg là đã được nạp vốn khi giao dịch chuyển của nó ở trạng thái `finalized`.
+
+## Ghi chú
+
+- **Các leg SOL được wrap.** Chương trình đọc số dư của escrow native sau khi
+  đồng bộ hóa nó, nên lamport được gửi đến escrow wrapped-SOL bằng lệnh chuyển của system
+  đều được tính. Không bao giờ gửi SOL đến escrow của bất kỳ mint nào khác: chương trình không thể
+  trả lại, và nó sẽ thuộc về bất kỳ ai đóng tài khoản.
+- **Các mint có kiểm soát truy cập.** Với mint có Default Account State là frozen, escrow được
+  tạo ở trạng thái frozen và giao dịch chuyển sẽ thất bại cho đến khi issuer mở khóa hoặc chấp nhận nó.
+  [Phần tổng quan](/docs/defi/dvp-program#mint-configuration-constraints) mô tả
+  tương tác với Token ACL.
+- **Transfer hook.** Hãy nạp vốn cho các escrow có hook đúng bằng số lượng đã thỏa thuận. Nếu
+  phần dư buộc phải hoàn trả tại thời điểm quyết toán, việc hoàn trả sẽ dùng lại các tài khoản hook của leg
+  với đích đến và số lượng khác, điều mà một số hook sẽ từ chối. Cách
+  khắc phục là Reclaim, nạp vốn lại đúng số lượng, rồi quyết toán lại.
+- **Nạp vốn sau thời hạn hết hiệu lực.** Không có gì ngăn một giao dịch chuyển sau `expiry_timestamp`. Nó
+  vẫn được ghi nhận, nhưng không thể quyết toán nữa, và bên của leg thu hồi nó bằng
+  Reclaim khi giao dịch còn mở hoặc Recover sau khi giao dịch đóng. Xem
+  [hoàn tác giao dịch](/docs/defi/dvp-program/unwind-a-trade).
+- **Ai nạp vốn trước.** Chương trình không sắp xếp thứ tự giữa hai leg. Thứ tự
+  do các bên tự quyết định; mỗi bên có thể reclaim leg của mình bất kỳ lúc nào
+  trước khi quyết toán, trừ khi mint authority (freeze, pause hoặc transfer hook)
+  chặn escrow.
+
+## Các bước tiếp theo
+
+- [Quyết toán giao dịch](/docs/defi/dvp-program/settle-the-trade): cơ quan quyết toán
+  hoán đổi cả hai leg trong một giao dịch
+- [Hoàn tác giao dịch](/docs/defi/dvp-program/unwind-a-trade): thu hồi một leg
+  đã nạp vốn khi giao dịch không được quyết toán

@@ -11,8 +11,19 @@ import { LockKeyhole } from "@boxicons/react/LockKeyhole";
 import { CheckShield as ShieldCheck } from "@boxicons/react/CheckShield";
 import { UserCheck } from "@boxicons/react/UserCheck";
 import { Formats, TranslationValues } from "next-intl";
+import type { MetricKey } from "@/lib/metrics/registry";
 
-export const PROJECTS = [
+/**
+ * `metric` replaces the card's stat; `descriptionMetric` fills the
+ * `{buidlValue}` placeholder in the card description.
+ */
+export const PROJECTS: {
+  src: string;
+  key: string;
+  href: string;
+  metric?: MetricKey;
+  descriptionMetric?: MetricKey;
+}[] = [
   {
     src: getCompanyLogoSrc("jupiter", { theme: "dark" }) ?? "",
     key: "jupiter",
@@ -22,6 +33,7 @@ export const PROJECTS = [
     src: getCompanyLogoSrc("kamino", { theme: "dark" }) ?? "",
     key: "kamino",
     href: "/news/state-of-solana-february-2026",
+    metric: "rwa.protocol-market-size.kamino",
   },
   {
     src: getCompanyLogoSrc("raydium", { theme: "dark" }) ?? "",
@@ -42,6 +54,7 @@ export const PROJECTS = [
     src: getCompanyLogoSrc("blackrock") ?? "",
     key: "blackrock",
     href: "/news/state-of-solana-february-2026",
+    descriptionMetric: "rwa.asset-value.buidl",
   },
   {
     src: getCompanyLogoSrc("apollo") ?? "",
@@ -193,3 +206,10 @@ export const LATEST_NEWS_QUERY: SolutionNewsQuery = {
   fallbackImage: "/src/img/solutions/icm/og-image.webp",
   fallbackImageAspectRatio: "1200 / 630",
 };
+
+/** Registry keys for the live hero stats, in display order. */
+export const HERO_METRICS = [
+  "rwa.distributed-value",
+  "rwa.asset-count",
+  "rwa.holders",
+] as const;

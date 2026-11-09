@@ -2,26 +2,25 @@ import { AgentRegistryPage } from "./agent-registry";
 import { getIndexMetadata } from "@/app/metadata";
 import { getTranslations } from "next-intl/server";
 import { SolutionHeroStat } from "@/components/solutions/hero.v2";
+import { getDisplayMetrics } from "@/lib/metrics/present";
+import { HERO_METRICS } from "@/data/solutions/agent-registry";
 
 type Props = { params: Promise<{ locale: string }> };
 
-export default async function Page(_props: Props) {
-  const t = await getTranslations();
+export const revalidate = 60;
 
-  const stats: SolutionHeroStat[] = [
-    {
-      value: t("agentRegistry.hero.stats.0.value"),
-      label: t("agentRegistry.hero.stats.0.label"),
-    },
-    {
-      value: t("agentRegistry.hero.stats.1.value"),
-      label: t("agentRegistry.hero.stats.1.label"),
-    },
-    {
-      value: t("agentRegistry.hero.stats.2.value"),
-      label: t("agentRegistry.hero.stats.2.label"),
-    },
-  ];
+export default async function Page(_props: Props) {
+  const [t, metrics] = await Promise.all([
+    getTranslations(),
+    getDisplayMetrics(HERO_METRICS),
+  ]);
+
+  const stats: SolutionHeroStat[] = HERO_METRICS.map((key, index) => ({
+    value: metrics[key].value,
+    label: t(`agentRegistry.hero.stats.${index}.label`),
+    source: metrics[key].source,
+    localized: true,
+  }));
 
   const translations = {
     heroTitle: t("agentRegistry.hero.title"),

@@ -11,8 +11,16 @@ import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/ai";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import {
+  LatestNews,
+  type NewsItem,
+} from "@/components/solutions/latest-news.v2";
 
-export function SolutionsAiPage() {
+type SolutionsAiPageProps = {
+  news: NewsItem[];
+};
+
+export function SolutionsAiPage({ news }: SolutionsAiPageProps) {
   const t = useTranslations();
 
   return (
@@ -25,7 +33,7 @@ export function SolutionsAiPage() {
           subtitle={t("ai-solution.hero.subtitle")}
           bgJsonFilePath="/src/img/solutions/ai/hero-bg.json"
           extraCta={t("ai-solution.hero.extraCta")}
-          extraCtaHref="https://x.com/knimkar/status/1863719025500623344"
+          extraCtaHref="https://solana.com/news/solana-ai-the-democratization-layer"
         />
 
         <Divider />
@@ -53,6 +61,7 @@ export function SolutionsAiPage() {
           translationBase="ai-solution.projects"
           logos={LOGOS}
           bgSrc="/src/img/solutions/ai/ecosystem-bg.webp"
+          hideStats
         />
 
         <Divider />
@@ -73,6 +82,8 @@ export function SolutionsAiPage() {
           subtitle={t("ai-solution.videoPlayer.subtitle")}
           videos={VIDEOS(t)}
         />
+
+        <LatestNews title={t("ai-solution.news.title")} items={news} />
       </div>
 
       <VideoPlayerModal />

@@ -41,6 +41,11 @@ export type SponsorMarqueeRow = {
 // Keep every tier in sponsorship-action order. Add newly actioned sponsors to
 // the end of their tier so the same order carries through to the page and
 // marquee rows below.
+const diamondSponsors = [
+  { companyId: "zelle", width: 1801, height: 834 },
+  { companyId: "kraken", width: 3246, height: 772 },
+] satisfies SponsorLogo[];
+
 const platinumSponsors = [
   {
     companyId: "jito",
@@ -92,6 +97,20 @@ const platinumSponsors = [
     width: 1809,
     height: 449,
   },
+  {
+    companyId: "grayscale",
+    logoVariant: { id: "logo-light" },
+    width: 1050,
+    height: 170,
+  },
+  { companyId: "tether", width: 121, height: 28 },
+  { companyId: "payoneer", width: 1316, height: 256 },
+  { companyId: "ramp", width: 599, height: 171 },
+  {
+    companyId: "kast",
+    width: 384,
+    height: 80,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -106,9 +125,9 @@ const goldSponsors = [
     height: 950,
   },
   {
-    companyId: "vybe-network",
-    width: 2400,
-    height: 368,
+    companyId: "tickr",
+    width: 826.58,
+    height: 180.78,
   },
   {
     companyId: "alchemy",
@@ -155,11 +174,6 @@ const goldSponsors = [
     companyId: "rain",
     width: 300,
     height: 91.13,
-  },
-  {
-    companyId: "kast",
-    width: 384,
-    height: 80,
   },
   {
     companyId: "raiku",
@@ -236,8 +250,8 @@ const goldSponsors = [
   },
   {
     companyId: "soilonic",
-    width: 1693,
-    height: 929,
+    width: 178.1,
+    height: 151.99,
   },
   {
     companyId: "triton",
@@ -259,6 +273,176 @@ const goldSponsors = [
     width: 1514,
     height: 646,
   },
+  {
+    companyId: "bitwise",
+    logoVariant: { id: "logo-dark" },
+    width: 108.3,
+    height: 23.9,
+  },
+  {
+    companyId: "xash",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1119.3,
+    height: 374.5,
+  },
+  {
+    companyId: "agridex",
+    displayName: "Loam, by Agridex",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 687.54,
+    height: 259.76,
+  },
+  {
+    companyId: "bitget-wallet",
+    displayName: "Bitget Wallet",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1623,
+    height: 256,
+  },
+  {
+    companyId: "accretion",
+    logoVariant: { id: "logo-light" },
+    width: 100,
+    height: 57.3,
+  },
+  {
+    companyId: "hackhack",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1630,
+    height: 533,
+  },
+  {
+    companyId: "birdeye",
+    logoVariant: { id: "logo-light" },
+    width: 300,
+    height: 45,
+  },
+  {
+    companyId: "fidelity",
+    displayName: "Fidelity",
+    logoVariant: { id: "fcat-logo-dark" },
+    width: 636,
+    height: 222,
+  },
+  {
+    companyId: "circle",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1110,
+    height: 284.4,
+  },
+  {
+    companyId: "kilpatrick-townsend",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1350,
+    height: 400,
+  },
+  {
+    companyId: "cooley",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1244,
+    height: 406,
+  },
+  {
+    companyId: "neodyme",
+    logoVariant: { id: "logo-horizontal-dark" },
+    width: 1652.4,
+    height: 528.214,
+  },
+  {
+    companyId: "ika",
+    logoVariant: { id: "wordmark-light" },
+    width: 96,
+    height: 48,
+  },
+  {
+    companyId: "cow",
+    displayName: "CoW",
+    logoVariant: { id: "breakpoint-2026-white" },
+    width: 1325,
+    height: 400,
+  },
+  { companyId: "agant", width: 2439.5, height: 676.4 },
+  { companyId: "kamino", width: 216.6, height: 50 },
+  { companyId: "raydium", width: 847, height: 231 },
+  { companyId: "zan", displayName: "ZAN", width: 1593, height: 324 },
+  { companyId: "stablecard", width: 1863, height: 560 },
+  { companyId: "jupiter", width: 780, height: 210 },
+  {
+    companyId: "checkout",
+    displayName: "Checkout.com",
+    width: 263,
+    height: 176,
+  },
+  { companyId: "fenwick", width: 360, height: 55 },
+  {
+    companyId: "jurassicfi",
+    displayName: "JurassicFi",
+    width: 2009,
+    height: 1470,
+  },
+  {
+    companyId: "bloomberg-media",
+    displayName: "Bloomberg",
+    logoVariant: { id: "logo-horizontal-light" },
+    width: 666.06,
+    height: 173.85,
+  },
+  {
+    companyId: "arcium",
+    width: 1643.5,
+    height: 274.7,
+  },
+  {
+    companyId: "sanctum",
+    width: 1246,
+    height: 235,
+  },
+  {
+    companyId: "solana-incubator",
+    width: 200,
+    height: 16,
+  },
+  {
+    companyId: "ledger",
+    width: 568,
+    height: 190,
+  },
+  {
+    companyId: "reap",
+    width: 612,
+    height: 219,
+  },
+  {
+    companyId: "solblaze",
+    width: 794,
+    height: 200,
+  },
+  {
+    companyId: "nagy-wolfe-appleton",
+    width: 5132,
+    height: 2561,
+  },
+  {
+    companyId: "open-standard",
+    displayName: "Open Standard (OUSD)",
+    width: 1115,
+    height: 150,
+  },
+  {
+    companyId: "creditcoop",
+    width: 680,
+    height: 254,
+  },
+  {
+    companyId: "truther",
+    displayName: "Truther (by Rezolve)",
+    width: 800,
+    height: 240,
+  },
+  { companyId: "doublezero", width: 659, height: 105 },
+  { companyId: "openledger", width: 3080, height: 1168 },
+  { companyId: "greed-academy", width: 1051, height: 222 },
+  { companyId: "coindesk", width: 913, height: 172 },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [
@@ -270,6 +454,19 @@ const activationSponsors = [
 ] satisfies SponsorLogo[];
 
 export const sponsorTiers = [
+  {
+    id: "diamond",
+    title: "Diamond",
+    mobileColumns: "grid-cols-1",
+    mobileLogoMaxWidth: 0.76,
+    mobileLogoMaxHeight: 0.62,
+    logoMaxWidth: 0.72,
+    logoMaxHeight: 0.62,
+    cellAspectRatio: 2,
+    columns: "md:grid-cols-4",
+    cellAspect: "aspect-[442/221]",
+    sponsors: diamondSponsors,
+  },
   {
     id: "platinum",
     title: "Platinum",
@@ -299,6 +496,13 @@ export const sponsorTiers = [
 ] satisfies SponsorTier[];
 
 export const sponsorMarqueeRows = [
+  {
+    title: "Diamond",
+    direction: "right",
+    density: "featured",
+    duration: "72s",
+    sponsors: diamondSponsors,
+  },
   {
     title: "Platinum",
     direction: "left",

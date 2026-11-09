@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, "../..");
-const contentDir = path.join(rootDir, "apps/docs/content");
+const contentDirs = [
+  path.join(rootDir, "apps/docs/content"),
+  path.join(rootDir, "apps/web/content/learn"),
+];
 const violations = [];
 
 function visit(directory) {
@@ -38,7 +41,9 @@ function visit(directory) {
   }
 }
 
-visit(contentDir);
+for (const contentDir of contentDirs) {
+  visit(contentDir);
+}
 
 if (violations.length > 0) {
   console.error(

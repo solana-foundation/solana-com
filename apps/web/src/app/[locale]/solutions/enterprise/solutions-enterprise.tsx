@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { Products } from "@/components/solutions/products.v2";
@@ -23,23 +24,30 @@ import {
 
 const CONTACT_HREF = "mailto:enterprise@solana.org";
 
-export function SolutionsEnterprisePage() {
+export function SolutionsEnterprisePage({
+  heroMetrics,
+}: {
+  heroMetrics: DisplayMetric[];
+}) {
   const t = useTranslations();
 
   const stats: SolutionHeroStat[] = [
     {
-      value: t("partners.hero.stats.0.value"),
+      value: heroMetrics[0].value,
       label: t("partners.hero.stats.0.label"),
+      source: heroMetrics[0].source,
       Icon: FlowIcon,
     },
     {
-      value: t("partners.hero.stats.1.value"),
+      value: heroMetrics[1].value,
       label: t("partners.hero.stats.1.label"),
+      source: heroMetrics[1].source,
       Icon: ArrowsIcon,
     },
     {
-      value: t("partners.hero.stats.2.value"),
+      value: heroMetrics[2].value,
       label: t("partners.hero.stats.2.label"),
+      source: heroMetrics[2].source,
       Icon: DiscountIcon,
     },
   ];

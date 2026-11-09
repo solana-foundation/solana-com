@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   groupUpgradesByRelease,
+  isReleaseFullyLive,
+  type ReleaseGroup,
   type ReleaseInput,
   type UpgradeListItem,
 } from "@/lib/upgrades/group-by-release";
@@ -259,5 +261,70 @@ describe("groupUpgradesByRelease", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0]!.overview?.slug).toBe("overview-article");
     expect(groups[0]!.upgrades).toEqual([]);
+  });
+});
+
+describe("isReleaseFullyLive", () => {
+  function group(overrides: Partial<ReleaseGroup>): ReleaseGroup {
+    return {
+      key: "r",
+      name: "Release",
+      status: "shipped",
+      expectedDate: null,
+      overview: null,
+      upgrades: [],
+      ...overrides,
+    };
+  }
+
+  it("is true for a shipped release where every upgrade is live", () => {
+    expect(
+      isReleaseFullyLive(
+        group({
+          upgrades: [
+            upgrade({ slug: "a", stage: "live" }),
+            upgrade({ slug: "b", stage: "live" }),
+          ],
+        }),
+      ),
+    ).toBe(true);
+  });
+
+  it("is false while any upgrade is not yet live", () => {
+    expect(
+      isReleaseFullyLive(
+        group({
+          upgrades: [
+            upgrade({ slug: "a", stage: "live" }),
+            upgrade({ slug: "b", stage: "partially_active" }),
+          ],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("counts the overview article as well", () => {
+    expect(
+      isReleaseFullyLive(
+        group({
+          overview: upgrade({ slug: "overview", stage: "in_development" }),
+          upgrades: [upgrade({ slug: "a", stage: "live" })],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it("is false for planned and unscheduled groups", () => {
+    const live = [upgrade({ slug: "a", stage: "live" })];
+    expect(
+      isReleaseFullyLive(group({ status: "planned", upgrades: live })),
+    ).toBe(false);
+    expect(isReleaseFullyLive(group({ status: null, upgrades: live }))).toBe(
+      false,
+    );
+  });
+
+  it("is false for an empty group", () => {
+    expect(isReleaseFullyLive(group({}))).toBe(false);
   });
 });

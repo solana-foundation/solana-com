@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Accordion,
-  Hero,
-  HtmlParser,
-  Section,
-} from "@solana-foundation/solana-lib";
+import { Accordion, Hero, HtmlParser, Section } from "@workspace/ui/landing";
 
 interface StakingPageProps {
   translations: {

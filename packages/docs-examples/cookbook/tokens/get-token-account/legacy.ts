@@ -1,5 +1,5 @@
 // #region fetch
-import { Connection, PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js-legacy";
 import { getAccount, TOKEN_2022_PROGRAM_ID } from "@solana/spl-token";
 
 const connection = new Connection("http://localhost:8899", "confirmed");

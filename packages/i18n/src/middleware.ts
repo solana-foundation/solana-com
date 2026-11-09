@@ -1,5 +1,4 @@
 import createNextIntlMiddleware from "next-intl/middleware";
-import type { NextRequest } from "next/server";
 import {
   routing,
   routingWithoutDetection,
@@ -23,12 +22,24 @@ interface CreateMiddlewareOptions {
   preserveProxiedLocaleCookie?: boolean;
 }
 
-export function getEffectiveOrigin(req: NextRequest) {
+const TRUSTED_HOST_PATTERN =
+  /^(?:(?:[a-z0-9-]+\.)*solana\.com|[a-z0-9-]+\.vercel\.app|localhost|127\.0\.0\.1)(?::\d{1,5})?$/i;
+
+/** Hosts a proxied request may legitimately report having been sent to. */
+export function isTrustedForwardedHost(host: string): boolean {
+  return TRUSTED_HOST_PATTERN.test(host.trim());
+}
+
+export function getEffectiveOrigin<
+  T extends { host: string; protocol: string },
+>(req: { nextUrl: { clone(): T }; headers: Pick<Headers, "get"> }) {
   const url = req.nextUrl.clone();
   const forwardedHost = req.headers.get("x-forwarded-host");
   const forwardedProto = req.headers.get("x-forwarded-proto");
 
-  if (forwardedHost) {
+  // Vercel sets x-forwarded-host itself, but a redirect target must never be
+  // built from a value we would not recognise; limit it to our own hosts.
+  if (forwardedHost && isTrustedForwardedHost(forwardedHost)) {
     url.host = forwardedHost;
   }
 
@@ -90,8 +101,14 @@ export function createMiddleware<
   const { preserveProxiedLocaleCookie = false } = options;
   const handleI18nRouting = createNextIntlMiddleware(routingConfig);
 
-  return async function middleware(req: NextRequest) {
-    const response = await handleI18nRouting(req);
+  return async function middleware(
+    req: Request & { nextUrl: { clone(): unknown; pathname: string } },
+  ) {
+    // pnpm can resolve Next.js through different optional peer contexts in this
+    // workspace. Both request types come from the same Next.js version at runtime.
+    const response = await handleI18nRouting(
+      req as unknown as Parameters<typeof handleI18nRouting>[0],
+    );
 
     // Check if request came through a proxy (e.g., rewrite from another Vercel app)
     const forwardedHost = req.headers.get("x-forwarded-host");

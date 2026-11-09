@@ -21,7 +21,7 @@ export const mantleByreal = {
       website: "https://www.mantle.xyz/",
     },
     socials: {
-      x: "https://x.com/0xMantle",
+      x: "https://x.com/Mantle_Official",
       linkedin: "https://www.linkedin.com/company/0xmantle",
       discord: "https://discord.com/invite/0xMantle",
       telegram: "https://t.me/mantlenetwork",

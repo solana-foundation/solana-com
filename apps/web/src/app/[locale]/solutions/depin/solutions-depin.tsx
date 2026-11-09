@@ -18,30 +18,45 @@ import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { SolutionReport } from "@/components/solutions/report.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import { CoinsIcon, PulseIcon, UsersIcon } from "@solana-com/ui-chrome/icons";
 
 type SolutionsDepinPageProps = {
   news: NewsItem[];
+  /** Registry figures for HERO_METRICS, in display order. */
+  heroMetrics: DisplayMetric[];
+  /** Registry figures for PROJECTS, in the same order. */
+  projectMetrics: DisplayMetric[];
 };
 
-export function SolutionsDepinPage({ news }: SolutionsDepinPageProps) {
+export function SolutionsDepinPage({
+  news,
+  heroMetrics,
+  projectMetrics,
+}: SolutionsDepinPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const stats: SolutionHeroStat[] = [
     {
-      value: t("depin.hero.stats.0.value"),
+      value: heroMetrics[0].value,
       label: t("depin.hero.stats.0.label"),
+      source: heroMetrics[0].source,
+      localized: true,
       Icon: CoinsIcon,
     },
     {
-      value: t("depin.hero.stats.1.value"),
+      value: heroMetrics[1].value,
       label: t("depin.hero.stats.1.label"),
+      source: heroMetrics[1].source,
+      localized: true,
       Icon: PulseIcon,
     },
     {
-      value: t("depin.hero.stats.2.value"),
+      value: heroMetrics[2].value,
       label: t("depin.hero.stats.2.label"),
+      source: heroMetrics[2].source,
+      localized: true,
       Icon: UsersIcon,
     },
   ];
@@ -91,7 +106,12 @@ export function SolutionsDepinPage({ news }: SolutionsDepinPageProps) {
             light: (chunks) => <span className="font-light">{chunks}</span>,
             br: () => <br />,
           })}
-          projects={PROJECTS}
+          projects={PROJECTS.map((project, index) => ({
+            key: project.key,
+            src: project.src,
+            statValue: projectMetrics[index].value,
+            source: projectMetrics[index].source,
+          }))}
           translationBase="depin.ecoProjects"
           logos={LOGOS}
           bgSrc="/src/img/solutions/depin/ecosystem-bg.webp"

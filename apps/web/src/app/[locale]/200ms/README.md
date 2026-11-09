@@ -58,9 +58,9 @@ and new speeds:
 | 300 → 250  |         275ms |
 | 250 → 200  |         225ms |
 
-The final 250ms → 200ms transition is scheduled for epoch 1052. Mainnet's
-`getEpochSchedule` reports 432,000 slots per epoch, so epoch 1052 starts at slot
-`454,464,000` (`1052 × 432,000`). The hero uses the epoch schedule for its
+The final 250ms → 200ms transition is scheduled for epoch 1053. Mainnet's
+`getEpochSchedule` reports 432,000 slots per epoch, so epoch 1053 starts at slot
+`454,896,000` (`1053 × 432,000`). The hero uses the epoch schedule for its
 countdown and keeps the corresponding slot visible through activation and
 measurement. The heartbeat and history charts include a highlighted 200ms guide.
 
@@ -138,8 +138,8 @@ After settling, the holding state reports 3 of 4 steps live.
 
 ### 250ms → 200ms
 
-The final transition is scheduled for epoch 1052, whose first slot is
-`454,464,000`. The hero counts down to epoch 1052, then waits for mainnet
+The final transition is scheduled for epoch 1053, whose first slot is
+`454,896,000`. The hero counts down to epoch 1053, then waits for mainnet
 measurements before showing the 200ms timing. Its settled message says that the
 rollout is complete. Once the stable average settles below 225ms, the hero
 shows:
@@ -168,6 +168,6 @@ not prove that the network has reached a particular timing stage.
 ## Current limitations
 
 - All four reductions have confirmed effective epochs in `CONFIRMED_EPOCHS`. The
-  final 200ms step is epoch 1052, starting at slot `454,464,000`.
+  final 200ms step is epoch 1053, starting at slot `454,896,000`.
 - Page metadata and social-card copy are intentionally evergreen; they do not
   update from live measurements.

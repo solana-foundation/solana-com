@@ -18,7 +18,7 @@ solana-com/
 │   ├── config-oxlint/       # Shared oxlint configurations
 │   ├── config-typescript/   # Shared TypeScript configurations
 │   ├── docs-examples/       # Tested cookbook source snippets
-│   ├── ecosystem-data/      # Shared company and logo registry
+│   ├── ecosystem-data/      # Shared company and wallet registry
 │   ├── fab-menu/            # Reusable Solana property menu
 │   ├── i18n/                # Shared i18n utilities (next-intl)
 │   ├── sentry/              # Shared Sentry helpers
@@ -32,10 +32,11 @@ solana-com/
 ## Tech Stack
 
 - **Runtime**: Node.js 24 with pnpm 11.13.1 (workspace protocol)
-- **Framework**: Next.js 15.5.21 with App Router
+- **Framework**: Next.js 15.5.24 with App Router
 - **Language**: TypeScript 5.8.3
 - **UI Library**: React 19.2.6
-- **Styling**: Tailwind CSS 3.4+ / SCSS
+- **Styling**: Tailwind CSS 3.4+; use utilities for styling changes on this
+  branch
 - **i18n**: next-intl (19 supported languages)
 - **Build System**: Turborepo for monorepo orchestration
 - **Deployment**: Vercel (multi-project setup with rewrites)
@@ -83,7 +84,8 @@ their source files during the build:
 - `@workspace/i18n` - i18n configuration and utilities
 - `@workspace/ui` - Shared UI components (Button, Dialog, Accordion, etc.)
 - `@solana-com/ui-chrome` - Header, Footer, ThemeProvider, InkeepChatButton
-- `@workspace/ecosystem-data` - Canonical company metadata and logos
+- `@workspace/ecosystem-data` - Canonical company metadata, wallet records, and
+  logos
 - `@workspace/sentry` - Shared Sentry configuration helpers
 - `@workspace/docs-examples` - Tested code embedded in cookbook pages
 - `@workspace/config-oxlint` - oxlint configurations
@@ -126,10 +128,21 @@ is installed; CI performs the authoritative secrets scan. The pre-push hook runs
 - Use TypeScript strict mode
 - Prefer functional React components with hooks
 - Use Radix UI primitives for accessible components
-- CSS: Prefer Tailwind utilities, use SCSS for complex styles
+- Use Tailwind utility classes for styling changes on this branch. When touching
+  a surface with CSS Modules, migrate its module styles; do not add or modify
+  `*.module.css` files.
 - Import shared components from workspace packages, not relative paths
 - SVG handling: Use `.inline.svg` suffix for React components, regular `.svg`
   for assets
+
+## Public Content Authoring
+
+Before generating or materially rewriting reader-facing English copy, read and
+follow
+[`skills/solana-tone-of-voice/SKILL.md`](./skills/solana-tone-of-voice/SKILL.md).
+It covers UI strings, landing-page and documentation prose, Media content,
+metadata, CTAs, and social copy. Also follow the owning app's instructions,
+which may set stricter format or sourcing rules.
 
 ## PR Guidelines
 

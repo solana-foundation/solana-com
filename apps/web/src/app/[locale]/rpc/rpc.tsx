@@ -1,6 +1,6 @@
 "use client";
 
-import { Section } from "@solana-foundation/solana-lib";
+import { Section } from "@workspace/ui/landing";
 import ReactMarkdown from "react-markdown";
 
 interface RpcPageProps {
@@ -12,7 +12,7 @@ interface RpcPageProps {
 export function RpcPage({ translations }: RpcPageProps) {
   return (
     <Section>
-      <div className="tw-html_parser">
+      <div className="min-w-0 max-w-full overflow-x-auto">
         <ReactMarkdown>{translations.content}</ReactMarkdown>
       </div>
     </Section>

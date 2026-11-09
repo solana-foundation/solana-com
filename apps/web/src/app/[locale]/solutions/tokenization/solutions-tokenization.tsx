@@ -27,36 +27,51 @@ import {
   StepsIcon,
 } from "@solana-com/ui-chrome/icons";
 import type { NewsItem } from "@/components/solutions/latest-news.v2";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
 type SolutionsTokenizationPageProps = {
   news: NewsItem[];
+  /** Registry figures for HERO_METRICS, in display order. */
+  heroMetrics: DisplayMetric[];
+  /** Registry figures for PROJECTS, in the same order. */
+  projectMetrics: DisplayMetric[];
 };
 
 export function SolutionsTokenizationPage({
   news,
+  heroMetrics,
+  projectMetrics,
 }: SolutionsTokenizationPageProps) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const stats: SolutionHeroStat[] = [
     {
-      value: t("icm.hero.stats.0.value"),
+      value: heroMetrics[0].value,
       label: t("icm.hero.stats.0.label"),
+      source: heroMetrics[0].source,
+      localized: true,
       Icon: TokenIcon,
     },
     {
-      value: t("icm.hero.stats.2.value"),
+      value: heroMetrics[1].value,
       label: t("icm.hero.stats.2.label"),
+      source: heroMetrics[1].source,
+      localized: true,
       Icon: CoinsIcon,
     },
     {
-      value: t("icm.hero.stats.3.value"),
+      value: heroMetrics[2].value,
       label: t("icm.hero.stats.3.label"),
+      source: heroMetrics[2].source,
+      localized: true,
       Icon: LedgerIcon,
     },
     {
-      value: t("icm.hero.stats.1.value"),
+      value: heroMetrics[3].value,
       label: t("icm.hero.stats.1.label"),
+      source: heroMetrics[3].source,
+      localized: true,
       Icon: StepsIcon,
     },
   ];
@@ -111,7 +126,12 @@ export function SolutionsTokenizationPage({
             light: (chunks) => <span className="font-light">{chunks}</span>,
             br: () => <br />,
           })}
-          projects={PROJECTS}
+          projects={PROJECTS.map((project, index) => ({
+            key: project.key,
+            src: project.src,
+            statValue: projectMetrics[index].value,
+            source: projectMetrics[index].source,
+          }))}
           translationBase="icm.projects"
           logos={LOGOS}
           bgSrc="/src/img/solutions/icm/ecosystem-bg.webp"

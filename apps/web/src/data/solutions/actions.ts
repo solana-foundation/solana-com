@@ -77,3 +77,11 @@ export const CONVERSION_PANEL_LOGOS = [
 
 export const VIDEO_SOURCE =
   "https://player.vimeo.com/progressive_redirect/playback/967239233/rendition/1080p/file.mp4?loc=external&signature=8bcd4ecdc41de4bfa3925a3692f01dc302dff9929b8132c36ffca1a3fff1f9b0";
+
+/** Registry keys for the four "About Solana" feature cards, in display order. */
+export const FEATURE_METRICS = [
+  "network.average-tps-30d",
+  "network.average-fee-30d",
+  "network.monthly-active-developers",
+  "network.net-carbon-impact",
+] as const;

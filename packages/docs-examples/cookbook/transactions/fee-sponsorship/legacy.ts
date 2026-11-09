@@ -6,7 +6,7 @@ import {
   SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL,
-} from "@solana/web3.js";
+} from "@solana/web3.js-legacy";
 import {
   createInitializeMintInstruction,
   MINT_SIZE,
@@ -157,7 +157,7 @@ const transferInstruction = createTransferInstruction(
 
 const transferBlockhash = await connection.getLatestBlockhash();
 
-let transferTransaction = new Transaction({
+const transferTransaction = new Transaction({
   feePayer: feePayer.publicKey,
   blockhash: transferBlockhash.blockhash,
   lastValidBlockHeight: transferBlockhash.lastValidBlockHeight,

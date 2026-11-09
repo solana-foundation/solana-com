@@ -31,6 +31,15 @@ describe("readFeatureAccountState", () => {
     ).toBe("active");
   });
 
+  it("returns not-set for a prefunded System account with no data", () => {
+    expect(
+      readFeatureAccountState({
+        ...featureAccount(new Uint8Array(0)),
+        owner: "11111111111111111111111111111111" as Address,
+      }),
+    ).toBe("not-set");
+  });
+
   it("rejects accounts not owned by the feature gate program", () => {
     expect(() =>
       readFeatureAccountState({

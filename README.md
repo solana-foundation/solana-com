@@ -20,7 +20,7 @@ solana-com/
 │   ├── config-oxlint/       # Shared oxlint configs
 │   ├── config-typescript/   # Shared TypeScript configs
 │   ├── docs-examples/       # Tested cookbook source snippets
-│   ├── ecosystem-data/      # Shared company and logo registry
+│   ├── ecosystem-data/      # Shared company and wallet registry
 │   ├── fab-menu/            # Reusable Solana property menu
 │   ├── i18n/                # Shared i18n utilities (next-intl)
 │   ├── sentry/              # Shared Sentry helpers
@@ -47,7 +47,8 @@ Shared packages worth checking early:
 
 - `packages/ui-chrome` for shared header/footer and cross-app link behavior
 - `packages/i18n` for locale config and message loading
-- `packages/ecosystem-data` for canonical company data and logos
+- `packages/ecosystem-data` for canonical company data, wallet records, and
+  logos
 
 ## Setup
 

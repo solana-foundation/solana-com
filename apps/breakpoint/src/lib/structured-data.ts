@@ -56,13 +56,7 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
     },
     {
       question: t("faq.items.q4.question"),
-      answer: "",
-      answerLinkLabel: t("faq.items.q4.answerLinkLabel"),
-    },
-    {
-      question: t("faq.items.q5.question"),
-      answer: t("faq.items.q5.answerPrefix"),
-      answerLinkLabel: t("faq.items.q5.answerLinkLabel"),
+      answer: t("faq.items.q4.answer"),
     },
   ];
 
@@ -128,11 +122,7 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
       name: asPlainTextMessage(item.question),
       acceptedAnswer: {
         "@type": "Answer",
-        text: asPlainTextMessage(
-          [item.answer, item.answerLinkLabel && `${item.answerLinkLabel}.`]
-            .filter((part) => part?.trim().length)
-            .join(" "),
-        ),
+        text: asPlainTextMessage(item.answer),
       },
     })),
   };

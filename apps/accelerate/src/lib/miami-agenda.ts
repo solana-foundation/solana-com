@@ -5,6 +5,19 @@ import {
   fetchAirtableJson,
   type AirtableFetchOptions,
 } from "./airtable";
+import type {
+  AgendaData,
+  AgendaSession,
+  AgendaSessionType,
+  AgendaSpeaker,
+} from "./agenda-types";
+
+export type {
+  AgendaData,
+  AgendaSession,
+  AgendaSessionType,
+  AgendaSpeaker,
+} from "./agenda-types";
 
 const AIRTABLE_CACHE_SECONDS = 60;
 const EVENT_TIMEZONE = "America/New_York";
@@ -19,14 +32,7 @@ const DEFAULT_FORMAT_TABLE_ID = "tbltJYMgzlVFeibNU";
 const DEFAULT_PUBLISHING_STATUS_TABLE_ID = "tblHvCpfpI5CTlPDx";
 const DEFAULT_PUBLISHING_STATUS_VIEW_ID = "viwqFPlX2sI3F97Gl"; // "Web Status"
 
-type SessionType =
-  | "keynote"
-  | "panel"
-  | "fireside"
-  | "lightning"
-  | "break"
-  | "demo"
-  | "closing";
+type SessionType = AgendaSessionType;
 
 // Exact values from the Format table's primary "Name" column.
 const FORMAT_TO_TYPE: Record<string, SessionType> = {
@@ -44,37 +50,6 @@ const FORMAT_TO_TYPE: Record<string, SessionType> = {
   "Product Keynote (7 min)": "keynote",
   "Reacts (30 min)": "lightning",
 };
-
-export interface AgendaSpeaker {
-  name?: string;
-  title?: string;
-  company?: string;
-}
-
-export interface AgendaSession {
-  id: string;
-  time: string;
-  title: string;
-  subtitle?: string;
-  type: SessionType;
-  format?: string;
-  location: string;
-  duration?: string;
-  moderator?: AgendaSpeaker;
-  speakers: AgendaSpeaker[];
-}
-
-export interface AgendaData {
-  event: {
-    name: string;
-    date?: string;
-    venue?: string;
-    hall?: string;
-    mc?: string;
-  };
-  focusTopics: Array<{ title: string; description: string }>;
-  sessions: AgendaSession[];
-}
 
 type AirtableRecord = {
   id: string;

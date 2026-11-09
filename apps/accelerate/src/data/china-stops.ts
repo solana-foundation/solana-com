@@ -83,3 +83,7 @@ export const chinaStops: ChinaStop[] = [
     image: "/images/china/beijing-card.webp",
   },
 ];
+
+export const chinaLineupStops = chinaStops.filter(
+  (stop) => stop.city !== "Shanghai",
+);

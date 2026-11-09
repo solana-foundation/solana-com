@@ -10,7 +10,7 @@ export const STEPS = [400, 350, 300, 250, 200] as const;
 type Step = (typeof STEPS)[number];
 
 export const SLOTS_PER_EPOCH = 432_000;
-export const FINAL_TRANSITION_EPOCH = 1_052;
+export const FINAL_TRANSITION_EPOCH = 1_053;
 export const SLOT_200_TRANSITION_TARGET =
   FINAL_TRANSITION_EPOCH * SLOTS_PER_EPOCH;
 
@@ -39,7 +39,7 @@ export interface RolloutState {
   /** Reductions already measurably live (0 before the first flip). */
   stepsDone: number;
   phase: FlipPhase;
-  /** Confirmed activation epoch for `to`, if Anza has scheduled it. */
+  /** Confirmed effective epoch for `to`, if Anza has scheduled it. */
   targetEpoch: number | null;
 }
 

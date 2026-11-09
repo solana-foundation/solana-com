@@ -7,6 +7,11 @@ export type AccelerateEvent = {
   navigationTranslations: string;
   pageTranslations: string;
   agendaShowSpeakersNav: boolean;
+  logoHomePath?: string;
+  agendaDisplay?: {
+    filterMode?: "type" | "format";
+    exactFormatLabels?: boolean;
+  };
   lumaId?: string;
 };
 

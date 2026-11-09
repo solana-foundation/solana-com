@@ -60,6 +60,7 @@ const STREAM_SNAPSHOT_CACHE_SECONDS = 15;
 const STREAM_SNAPSHOT_CACHE_KEY = "slot200-stream-snapshot-v2";
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const SNAP_INTERVAL_MS = 60_000;
+const CHECK_WINDOW_MS = 605_000; // 10-minute average plus arrival grace
 const WS_GUARD_MS = 8_000;
 const WS_RECONNECT_DELAY_MS = 1_000;
 const WS_MAX_CONSECUTIVE_FAILURES = 3;
@@ -136,7 +137,7 @@ function avgOver(windowMs: number): number | null {
   const now = Date.now();
   let oldest: [number, number] | null = null;
   for (const c of bridge.checks) {
-    if (now - c[0] <= windowMs + 5000) {
+    if (now - c[0] <= windowMs + 5_000) {
       oldest = c;
       break;
     }
@@ -266,9 +267,13 @@ function connectUpstream() {
     bridge.lastSlot = slot;
     bridge.lastAt = now;
     bridge.checks.push([now, slot]);
-    // 10 min of 400 ms checkpoints ≈ 1500 entries
-    if (bridge.checks.length > 1600)
-      bridge.checks.splice(0, bridge.checks.length - 1600);
+    // Retain a full ten-minute window even as slots shorten to 200 ms.
+    if (now - bridge.checks[0][0] > CHECK_WINDOW_MS + 5_000) {
+      const firstRecent = bridge.checks.findIndex(
+        ([at]) => at >= now - CHECK_WINDOW_MS,
+      );
+      if (firstRecent > 0) bridge.checks.splice(0, firstRecent);
+    }
     const a1 = avgOver(60_000);
     broadcast({
       s: slot,

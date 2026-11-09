@@ -463,13 +463,9 @@ await client.sendTransaction([
 | _rs`process_initialize_permanent_delegate`_ | Processor logic that writes the permanent delegate extension onto the mint.                                            | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L1542-L1557)                  |
 | _rs`process_set_authority`_                 | Processor logic that validates and rotates the permanent delegate when _rs`AuthorityType::PermanentDelegate`_ is used. | [Source](https://github.com/solana-program/token-2022/blob/program%40v10.0.0/program/src/processor.rs#L849-L860)                    |
 
-### Typescript
+### Kit
 
-The `Kit` example below uses the generated instructions directly. Legacy
-examples using `@solana/web3.js` and `@solana/spl-token` are included for
-reference.
-
-#### Kit
+These examples use the generated Token-2022 instructions directly.
 
 <CodeTabs storage="token-ts-kit" flags="r">
 
@@ -598,42 +594,44 @@ console.log("Permanent Delegate Extension:", permanentDelegate);
 
 </CodeTabs>
 
-#### Web3.js
+### Web3.js v3
 
-<CodeTabs storage="token-ts-legacy" flags="r">
+These examples use the class-based `@solana/web3.js` v3 API with
+`@solana-program` instruction builders.
+
+<CodeTabs storage="token-ts-web3v3" flags="r">
 
 ```ts !! title="Instructions"
 import {
   Connection,
   Keypair,
+  PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
   Transaction,
   LAMPORTS_PER_SOL
 } from "@solana/web3.js";
+import { unwrapOption } from "@solana/kit";
 import {
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  createAssociatedTokenAccountInstruction,
-  createInitializeMintInstruction,
-  createInitializePermanentDelegateInstruction,
-  createMintToCheckedInstruction,
-  createTransferCheckedInstruction,
-  ExtensionType,
-  getAccount,
-  getAssociatedTokenAddressSync,
-  getMint,
-  getMintLen,
-  getPermanentDelegate,
-  TOKEN_2022_PROGRAM_ID
-} from "@solana/spl-token";
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenInstruction,
+  getInitializeMint2Instruction,
+  getInitializePermanentDelegateInstruction,
+  getMintDecoder,
+  getMintSize,
+  getMintToCheckedInstruction,
+  getTokenDecoder,
+  getTransferCheckedInstruction,
+  TOKEN_2022_PROGRAM_ADDRESS
+} from "@solana-program/token-2022";
 
 const connection = new Connection("http://localhost:8899", "confirmed");
 const latestBlockhash = await connection.getLatestBlockhash();
 
-const feePayer = Keypair.generate();
-const owner = Keypair.generate();
-const delegate = Keypair.generate();
-const recipient = Keypair.generate();
+const feePayer = await Keypair.generate();
+const owner = await Keypair.generate();
+const delegate = await Keypair.generate();
+const recipient = await Keypair.generate();
 
 const airdropSignature = await connection.requestAirdrop(
   feePayer.publicKey,
@@ -645,50 +643,44 @@ await connection.confirmTransaction({
   signature: airdropSignature
 });
 
-const extensions = [ExtensionType.PermanentDelegate];
-
-const mint = Keypair.generate();
-const mintLength = getMintLen(extensions);
+const mint = await Keypair.generate();
+const mintLength = getMintSize([
+  { __kind: "PermanentDelegate", delegate: delegate.publicKey.toBase58() }
+]);
 const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
 
-const sourceToken = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  owner.publicKey,
-  false,
-  TOKEN_2022_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
-const destinationToken = getAssociatedTokenAddressSync(
-  mint.publicKey,
-  recipient.publicKey,
-  false,
-  TOKEN_2022_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID
-);
+const [sourceToken] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: owner.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
+const [destinationToken] = await findAssociatedTokenPda({
+  mint: mint.publicKey.toBase58(),
+  owner: recipient.publicKey.toBase58(),
+  tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+});
 
 const createMintAccountInstruction = SystemProgram.createAccount({
   fromPubkey: feePayer.publicKey, // Account funding the new mint account.
   newAccountPubkey: mint.publicKey, // New mint account to create.
   space: mintLength, // Account size in bytes for the mint plus PermanentDelegate.
   lamports: mintRent, // Lamports funding the mint account rent.
-  programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+  programId: new PublicKey(TOKEN_2022_PROGRAM_ADDRESS) // Program that owns the mint account.
 });
 
-// !mark(1:6)
+// !mark(1:5)
 const initializePermanentDelegateInstruction =
-  createInitializePermanentDelegateInstruction(
-    mint.publicKey, // Mint account that stores the PermanentDelegate extension.
-    delegate.publicKey, // Permanent delegate authorized for all token accounts for the mint.
-    TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
-  );
+  getInitializePermanentDelegateInstruction({
+    mint: mint.publicKey, // Mint account that stores the PermanentDelegate extension.
+    delegate: delegate.publicKey.toBase58() // Permanent delegate authorized for all token accounts for the mint.
+  });
 
-const initializeMintInstruction = createInitializeMintInstruction(
-  mint.publicKey, // Mint account to initialize.
-  0, // Number of decimals for the token.
-  feePayer.publicKey, // Authority allowed to mint new tokens.
-  feePayer.publicKey, // Authority allowed to freeze token accounts.
-  TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
-);
+const initializeMintInstruction = getInitializeMint2Instruction({
+  mint: mint.publicKey, // Mint account to initialize.
+  decimals: 0, // Number of decimals for the token.
+  mintAuthority: feePayer.publicKey.toBase58(), // Authority allowed to mint new tokens.
+  freezeAuthority: feePayer.publicKey.toBase58() // Authority allowed to freeze token accounts.
+});
 
 await sendAndConfirmTransaction(
   connection,
@@ -706,31 +698,25 @@ await sendAndConfirmTransaction(
 await sendAndConfirmTransaction(
   connection,
   new Transaction().add(
-    createAssociatedTokenAccountInstruction(
-      feePayer.publicKey, // Account funding the associated token account creation.
-      sourceToken, // Associated token account address to create.
-      owner.publicKey, // Owner of the source token account.
-      mint.publicKey, // Mint for the associated token account.
-      TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
-      ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
-    ),
-    createAssociatedTokenAccountInstruction(
-      feePayer.publicKey, // Account funding the associated token account creation.
-      destinationToken, // Associated token account address to create.
-      recipient.publicKey, // Owner of the destination token account.
-      mint.publicKey, // Mint for the associated token account.
-      TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
-      ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
-    ),
-    createMintToCheckedInstruction(
-      mint.publicKey, // Mint account that issues the tokens.
-      sourceToken, // Token account receiving the newly minted tokens.
-      feePayer.publicKey, // Signer authorized to mint new tokens.
-      1, // Token amount in base units.
-      0, // Decimals defined on the mint.
-      [], // Additional multisig signers.
-      TOKEN_2022_PROGRAM_ID // Token program that owns the mint and token account.
-    )
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding the associated token account creation.
+      ata: sourceToken, // Associated token account address to create.
+      owner: owner.publicKey, // Owner of the source token account.
+      mint: mint.publicKey // Mint for the associated token account.
+    }),
+    getCreateAssociatedTokenInstruction({
+      payer: feePayer, // Account funding the associated token account creation.
+      ata: destinationToken, // Associated token account address to create.
+      owner: recipient.publicKey, // Owner of the destination token account.
+      mint: mint.publicKey // Mint for the associated token account.
+    }),
+    getMintToCheckedInstruction({
+      mint: mint.publicKey, // Mint account that issues the tokens.
+      token: sourceToken, // Token account receiving the newly minted tokens.
+      mintAuthority: feePayer, // Signer authorized to mint new tokens.
+      amount: 1, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
   ),
   [feePayer],
   {
@@ -741,17 +727,15 @@ await sendAndConfirmTransaction(
 await sendAndConfirmTransaction(
   connection,
   new Transaction().add(
-    // !mark(1:10)
-    createTransferCheckedInstruction(
-      sourceToken, // Token account sending the transfer.
-      mint.publicKey, // Mint with the permanent delegate configuration.
-      destinationToken, // Token account receiving the transfer.
-      delegate.publicKey, // Permanent delegate signing the transfer.
-      1, // Token amount in base units.
-      0, // Decimals defined on the mint.
-      [], // Additional multisig signers.
-      TOKEN_2022_PROGRAM_ID // Token program that processes the transfer.
-    )
+    // !mark(1:8)
+    getTransferCheckedInstruction({
+      source: sourceToken, // Token account sending the transfer.
+      mint: mint.publicKey, // Mint with the permanent delegate configuration.
+      destination: destinationToken, // Token account receiving the transfer.
+      authority: delegate, // Permanent delegate signing the transfer.
+      amount: 1, // Token amount in base units.
+      decimals: 0 // Decimals defined on the mint.
+    })
   ),
   [feePayer, delegate],
   {
@@ -759,19 +743,21 @@ await sendAndConfirmTransaction(
   }
 );
 
-const destinationAccount = await getAccount(
-  connection,
-  destinationToken,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID
+const destinationAccountInfo = await connection.getAccountInfo(
+  new PublicKey(destinationToken),
+  "confirmed"
 );
-const mintAccount = await getMint(
-  connection,
+const destinationAccount = getTokenDecoder().decode(
+  destinationAccountInfo!.data
+);
+const mintAccountInfo = await connection.getAccountInfo(
   mint.publicKey,
-  "confirmed",
-  TOKEN_2022_PROGRAM_ID
+  "confirmed"
 );
-const permanentDelegate = getPermanentDelegate(mintAccount);
+const mintAccount = getMintDecoder().decode(mintAccountInfo!.data);
+const permanentDelegate = (unwrapOption(mintAccount.extensions) ?? []).find(
+  (extension) => extension.__kind === "PermanentDelegate"
+);
 
 console.log("Mint Address:", mint.publicKey.toBase58());
 console.log("Destination Amount:", destinationAccount.amount.toString());
@@ -961,6 +947,190 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+```
+
+</CodeTabs>
+
+### Web3.js (legacy)
+
+These examples use legacy `@solana/web3.js` with `@solana/spl-token`.
+
+<CodeTabs storage="token-ts-legacy" flags="r">
+
+```ts !! title="Instructions"
+import {
+  Connection,
+  Keypair,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
+  LAMPORTS_PER_SOL
+} from "@solana/web3.js";
+import {
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+  createAssociatedTokenAccountInstruction,
+  createInitializeMintInstruction,
+  createInitializePermanentDelegateInstruction,
+  createMintToCheckedInstruction,
+  createTransferCheckedInstruction,
+  ExtensionType,
+  getAccount,
+  getAssociatedTokenAddressSync,
+  getMint,
+  getMintLen,
+  getPermanentDelegate,
+  TOKEN_2022_PROGRAM_ID
+} from "@solana/spl-token";
+
+const connection = new Connection("http://localhost:8899", "confirmed");
+const latestBlockhash = await connection.getLatestBlockhash();
+
+const feePayer = Keypair.generate();
+const owner = Keypair.generate();
+const delegate = Keypair.generate();
+const recipient = Keypair.generate();
+
+const airdropSignature = await connection.requestAirdrop(
+  feePayer.publicKey,
+  5 * LAMPORTS_PER_SOL
+);
+await connection.confirmTransaction({
+  blockhash: latestBlockhash.blockhash,
+  lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
+  signature: airdropSignature
+});
+
+const extensions = [ExtensionType.PermanentDelegate];
+
+const mint = Keypair.generate();
+const mintLength = getMintLen(extensions);
+const mintRent = await connection.getMinimumBalanceForRentExemption(mintLength);
+
+const sourceToken = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  owner.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+const destinationToken = getAssociatedTokenAddressSync(
+  mint.publicKey,
+  recipient.publicKey,
+  false,
+  TOKEN_2022_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID
+);
+
+const createMintAccountInstruction = SystemProgram.createAccount({
+  fromPubkey: feePayer.publicKey, // Account funding the new mint account.
+  newAccountPubkey: mint.publicKey, // New mint account to create.
+  space: mintLength, // Account size in bytes for the mint plus PermanentDelegate.
+  lamports: mintRent, // Lamports funding the mint account rent.
+  programId: TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+});
+
+// !mark(1:6)
+const initializePermanentDelegateInstruction =
+  createInitializePermanentDelegateInstruction(
+    mint.publicKey, // Mint account that stores the PermanentDelegate extension.
+    delegate.publicKey, // Permanent delegate authorized for all token accounts for the mint.
+    TOKEN_2022_PROGRAM_ID // Token program that owns the mint.
+  );
+
+const initializeMintInstruction = createInitializeMintInstruction(
+  mint.publicKey, // Mint account to initialize.
+  0, // Number of decimals for the token.
+  feePayer.publicKey, // Authority allowed to mint new tokens.
+  feePayer.publicKey, // Authority allowed to freeze token accounts.
+  TOKEN_2022_PROGRAM_ID // Program that owns the mint account.
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createMintAccountInstruction,
+    initializePermanentDelegateInstruction,
+    initializeMintInstruction
+  ),
+  [feePayer, mint],
+  {
+    commitment: "confirmed"
+  }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey, // Account funding the associated token account creation.
+      sourceToken, // Associated token account address to create.
+      owner.publicKey, // Owner of the source token account.
+      mint.publicKey, // Mint for the associated token account.
+      TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+      ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
+    ),
+    createAssociatedTokenAccountInstruction(
+      feePayer.publicKey, // Account funding the associated token account creation.
+      destinationToken, // Associated token account address to create.
+      recipient.publicKey, // Owner of the destination token account.
+      mint.publicKey, // Mint for the associated token account.
+      TOKEN_2022_PROGRAM_ID, // Token program that owns the token account.
+      ASSOCIATED_TOKEN_PROGRAM_ID // Associated Token Program that creates the account.
+    ),
+    createMintToCheckedInstruction(
+      mint.publicKey, // Mint account that issues the tokens.
+      sourceToken, // Token account receiving the newly minted tokens.
+      feePayer.publicKey, // Signer authorized to mint new tokens.
+      1, // Token amount in base units.
+      0, // Decimals defined on the mint.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that owns the mint and token account.
+    )
+  ),
+  [feePayer],
+  {
+    commitment: "confirmed"
+  }
+);
+
+await sendAndConfirmTransaction(
+  connection,
+  new Transaction().add(
+    // !mark(1:10)
+    createTransferCheckedInstruction(
+      sourceToken, // Token account sending the transfer.
+      mint.publicKey, // Mint with the permanent delegate configuration.
+      destinationToken, // Token account receiving the transfer.
+      delegate.publicKey, // Permanent delegate signing the transfer.
+      1, // Token amount in base units.
+      0, // Decimals defined on the mint.
+      [], // Additional multisig signers.
+      TOKEN_2022_PROGRAM_ID // Token program that processes the transfer.
+    )
+  ),
+  [feePayer, delegate],
+  {
+    commitment: "confirmed"
+  }
+);
+
+const destinationAccount = await getAccount(
+  connection,
+  destinationToken,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const mintAccount = await getMint(
+  connection,
+  mint.publicKey,
+  "confirmed",
+  TOKEN_2022_PROGRAM_ID
+);
+const permanentDelegate = getPermanentDelegate(mintAccount);
+
+console.log("Mint Address:", mint.publicKey.toBase58());
+console.log("Destination Amount:", destinationAccount.amount.toString());
+console.log("Permanent Delegate Extension:", permanentDelegate);
 ```
 
 </CodeTabs>

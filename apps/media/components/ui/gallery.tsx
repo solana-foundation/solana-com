@@ -4,6 +4,7 @@ import { Button, ButtonProps } from "./button";
 import { cn } from "@/lib/utils";
 import { Section } from "../layout/section";
 import { Link } from "@workspace/i18n/routing";
+import { parseLiteral } from "@/lib/mdx-security";
 
 export interface GalleryImageProps extends ComponentPropsWithoutRef<"figure"> {
   [key: string]: unknown;
@@ -88,8 +89,9 @@ function parseImagesRaw(imagesRaw?: string): GalleryImageProps[] | undefined {
 
   try {
     const decoded = Buffer.from(imagesRaw, "base64").toString("utf8");
-    const value = Function(`"use strict"; return (${decoded});`)();
-    return Array.isArray(value) ? value : undefined;
+    // Legacy content carries a JS array literal; parse it as data, never run it.
+    const value = parseLiteral(decoded);
+    return Array.isArray(value) ? (value as GalleryImageProps[]) : undefined;
   } catch {
     return undefined;
   }

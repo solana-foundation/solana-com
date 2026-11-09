@@ -9,7 +9,7 @@ import {
   SwitchbackChain,
   ConversionPanel,
   YoutubeVideo,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import { useTranslations } from "next-intl";
@@ -91,7 +91,7 @@ export function SolutionsArtistsCreatorsPage() {
         }}
       >
         <Section>
-          <div className="tw-html_parser" style={{ textWrap: "balance" }}>
+          <div className="min-w-0 max-w-full overflow-x-auto text-balance">
             <div>
               <h2
                 style={{

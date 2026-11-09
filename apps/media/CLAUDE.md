@@ -173,6 +173,34 @@ Keystatic frontmatter shape. See
 [`content/upgrades/AGENTS.md`](./content/upgrades/AGENTS.md) before drafting or
 editing one.
 
+## Content Security
+
+Editor MDX is compiled and executed on the server by `next-mdx-remote/rsc`, so a
+post body is code. The content pipeline therefore enforces a markup-only
+authoring surface; keep these rules when adding components or options:
+
+- `lib/mdx-security.ts` `remarkRejectMdxCode` runs on every `MDXRemote` call. It
+  fails compilation for `import`/`export` and for any `{expression}` or
+  `prop={expression}` that is not a plain literal (`autoPlay={false}` and
+  `width={600}` are fine; `{process.env.X}` is not). Never render content
+  without it, and never add `rehype-raw`.
+- `__tests__/mdx-security.test.ts` compiles every file under `content/` with the
+  guard. A new post that fails it should be rewritten, not exempted.
+- Legacy `<gallery images={…}>` props are rewritten to a string by
+  `lib/mdx-preprocess.ts` and parsed back with `parseLiteral`, never evaluated.
+- Iframe embeds accept only `https:` URLs on `EMBED_HOST_ALLOWLIST`, run
+  sandboxed with a fixed `allow` policy. Add a host to the allowlist rather than
+  loosening the check.
+- Editor-supplied URLs (links, CTA buttons, report PDFs) pass through
+  `safeHref`; `javascript:`, `data:` and protocol-relative values render without
+  an href.
+- `/api/link-image` and `/api/link-metadata` were removed: the media host also
+  serves `/keystatic`, so nothing on this origin may proxy arbitrary remote
+  content. Keep `/keystatic` off solana.com.
+- Content changes are reviewed as code (`apps/media/content/` has code owners);
+  preview deployments render unreviewed content, so preview environments must
+  not hold production secrets. Decisions and status live in Linear ECO-957.
+
 ## Key Dependencies (App-Specific)
 
 - `@keystatic/core`, `@keystatic/next` - CMS framework
@@ -193,6 +221,8 @@ editing one.
   sitemap
 - `/api/posts/latest`, `/api/reports/latest`, `/api/links/latest` - Content
   metadata APIs
+- `/api/developer-updates/latest` - Runtime feed for the developer hub,
+  aggregating the latest developer news, changelog, upgrade, and release records
 - `/api/podcasts/[slug]/episodes` - Podcast episode API
 - `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
   operations)
@@ -215,9 +245,10 @@ Pre-commit formatting:
 ## Image Handling
 
 - Local uploads: `public/uploads/`
-- Remote images allowed from:
-  - `res.cloudinary.com`
-  - `*.cloudfront.net`
+- Remote images allowed only from the hosts in `next.config.ts`
+  `images.remotePatterns` (podcast CDNs, one CloudFront distribution and the
+  Foundation's Cloudinary path); multi-tenant hosts such as `*.vercel.app` are
+  deliberately not allowed
 
 ## Gotchas
 

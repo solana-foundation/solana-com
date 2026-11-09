@@ -1,15 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Container } from "@/component-library/container";
-import { FeatureHighlight } from "@solana-foundation/solana-lib";
 import { useTranslations } from "next-intl";
-import {
-  CHAIN_SELECTOR,
-  CHAIN_SELECTOR_CARDS,
-  SECONDARY_CARD_DECK,
-} from "@/data/developers/evm-to-svm";
+import { SECONDARY_CARD_DECK } from "@/data/developers/evm-to-svm";
+import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { Code } from "@boxicons/react/Code";
 import { FileDetail as FileText } from "@boxicons/react/FileDetail";
 import { Youtube } from "@boxicons/react/Youtube";
@@ -18,29 +13,7 @@ import {
   AnimatedHeroSection,
   SectionDivider,
 } from "./cosmos/cosmos-page-shared";
-
-// `FeatureHighlightProps` is unusable upstream (broken `VariantProps`
-// inference), so this alias constrains the props this page actually passes.
-const FeatureHighlightComponent = FeatureHighlight as React.FC<{
-  headingAs?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6";
-  eyebrow?: string;
-  headline?: string;
-  body?: string;
-  cards?: Array<{
-    feature?: string;
-    body?: string;
-    eyebrow?: string;
-    color?: string;
-    stat?: { value?: { statType?: string }; description?: string };
-    button?: {
-      label?: string;
-      hierarchy?: string;
-      size?: string;
-      url?: string;
-    };
-  }>;
-  buttons?: never[];
-}>;
+import { MIGRATION_NAV } from "./components/migration-docs-layout";
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -54,6 +27,53 @@ const EarthAnimation = dynamic(
     ),
   { ssr: false },
 );
+
+function ChainCard({
+  title,
+  body,
+  url,
+  ctaLabel,
+  guides,
+}: {
+  title: string;
+  body: string;
+  url: string;
+  ctaLabel: string;
+  guides: readonly { url: string; label: string }[];
+}) {
+  return (
+    <div className="flex flex-col gap-8 rounded-xl border border-white/10 bg-white/5 p-8 backdrop-blur-sm">
+      <div>
+        <h3 className="font-brand text-[2rem] font-medium leading-[1.2] text-white mb-3">
+          {title}
+        </h3>
+        <p className="nd-body-m text-[#ABABBA] mb-0">{body}</p>
+      </div>
+      <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
+        {guides.map((guide) => (
+          <li key={guide.url}>
+            <a
+              href={guide.url}
+              className="inline-block rounded-full border border-white/10 px-3 py-1 text-xs font-medium text-white/60 no-underline transition-colors hover:border-white/30 hover:text-white"
+            >
+              {guide.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+      <a
+        href={url}
+        className="group mt-auto inline-flex items-center gap-2 self-start text-sm font-semibold text-white no-underline"
+      >
+        {ctaLabel}
+        <ChevronRight
+          className="size-4 transition-transform group-hover:translate-x-0.5"
+          aria-hidden
+        />
+      </a>
+    </div>
+  );
+}
 
 function ResourceCard({
   heading,
@@ -86,17 +106,19 @@ const RESOURCE_ICONS = [Code, FileText, Youtube, Tools];
 
 export function DevelopersChainMigrationPage() {
   const t = useTranslations("developers-evm-to-svm");
-  const blockSpacing = { large: { marginTop: "48px" } }; // used by chain selector
 
-  const chainSelectorCards = CHAIN_SELECTOR_CARDS.map((card, index) => ({
-    ...card,
-    feature: t(`chainSelector.cards.${index}.feature`),
-    body: "",
-    eyebrow: t(`chainSelector.cards.${index}.eyebrow`),
-    button: {
-      ...card.button,
-      label: t(`chainSelector.cards.${index}.button.label`),
-    },
+  const chainCards = MIGRATION_NAV.map((group, index) => ({
+    title: t(`docsLayout.groups.${group.key}.label`),
+    body: t(`chainSelector.cards.${index}.body`),
+    url: group.url,
+    ctaLabel: t(`chainSelector.cards.${index}.button.label`),
+    // The Ethereum overview is the hub itself; don't list it as a guide.
+    guides: group.guides
+      .filter((guide) => !("isOverview" in guide))
+      .map((guide) => ({
+        url: guide.url,
+        label: t(`docsLayout.guides.${guide.key}`),
+      })),
   }));
 
   const secondaryCards = SECONDARY_CARD_DECK.cards.map((card, index) => ({
@@ -115,7 +137,7 @@ export function DevelopersChainMigrationPage() {
         body={t.raw("hero.body")}
         buttons={[
           {
-            label: "View Guides",
+            label: t("hero.viewGuides"),
             url: "#choose-your-chain",
             hierarchy: "outline",
           },
@@ -123,82 +145,30 @@ export function DevelopersChainMigrationPage() {
       />
 
       {/* Chain selector */}
-      <ResponsiveBox responsiveStyles={blockSpacing}>
-        <div
-          id="choose-your-chain"
-          className="chain-selector-override tw-scroll-mt-24"
-        >
-          <FeatureHighlightComponent
-            headingAs={CHAIN_SELECTOR.headingAs}
-            eyebrow=""
-            headline={t("chainSelector.headline")}
-            body=""
-            cards={chainSelectorCards}
-            buttons={[]}
-          />
+      <section
+        id="choose-your-chain"
+        className="scroll-mt-24 max-w-[1440px] mx-auto px-5 md:px-8 xl:px-10 py-24"
+      >
+        <div className="grid gap-10 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] xl:gap-16">
+          <div>
+            <h2 className="font-brand text-[32px] md:text-[40px] xl:text-[64px] font-medium leading-[1.05] tracking-[-0.02em] text-white mb-4">
+              {t("chainSelector.headline")}
+            </h2>
+            <p className="nd-body-m text-[#ABABBA] mb-0">
+              {t("chainSelector.body")}
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {chainCards.map((card) => (
+              <ChainCard key={card.url} {...card} />
+            ))}
+          </div>
         </div>
-      </ResponsiveBox>
+      </section>
 
       <SectionDivider />
 
-      {/* oxlint-disable-next-line react/no-unknown-property -- styled-jsx requires the `jsx` and `global` boolean attributes */}
-      <style jsx global>{`
-        /* Only strip horizontal gutters once max-w-screen-xl centering
-           provides its own; below that the section's default responsive
-           padding keeps content off the screen edge. */
-        @media (min-width: 1280px) {
-          .chain-selector-override section,
-          .chain-selector-override section > div {
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-          }
-        }
-        .chain-selector-override section {
-          padding-top: 80px !important;
-          padding-bottom: 80px !important;
-        }
-        .chain-selector-override .tw-glass-card {
-          min-height: 220px !important;
-          padding: 2rem !important;
-        }
-        .chain-selector-override .tw-glass-card h3 {
-          font-size: 2rem !important;
-          line-height: 1.2 !important;
-        }
-        .chain-selector-override .tw-glass-card a,
-        .chain-selector-override .tw-glass-card button {
-          text-transform: none !important;
-          letter-spacing: normal !important;
-          border-color: rgba(255, 255, 255, 0.3) !important;
-          font-size: 0.875rem !important;
-          padding: 0.75rem 1.5rem !important;
-          border-radius: 9999px !important;
-          font-weight: 600 !important;
-          background: transparent !important;
-          color: white !important;
-        }
-        .chain-selector-override h2 {
-          font-size: 32px !important;
-          line-height: 1.25 !important;
-          letter-spacing: -1.28px !important;
-        }
-        @media (min-width: 768px) {
-          .chain-selector-override h2 {
-            font-size: 40px !important;
-            line-height: 1.1 !important;
-            letter-spacing: -1.6px !important;
-          }
-        }
-        @media (min-width: 1280px) {
-          .chain-selector-override h2 {
-            font-size: 64px !important;
-            line-height: 1.125 !important;
-            letter-spacing: -2.56px !important;
-          }
-        }
-      `}</style>
-
-      {/* Resources — community-style section */}
+      {/* Resources: community-style section */}
       <section
         id="resources"
         className="relative overflow-hidden bg-nd-inverse text-nd-high-em-text text-left m-0 px-2 scroll-mt-24"

@@ -1,6 +1,6 @@
 // #region sign
 // In Solana Web3.js v1, we can use the TweetNaCl crypto library:
-import { Keypair } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js-legacy";
 import nacl from "tweetnacl";
 import naclUtil from "tweetnacl-util";
 
