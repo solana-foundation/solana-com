@@ -1117,12 +1117,20 @@ export function formatValue(value: number, valueLabel: string, locale = "en") {
     return formatMillisecondsNumber(value, locale);
   }
 
+  if (valueLabel === "Rate") {
+    return formatRatePercent(value, locale);
+  }
+
   return formatCompactNumber(value, locale);
 }
 
 function formatAxisValue(value: number, valueLabel: string, locale: string) {
   if (valueLabel === "Percent") {
     return formatWholePercentNumber(value, locale);
+  }
+
+  if (valueLabel === "Rate") {
+    return formatRatePercent(value, locale);
   }
 
   return formatCompactNumber(value, locale);
@@ -1134,6 +1142,14 @@ function formatWholePercentNumber(value: number, locale: string) {
   }).format(clamp(Math.round(value), percentDomainMin, percentDomainMax))}%`;
 }
 
+// Fractional percentages (0-100) where small values matter, such as miss rates.
+function formatRatePercent(value: number, locale: string) {
+  const format = (amount: number, digits: number) =>
+    `${new Intl.NumberFormat(locale, { maximumFractionDigits: digits }).format(amount)}%`;
+  if (value > 0 && value < 0.001) return `<${format(0.001, 3)}`;
+  return format(value, value >= 10 ? 1 : value >= 1 ? 2 : 3);
+}
+
 function formatCompactNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: value >= 10 ? 1 : 2,
@@ -1143,7 +1159,7 @@ function formatCompactNumber(value: number, locale: string) {
 
 function formatMillisecondsNumber(value: number, locale: string) {
   return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 1,
+    maximumFractionDigits: value > 0 && value < 1 ? 3 : 1,
     minimumFractionDigits: 1,
   }).format(value);
 }

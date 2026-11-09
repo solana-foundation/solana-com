@@ -9,6 +9,7 @@ import type {
 } from "./data-config";
 import { useTranslations } from "@workspace/i18n/client";
 import type { DateBounds } from "./date-range";
+import type { GrpcStream, GrpcCommitment } from "./grpc-config";
 
 export type DashboardTranslator = ReturnType<typeof useTranslations>;
 export type DataFetchErrorMessages = {
@@ -17,6 +18,10 @@ export type DataFetchErrorMessages = {
 };
 
 export type QueryUpdates = {
+  grpcRegion?: string;
+  grpcCloudProvider?: string;
+  grpcStream?: GrpcStream;
+  grpcCommitment?: GrpcCommitment;
   days?: number;
   infra?: RpcLatencyInfra;
   method?: RpcLatencyMethod;

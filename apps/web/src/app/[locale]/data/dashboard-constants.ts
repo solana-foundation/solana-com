@@ -16,6 +16,7 @@ export const tabOptions = [
   { labelKey: "tabs.lending.label", value: "lending" },
   { labelKey: "tabs.perps.label", value: "perps" },
   { labelKey: "tabs.rpc.label", value: "rpc" },
+  { labelKey: "tabs.grpc.label", value: "grpc" },
   { labelKey: "tabs.senders.label", value: "senders" },
 ] as const satisfies readonly { labelKey: string; value: DashboardTab }[];
 
@@ -27,6 +28,7 @@ export const tabIcons: Record<DashboardTab, typeof Activity> = {
   lending: Bank,
   perps: Candlestick,
   rpc: RadioTower,
+  grpc: Activity,
   senders: Send,
 };
 
