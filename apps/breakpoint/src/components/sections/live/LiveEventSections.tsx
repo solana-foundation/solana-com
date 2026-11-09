@@ -11,6 +11,7 @@ import type { LiveStream } from "@/content/live/streams";
 import {
   EVENT_TIME_ZONE,
   formatMinutes,
+  sessionsForStage,
   stagesInSchedule,
   type LiveSession,
   type SessionStatus,
@@ -199,9 +200,7 @@ export default function LiveEventSections({
     streamMessage = t("streamUnavailable", { stage: stream.stage });
   }
 
-  const stageSessions = schedule.sessions.filter(
-    (session) => session.location === activeStage,
-  );
+  const stageSessions = sessionsForStage(schedule.sessions, activeStage);
   const endedCount = stageSessions.filter(
     (session) => session.status === "ended",
   ).length;

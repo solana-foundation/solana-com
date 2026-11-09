@@ -7,6 +7,7 @@ import {
   londonNow,
   parseClock,
   parseDurationMinutes,
+  sessionsForStage,
   stagesInSchedule,
 } from "@/lib/live-sessions";
 
@@ -116,6 +117,33 @@ describe("calculateLiveSchedule", () => {
       ["keynote", "later"],
       ["exchange", "next"],
       ["panel", "later"],
+    ]);
+  });
+
+  it("shows unlocated sessions under every stage with one next per tab", () => {
+    const schedule = calculateLiveSchedule(
+      [...agenda, session({ id: "lunch", time: "12:00", location: undefined })],
+      DAY_ONE("09:40"),
+    );
+    expect(
+      sessionsForStage(schedule.sessions, "Main Stage").map((s) => [
+        s.id,
+        s.status,
+      ]),
+    ).toEqual([
+      ["opening", "ended"],
+      ["keynote", "live"],
+      ["panel", "next"],
+      ["lunch", "later"],
+    ]);
+    expect(
+      sessionsForStage(schedule.sessions, "Royal Exchange").map((s) => [
+        s.id,
+        s.status,
+      ]),
+    ).toEqual([
+      ["exchange", "live"],
+      ["lunch", "next"],
     ]);
   });
 

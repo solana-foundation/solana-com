@@ -189,6 +189,28 @@ export function calculateLiveSchedule(
   };
 }
 
+/**
+ * Sessions shown under one stage tab: that stage's own sessions plus any
+ * without a location (shared breaks, unassigned slots), as the full agenda
+ * does. The first upcoming session in the list is the tab's "next".
+ */
+export function sessionsForStage(
+  sessions: LiveSession[],
+  stage: string,
+): LiveSession[] {
+  let nextAssigned = false;
+  return sessions
+    .filter((session) => !session.location || session.location === stage)
+    .map((session) => {
+      if (session.status !== "next" && session.status !== "later") {
+        return session;
+      }
+      const status: SessionStatus = nextAssigned ? "later" : "next";
+      nextAssigned = true;
+      return session.status === status ? session : { ...session, status };
+    });
+}
+
 /** Stage names present in a schedule, with the main stage first. */
 export function stagesInSchedule(
   sessions: LiveSession[],
