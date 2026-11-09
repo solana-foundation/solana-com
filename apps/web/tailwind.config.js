@@ -21,6 +21,14 @@ export default {
         "wsop-standard": "ease",
       },
       keyframes: {
+        "rfs-point-drift": {
+          to: { transform: "translate3d(12px, -9px, 0) scale(1.015)" },
+        },
+        "rfs-point-drift-accent": {
+          to: { transform: "translate3d(-14px, 15px, 0) scale(0.99)" },
+        },
+        "rfs-signal-flow": { to: { strokeDashoffset: "-120" } },
+
         "wsop-marquee": {
           to: { transform: "translateX(-100%)" },
         },
