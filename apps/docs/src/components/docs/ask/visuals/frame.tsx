@@ -9,6 +9,7 @@ import { cn } from "../cn";
 import { ArrowUpRightIcon } from "../../docs-ui-icons";
 import { DocsLink } from "../../docs-link";
 import type { VisualLink } from "@/lib/docs/ask/generative-ui/schema";
+import { askLinkTarget } from "@/lib/docs/ask/safe-link";
 import { focusRing, mono, signatureLabel } from "../ui";
 import { DisclosureIcon } from "./icons";
 
@@ -78,21 +79,20 @@ export function Disclosure({
   );
 }
 
-function isExternal(href: string) {
-  return /^https?:\/\//i.test(href);
-}
-
 /**
  * Docs links navigate in place (a docked panel stays open; an overlay gets
- * out of the way, see ask-panel); others open a tab.
+ * out of the way, see ask-panel); others open a tab. The schema keeps only
+ * links `askLinkTarget` allows (`safeHref`); one it doesn't is its title.
  */
 export function VisualLinkItem({ link }: { link: VisualLink }) {
-  if (isExternal(link.href)) {
+  const target = askLinkTarget(link.href);
+  if (!target) return <span>{link.title}</span>;
+  if (target.external) {
     return (
       <a
-        href={link.href}
+        href={target.href}
         target="_blank"
-        rel="noreferrer"
+        rel="noopener noreferrer"
         className={cn(linkStyle, focusRing, "rounded-sm")}
       >
         {link.title}
@@ -102,7 +102,7 @@ export function VisualLinkItem({ link }: { link: VisualLink }) {
   }
   return (
     <DocsLink
-      href={link.href}
+      href={target.href}
       data-ask-internal=""
       className={cn(linkStyle, focusRing, "rounded-sm")}
     >

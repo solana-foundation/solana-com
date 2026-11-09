@@ -9,17 +9,71 @@ description:
 
 ## Installation
 
-Add the needed dependencies:
+`anchor init` creates a LiteSVM test, `programs/<program-name>/tests/test_initialize.rs`,
+with its own `litesvm` dev-dependency. `anchor-litesvm` brings its own version of
+`litesvm`, and types from two copies of the crate don't mix (with Anchor 1.2.2,
+the two dependency sets don't even compile together). From the program's
+folder, `programs/<program-name>`, remove the generated test and its
+dependencies, then add `anchor-litesvm`:
 
 ```bash
+rm tests/test_initialize.rs
+cargo remove --dev litesvm solana-message solana-transaction solana-signer solana-keypair
 cargo add --dev anchor-litesvm litesvm-utils anchor-lang@1 solana-sdk@3
 ```
 
+Import `LiteSVM`, `Keypair`, `Pubkey` and `Signer` from `anchor_litesvm`
+rather than adding a separate `litesvm` dependency.
+
 <Warning>
-  `anchor-litesvm` pins its own version of `litesvm`. Do not add a separate
-  `litesvm` dependency, or you will end up with two incompatible copies of the
-  crate. Use the re-exports from `anchor-litesvm` and `litesvm-utils` instead.
+**`build_with_program` panics with `Failed to add program: Instruction(InvalidAccountData)`?**
+`anchor-litesvm` 0.4 and `litesvm-utils` 0.4 use LiteSVM 0.11, which can't load
+SBPF v3 programs. Anchor 1.2 and later, and Solana CLI 4.3 and later, build SBPF
+v3 by default. Until these crates move to a newer LiteSVM, build your program
+for SBPF v0 and run the tests without rebuilding it:
+
+- **Anchor 1.2 and later:**
+
+  ```bash
+  anchor build --arch v0
+  anchor test --skip-build
+  ```
+
+- **Anchor 1.1.x on Solana CLI 4.3 or later**, where a plain `anchor build`
+  fails with `Platform tools v1.52 is incompatible with SBPFv3`: build the
+  program without the IDL, then build the IDL on its own.
+
+  ```bash
+  anchor build --no-idl -- --arch v0
+  anchor idl build -p my_program -o target/idl/my_program.json
+  anchor test --skip-build
+  ```
+
+Anchor 1.1.2 installed with AVM, as the Solana installer sets it up, uses Solana
+CLI 3.1.10, which builds SBPF v0, so it needs no workaround.
 </Warning>
+
+## Project Setup
+
+1. Build the program (for SBPF v0, as described above), then copy its IDL from
+   `target/idl/` into an `idls/` folder at the workspace root.
+   `declare_program!(my_program)` reads `idls/my_program.json` at compile time
+   and generates the client types and the program ID, `my_program::ID`.
+
+   ```bash
+   mkdir -p idls && cp target/idl/my_program.json idls/
+   ```
+
+   Do this before you write tests that call `declare_program!`: `anchor build`
+   compiles your tests while it builds the IDL, so a test that can't find its
+   IDL breaks the build. Copy the IDL again after you change the program's
+   instructions, accounts or events.
+
+2. Put your tests in `programs/my_program/tests/`. The examples on these pages
+   load the program from there, three folders up:
+   `include_bytes!("../../../target/deploy/my_program.so")`. If your tests are
+   in another crate, use a path that works from any crate in the workspace:
+   `include_bytes!(concat!(env!("CARGO_TARGET_TMPDIR"), "/../deploy/my_program.so"))`.
 
 ## What is anchor-litesvm?
 
@@ -35,14 +89,16 @@ compared to raw LiteSVM while maintaining type safety with Anchor types.
 - Execute instructions without RPC overhead
 </Step>
 
-<Step>
-  **Program API** - Fluent instruction building - Type-safe account and argument
-  handling - Familiar anchor-client syntax
+<Step title="Program API">
+- Fluent instruction building
+- Type-safe account and argument handling
+- Familiar anchor-client syntax
 </Step>
 
-<Step>
-  **Account Deserialization** - Fetch and deserialize Anchor accounts -
-  Automatic discriminator handling - Support for PDAs and custom layouts
+<Step title="Account Deserialization">
+- Fetch and deserialize Anchor accounts
+- Automatic discriminator handling
+- Support for PDAs and custom layouts
 </Step>
 
 <Step title="Event Parsing">
@@ -56,26 +112,22 @@ compared to raw LiteSVM while maintaining type safety with Anchor types.
 
 With Anchor 1.0, use `declare_program!` to generate client types from your
 program's IDL. This macro creates `client::accounts::*` and `client::args::*`
-modules for type-safe instruction building:
+modules for type-safe instruction building, and the program ID:
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use anchor_litesvm::{AssertionHelpers, TestHelpers};
-use anchor_lang::system_program;
-use solana_sdk::signature::{read_keypair_file, Signer};
-
-// Generate client types from your program's IDL
 use anchor_lang::prelude::*;
+use anchor_lang::system_program;
+use anchor_litesvm::{AnchorLiteSVM, Signer, TestHelpers};
 
+// Generate client types and the program ID from your program's IDL
 anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_anchor_program() {
-    // One-line setup — reads program keypair for the correct ID
-    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
+    // One-line setup with the program ID from the IDL
     let mut ctx = AnchorLiteSVM::build_with_program(
-        program_keypair.pubkey(),
-        include_bytes!("../target/deploy/my_program.so"),
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
     // Create a funded account via TestHelpers on ctx.svm
@@ -85,7 +137,7 @@ fn test_anchor_program() {
     let seed: u64 = 42;
     let pda = ctx.svm.get_pda(
         &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
-        &program_keypair.pubkey(),
+        &my_program::ID,
     );
 
     // Build instruction using generated client types
@@ -116,10 +168,9 @@ fn test_anchor_program() {
 <Info>
   `declare_program!(my_program)` reads the IDL from `idls/my_program.json` at
   compile time (it searches for an `idls` directory in the crate directory and
-  its parents) and generates the `client::accounts::*` and `client::args::*`
-  modules. Run `anchor build` and copy `target/idl/my_program.json` into
-  `idls/`. `anchor_lang` must also be in scope where you call the macro, so add
-  `use anchor_lang::prelude::*;` above it.
+  its parents). `my_program::ID` is the address in the IDL, the same as your
+  program's `declare_id!`. `anchor_lang` must also be in scope where you call
+  the macro, so add `use anchor_lang::prelude::*;` above it.
 </Info>
 
 ## Comparison: Raw LiteSVM vs anchor-litesvm
@@ -169,7 +220,7 @@ svm.send_transaction(tx).unwrap();
 
 // Manually deserialize with discriminator skip
 let account_data = svm.get_account(&pda).unwrap().data;
-let account: UserAccount = UserAccount::try_deserialize(
+let account: MyAccount = MyAccount::try_deserialize(
     &mut &account_data[8..]
 ).unwrap();
 ```
@@ -177,13 +228,12 @@ let account: UserAccount = UserAccount::try_deserialize(
 ### After (anchor-litesvm)
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-
 use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, Signer, TestHelpers};
 
 anchor_lang::declare_program!(my_program);
 
-let mut ctx = AnchorLiteSVM::build_with_program(program_id, program_bytes);
+let mut ctx = AnchorLiteSVM::build_with_program(my_program::ID, program_bytes);
 let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
 
 let ix = ctx.program()
@@ -192,13 +242,13 @@ let ix = ctx.program()
         user_account: user_pda,
         system_program: anchor_lang::system_program::ID,
     })
-    .args(my_program::client::args::Initialize { name: "test".to_string() })
+    .args(my_program::client::args::Initialize { seed, name: "test".to_string() })
     .instruction()
     .unwrap();
 
 ctx.execute_instruction(ix, &[&user]).unwrap().assert_success();
 
-let account: my_program::accounts::UserAccount = ctx.get_account(&user_pda).unwrap();
+let account: my_program::accounts::MyAccount = ctx.get_account(&user_pda).unwrap();
 ```
 
 ## Key Components
@@ -263,10 +313,11 @@ traits available via `litesvm-utils`:
 
 ### Common Errors
 
-| Error                   | Cause                                       | Solution                                                                 |
-| ----------------------- | ------------------------------------------- | ------------------------------------------------------------------------ |
-| `AccountNotFound`       | Account doesn't exist                       | Ensure account is created before fetching                                |
-| `DiscriminatorMismatch` | Wrong account type                          | Verify you're using the correct account struct                           |
-| `DeserializationError`  | Invalid account data                        | Check account was initialized correctly                                  |
-| No programs added       | Called `build()` without `deploy_program()` | Add at least one program before building                                 |
-| Missing client types    | `declare_program!` not called               | Copy the IDL from `target/idl/` to `idls/`, then call `declare_program!` |
+| Error                                                    | Cause                                       | Solution                                                                 |
+| -------------------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------ |
+| `Failed to add program: Instruction(InvalidAccountData)` | The program was built as SBPF v3            | Build for SBPF v0, as described under [Installation](#installation)      |
+| `AccountNotFound`                                        | Account doesn't exist                       | Ensure account is created before fetching                                |
+| `DiscriminatorMismatch`                                  | Wrong account type                          | Verify you're using the correct account struct                           |
+| `DeserializationError`                                   | Invalid account data                        | Check account was initialized correctly                                  |
+| No programs added                                        | Called `build()` without `deploy_program()` | Add at least one program before building                                 |
+| Missing client types                                     | `declare_program!` not called               | Copy the IDL from `target/idl/` to `idls/`, then call `declare_program!` |

@@ -51,9 +51,10 @@ and block approval/merging.
 Translations are handled via the lingo.dev platform. The content within this
 repo is in the default/base language of English. When the content is pushed to
 `main`, there is a CI/CD process to convert the shared
-`packages/i18n/messages/*/en/common.json` UI catalogs and the English docs
-sources (`content/docs/en`) to the other translation variants. A page without a
-translation yet is served in English at its locale URL.
+`packages/i18n/messages/*/en/common.json` UI catalogs, the English docs sources
+(`content/docs/en`) and the docs navigation labels
+(`content/navigation/en/labels.json`) to the other translation variants. A page
+without a translation yet is served in English at its locale URL.
 
 ## Documentation
 
@@ -67,6 +68,8 @@ with Fumadocs and serves it at solana.com/developers/docs:
   `apps/web/content/learn`.
 - `content/navigation/en.json` is the navigation, used in every locale. Edit it
   by hand.
+- Install commands are npm-only (`npm install …`). Don't add pnpm, yarn or bun
+  alternatives or package-manager tab groups.
 - Use the docs components (`<Note>`, `<Steps>`, `<CodeGroup>`, `<Tabs>`,
   `<Card>`, …; `src/components/docs/docs-components.tsx`). Pages must read
   completely without JavaScript: see "Reading without JavaScript" in

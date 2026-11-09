@@ -16,6 +16,7 @@ import { cn } from "./cn";
 import { isDocsHref } from "@/lib/docs/docs-href";
 import { currentLocale } from "@/lib/docs/ask/page-context";
 import { normalizeDocsHref } from "@/lib/docs/ask/protocol";
+import { askLinkTarget } from "@/lib/docs/ask/safe-link";
 import { DocsLink } from "../docs-link";
 import { ArrowUpRightIcon, CaretIcon } from "../docs-ui-icons";
 import { CommandText, CopyButton } from "./visuals/command-row.client";
@@ -26,9 +27,10 @@ import { focusRing, mono, spinner } from "./ui";
  * outside the docs' `.prose`, and on /developers the site's global element
  * styles (huge headings, mint links, list indents) would otherwise apply.
  * Docs links navigate in place, so a docked panel stays open; other sites
- * open in a new tab. Code is highlighted with the docs' Shiki themes once
- * the answer is complete (`streaming` false); shell blocks become command
- * rows whose `$` prompts are never copied.
+ * open in a new tab, and only the ones lib/docs/ask/safe-link.ts allows:
+ * any other link is its text alone. Code is highlighted with the docs'
+ * Shiki themes once the answer is complete (`streaming` false); shell
+ * blocks become command rows whose `$` prompts are never copied.
  */
 
 const linkClass =
@@ -329,26 +331,37 @@ export function AskCodeBlock({
   );
 }
 
+/**
+ * A link that `askLinkTarget` allows; any other is its text alone (an
+ * off-site link the agent's checks missed, `mailto:`, `//host`).
+ */
 function AskLink({ href, children }: ComponentProps<"a">) {
-  if (!href) return <>{children}</>;
-  const target = normalizeDocsHref(href, currentLocale());
-  if (isDocsHref(target)) {
+  const link = href
+    ? askLinkTarget(normalizeDocsHref(href, currentLocale()))
+    : null;
+  if (!link) return <>{children}</>;
+  if (link.external) {
     return (
-      <DocsLink href={target} data-ask-internal="" className={linkClass}>
-        {children}
-      </DocsLink>
-    );
-  }
-  if (/^https?:\/\//i.test(target)) {
-    return (
-      <a href={target} target="_blank" rel="noreferrer" className={linkClass}>
+      <a
+        href={link.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={linkClass}
+      >
         {children}
         <ArrowUpRightIcon className="ms-0.5 inline size-3 align-[-1px] group-data-[dir=rtl]/answer:-scale-x-100" />
       </a>
     );
   }
+  if (isDocsHref(link.href)) {
+    return (
+      <DocsLink href={link.href} data-ask-internal="" className={linkClass}>
+        {children}
+      </DocsLink>
+    );
+  }
   return (
-    <a href={target} className={linkClass}>
+    <a href={link.href} className={linkClass}>
       {children}
     </a>
   );

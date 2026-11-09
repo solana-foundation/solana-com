@@ -11,9 +11,10 @@ provides comprehensive metrics collection and monitoring for the Kora RPC
 server.
 
 Kora exposes a `/metrics` endpoint that provides real-time performance data in
-Prometheus format. Metrics are served by a separate listener on the port set in
-`[metrics]`, not on the RPC port. The examples on this page use `8081` for
-metrics and `8080` for the RPC server.
+Prometheus format. Set `port` in `[metrics]` to the RPC port to serve metrics
+on the RPC server, or to another port to run a separate metrics listener. The
+examples on this page use a separate listener on `8081`, with the RPC server on
+`8080`.
 
 ## Configuration
 
@@ -25,7 +26,7 @@ is optional and by default, metrics are disabled.
 [metrics]
 enabled = true
 endpoint = "/metrics"
-port = 8081  # Must differ from the RPC port (8080 by default)
+port = 8081  # Separate listener; use the RPC port (8080 by default) to serve metrics there
 scrape_interval = 60
 
 [metrics.fee_payer_balance]
@@ -33,22 +34,29 @@ enabled = true
 expiry_seconds = 30
 ```
 
-| Option            | Description                                           | Required | Type    |
-| ----------------- | ----------------------------------------------------- | -------- | ------- |
-| `enabled`         | Enable metrics collection                             | ✅       | boolean |
-| `endpoint`        | Custom metrics endpoint path                          | ✅       | string  |
-| `port`            | Metrics listener port (must differ from the RPC port) | ✅       | number  |
-| `scrape_interval` | Frequency of Prometheus scrape (seconds)              | ✅       | number  |
+| Option            | Description                                                            | Required | Type    |
+| ----------------- | ---------------------------------------------------------------------- | -------- | ------- |
+| `enabled`         | Enable metrics collection                                              | ✅       | boolean |
+| `endpoint`        | Custom metrics endpoint path                                           | ✅       | string  |
+| `port`            | Metrics port: the RPC port to serve metrics there, or a separate port | ✅       | number  |
+| `scrape_interval` | Frequency of Prometheus scrape (seconds)                               | ✅       | number  |
+
+When `port` equals the RPC port, Kora logs
+`Metrics endpoint enabled at /metrics on RPC server` and answers `/metrics` on
+the RPC port. With a separate port, only that port answers `/metrics`.
 
 ### Fee Payer Balance Tracking
 
 The `[metrics.fee_payer_balance]` section configures automatic monitoring of
 your fee payer's SOL balance:
 
-| Option           | Description                             | Required            | Type    |
-| ---------------- | --------------------------------------- | ------------------- | ------- |
-| `enabled`        | Enable fee payer balance tracking       | ❌ (default: false) | boolean |
-| `expiry_seconds` | Background tracking interval in seconds | ❌ (default: 30)    | number  |
+Leave the section out to keep balance tracking off. If you include it, set both
+keys:
+
+| Option           | Description                             | Required | Type    |
+| ---------------- | --------------------------------------- | -------- | ------- |
+| `enabled`        | Enable fee payer balance tracking       | ✅       | boolean |
+| `expiry_seconds` | Background tracking interval in seconds | ✅       | number  |
 
 When enabled, Kora automatically tracks your fee payer's SOL balance and exposes
 it via the `signer_balance_lamports` Prometheus gauge, labeled with
@@ -68,9 +76,9 @@ curl http://localhost:8081/metrics
 The metrics show how your RPC server is performing:
 
 ```
-# Total requests by method and status
+# Total requests by method and HTTP status
 kora_http_requests_total{method="signTransaction",status="200"} 42
-kora_http_requests_total{method="signTransaction",status="400"} 3
+kora_http_requests_total{method="signTransaction",status="401"} 3
 
 # Request duration (in seconds) by method, as a Prometheus histogram
 kora_http_request_duration_seconds_bucket{method="signTransaction",le="0.05"} 40
@@ -102,8 +110,13 @@ curl http://localhost:8081/metrics
 
 1. **`kora_http_requests_total`** - How many requests you've handled
    - `method`: Which RPC method was called
-   - `status`: HTTP status code (200=success, 400=error, etc.)
-   - Use this to track usage patterns and error rates
+   - `status`: HTTP status code of the response
+   - JSON-RPC errors, such as a rejected transaction or a missing parameter,
+     are returned with HTTP 200, so they're counted under `status="200"`.
+     Requests that fail authentication are counted under `status="401"`.
+     Unknown or disabled methods get HTTP 405 before metrics are collected,
+     so they aren't counted.
+   - Use this to track usage patterns and authentication failures
 
 2. **`kora_http_request_duration_seconds`** - How fast your requests are
    - A Prometheus histogram with bucket, sum, and count series; compute p50,
@@ -163,8 +176,8 @@ rate(kora_http_requests_total[1m])
 # 95th percentile response time
 histogram_quantile(0.95, sum by (le) (rate(kora_http_request_duration_seconds_bucket[5m])))
 
-# Error rate
-rate(kora_http_requests_total{status!="200"}[5m])
+# Authentication failures per second (JSON-RPC errors are counted as status 200)
+rate(kora_http_requests_total{status="401"}[5m])
 
 # Balance of specific signer by name
 signer_balance_lamports{signer_name="primary_signer"} / 1000000000

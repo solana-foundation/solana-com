@@ -64,9 +64,9 @@ repository for some community creations and even
 ## Actions
 
 The Solana Actions specification uses a set of standard APIs to deliver signable
-transactions (and eventually signable messages) from an application directly to
-a user. They are hosted at publicly accessible URLs and are therefore accessible
-by their URL for any client to interact with.
+transactions and messages from an application directly to a user. They are
+hosted at publicly accessible URLs and are therefore accessible by their URL for
+any client to interact with.
 
 > You can think of Actions as an API endpoint that will return metadata and
 > something for a user to sign (either a transaction or an authentication
@@ -395,7 +395,10 @@ that follows the interface specification:
 ```ts ActionGetResponse
 export type ActionType = "action" | "completed";
 
-export type ActionGetResponse = Action<"action">;
+/** `type` is optional on the initial GET response for backwards compatibility */
+export interface ActionGetResponse extends Omit<Action, "type"> {
+  type?: "action";
+}
 
 export interface Action<T extends ActionType = "action"> {
   /** type of Action to present to the user */
@@ -419,8 +422,8 @@ export interface Action<T extends ActionType = "action"> {
 }
 ```
 
-- `type` - The type of action being given to the user. Defaults to `action`. The
-  initial `ActionGetResponse` is required to have a type of `action`.
+- `type` - The type of action being given to the user. Defaults to `action`. On
+  the initial `ActionGetResponse` it's optional, and if set it must be `action`.
   - `action` - Standard action that will allow the user to interact with any of
     the `LinkedActions`
   - `completed` - Used to declare the "completed" state within action chaining.
@@ -468,15 +471,15 @@ export interface Action<T extends ActionType = "action"> {
 
 ```ts LinkedAction
 /** how the client should handle the linked action */
-export type LinkedActionType = "transaction" | "post" | "external-link";
+export type LinkedActionType =
+  | "transaction"
+  | "message"
+  | "post"
+  | "external-link";
 
-/**
- * note: for ease of reading, this is a simplified type of the actual. The JSON
- * examples on this page omit `type`, so it is shown as optional here.
- */
 export interface LinkedAction {
   /** Type of action to be performed by user */
-  type?: LinkedActionType;
+  type: LinkedActionType;
   /** URL endpoint for an action */
   href: string;
   /** button text rendered to the user */
@@ -490,13 +493,16 @@ export interface LinkedAction {
 }
 ```
 
-- `type` - The type of the linked action, which tells the client how to handle
-  the `href`.
-  - `transaction` - The client makes a `POST` request to the `href` and expects
-    a transaction in the response for the user to sign.
-  - `post` - The client makes a `POST` request to the `href` and expects a
-    response that includes the next action, without a transaction to sign.
-  - `external-link` - The client opens the `href` as an external link.
+- `type` - Required. Tells the client what kind of
+  [POST response](#post-response-body) the `href` returns. The client makes a
+  `POST` request to the `href` for every type.
+  - `transaction` - The response contains a transaction for the user to sign.
+  - `message` - The response contains a message for the user to sign. See
+    [Message Signing](#message-signing).
+  - `post` - The response contains nothing to sign. The client renders the next
+    action from `links.next`.
+  - `external-link` - The response contains an external link (`externalLink`)
+    the user can click to navigate to.
 
 The `ActionParameter` allows declaring what input the Action API is requesting
 from the user:
@@ -679,14 +685,17 @@ user to click one of 3 buttons to cast their vote for a DAO proposal:
   "links": {
     "actions": [
       {
+        "type": "transaction",
         "label": "Vote Yes", // button text
         "href": "/api/proposal/1234/vote?choice=yes"
       },
       {
+        "type": "transaction",
         "label": "Vote No", // button text
         "href": "/api/proposal/1234/vote?choice=no"
       },
       {
+        "type": "transaction",
         "label": "Abstain from Vote", // button text
         "href": "/api/proposal/1234/vote?choice=abstain"
       }
@@ -715,16 +724,19 @@ will be sent to the Action API:
   "links": {
     "actions": [
       {
+        "type": "transaction",
         "label": "Stake 1 SOL", // button text
         "href": "/api/stake?amount=1"
         // no `parameters` therefore not a text input field
       },
       {
+        "type": "transaction",
         "label": "Stake 5 SOL", // button text
         "href": "/api/stake?amount=5"
         // no `parameters` therefore not a text input field
       },
       {
+        "type": "transaction",
         "label": "Stake", // button text
         "href": "/api/stake?amount={amount}",
         "parameters": [
@@ -752,6 +764,7 @@ parameter or a subpath can be used):
   "links": {
     "actions": [
       {
+        "type": "transaction",
         "label": "Donate", // button text
         "href": "/api/donate/{amount}", // or /api/donate?amount={amount}
         "parameters": [
@@ -817,11 +830,21 @@ of:
 ```ts ActionPostResponse
 /**
  * Response body payload returned from the Action POST Request
+ * note: for ease of reading, this is a simplified type of the actual
  */
-export interface ActionPostResponse<T extends ActionType = ActionType> {
-  /** base64 encoded serialized transaction */
-  transaction: string;
-  /** describes the nature of the transaction */
+export type ActionPostResponse =
+  | TransactionResponse
+  | PostResponse
+  | ExternalLinkResponse
+  | SignMessageResponse;
+
+/** matches the `type` of the `LinkedAction` the user selected */
+export type PostActionType = LinkedActionType;
+
+/** fields shared by every POST response */
+export interface ActionResponse {
+  type?: PostActionType;
+  /** describes the nature of the response */
   message?: string;
   links?: {
     /**
@@ -831,21 +854,60 @@ export interface ActionPostResponse<T extends ActionType = ActionType> {
     next: NextActionLink;
   };
 }
+
+/** the action is a transaction for the user to sign */
+export interface TransactionResponse extends ActionResponse {
+  type: "transaction";
+  /** base64 encoded serialized transaction */
+  transaction: string;
+}
+
+/** the action is a POST request with nothing for the user to sign */
+export interface PostResponse extends ActionResponse {
+  type: "post";
+}
+
+/** the action is a link for the user to open */
+export interface ExternalLinkResponse extends ActionResponse {
+  type: "external-link";
+  externalLink: string;
+}
+
+/** the action is a message for the user to sign */
+export interface SignMessageResponse extends ActionResponse {
+  type: "message";
+  // see Message Signing for the full type
+}
 ```
 
-- `transaction` - The value must be a base64-encoded
+- `type` - Tells the client how to handle the response:
+  - `transaction` - The client prompts the user to sign the `transaction`. After
+    it's confirmed onchain, the client renders `links.next`.
+  - `post` - There is nothing to sign. The client skips the wallet prompt and
+    renders `links.next`.
+  - `external-link` - The client shows the `externalLink` URL for the user to
+    click and navigate to.
+  - `message` - The client prompts the user to sign a message. See
+    [Message Signing](#message-signing).
+
+- `transaction` - Required when `type` is `transaction`. The value must be a
+  base64-encoded
   [serialized transaction](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#serialize).
   The client must base64-decode the transaction and
   [deserialize it](https://solana-foundation.github.io/solana-web3.js/v1.x/classes/Transaction.html#from).
 
+- `externalLink` - Required when `type` is `external-link`. The URL the user
+  can navigate to.
+
 - `message` - The value must be a UTF-8 string that describes the nature of the
-  transaction included in the response. The client should display this value to
-  the user. For example, this might be the name of an item being purchased, a
-  discount applied to a purchase, or a thank you note.
+  response, such as the transaction it includes. The client should display this
+  value to the user. For example, this might be the name of an item being
+  purchased, a discount applied to a purchase, or a thank you note.
 
 - `links.next` - An optional value use to "chain" multiple Actions together in
-  series. After the included `transaction` has been confirmed onchain, the
-  client can fetch and render the next action. See
+  series. After the included `transaction` has been confirmed onchain (or right
+  away for a `post` response), the client can fetch and render the next action.
+  A `message` response must include it. See
   [Action Chaining](#action-chaining) for more details.
 
 - The client and application should allow additional fields in the request body
@@ -911,13 +973,15 @@ included `message` should be presented to the user.
 ## Action Chaining
 
 Solana Actions can be "chained" together in a successive series. After an
-Action's transaction is confirmed onchain, the next action can be obtained and
-presented to the user.
+Action completes (its message is signed or its transaction is confirmed
+onchain), the next action can be obtained and presented to the user.
 
 Action chaining allows developers to build more complex and dynamic experiences
 within blinks, including:
 
-- providing multiple transactions (and eventually sign message) to a user
+- providing multiple transactions to a user
+- asking the user to sign a message, such as an authentication message (see
+  [Message Signing](#message-signing))
 - customized action metadata based on the user's wallet address
 - refreshing the blink metadata after a successful transaction
 - receive an API callback with the transaction signature for additional
@@ -992,6 +1056,130 @@ clients in one of the following ways:
 If `links.next` is not provided, blink clients should assume the current action
 is final action in the chain, presenting their "completed" UI state after the
 transaction is confirmed.
+
+## Message Signing
+
+Message signing lets an Action API verify that a user controls a wallet
+address: the user signs a plaintext message with their wallet, and the Action
+API verifies the signature later. Signing a message costs nothing, so it's a
+common way to authenticate users.
+
+To prompt a user to sign a message, the Action API returns a
+`SignMessageResponse` as its [POST response](#post-response). The
+`LinkedAction` that leads to it has a `type` of `message`.
+
+```ts SignMessageResponse
+export interface SignMessageResponse extends ActionResponse {
+  type: "message";
+  /** data for the user to sign */
+  data: string | SignMessageData;
+  /**
+   * normally a Message Authentication Code (MAC) or JWT created using a
+   * secret stored on the Action API server (allowing the server to verify
+   * this value)
+   */
+  state?: string;
+  /** `links.next` is required for sign message to validate the signature created */
+  links: {
+    next: PostNextActionLink;
+  };
+}
+```
+
+- `data` - The message for the user to sign, either a plaintext string or a
+  structured `SignMessageData` object (below).
+
+- `state` - An optional UTF-8 string the Action API can use to validate `data`,
+  such as a [MAC](https://en.wikipedia.org/wiki/Message_authentication_code)
+  created with a secret stored on the server. It lets the server verify that the
+  sign message request came from it without storing which messages it asked
+  users to sign. The client must not modify `state`; it relays the value back
+  to the Action API with the `signature`.
+
+- `links.next` - Required, and must be a `PostNextActionLink`. The client sends
+  the signature to this callback URL so the Action API can verify it.
+
+```ts SignMessageData
+/**
+ * Structured data that the user was requested to sign
+ */
+export type SignMessageData = {
+  /** domain requesting the user to sign the message */
+  domain: string;
+  /** base58 string of the Solana address requested to sign this message */
+  address: string;
+  /** human readable string message to the user */
+  statement: string;
+  /**
+   * a random alpha-numeric string at least 8 characters. this value is
+   * generated by the Action API, should only be used once, and is used
+   * to prevent replay attacks
+   */
+  nonce: string;
+  /** ISO-8601 datetime string. This represents the time at which the sign request was issued by the action api. */
+  issuedAt: string;
+  /**
+   * Chain ID compatible with CAIPs, defaults to Solana mainnet-beta in clients.
+   * If not provided, the blink client should not include chain id in the message to be signed by the user.
+   */
+  chainId?: string;
+};
+```
+
+When the blink client receives the response, it should show the user the
+plaintext `data` and prompt them to sign it with their wallet to create a
+`signature`.
+
+A `SignMessageData` object must be formatted as human-readable plaintext before
+signing. The Action API and the client must both build the text with this
+template, so the server can verify the signature:
+
+```text
+${domain} wants you to sign a message with your account:
+${address}
+
+${statement}
+
+Chain ID: ${chainId}
+Nonce: ${nonce}
+Issued At: ${issuedAt}
+```
+
+If `chainId` is not provided, omit the `Chain ID` line. The client must not
+prefix, suffix, or otherwise modify the text before signing it, and should
+validate the `SignMessageData` before signing to catch unexpected values.
+
+This function builds the text from `SignMessageData`:
+
+```ts
+export function createSignMessageText(input: SignMessageData): string {
+  let message = `${input.domain} wants you to sign a message with your account:\n`;
+  message += `${input.address}`;
+  message += `\n\n${input.statement}`;
+  const fields: string[] = [];
+
+  if (input.chainId) {
+    fields.push(`Chain ID: ${input.chainId}`);
+  }
+  fields.push(`Nonce: ${input.nonce}`);
+  fields.push(`Issued At: ${input.issuedAt}`);
+  message += `\n\n${fields.join("\n")}`;
+
+  return message;
+}
+```
+
+After the user signs, the blink client continues the chain with a `POST`
+request to the `links.next` callback URL. The body has the usual `account`
+field plus:
+
+- `signature` (required) - the base58-encoded signature created by the account
+  that signed the `data`
+- `data` (required) - the `data` value the Action API provided, unmodified
+- `state` (optional) - the `state` value the Action API provided, unmodified
+
+The callback should verify the signature and respond with a
+[`NextAction`](#nextaction).
 
 ## actions.json
 
@@ -1247,8 +1435,8 @@ inflating attribution and usage counts.
 
 The Identity Verification Message should be checked to ensure the `signature`
 was created by the `identity` signing the `reference`. If this signature
-verification fails, the transaction is invalid and should be attributed to the
-Action Provider.
+verification fails, the transaction is invalid and should not be attributed to
+the Action Provider.
 
 If the signature verification is successful, the verifier should ensure this
 transaction is the first onchain occurrence of the `reference`. If it is not,

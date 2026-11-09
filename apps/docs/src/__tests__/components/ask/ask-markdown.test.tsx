@@ -111,7 +111,7 @@ describe("AskMarkdown", () => {
       withIntl(
         <AskMarkdown
           text={
-            "[PDAs](/docs/core/pda), [fees](https://solana.com/developers/docs/core/fees) and [Anza](https://anza.xyz)."
+            "[PDAs](/docs/core/pda), [fees](https://solana.com/developers/docs/core/fees) and [Anza](https://docs.anza.xyz/cli)."
           }
         />,
       ),
@@ -124,8 +124,67 @@ describe("AskMarkdown", () => {
       "/developers/docs/core/fees",
     );
     const anza = screen.getByRole("link", { name: "Anza" });
+    expect(anza).toHaveAttribute("href", "https://docs.anza.xyz/cli");
     expect(anza).toHaveAttribute("target", "_blank");
-    expect(anza).toHaveAttribute("rel", "noreferrer");
+    expect(anza).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("links only solana.com and the agent's citable sites; other links are their text", () => {
+    const { container } = render(
+      withIntl(
+        <AskMarkdown
+          text={[
+            "[Explorer](https://explorer.solana.com/tx/abc)",
+            "[Agave](https://github.com/anza-xyz/agave)",
+            "[Phish](https://evil.example/login)",
+            "[Proto](//evil.example/login)",
+            "[Slash](/\\evil.example/login)",
+            "[Userinfo](https://solana.com@evil.example/login)",
+            "[Suffix](https://solana.com.evil.example/login)",
+            "[Repo](https://github.com/evil-org/phish)",
+            "[Up](https://github.com/solana-foundation/%2e%2e/evil-org/phish)",
+            "[Plain](http://evil.example/login)",
+            "[Mail](mailto:hello@solana.org)",
+            "[Script](javascript:alert(1))",
+            "[Entity](/&#47;evil.example/login)",
+            "[Port](https://solana.com:8443/x)",
+            "[IP](https://127.0.0.1/x)",
+            "Bare https://evil.example/claim and <https://evil.example/auto>.",
+          ].join("\n\n")}
+        />,
+      ),
+    );
+    const links = within(container).getAllByRole("link");
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Explorer",
+      "Agave",
+      "Slash",
+    ]);
+    for (const link of links.slice(0, 2)) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    }
+    // Markdown encodes the backslash: a path on this site, not a host.
+    expect(links[2]).toHaveAttribute("href", "/%5Cevil.example/login");
+    expect(links[2]).not.toHaveAttribute("target");
+    // The text stays, unlinked.
+    for (const text of ["Phish", "Proto", "Repo", "Mail", "Script", "IP"]) {
+      expect(screen.getByText(text).closest("a")).toBeNull();
+    }
+    expect(container.textContent).toContain(
+      "Bare https://evil.example/claim and https://evil.example/auto.",
+    );
+  });
+
+  it("keeps in-page anchors and same-site paths in place", () => {
+    render(withIntl(<AskMarkdown text="[Rent](#rent) and [News](/news)" />));
+    expect(screen.getByRole("link", { name: "Rent" })).toHaveAttribute(
+      "href",
+      "#rent",
+    );
+    const news = screen.getByRole("link", { name: "News" });
+    expect(news).toHaveAttribute("href", "/news");
+    expect(news).not.toHaveAttribute("target");
   });
 
   it("links docs in the reader's locale", () => {

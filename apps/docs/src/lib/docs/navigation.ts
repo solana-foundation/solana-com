@@ -19,10 +19,13 @@
  * Every locale uses the English navigation. Each entry shows the locale's
  * page when there is one and the English page otherwise, and always links
  * the locale's URL (untranslated pages are answered by English there).
+ * Tab and group names, link titles and tags show in the locale where
+ * navigation/<locale>/labels.json translates them (nav-labels.ts).
  */
 import type * as PageTree from "fumadocs-core/page-tree";
 import { defaultLocale } from "@workspace/i18n/config";
 import { labelSlug } from "@/data/developers/docs-nav";
+import { navLabel } from "./nav-labels";
 import { docsSource, type DocsPage } from "./source";
 import { DOCS_LOCALES } from "./locales.mjs";
 import en from "@@/content/navigation/en.json";
@@ -162,14 +165,18 @@ function buildNavigation(locale: string): DocsNavigation {
   const convertEntry = (entry: RawEntry): NavNode => {
     if (typeof entry === "string") return toPage(entry);
     if ("type" in entry && entry.type === "link")
-      return { kind: "link", title: entry.title, url: entry.href };
+      return {
+        kind: "link",
+        title: navLabel(locale, "links", entry.title),
+        url: entry.href,
+      };
     const group = entry as RawGroup;
     return {
       kind: "group",
       id: `g${groupCounter++}`,
-      title: group.group,
+      title: navLabel(locale, "groups", group.group),
       root: group.root ? toPage(group.root) : undefined,
-      tag: group.tag,
+      tag: navLabel(locale, "tags", group.tag),
       expanded: group.expanded === true,
       directory: group.directory,
       children: (group.pages ?? []).map(convertEntry),
@@ -217,16 +224,17 @@ function buildNavigation(locale: string): DocsNavigation {
   const tabs: NavTab[] = RAW.tabs.map((tab) => {
     const items = (tab.groups ?? tab.pages ?? []).map(convertEntry);
     const key = labelSlug(tab.tab);
+    const title = navLabel(locale, "tabs", tab.tab);
     const tree: PageTree.Folder = {
       type: "folder",
       $id: `tab:${key}`,
-      name: tab.tab,
+      name: title,
       root: true,
       children: items.map(toTreeNode),
     };
     const navTab: NavTab = {
       key,
-      title: tab.tab,
+      title,
       icon: tab.icon,
       hidden: tab.hidden === true,
       alignEnd: tab.align === "end",

@@ -17,6 +17,7 @@ import {
   type ResolvedDocsPage,
 } from "@/lib/docs/page-data";
 import { docsPageMetadata } from "@/lib/docs/metadata";
+import { contentLanguageAttributes } from "@/lib/docs/content-language";
 import { docsPageJsonLd } from "@/lib/docs/structured-data";
 import { isAskAiPath } from "@/lib/docs/ask-ai";
 import { DOCS_LANGUAGE_NAMES, languagePaths } from "@/lib/docs/language-paths";
@@ -216,7 +217,7 @@ export async function DocsPageView({
         data-docs=""
         data-dev-landing="docs"
         data-mode={wide ? "wide" : undefined}
-        lang={contentLocale === locale ? undefined : contentLocale}
+        {...contentLanguageAttributes(locale, contentLocale)}
         className="xl:[html[data-ask=docked]_&>.dh]:pe-[min(var(--ask-w)_-_2rem,max(0px,100%_-_92rem))] xl:[html[data-ask=docked]_&>:not(.dh)]:pe-[var(--ask-w)] [html[data-ask=fullscreen]_&]:invisible [html[data-ask=fullscreen]_&]:[transition:visibility_0s_150ms] motion-reduce:[html[data-ask=fullscreen]_&]:[transition:none] [html[data-ask=fullscreen]_body:has(&)]:transition-none"
       >
         <DocsHeader
@@ -265,7 +266,7 @@ export async function DocsPageView({
                 id="content-area"
                 data-docs-ask-selection={askAi ? "" : undefined}
               >
-                <header id="header">
+                <header id="page-header">
                   <div className="page-heading">
                     {crumbs.length ? (
                       <nav aria-label="Breadcrumb" className="breadcrumbs">

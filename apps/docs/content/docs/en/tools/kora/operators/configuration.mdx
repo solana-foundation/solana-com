@@ -76,7 +76,7 @@ Sample `kora.toml` file sections:
 [validation]
 # Transaction validation rules
 
-[validation.token2022]
+[validation.token_2022]
 # Token-2022 extension blocking
 
 [validation.fee_payer_policy]
@@ -139,16 +139,23 @@ default_ttl = 300                   # Default TTL in seconds (5 minutes)
 account_ttl = 60                    # Account data TTL in seconds (1 minute)
 ```
 
-| Option        | Description                                  | Required            | Type    |
-| ------------- | -------------------------------------------- | ------------------- | ------- |
-| `enabled`     | Enable Redis caching for RPC calls           | ❌ (default: false) | boolean |
-| `url`         | Redis connection URL (required when enabled) | ✅                  | string  |
-| `default_ttl` | Default TTL for cached entries in seconds    | ❌ (default: 300)   | number  |
-| `account_ttl` | TTL for account data cache in seconds        | ❌ (default: 60)    | number  |
+| Option        | Description                               | Required             | Type    |
+| ------------- | ----------------------------------------- | -------------------- | ------- |
+| `enabled`     | Enable Redis caching for RPC calls        | ✅                   | boolean |
+| `url`         | Redis connection URL                      | ✅ (when `enabled`)  | string  |
+| `default_ttl` | Default TTL for cached entries in seconds | ✅                   | number  |
+| `account_ttl` | TTL for account data cache in seconds     | ✅                   | number  |
 
-> _Note: When caching is enabled, a Redis instance must be available at the
-> specified URL. The cache gracefully falls back to direct RPC calls if Redis is
-> unavailable._
+> _Note: If you include a `[kora.cache]` section, set `enabled`, `default_ttl`,
+> and `account_ttl`. Kora 2.0.5 doesn't fill in defaults for a partial section:
+> the config fails to load with `missing field default_ttl`. Leave the section
+> out to run without caching._
+
+> _Note: When caching is enabled, Redis must be reachable at `url` when Kora
+> starts. If it isn't, `kora rpc start` exits with
+> `Failed to initialize cache: ... Connection refused`. After startup, a failed
+> cache read is treated as a cache miss and Kora fetches the account from the
+> Solana RPC directly._
 
 ## Kora Usage Limits (optional)
 
@@ -163,27 +170,38 @@ reset and the user will no longer be able to submit any more transactions using
 that same wallet. This limit persists until manually cleared from Redis or the
 Redis data is reset.
 
-**Note**: This feature requires Redis when enabled across multiple Kora
-instances:
+**Note**: Usage limits are stored in Redis. If `enabled = true` but
+`cache_url` is not set, Kora logs
+`Usage limiting enabled but no cache_url configured - disabled` and enforces no
+limits.
 
 ```toml
 [kora.usage_limit]
 enabled = true                      # Enable/disable usage limiting
 cache_url = "redis://localhost:6379" # Redis URL for shared state (required when enabled)
 max_transactions = 100              # Max transactions per wallet (0 = unlimited)
-fallback_if_unavailable = true      # Continue if Redis is unavailable
+fallback_if_unavailable = true      # Allow transactions if Redis fails after startup
 ```
 
-| Option                    | Description                                     | Required            | Type    |
-| ------------------------- | ----------------------------------------------- | ------------------- | ------- |
-| `enabled`                 | Enable per-wallet transaction limiting          | ❌ (default: false) | boolean |
-| `cache_url`               | Redis connection URL for shared usage tracking  | ❌                  | string  |
-| `max_transactions`        | Maximum transactions per wallet (0 = unlimited) | ❌ (default: 100)   | number  |
-| `fallback_if_unavailable` | Allow transactions if Redis is unavailable      | ❌ (default: true)  | boolean |
+| Option                    | Description                                                    | Required            | Type    |
+| ------------------------- | -------------------------------------------------------------- | ------------------- | ------- |
+| `enabled`                 | Enable per-wallet transaction limiting                         | ✅                  | boolean |
+| `cache_url`               | Redis connection URL for usage tracking                        | ✅ (when `enabled`) | string  |
+| `max_transactions`        | Maximum transactions per wallet (0 = unlimited)                | ✅                  | number  |
+| `fallback_if_unavailable` | Allow transactions when a Redis call fails after Kora started | ✅                  | boolean |
 
-> _Note: When `fallback_if_unavailable` is true, the system allows transactions
-> to proceed if Redis is temporarily unavailable, preventing service disruption.
-> Setting `max_transactions` to 0 will allow unlimited transactions._
+> _Note: If you include a `[kora.usage_limit]` section, set `enabled`,
+> `max_transactions`, and `fallback_if_unavailable`. Kora 2.0.5 has no defaults
+> for a partial section and fails to load the config with
+> `missing field max_transactions`. Setting `max_transactions` to 0 allows
+> unlimited transactions._
+
+> _Note: When usage limiting is enabled, Redis must be reachable at `cache_url`
+> when Kora starts, even with `fallback_if_unavailable = true`. Otherwise
+> `kora rpc start` exits with
+> `Usage limiter initialization failed: ... Connection refused`. The fallback
+> only covers Redis errors after startup: with `true`, Kora allows the
+> transaction; with `false`, it rejects it._
 
 ### Kora Enabled Methods (optional)
 
@@ -295,13 +313,13 @@ Learn more about durable nonce transactions in the
 
 ## Token-2022 Extension Blocking
 
-The `[validation.token2022]` section allows you to block specific Token-2022
+The `[validation.token_2022]` section allows you to block specific Token-2022
 extensions for enhanced security. All extensions are enabled by default. You can
 block specific extensions by adding them to the `blocked_mint_extensions` or
 `blocked_account_extensions` arrays:
 
 ```toml
-[validation.token2022]
+[validation.token_2022]
 blocked_mint_extensions = [
     "transfer_hook",           # Block tokens with transfer hooks
     "pausable",                # Block pausable tokens
@@ -312,6 +330,15 @@ blocked_account_extensions = [
     "memo_transfer",          # Block accounts requiring memos
 ]
 ```
+
+> **Warning:** The section name is `token_2022`, with an underscore. Kora 2.0.5
+> silently ignores a `[validation.token2022]` section: the config still
+> validates, but no extension is blocked. Kora's own security warning in
+> `config validate` names `[validation.token2022]`; use `token_2022` anyway.
+> `token2022` is accepted as an alias only from `v2.2.0-beta.8`. Run
+> `getConfig` and check `validation_config.token_2022` to confirm which
+> extensions your node blocks. If you include the section, set both arrays
+> (either can be empty).
 
 ### Available Mint Extensions
 
@@ -352,7 +379,7 @@ significant risks for the Kora node operator as payment funds can be seized
 after payment.
 
 - Consider adding "permanent_delegate" to `blocked_mint_extensions` in
-  [validation.token2022] unless explicitly needed for your use case.
+  `[validation.token_2022]` unless explicitly needed for your use case.
 - Avoid using payment tokens with the `permanent_delegate` extension.
 
 ## Fee Payer Policy
@@ -408,6 +435,13 @@ allow_initialize_multisig = false # InitializeMultisig/InitializeMultisig2
 allow_freeze_account = false     # FreezeAccount
 allow_thaw_account = false       # ThawAccount
 ```
+
+> _Note: Every subsection you include must list all of its keys: four for
+> `system`, four for `system.nonce`, and twelve each for `spl_token` and
+> `token_2022`. Kora 2.0.5 has no per-key defaults, so a partial subsection
+> fails to load (for example, `allow_transfer = false` on its own gives
+> `missing field allow_assign`). A subsection you leave out entirely defaults to
+> all `false`, which is what the Default column below describes._
 
 ### System Program Instructions
 
@@ -524,23 +558,49 @@ type = "free"
 #### Security Measures When Using Fixed/Free Pricing
 
 1. **Disable All Transfer and Monetary Operations** - Prevent fee payer from
-   being used as source in transfers:
+   being used as source in transfers. Each subsection must list all of its
+   keys, so this block sets every key to `false`:
 
    ```toml
    [validation.fee_payer_policy.system]
    allow_transfer = false              # Block SOL transfers
+   allow_assign = false                # Block account ownership changes
    allow_create_account = false        # Block account creation with lamports
    allow_allocate = false              # Block space allocation
 
    [validation.fee_payer_policy.system.nonce]
+   allow_initialize = false
+   allow_advance = false
+   allow_authorize = false
    allow_withdraw = false              # Block nonce account withdrawals
 
-   [validation.fee_payer_policy.spl_token] # and for [validation.fee_payer_policy.token_2022]
+   [validation.fee_payer_policy.spl_token]
    allow_transfer = false              # Block SPL transfers
    allow_burn = false                  # Block SPL token burning
    allow_close_account = false         # Block SPL token account closures (returns rent)
+   allow_approve = false
+   allow_revoke = false
+   allow_set_authority = false
    allow_mint_to = false               # Block unauthorized SPL token minting
+   allow_initialize_mint = false
    allow_initialize_account = false    # Block account initialization
+   allow_initialize_multisig = false
+   allow_freeze_account = false
+   allow_thaw_account = false
+
+   [validation.fee_payer_policy.token_2022]
+   allow_transfer = false
+   allow_burn = false
+   allow_close_account = false
+   allow_approve = false
+   allow_revoke = false
+   allow_set_authority = false
+   allow_mint_to = false
+   allow_initialize_mint = false
+   allow_initialize_account = false
+   allow_initialize_multisig = false
+   allow_freeze_account = false
+   allow_thaw_account = false
    ```
 
 2. **Enable Authentication** - Use authentication to prevent abuse:
@@ -584,37 +644,43 @@ enabled = true
 expiry_seconds = 30
 ```
 
-| Option            | Description                                           | Required | Type    |
-| ----------------- | ----------------------------------------------------- | -------- | ------- |
-| `enabled`         | Enable metrics collection                             | ✅       | boolean |
-| `endpoint`        | Custom metrics endpoint path                          | ✅       | string  |
-| `port`            | Metrics listener port (must differ from the RPC port) | ✅       | number  |
-| `scrape_interval` | Frequency of Prometheus scrape (seconds)              | ✅       | number  |
+| Option            | Description                                                            | Required | Type    |
+| ----------------- | ---------------------------------------------------------------------- | -------- | ------- |
+| `enabled`         | Enable metrics collection                                              | ✅       | boolean |
+| `endpoint`        | Custom metrics endpoint path                                           | ✅       | string  |
+| `port`            | Metrics port: the RPC port to serve metrics there, or a separate port | ✅       | number  |
+| `scrape_interval` | Frequency of Prometheus scrape (seconds)                               | ✅       | number  |
 
 ### Fee Payer Balance Tracking
 
 The `[metrics.fee_payer_balance]` section configures automatic monitoring of
-your fee payer's SOL balance:
+your fee payer's SOL balance. Leave it out to keep balance tracking off; if you
+include it, set both keys:
 
-| Option           | Description                             | Required            | Type    |
-| ---------------- | --------------------------------------- | ------------------- | ------- |
-| `enabled`        | Enable fee payer balance tracking       | ❌ (default: false) | boolean |
-| `expiry_seconds` | Background tracking interval in seconds | ❌ (default: 30)    | number  |
+| Option           | Description                             | Required | Type    |
+| ---------------- | --------------------------------------- | -------- | ------- |
+| `enabled`        | Enable fee payer balance tracking       | ✅       | boolean |
+| `expiry_seconds` | Background tracking interval in seconds | ✅       | number  |
 
 When enabled, Kora automatically tracks your fee payer's SOL balance and exposes
 it via the `signer_balance_lamports` Prometheus gauge. This helps with
 capacity planning and low-balance alerting.
 
-> _Note: Metrics are served at `http://localhost:{port}/{metrics-endpoint}` by a
-> separate listener. The metrics `port` must differ from the RPC server port
-> (8080 by default), otherwise `kora rpc start` fails with
-> `Address already in use`._
+> _Note: If `port` equals the RPC server port (8080 by default), Kora serves
+> `{endpoint}` on the RPC server and logs
+> `Metrics endpoint enabled at /metrics on RPC server`. Any other port starts a
+> separate metrics listener at `http://localhost:{port}{endpoint}`, and the RPC
+> port no longer answers `{endpoint}`. A separate port lets you keep metrics off
+> the public RPC port._
 
 **[→ Kora Monitoring Reference Guide](/developers/docs/tools/kora/operators/monitoring)**
 
 ## Complete Example
 
-Here's a production-ready configuration with security best practices:
+Here's a production-ready configuration with security best practices. It
+enables Redis caching and usage limits, so Redis must be running at
+`redis://localhost:6379` before you start Kora, and `price_source = "Jupiter"`
+requires the `JUPITER_API_KEY` environment variable:
 
 ```toml
 # Kora Paymaster Configuration
@@ -677,7 +743,6 @@ allowed_programs = [
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",  # Associated Token
     "AddressLookupTab1e1111111111111111111111111",   # Address Lookup Table
     "ComputeBudget111111111111111111111111111111", # Compute Budget
-    "MyProgram111111111111111111111111111111111",
     # Add your specific program IDs here
 ]
 
@@ -685,7 +750,6 @@ allowed_programs = [
 allowed_tokens = [
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",  # USDC
     "So11111111111111111111111111111111111111112",   # Wrapped SOL
-    "MyToken1111111111111111111111111111111111111111",
     # Add tokens your application uses
 ]
 
@@ -696,7 +760,7 @@ allowed_spl_paid_tokens = [
 
 # Known bad actors or compromised addresses
 disallowed_accounts = [
-    "BadActor1111111111111111111111111111111111111111",
+    # Add known bad actor addresses here
 ]
 
 # Restrictive fee payer policy (recommended for production)
@@ -740,8 +804,8 @@ allow_initialize_multisig = false # Block multisig initialization
 allow_freeze_account = false     # Block account freezing
 allow_thaw_account = false       # Block account thawing
 
-# Token-2022 extension blocking
-[validation.token2022]
+# Token-2022 extension blocking (note the underscore in token_2022)
+[validation.token_2022]
 # Block potentially risky mint extensions
 blocked_mint_extensions = [
     "transfer_hook",       # Custom transfer logic

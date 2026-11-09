@@ -1150,9 +1150,20 @@ const curl = (body: string) =>
     `'`,
   ].join("\n");
 
+/**
+ * A method's `##` heading, with the method name as its id (`[#…]`, read by
+ * Fumadocs' remark-heading): #surfnet_setAccount, as the reference has
+ * always linked it, not the lower-cased slug.
+ */
+const methodHeading = (name: string): AstNode => ({
+  type: "heading",
+  depth: 2,
+  children: [{ type: "text", value: `${name} [#${name}]` }],
+});
+
 function rpcMethodNodes(m: RpcMethod): AstNode[] {
   const out: AstNode[] = [
-    { type: "heading", depth: 2, children: [{ type: "text", value: m.name }] },
+    methodHeading(m.name),
     ...prose(m.description),
     ...(m.note ? prose(m.note) : []),
   ];
@@ -1168,10 +1179,7 @@ function rpcMethodNodes(m: RpcMethod): AstNode[] {
 }
 
 function wsMethodNodes(m: WsMethod): AstNode[] {
-  const out: AstNode[] = [
-    { type: "heading", depth: 2, children: [{ type: "text", value: m.name }] },
-    ...prose(m.description),
-  ];
+  const out: AstNode[] = [methodHeading(m.name), ...prose(m.description)];
   if (m.params.length)
     out.push(label("Parameters"), ...m.params.map((p) => field(p, "param")));
   if (m.unsupported) {
@@ -1214,7 +1222,12 @@ export function renderSnippet(
   if (c === "websockets")
     for (const m of model.websockets) children.push(...wsMethodNodes(m));
   else for (const m of model.rpc[c]) children.push(...rpcMethodNodes(m));
-  return mdxPrinter.stringify({ type: "root", children } as never);
+  // The printer escapes the `[` of a heading's `[#id]`. Unescaped, as
+  // Fumadocs expects, the Markdown twin drops the whole marker (an escaped
+  // one leaves a stray `\` at the end of the heading).
+  return mdxPrinter
+    .stringify({ type: "root", children } as never)
+    .replace(/^(#{1,6} .*) \\\[#([^\]\n]+)\]$/gm, "$1 [#$2]");
 }
 
 /** Every snippet, keyed by file name. Pure. */
