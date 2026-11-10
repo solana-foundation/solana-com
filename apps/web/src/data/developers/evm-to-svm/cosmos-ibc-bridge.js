@@ -42,9 +42,6 @@ pub fn mint_transfer(
     // Prove the escrow module stored this exact transfer record.
     verify_membership(&amp;ctx.accounts.proof_buffer, &amp;transfer_id, &amp;recipient, amount, &amp;root)?;
 
-    require!(amount &lt;= bridge.per_transfer_max, BridgeError::OverTransferLimit);
-    bridge.add_to_daily_minted(amount, Clock::get()?.unix_timestamp)?; // errors above daily_mint_cap
-
     // The status account is created with init from the transfer ID, so a second mint
     // or void for the same transfer fails before this handler runs.
     let status = &amp;mut ctx.accounts.status;
@@ -52,6 +49,11 @@ pub fn mint_transfer(
         status.outcome = Outcome::Voided; // the Cosmos side can refund it
         return Ok(());
     }
+
+    // Apply mint limits only to transfers that mint, so voids never use up the
+    // daily allowance.
+    require!(amount &lt;= bridge.per_transfer_max, BridgeError::OverTransferLimit);
+    bridge.add_to_daily_minted(amount, Clock::get()?.unix_timestamp)?; // errors above daily_mint_cap
 
     token::mint_to(
         CpiContext::new_with_signer(

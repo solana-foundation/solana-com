@@ -199,9 +199,25 @@ pub struct ClaimStatus {
       },
       "prose",
       {
+        language: "text",
+        code: `Payload (UTF-8):
+claim:9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin:00000000000000000000000000000000000000000000000000000000000000aa:Claim1111111111111111111111111111111111111
+
+Signer:
+osmo1example
+
+Signed bytes (compact JSON, keys sorted, data as padded standard base64):
+{"account_number":"0","chain_id":"","fee":{"amount":[],"gas":"0"},"memo":"","msgs":[{"type":"sign/MsgSignData","value":{"data":"Y2xhaW06OXhRZVd2RzgxNmJVeDlFUGpIbWFUMjN5dlZNMlpXYnJycFpiOVB1c1ZGaW46MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDBhYTpDbGFpbTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE=","signer":"osmo1example"}}],"sequence":"0"}
+
+SHA-256 of the signed bytes:
+09a87f23fa7dd8b180b992efb6fd8c4f1616844e230c8cb785495b211c397ea9`,
+      },
+      "prose",
+      {
         language: "rust",
         code: `// Sketch of the claim check. Helpers such as adr036_sign_doc, is_high_s,
-// compress, hash160, and hash_leaf are yours to implement.
+// compress, hash160, and hash_leaf are yours to implement. adr036_sign_doc must
+// return the exact compact, sorted-key bytes shown in the test vector above.
 let payload = format!(
     "claim:{}:{}:{}",
     beneficiary,               // Solana wallet that receives the tokens
