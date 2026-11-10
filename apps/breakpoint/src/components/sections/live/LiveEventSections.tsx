@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import ImageTreatment from "@/components/ImageTreatment";
@@ -229,33 +229,33 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
     [schedule.sessions, stream.stage],
   );
   const [chosenStage, setChosenStage] = useState<string | null>(null);
-  const activeStage =
-    chosenStage && stages.includes(chosenStage)
-      ? chosenStage
-      : (stages[0] ?? stream.stage);
-
-  // `#today/<stage>` from the venue map (or a shared link) opens that stage.
-  // The stage list is read through a ref so the hash is applied on arrival
-  // and on `hashchange` only, not again on every clock tick.
-  const stagesRef = useRef(stages);
-  useEffect(() => {
-    stagesRef.current = stages;
-  }, [stages]);
+  // Stage slug from `#today/<stage>` (the venue map or a shared link). Kept
+  // as state so it resolves once the stages arrive; with the preview clock
+  // the first render has none.
+  const [requestedSlug, setRequestedSlug] = useState<string | null>(null);
 
   useEffect(() => {
     const apply = () => {
       const slug = parseTodayHash(window.location.hash);
       if (!slug) return;
-      const stage = stagesRef.current.find(
-        (candidate) => stageSlug(candidate) === slug,
-      );
-      if (stage) setChosenStage(stage);
+      setRequestedSlug(slug);
+      // A fresh link wins over a tab picked earlier.
+      setChosenStage(null);
       scrollToAnchor(TODAY_ANCHOR);
     };
     apply();
     window.addEventListener("hashchange", apply);
     return () => window.removeEventListener("hashchange", apply);
   }, []);
+
+  const requestedStage = requestedSlug
+    ? (stages.find((candidate) => stageSlug(candidate) === requestedSlug) ??
+      null)
+    : null;
+  const activeStage =
+    chosenStage && stages.includes(chosenStage)
+      ? chosenStage
+      : (requestedStage ?? stages[0] ?? stream.stage);
 
   const streamSessions = schedule.sessions.filter(
     (session) => session.location === stream.stage,
