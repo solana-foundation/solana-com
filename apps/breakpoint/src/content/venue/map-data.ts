@@ -254,6 +254,7 @@ export const AMENITIES: MapAmenity[] = [
     floor: "ground",
     type: "restroom",
     position: { x: 426, y: 472 },
+    single: true,
   },
   {
     id: "g-nursing-room",
@@ -409,6 +410,11 @@ export const AMENITY_ICONS: Record<AmenityType, string> = {
   restroom: "/img/venue/icons/restroom-women.svg",
   smoking: "/img/venue/icons/smoking.svg",
   stairs: "/img/venue/icons/stairs.svg",
+};
+
+/** Second icon for types drawn as a pair, e.g. the two restroom figures. */
+export const AMENITY_PAIR_ICONS: Partial<Record<AmenityType, string>> = {
+  restroom: "/img/venue/icons/restroom-men.svg",
 };
 
 export const VENUE_MAP: VenueMapData = {

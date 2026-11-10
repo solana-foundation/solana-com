@@ -71,6 +71,8 @@ export type MapAmenity = {
   type: AmenityType;
   /** Overrides the generic label for this type, e.g. "First aid reception". */
   label?: string;
+  /** Draws only the first icon for a type that is normally a pair. */
+  single?: boolean;
   position: MapPoint;
 };
 

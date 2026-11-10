@@ -12,6 +12,7 @@ import {
 import {
   AMENITIES,
   AMENITY_ICONS,
+  AMENITY_PAIR_ICONS,
   FLOORS,
   SPONSORS,
   VENUE_MAP,
@@ -62,6 +63,7 @@ describe("venue map data", () => {
     const files = [
       ...FLOORS.map((floor) => floor.image),
       ...Object.values(AMENITY_ICONS),
+      ...Object.values(AMENITY_PAIR_ICONS),
       ...SPONSORS.map((sponsor) => sponsor.logo).filter(Boolean),
     ];
     for (const file of files) {
