@@ -1,16 +1,11 @@
-import { getLiveAgenda } from "@/content/live/agenda";
 import { MAIN_STAGE_STREAM } from "@/content/live/streams";
 import LiveEventSections from "./LiveEventSections";
 
-/** Event-day hero and "today" agenda, server-fed and client-refreshed. */
-export default async function LiveEventSection() {
-  const items = await getLiveAgenda();
-
-  return (
-    <LiveEventSections
-      initialItems={items}
-      initialNow={Date.now()}
-      stream={MAIN_STAGE_STREAM}
-    />
-  );
+/**
+ * Event-day hero and "today" agenda. The schedule itself comes from the
+ * surrounding `LiveScheduleProvider`, which the home page feeds with the
+ * agenda and shares with the venue map.
+ */
+export default function LiveEventSection() {
+  return <LiveEventSections stream={MAIN_STAGE_STREAM} />;
 }

@@ -233,3 +233,117 @@ export function formatMinutes(minutes: number): string {
   const rest = whole % 60;
   return `${String(hours).padStart(2, "0")}:${String(rest).padStart(2, "0")}`;
 }
+
+/**
+ * Wall-clock minutes since midnight in `timeZone` for an instant, together
+ * with the zone's offset from UTC in minutes at that instant.
+ */
+function wallClock(instant: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    month: "2-digit",
+    timeZone,
+    year: "numeric",
+  }).formatToParts(instant);
+  const read = (type: string) =>
+    Number(parts.find((part) => part.type === type)?.value ?? "0");
+  const wall = Date.UTC(
+    read("year"),
+    read("month") - 1,
+    read("day"),
+    read("hour") % 24,
+    read("minute"),
+  );
+  // Compare whole minutes so sub-minute parts of `instant` do not leak in.
+  const utcMinute = Math.floor(instant / 60_000) * 60_000;
+  return { offsetMinutes: Math.round((wall - utcMinute) / 60_000) };
+}
+
+/** Offset of `timeZone` from UTC, in minutes, at `instant`. */
+export function timeZoneOffsetMinutes(timeZone: string, instant: number) {
+  return wallClock(instant, timeZone).offsetMinutes;
+}
+
+/**
+ * The UTC instant for a wall-clock time (`date` as ISO `YYYY-MM-DD`,
+ * `minutes` since midnight) in `timeZone`.
+ */
+export function zonedTimeToUtc(
+  date: string,
+  minutes: number,
+  timeZone: string,
+): number {
+  const [year, month, day] = date.split("-").map(Number);
+  const guess =
+    Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1) +
+    Math.round(minutes * 60_000);
+  // Shift by the zone's offset, then correct once in case the guess landed
+  // on the other side of a daylight-saving change.
+  let instant = guess - timeZoneOffsetMinutes(timeZone, guess) * 60_000;
+  instant = guess - timeZoneOffsetMinutes(timeZone, instant) * 60_000;
+  return instant;
+}
+
+/** UTC instant of a session clock time on the schedule's London date. */
+export function sessionInstant(date: string, minutes: number): number {
+  return zonedTimeToUtc(date, minutes, EVENT_TIME_ZONE);
+}
+
+/**
+ * How a viewer's time zone relates to the event's at `instant`. Returns
+ * `null` for the event zone itself (or an unknown zone), so the page shows
+ * nothing extra to people in London.
+ */
+export function viewerTimeZoneDifference(
+  viewerTimeZone: string | null | undefined,
+  instant: number,
+): { differenceMinutes: number; place: string } | null {
+  if (!viewerTimeZone || viewerTimeZone === EVENT_TIME_ZONE) return null;
+  let differenceMinutes: number;
+  try {
+    differenceMinutes =
+      timeZoneOffsetMinutes(viewerTimeZone, instant) -
+      timeZoneOffsetMinutes(EVENT_TIME_ZONE, instant);
+  } catch {
+    return null;
+  }
+  return { differenceMinutes, place: timeZonePlace(viewerTimeZone) };
+}
+
+/** "America/Argentina/Buenos_Aires" → "Buenos Aires"; "UTC" stays as is. */
+export function timeZonePlace(timeZone: string): string {
+  const segment = timeZone.split("/").pop() ?? timeZone;
+  return segment.replace(/_/g, " ");
+}
+
+/** "HH:mm" in `timeZone`, 24-hour like the London times beside it. */
+export function formatInstantInZone(
+  instant: number,
+  timeZone: string,
+  locale = "en-GB",
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    timeZone,
+  }).format(instant);
+}
+
+/** Short zone name such as "EST" or "GMT+1" for `instant` in `timeZone`. */
+export function formatZoneName(
+  instant: number,
+  timeZone: string,
+  locale = "en-GB",
+): string {
+  const part = new Intl.DateTimeFormat(locale, {
+    timeZone,
+    timeZoneName: "short",
+  })
+    .formatToParts(instant)
+    .find((candidate) => candidate.type === "timeZoneName");
+  return part?.value ?? "";
+}

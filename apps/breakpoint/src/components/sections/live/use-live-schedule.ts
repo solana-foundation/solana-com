@@ -13,11 +13,11 @@ import { calculateLiveSchedule, REFRESH_LEAD_MS } from "@/lib/live-sessions";
 const BOUNDARY_TICK_MARGIN_MS = 250;
 
 /**
- * In development, `?now=2026-11-16T10:05` freezes the clock so the live
- * layout can be checked on any date. Production ignores the parameter.
+ * Outside the production deployment, `?now=2026-11-16T10:05` freezes the
+ * clock so the live layout can be checked on any date. The server decides
+ * whether that is allowed, because only it knows the deployment environment.
  */
 function readPreviewNow(): number | null {
-  if (process.env.NODE_ENV === "production") return null;
   if (typeof window === "undefined") return null;
   const value = new URLSearchParams(window.location.search).get("now");
   if (!value) return null;
@@ -28,6 +28,7 @@ function readPreviewNow(): number | null {
 export function useLiveSchedule(
   initialItems: AgendaItem[],
   initialNow: number,
+  { allowClockPreview = false }: { allowClockPreview?: boolean } = {},
 ) {
   const [items, setItems] = useState(initialItems);
   // Server minus client clock, so a wrong device clock does not move sessions.
@@ -40,7 +41,7 @@ export function useLiveSchedule(
   }, [previewNow]);
 
   useEffect(() => {
-    const preview = readPreviewNow();
+    const preview = allowClockPreview ? readPreviewNow() : null;
     if (preview !== null) {
       setPreviewNow(preview);
       setNow(preview);
@@ -48,7 +49,7 @@ export function useLiveSchedule(
     }
     offsetRef.current = initialNow - Date.now();
     setNow(Date.now() + offsetRef.current);
-  }, [initialNow]);
+  }, [allowClockPreview, initialNow]);
 
   const refresh = useCallback(async () => {
     try {
@@ -101,4 +102,22 @@ export function useLiveSchedule(
   }, [previewNow, refresh, schedule.boundaryInMs, tick]);
 
   return { schedule, now };
+}
+
+/**
+ * The browser's IANA time zone, read after mount so server and first client
+ * render agree (the server only knows London time).
+ */
+export function useViewerTimeZone(): string | null {
+  const [timeZone, setTimeZone] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone ?? null);
+    } catch {
+      setTimeZone(null);
+    }
+  }, []);
+
+  return timeZone;
 }

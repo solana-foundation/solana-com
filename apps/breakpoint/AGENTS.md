@@ -130,6 +130,21 @@ constant and merging is the release; there is no runtime toggle.
 - `live` renders `src/components/sections/live/LiveEventSection.tsx` (stream
   hero plus today's sessions), the venue map, sponsors, speakers, side events
   and FAQ. `pre` renders the marketing page with the venue map before the FAQ.
+- The home page loads the agenda once and wraps the live hero and the venue map
+  in `LiveScheduleProvider`, so both read the same schedule and the map's stage
+  zones (Main Stage, Royal Exchange) show what is on now and next.
+- The agenda and the map link to each other with hash fragments defined in
+  `src/lib/live-links.ts`: `#venue-map/<zone id>` opens the map on a zone and
+  `#today/<stage slug>` opens today's sessions on a stage. Both work from other
+  pages too, e.g. `/#venue-map/royal-exchange`. A stage finds its zone by name,
+  so a new stage needs a zone with the same name in `map-data.ts`.
+- Visitors outside London see a note saying where they are viewing from and how
+  far their clock is from London's, with each session's time repeated in their
+  zone (`src/lib/viewer-time.ts`). The zone comes from the browser after mount,
+  so the server render only shows London times.
+- Home page metadata comes from `getHomeMetadata` in `src/app/metadata.ts`,
+  which switches to the `metadata.live` copy while the conference is live so
+  shared links read as "watch live". Other pages keep their own metadata.
 - Today's sessions come from the agenda loader (`src/content/live/agenda.ts`)
   and are placed on the clock by `src/lib/live-sessions.ts` in Europe/London.
   Sessions need a `HH:mm` time and a day tab (`Day 1` = 16 Nov, `Day 2` = 17
@@ -139,8 +154,12 @@ constant and merging is the release; there is no runtime toggle.
 - Set the YouTube live id in `src/content/live/streams.ts`
   (`MAIN_STAGE_STREAM.youtubeVideoId`). Until it is set the hero shows a
   placeholder naming the next session.
-- In development, `/?now=2026-11-16T10:05:00Z` freezes the clock so the live
-  layout can be checked on any date.
+- Outside the production deployment (`VERCEL_ENV !== "production"`, so local dev
+  and Vercel previews), `/?preview=live` renders the live edition while the
+  constant still says `pre`, and `&now=2026-11-16T10:05:00Z` freezes the clock
+  so the live layout can be checked on any date. Production ignores both
+  parameters. `?preview=pre` shows the marketing page once the constant has
+  flipped.
 
 ## Venue Map
 

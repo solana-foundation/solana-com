@@ -3,12 +3,15 @@ import type { AgendaItem } from "@/content/agenda/types";
 import {
   calculateLiveSchedule,
   dayKeyForDate,
+  formatInstantInZone,
   formatMinutes,
   londonNow,
   parseClock,
   parseDurationMinutes,
   sessionsForStage,
   stagesInSchedule,
+  viewerTimeZoneDifference,
+  zonedTimeToUtc,
 } from "@/lib/live-sessions";
 
 function session(
@@ -178,5 +181,61 @@ describe("calculateLiveSchedule", () => {
       "Main Stage",
       "Royal Exchange",
     ]);
+  });
+});
+
+describe("zonedTimeToUtc", () => {
+  it("treats London in November as UTC", () => {
+    expect(zonedTimeToUtc("2026-11-16", 9 * 60, "Europe/London")).toBe(
+      DAY_ONE("09:00"),
+    );
+  });
+
+  it("applies summer time when London is on BST", () => {
+    expect(zonedTimeToUtc("2026-07-10", 9 * 60, "Europe/London")).toBe(
+      Date.parse("2026-07-10T08:00:00Z"),
+    );
+  });
+
+  it("converts other zones", () => {
+    expect(zonedTimeToUtc("2026-11-16", 9 * 60, "America/New_York")).toBe(
+      Date.parse("2026-11-16T14:00:00Z"),
+    );
+  });
+});
+
+describe("viewerTimeZoneDifference", () => {
+  it("is null for the event zone", () => {
+    expect(viewerTimeZoneDifference("Europe/London", DAY_ONE("09:00"))).toBe(
+      null,
+    );
+    expect(viewerTimeZoneDifference(null, DAY_ONE("09:00"))).toBeNull();
+  });
+
+  it("measures the viewer's offset from London", () => {
+    expect(
+      viewerTimeZoneDifference("America/New_York", DAY_ONE("09:00")),
+    ).toEqual({ differenceMinutes: -300, place: "New York" });
+    expect(viewerTimeZoneDifference("Asia/Tokyo", DAY_ONE("09:00"))).toEqual({
+      differenceMinutes: 540,
+      place: "Tokyo",
+    });
+  });
+
+  it("is null for a zone the runtime does not know", () => {
+    expect(viewerTimeZoneDifference("Mars/Olympus", DAY_ONE("09:00"))).toBe(
+      null,
+    );
+  });
+});
+
+describe("formatInstantInZone", () => {
+  it("formats a 24-hour clock in the given zone", () => {
+    expect(formatInstantInZone(DAY_ONE("09:05"), "America/New_York")).toBe(
+      "04:05",
+    );
+    expect(formatInstantInZone(DAY_ONE("00:30"), "Europe/London")).toBe(
+      "00:30",
+    );
   });
 });

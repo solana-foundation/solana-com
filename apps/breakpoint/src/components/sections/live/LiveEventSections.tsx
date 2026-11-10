@@ -1,13 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import ImageTreatment from "@/components/ImageTreatment";
 import SectionHeadline from "@/components/SectionHeadline";
 import { publicAssetPath } from "@/config";
-import type { AgendaItem } from "@/content/agenda/types";
+import { stageFloor } from "@/content/agenda/types";
 import type { LiveStream } from "@/content/live/streams";
+import { VENUE_MAP } from "@/content/venue/map-data";
+import {
+  followHashLink,
+  parseTodayHash,
+  scrollToAnchor,
+  stageSlug,
+  TODAY_ANCHOR,
+  venueMapHash,
+  VENUE_MAP_ANCHOR,
+  zoneForStage,
+} from "@/lib/live-links";
 import {
   EVENT_TIME_ZONE,
   formatMinutes,
@@ -16,7 +27,12 @@ import {
   type LiveSession,
   type SessionStatus,
 } from "@/lib/live-sessions";
-import { useLiveSchedule } from "./use-live-schedule";
+import {
+  formatOffsetDuration,
+  viewerTimes,
+  type ViewerTimes,
+} from "@/lib/viewer-time";
+import { useRequiredLiveSchedule } from "./LiveScheduleProvider";
 
 const UPCOMING_ROW_LIMIT = 8;
 
@@ -28,8 +44,6 @@ const STATUS_CLASSES: Record<SessionStatus, string> = {
 };
 
 type LiveEventSectionsProps = {
-  initialItems: AgendaItem[];
-  initialNow: number;
   stream: LiveStream;
 };
 
@@ -53,14 +67,44 @@ function speakerNames(session: LiveSession) {
   return session.speakers.map((speaker) => speaker.name).join(", ");
 }
 
+/** London time range, with the viewer's own range underneath when it differs. */
+function SessionTimes({
+  className = "",
+  session,
+  viewer,
+}: {
+  className?: string;
+  session: LiveSession;
+  viewer: ViewerTimes | null;
+}) {
+  const t = useTranslations("breakpoint.live");
+  return (
+    <>
+      <p className={`type-eyebrow ${className}`.trim()}>
+        {sessionTimeRange(session)}
+      </p>
+      {viewer?.showLocal && (
+        <p className="type-eyebrow text-text-secondary">
+          {t("localRange", {
+            range: viewer.range(session.startMinutes, session.endMinutes),
+            zone: viewer.zoneName,
+          })}
+        </p>
+      )}
+    </>
+  );
+}
+
 function SessionCard({
   label,
   session,
   status,
+  viewer,
 }: {
   label: string;
   session: LiveSession;
   status: SessionStatus;
+  viewer: ViewerTimes | null;
 }) {
   const names = speakerNames(session);
 
@@ -72,9 +116,11 @@ function SessionCard({
         {status === "live" && <LiveDot />}
         {label}
       </p>
-      <p className="type-eyebrow text-text-secondary">
-        {sessionTimeRange(session)}
-      </p>
+      <SessionTimes
+        className="text-text-secondary"
+        session={session}
+        viewer={viewer}
+      />
       <p className="type-h5 text-white">{session.title}</p>
       {names && <p className="type-eyebrow text-text-secondary">{names}</p>}
     </div>
@@ -141,15 +187,42 @@ function StreamPlayer({
   );
 }
 
-export default function LiveEventSections({
-  initialItems,
-  initialNow,
-  stream,
-}: LiveEventSectionsProps) {
+/** Plain-language note on where the viewer is relative to London. */
+function ViewerNote({ viewer }: { viewer: ViewerTimes }) {
+  const t = useTranslations("breakpoint.live");
+  const locale = useLocale();
+
+  if (!viewer.showLocal) {
+    return (
+      <p className="type-eyebrow text-text-secondary">
+        {t("viewer.same", { place: viewer.place })}
+      </p>
+    );
+  }
+
+  return (
+    <p className="type-eyebrow text-text-secondary">
+      {t("viewer.offset", {
+        difference: formatOffsetDuration(viewer.differenceMinutes, locale),
+        direction: viewer.differenceMinutes > 0 ? "ahead" : "behind",
+        place: viewer.place,
+        zone: viewer.zoneName,
+      })}
+    </p>
+  );
+}
+
+export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
   const t = useTranslations("breakpoint.live");
   const tNav = useTranslations("breakpoint.navigation");
+  const tFloors = useTranslations("breakpoint.pages.schedule.list.floors");
   const locale = useLocale();
-  const { schedule } = useLiveSchedule(initialItems, initialNow);
+  const { schedule, viewerTimeZone } = useRequiredLiveSchedule();
+
+  const viewer = useMemo(
+    () => viewerTimes(schedule.date, viewerTimeZone, locale),
+    [locale, schedule.date, viewerTimeZone],
+  );
 
   const stages = useMemo(
     () => stagesInSchedule(schedule.sessions, stream.stage),
@@ -160,6 +233,20 @@ export default function LiveEventSections({
     chosenStage && stages.includes(chosenStage)
       ? chosenStage
       : (stages[0] ?? stream.stage);
+
+  // `#today/<stage>` from the venue map (or a shared link) opens that stage.
+  useEffect(() => {
+    const apply = () => {
+      const slug = parseTodayHash(window.location.hash);
+      if (!slug) return;
+      const stage = stages.find((candidate) => stageSlug(candidate) === slug);
+      if (stage) setChosenStage(stage);
+      scrollToAnchor(TODAY_ANCHOR);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, [stages]);
 
   const streamSessions = schedule.sessions.filter(
     (session) => session.location === stream.stage,
@@ -190,10 +277,15 @@ export default function LiveEventSections({
   } else if (streamCurrent) {
     streamMessage = null;
   } else if (streamNext) {
-    streamMessage = t("streamStartsAt", {
-      stage: stream.stage,
-      time: formatMinutes(streamNext.startMinutes),
-    });
+    const time = formatMinutes(streamNext.startMinutes);
+    streamMessage = viewer?.showLocal
+      ? t("streamStartsAtLocal", {
+          localTime: viewer.time(streamNext.startMinutes),
+          stage: stream.stage,
+          time,
+          zone: viewer.zoneName,
+        })
+      : t("streamStartsAt", { stage: stream.stage, time });
   } else if (streamSessions.length > 0) {
     streamMessage = t("streamEnded", { stage: stream.stage });
   } else {
@@ -207,6 +299,13 @@ export default function LiveEventSections({
   const upcoming = stageSessions
     .filter((session) => session.status !== "ended")
     .slice(0, UPCOMING_ROW_LIMIT);
+
+  const streamZone = zoneForStage(VENUE_MAP, stream.stage);
+  const streamMapHref = streamZone
+    ? venueMapHash(streamZone.id)
+    : `#${VENUE_MAP_ANCHOR}`;
+  const activeZone = zoneForStage(VENUE_MAP, activeStage);
+  const activeFloor = stageFloor(activeStage);
 
   return (
     <>
@@ -275,6 +374,7 @@ export default function LiveEventSections({
                     label={t("nowOn", { stage: stream.stage })}
                     session={streamCurrent}
                     status="live"
+                    viewer={viewer}
                   />
                 )}
                 {streamNext && (
@@ -282,6 +382,7 @@ export default function LiveEventSections({
                     label={t("nextOn", { stage: stream.stage })}
                     session={streamNext}
                     status="next"
+                    viewer={viewer}
                   />
                 )}
               </div>
@@ -297,8 +398,9 @@ export default function LiveEventSections({
               <Button
                 arrow
                 arrowDirection="down"
-                href="#venue-map"
+                href={streamMapHref}
                 label={t("mapCta")}
+                onClick={() => followHashLink(streamMapHref)}
                 variant="inline"
               />
             </div>
@@ -306,45 +408,68 @@ export default function LiveEventSections({
         </div>
       </section>
 
-      <section id="today" className="pt-20 md:pt-[120px]">
+      <section id={TODAY_ANCHOR} className="pt-20 md:pt-[120px]">
         <div className="container flex flex-col gap-m md:gap-l">
           <div className="flex flex-col gap-s md:flex-row md:items-end md:justify-between">
             <SectionHeadline
               eyebrow={t("agenda.eyebrow")}
               headline={t("agenda.headline")}
             />
-            <p className="type-eyebrow text-text-secondary">
-              {t("agenda.timezoneNote")}
-            </p>
+            <div className="flex flex-col gap-3xs md:max-w-[420px] md:text-right">
+              <p className="type-eyebrow text-text-secondary">
+                {t("agenda.timezoneNote")}
+              </p>
+              {viewer && <ViewerNote viewer={viewer} />}
+            </div>
           </div>
 
-          {stages.length > 1 && (
-            <div
-              aria-label={t("agenda.stages")}
-              className="flex flex-wrap gap-3xs"
-              role="tablist"
-            >
-              {stages.map((stage) => {
-                const active = stage === activeStage;
-                return (
-                  <button
-                    key={stage}
-                    aria-selected={active}
-                    className={`h-10 border px-xs transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${
-                      active
-                        ? "border-white bg-white text-black"
-                        : "border-stroke-primary text-white hover:border-neutral-500 hover:bg-neutral-800"
-                    }`}
-                    onClick={() => setChosenStage(stage)}
-                    role="tab"
-                    type="button"
-                  >
-                    {stage}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          <div className="flex flex-col gap-xs">
+            {stages.length > 1 && (
+              <div
+                aria-label={t("agenda.stages")}
+                className="flex flex-wrap gap-3xs"
+                role="tablist"
+              >
+                {stages.map((stage) => {
+                  const active = stage === activeStage;
+                  return (
+                    <button
+                      key={stage}
+                      aria-selected={active}
+                      className={`h-10 border px-xs transition-colors focus-visible:outline focus-visible:outline-1 focus-visible:outline-offset-4 focus-visible:outline-white ${
+                        active
+                          ? "border-white bg-white text-black"
+                          : "border-stroke-primary text-white hover:border-neutral-500 hover:bg-neutral-800"
+                      }`}
+                      onClick={() => setChosenStage(stage)}
+                      role="tab"
+                      type="button"
+                    >
+                      {stage}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {activeZone && (
+              <p className="type-eyebrow text-text-secondary">
+                {activeFloor && (
+                  <>
+                    {tFloors(activeFloor)}
+                    <span aria-hidden="true"> · </span>
+                  </>
+                )}
+                <a
+                  className="text-white underline-offset-4 transition-colors hover:text-text-secondary hover:underline"
+                  href={venueMapHash(activeZone.id)}
+                  onClick={() => followHashLink(venueMapHash(activeZone.id))}
+                >
+                  {t("agenda.mapLink", { stage: activeStage })}
+                </a>
+              </p>
+            )}
+          </div>
 
           <div className="flex flex-col border-t border-neutral-700">
             {endedCount > 0 && (
@@ -368,16 +493,18 @@ export default function LiveEventSections({
                     session.status === "live" ? "bg-neutral-800/60 md:px-s" : ""
                   }`}
                 >
-                  <div className="flex flex-row items-center gap-2xs md:flex-col md:items-start md:gap-3xs">
+                  <div className="flex flex-row flex-wrap items-center gap-2xs md:flex-col md:items-start md:gap-3xs">
                     <p
                       className={`type-eyebrow flex items-center gap-2xs ${STATUS_CLASSES[session.status]}`}
                     >
                       {session.status === "live" && <LiveDot />}
                       {t(`status.${session.status}`)}
                     </p>
-                    <p className="type-eyebrow text-white">
-                      {sessionTimeRange(session)}
-                    </p>
+                    <SessionTimes
+                      className="text-white"
+                      session={session}
+                      viewer={viewer}
+                    />
                   </div>
                   <div className="flex min-w-0 flex-col gap-3xs">
                     <h3 className="type-h5 text-white">{session.title}</h3>

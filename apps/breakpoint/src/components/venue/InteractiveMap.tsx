@@ -24,6 +24,11 @@ import type {
   MapZone,
   VenueMapData,
 } from "@/content/venue/types";
+import {
+  parseVenueMapHash,
+  scrollToAnchor,
+  VENUE_MAP_ANCHOR,
+} from "@/lib/live-links";
 import MapOverlay from "./MapOverlay";
 import MapSidebar from "./MapSidebar";
 import {
@@ -210,14 +215,9 @@ export default function InteractiveMap({
     });
   }, [viewportRef]);
 
-  const select = useCallback(
-    (next: MapSelection | null) => {
-      if (!next || isSameSelection(selection, next)) {
-        setSelection(null);
-        resetView();
-        return;
-      }
-
+  /** Select `next`, switching floor and framing it; never toggles off. */
+  const focusSelection = useCallback(
+    (next: MapSelection) => {
       const floorId = selectionFloor(data, next) ?? activeFloorId;
       const floor =
         data.floors.find((candidate) => candidate.id === floorId) ??
@@ -225,7 +225,6 @@ export default function InteractiveMap({
       const point = selectionPoint(data, next);
 
       setSelection(next);
-      showMap();
       if (!point) return;
       if (floorId !== activeFloorId) {
         setActiveFloorId(floorId);
@@ -237,8 +236,47 @@ export default function InteractiveMap({
         zoomTo(point, floor);
       }
     },
-    [activeFloor, activeFloorId, data, resetView, selection, showMap, zoomTo],
+    [activeFloor, activeFloorId, data, zoomTo],
   );
+
+  const select = useCallback(
+    (next: MapSelection | null) => {
+      if (!next || isSameSelection(selection, next)) {
+        setSelection(null);
+        resetView();
+        return;
+      }
+      focusSelection(next);
+      showMap();
+    },
+    [focusSelection, resetView, selection, showMap],
+  );
+
+  // `#venue-map/<zone id>` (from the live agenda or a shared link) opens the
+  // map on that zone. The latest `focusSelection` is read through a ref so
+  // the listener is not re-armed, and the hash re-applied, on every render.
+  const focusRef = useRef(focusSelection);
+  useEffect(() => {
+    focusRef.current = focusSelection;
+  }, [focusSelection]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const apply = () => {
+      const zoneId = parseVenueMapHash(window.location.hash);
+      if (!zoneId || !data.zones.some((zone) => zone.id === zoneId)) return;
+      scrollToAnchor(VENUE_MAP_ANCHOR);
+      // Give the pan/zoom instance a frame to finish mounting first.
+      window.requestAnimationFrame(() =>
+        window.requestAnimationFrame(() =>
+          focusRef.current({ kind: "zone", id: zoneId }),
+        ),
+      );
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, [data, ready]);
 
   const changeFloor = useCallback(
     (floorId: FloorId) => {
