@@ -2,7 +2,7 @@ import "server-only";
 
 import { unstable_cache } from "next/cache";
 
-const AIRTABLE_API_BASE = "https://api.airtable.com/v0";
+import { fetchAirtableJson, AIRTABLE_API_BASE } from "@workspace/airtable";
 
 export const AIRTABLE_CACHE_SECONDS = 60 * 30;
 
@@ -175,34 +175,20 @@ async function fetchAirtableRecords(
 
       if (offset) params.set("offset", offset);
 
-      const response = await fetch(
+      const payload = await fetchAirtableJson<AirtableListResponse>(
         `${AIRTABLE_API_BASE}/${source.baseId}/${encodeURIComponent(source.tableId)}?${params.toString()}`,
+        source.token,
         process.env.NODE_ENV === "production"
           ? {
-              headers: {
-                Authorization: `Bearer ${source.token}`,
-              },
               next: {
                 revalidate: AIRTABLE_CACHE_SECONDS,
                 tags: [source.cacheTag],
               },
             }
-          : {
-              cache: "no-store",
-              headers: {
-                Authorization: `Bearer ${source.token}`,
-              },
-            },
+          : { cache: "no-store" },
+        `${source.label} Airtable request`,
       );
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(
-          `Airtable request failed (${response.status}): ${errorBody}`,
-        );
-      }
-
-      const payload = (await response.json()) as AirtableListResponse;
       records.push(...(payload.records ?? []));
       offset = payload.offset;
     } while (offset);

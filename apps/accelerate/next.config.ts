@@ -9,6 +9,8 @@ const prefix = "/accelerate-assets";
 const localePattern = locales.join("|");
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Allow Airtable's 30s cooldown and bounded retries during cold deploy builds.
+  staticPageGenerationTimeout: 300,
   async headers() {
     return [securityHeadersRoute()];
   },
