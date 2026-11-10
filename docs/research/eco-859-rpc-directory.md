@@ -314,22 +314,20 @@ Changes adopted:
 The `nd-*` type classes in `globals.css` reset vertical margins after Tailwind
 utilities, so spacing on those elements uses `!mt-*`.
 
-## Patch-bay hero
+## Live network map hero
 
-The route diagram now borrows from retro modular-synth patch panels (reference:
-a "Signal Conditioning" Hackchat poster supplied by the requester): a dark rack
-with rails and screws, cream line-art modules with knobs, jacks, LED grids, and
-outline glyphs, and patch cables hanging between jacks. Cable colours come from
-the Solana palette in `tailwind.config.js`: green (`#14F195`) for the app's
-request, purple (`#9945FF`) from the endpoint to the cluster, cyan (`#00D4FF`)
-for other apps sharing an official endpoint, and blue-violet (`#6570ED`) for the
-standby fallback. The cluster is drawn as a dot-matrix grille with a sparse set
-of purple dots, standing in for validators without implying a count.
+The hero visual is the /200ms block map: land outline, staked validators by city
+sized by stake, and one pulse per mainnet block from the producing validator's
+city. It reuses the /200ms live feed (`useSlotFeed`, `useLeaderSchedule`) and
+the shared geometry and base layer in `components/slot200/mapBase.tsx`, so both
+pages draw the same map from one source.
 
-Both the Three.js scene and the SVG fallback (mobile, Save-Data, no WebGL) read
-one layout in `rpc-patch-layout.ts`, so the two renderers show the same modules,
-cables, and labels. The scene uses flat, unlit materials; depth comes from
-layered offsets, cable shadows, and pointer parallax. On-demand rendering,
-reduced-motion behaviour, context-loss handling, and GPU resource disposal are
-unchanged. Headed Chromium captures of all three paths showed one WebGL canvas
-and no page errors.
+The route callouts from the earlier patch-bay hero stay on top of the map. Your
+app, the provider or official endpoint, and the fallback sit over open ocean,
+with routes in the Solana palette (green request, purple to the cluster, cyan
+for other apps, dashed blue-violet for the standby fallback). They land on the
+stake-weighted centre of the constellation, labelled Mainnet, because the map
+shows live mainnet data. The local path dims the map, stops the pulses, and
+frames your app and the local validator inside your machine, since a local
+validator is its own cluster. Below `md` the callouts collapse to a three-label
+row under the map. Reduced motion keeps the live caption and drops the pulses.

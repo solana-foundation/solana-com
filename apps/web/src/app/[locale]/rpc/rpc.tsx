@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight } from "@boxicons/react/ArrowRight";
 import { RPC_PROVIDERS } from "./providers";
 import type { RpcFeatureGroup, RpcFeatureId } from "./provider-features";
-import { RpcRouteVisual } from "./RpcRouteVisual";
+import { RpcNetworkMap } from "./RpcNetworkMap";
 import { Jack } from "./Jack";
 import { RpcProviderDirectory } from "./RpcProviderDirectory";
 import { typeScale } from "./typography";
@@ -106,16 +106,17 @@ export type RpcCopy = {
   diagramApp: string;
   diagramEndpoint: string;
   diagramCluster: string;
+  mapNote: string;
   sceneApp: string;
   sceneLocalValidator: string;
   sceneOfficial: string;
   sceneProvider: string;
   sceneLocalCluster: string;
-  sceneDevnet: string;
   sceneMainnet: string;
   sceneFallback: string;
   sceneMachine: string;
   sceneOtherApps: string;
+  mapLocalNote: string;
   useFor: string;
   keepInMind: string;
   pathUse: Record<RpcPath, string[]>;
@@ -310,8 +311,8 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
             <br />
             <span className="font-light">{copy.titleLight}</span>
           </h1>
-          <div className="mt-10 grid gap-y-8 md:mt-14 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:grid-rows-[auto_auto_1fr] xl:gap-x-16 xl:gap-y-12">
-            <div className="xl:col-start-1 xl:row-start-1">
+          <div className="mt-10 grid gap-y-10 md:mt-14 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] xl:gap-x-16">
+            <div>
               <p
                 className={`${typeScale.bodyXl} max-w-[520px] text-nd-mid-em-text`}
               >
@@ -332,47 +333,14 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 </a>
               </div>
             </div>
-            <div className="min-w-0 xl:col-start-2 xl:row-span-3 xl:row-start-1 xl:self-center">
-              <RpcRouteVisual
-                path={path}
-                labels={{
-                  app: copy.sceneApp,
-                  provider: copy.sceneProvider,
-                  fallback: copy.sceneFallback,
-                  official: copy.sceneOfficial,
-                  otherApps: copy.sceneOtherApps,
-                  machine: copy.sceneMachine,
-                  localValidator: copy.sceneLocalValidator,
-                  mainnet: copy.sceneMainnet,
-                  devnet: copy.sceneDevnet,
-                }}
-              />
-              <div className="flex justify-between pt-3 font-brand-mono text-[10px] uppercase tracking-wide text-[#E7DFD0]/70 md:hidden">
-                <span>{copy.sceneApp}</span>
-                <span>
-                  {path === "local"
-                    ? copy.sceneLocalValidator
-                    : path === "public"
-                      ? copy.sceneOfficial
-                      : copy.sceneProvider}
-                </span>
-                <span>
-                  {path === "local"
-                    ? copy.sceneLocalCluster
-                    : path === "public"
-                      ? copy.sceneDevnet
-                      : copy.sceneMainnet}
-                </span>
-              </div>
-            </div>
-            <div className="min-w-0 xl:col-start-1 xl:row-start-2">
+            <div className="min-w-0">
               <p id="rpc-path-label" className="text-sm text-nd-mid-em-text">
                 {copy.pathsTitle}
               </p>
               <div
                 role="tablist"
                 aria-labelledby="rpc-path-label"
-                className="mt-3 grid grid-cols-3 border-y border-nd-border-light xl:grid-cols-1"
+                className="mt-3 grid grid-cols-3 border-y border-nd-border-light"
               >
                 {RPC_PATHS.map((item, index) => (
                   <button
@@ -385,7 +353,7 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                     tabIndex={path === item ? 0 : -1}
                     onClick={() => changePath(item)}
                     onKeyDown={(event) => onPathKeyDown(event, index)}
-                    className={`flex min-w-0 cursor-pointer flex-col items-start gap-2 border-r border-nd-border-light px-3 py-4 text-left last:border-r-0 hover:!bg-white/[0.03] md:flex-row md:gap-3 md:px-5 md:py-5 xl:border-b xl:border-r-0 xl:px-1 xl:last:border-b-0 ${focus} ${path === item ? "text-white" : "text-nd-mid-em-text hover:text-white"}`}
+                    className={`flex min-w-0 cursor-pointer flex-col items-start gap-2 border-r border-nd-border-light px-3 py-4 text-left last:border-r-0 hover:!bg-white/[0.03] md:flex-row md:gap-3 md:px-5 md:py-5 ${focus} ${path === item ? "text-white" : "text-nd-mid-em-text hover:text-white"}`}
                   >
                     <Jack
                       plugged={path === item}
@@ -413,6 +381,24 @@ export function RpcPage({ copy, locale }: { copy: RpcCopy; locale: string }) {
                 {copy.pathCaptions[path]}
               </p>
             </div>
+          </div>
+          <div className="mt-12 md:mt-16">
+            <RpcNetworkMap
+              path={path}
+              note={copy.mapNote}
+              localNote={copy.mapLocalNote}
+              labels={{
+                app: copy.sceneApp,
+                provider: copy.sceneProvider,
+                fallback: copy.sceneFallback,
+                official: copy.sceneOfficial,
+                otherApps: copy.sceneOtherApps,
+                machine: copy.sceneMachine,
+                localValidator: copy.sceneLocalValidator,
+                localCluster: copy.sceneLocalCluster,
+                mainnet: copy.sceneMainnet,
+              }}
+            />
           </div>
         </div>
       </section>
