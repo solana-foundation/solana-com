@@ -134,11 +134,14 @@ export const RpcNetworkMap = memo(function RpcNetworkMap({
   const nf = useMemo(() => new Intl.NumberFormat("en-US"), []);
 
   useEffect(() => {
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    return subscribe((ev) => {
-      if (document.hidden || localRef.current) return;
+    const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const stopPulses = () => {
+      if (motion.matches) pulses.current?.replaceChildren();
+    };
+    motion.addEventListener("change", stopPulses);
+    // Estimated beats from the degraded feed aren't real blocks, so skip them
+    const unsubscribe = subscribe((ev) => {
+      if (!ev.measured || document.hidden || localRef.current) return;
       const leader = lookup(ev.slot);
       if (!leader) return;
       // textContent only: validator names are arbitrary on-chain strings
@@ -151,7 +154,7 @@ export const RpcNetworkMap = memo(function RpcNetworkMap({
       if (capSlot.current)
         capSlot.current.textContent = `#${nf.format(ev.slot)}`;
       const g = pulses.current;
-      if (!g || !leader.ll || reduced) return;
+      if (!g || !leader.ll || motion.matches) return;
       const [x, y] = toXY(leader.ll[0], leader.ll[1]);
       const ring = document.createElementNS(SVG_NS, "circle");
       ring.setAttribute("cx", String(x));
@@ -182,6 +185,10 @@ export const RpcNetworkMap = memo(function RpcNetworkMap({
         .finally(() => ring.remove());
       while (g.childNodes.length > 24) g.firstChild?.remove();
     });
+    return () => {
+      motion.removeEventListener("change", stopPulses);
+      unsubscribe();
+    };
   }, [subscribe, lookup, nf, t]);
 
   return (
