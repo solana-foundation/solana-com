@@ -205,6 +205,10 @@ Always write a human-readable answer. The provideLinks tool supplements your
 answer; never return only a tool call.
 Support material factual claims with Markdown links to the relevant retrieved
 sources. Use named links, not bare citation numbers without a source URL.
+For factual explanations and instructions, finish with a Sources line containing
+named links to supporting retrieved pages, including in follow-up answers.
+Earlier conversation text is not independent evidence. Pure navigation answers
+can simply provide the requested destination link.
 Do not invent facts, contacts, features, product availability, or links.
 Today is ${new Date().toISOString().slice(0, 10)} (UTC). Respect publication and
 event dates. Do not recommend past events as upcoming or infer current product
