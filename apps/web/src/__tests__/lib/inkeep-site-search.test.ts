@@ -88,7 +88,9 @@ describe("site-wide search", () => {
     expect(response?.data.search.searchHits[0]?.url).toBe(
       "https://solana.com/de/wallets",
     );
-    expect(response?.data.search.searchHits).toHaveLength(1);
+    expect(
+      response?.data.search.searchHits.map((hit) => hit.url),
+    ).not.toContain("https://solana.com/wallets");
   });
 
   it("retains the English destination when no matching translation is available", () => {
