@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import ImageTreatment from "@/components/ImageTreatment";
@@ -235,18 +235,27 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
       : (stages[0] ?? stream.stage);
 
   // `#today/<stage>` from the venue map (or a shared link) opens that stage.
+  // The stage list is read through a ref so the hash is applied on arrival
+  // and on `hashchange` only, not again on every clock tick.
+  const stagesRef = useRef(stages);
+  useEffect(() => {
+    stagesRef.current = stages;
+  }, [stages]);
+
   useEffect(() => {
     const apply = () => {
       const slug = parseTodayHash(window.location.hash);
       if (!slug) return;
-      const stage = stages.find((candidate) => stageSlug(candidate) === slug);
+      const stage = stagesRef.current.find(
+        (candidate) => stageSlug(candidate) === slug,
+      );
       if (stage) setChosenStage(stage);
       scrollToAnchor(TODAY_ANCHOR);
     };
     apply();
     window.addEventListener("hashchange", apply);
     return () => window.removeEventListener("hashchange", apply);
-  }, [stages]);
+  }, []);
 
   const streamSessions = schedule.sessions.filter(
     (session) => session.location === stream.stage,

@@ -52,6 +52,14 @@ describe("hash deep links", () => {
     expect(parseTodayHash(hash)).toBe("royal-exchange");
   });
 
+  it("ignores malformed percent escapes instead of throwing", () => {
+    expect(parseVenueMapHash("#venue-map/%")).toBeNull();
+    expect(parseTodayHash("#today/%E0%A4")).toBeNull();
+    expect(parseVenueMapHash("#venue-map/royal%20exchange")).toBe(
+      "royal exchange",
+    );
+  });
+
   it("ignores other hashes and the bare anchors", () => {
     expect(parseVenueMapHash("#venue-map")).toBeNull();
     expect(parseVenueMapHash("#today/main")).toBeNull();

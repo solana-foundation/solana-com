@@ -44,8 +44,13 @@ export function todayHash(stage: string): string {
 function parseHash(hash: string, anchor: string): string | null {
   const prefix = `#${anchor}/`;
   if (!hash.startsWith(prefix)) return null;
-  const value = decodeURIComponent(hash.slice(prefix.length)).trim();
-  return value || null;
+  try {
+    const value = decodeURIComponent(hash.slice(prefix.length)).trim();
+    return value || null;
+  } catch {
+    // A malformed percent escape in a shared link is ignored, not fatal.
+    return null;
+  }
 }
 
 /** Zone id from `#venue-map/<zone id>`, or null for any other hash. */
