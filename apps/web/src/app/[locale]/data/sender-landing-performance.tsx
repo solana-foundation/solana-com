@@ -167,10 +167,14 @@ export function SenderLandingPerformanceView({
         : [],
     [data, trendMetric, items, stepSeconds],
   );
+  // While a new selection loads, the previous results stay on screen, so
+  // label them with the selection they came from.
+  const shownRegion = data?.region ?? region;
+  const shownTimeframe = data?.timeframe ?? timeframe;
   const regionLabel =
-    region === "all"
+    shownRegion === "all"
       ? t("controls.landingAllRegions")
-      : getSendLandingRegionLabel(region);
+      : getSendLandingRegionLabel(shownRegion);
   const trendLabel = (metric: SendLandingTrendMetric) =>
     t(
       metric === "firstOnChain"
@@ -247,7 +251,7 @@ export function SenderLandingPerformanceView({
       {data ? (
         <span className="font-brand-mono text-[11px] uppercase text-nd-mid-em-text">
           {t("landingExperience.tableScope", {
-            timeframe,
+            timeframe: shownTimeframe,
             rounds: data.rounds.complete,
           })}
         </span>
@@ -594,7 +598,7 @@ export function SenderLandingPerformanceView({
             <div className="mt-6 min-w-0">
               {chartSeries.length ? (
                 <TimeSeriesChart
-                  key={`${region}-${timeframe}-${trendMetric}`}
+                  key={`${shownRegion}-${shownTimeframe}-${trendMetric}`}
                   ariaLabel={t("landingExperience.chartAriaLabel", {
                     metric: trendLabel(trendMetric),
                     region: regionLabel,

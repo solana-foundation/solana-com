@@ -168,9 +168,20 @@ describe("SenderLandingPerformanceView", () => {
   it("says so when a short page time frame is raised to 24h", () => {
     const note =
       "Landing results cover the last 24h: shorter windows hold too few rounds to rank paths.";
-    renderView({ timeframe: "24h", timeframeRaised: true });
+    renderView({
+      data: { ...data, timeframe: "24h" },
+      timeframe: "24h",
+      timeframeRaised: true,
+    });
     expect(screen.getByText(note)).toBeTruthy();
     expect(screen.getByText("Last 24h · 120 complete rounds")).toBeTruthy();
+  });
+
+  it("labels results still on screen with the time frame they cover", () => {
+    // A new selection is loading; the previous 7d results stay visible.
+    renderView({ region: "ewr", timeframe: "30d", isRefreshing: true });
+    expect(screen.getByText("Last 7d · 120 complete rounds")).toBeTruthy();
+    expect(screen.queryByText(/Last 30d/)).toBeNull();
   });
 
   it("re-sorts when a metric header is chosen, lower index first", () => {

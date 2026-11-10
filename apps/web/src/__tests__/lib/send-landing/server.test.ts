@@ -267,6 +267,16 @@ describe("send landing benchmark", () => {
     });
   });
 
+  it("lists regions and providers from the longest window the section offers", async () => {
+    const fetchMock = stubClickHouse({});
+    await getSendLandingFilters(config);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [url] of fetchMock.mock.calls)
+      expect(new URL(url).searchParams.get("param_lookback")).toBe(
+        String(365 * 24 * 60 * 60),
+      );
+  });
+
   it("keeps the landing region in the URL; the time frame is the page's", () => {
     const params = new URLSearchParams("tab=senders&timeframe=6h");
     applyQueryUpdates(params, { landingRegion: "fra" }, []);

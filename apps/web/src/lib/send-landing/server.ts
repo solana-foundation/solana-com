@@ -12,6 +12,7 @@ import {
   normalizeSendLandingRegion,
   parseSendLandingRegion,
   parseSendLandingTimeframe,
+  sendLandingTimeframeOptions,
   sortSendLandingRegions,
   type SendLandingBucket,
   type SendLandingFiltersResponse,
@@ -278,22 +279,28 @@ export async function getSendLandingData(
   };
 }
 
-const filtersLookbackDays = 90;
+// The longest window the section offers, so any region it can show is listed.
+const filtersLookbackSeconds = Math.max(
+  ...sendLandingTimeframeOptions.map((option) => option.durationSeconds),
+);
 
 export async function getSendLandingFilters(
   config: SendLandingConfig,
 ): Promise<SendLandingFiltersResponse> {
+  const params = { lookback: filtersLookbackSeconds };
   const [regionRows, providerRows] = await Promise.all([
     queryClickHouse<{ region: string }>(
       config,
       `SELECT DISTINCT region FROM benchmark_send_rounds FINAL
        WHERE status = 'complete'
-         AND started_utc >= now64(9, 'UTC') - INTERVAL ${filtersLookbackDays} DAY`,
+         AND started_utc >= now64(9, 'UTC') - INTERVAL {lookback:UInt32} SECOND`,
+      params,
     ),
     queryClickHouse<{ provider: string }>(
       config,
       `SELECT DISTINCT provider FROM benchmark_send_attempts FINAL
-       WHERE started_utc >= now64(9, 'UTC') - INTERVAL ${filtersLookbackDays} DAY`,
+       WHERE started_utc >= now64(9, 'UTC') - INTERVAL {lookback:UInt32} SECOND`,
+      params,
     ),
   ]);
   if (
