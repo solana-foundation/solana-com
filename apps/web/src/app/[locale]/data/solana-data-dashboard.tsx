@@ -32,7 +32,11 @@ import {
   rpcLatencyRepositoryUrl,
   backfillRequestsUrl,
 } from "./dashboard-constants";
-import { formatTimestamp, getTabContent } from "./dashboard-copy";
+import {
+  formatTimestamp,
+  getRangeLabel,
+  getTabContent,
+} from "./dashboard-copy";
 import { DashboardControls } from "./dashboard-controls";
 import { ChartGrid, DataError, KpiGrid } from "./dashboard-charts";
 import { fetchData, fetchRpcFilters } from "./dashboard-fetch";
@@ -58,6 +62,7 @@ import {
   useDashboardQueryUpdater,
 } from "./dashboard-query-state";
 import { DataResourceCarousel } from "./dashboard-resources";
+import { ProviderLinkTable } from "./provider-link-table";
 import { SenderProviderExperience } from "./sender-provider-experience";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
@@ -82,7 +87,7 @@ export function SolanaDataDashboard() {
     linkedChartId,
     providerParam,
     queryString,
-    rangeDays,
+    range,
     rpcInfra,
     rpcMethod,
     rpcRegion,
@@ -105,8 +110,8 @@ export function SolanaDataDashboard() {
   const activeCharts = useMemo(() => getChartsForTab(activeTab), [activeTab]);
   const dataUrl = getDashboardDataUrl({
     activeTab,
+    range,
     rpcInfra,
-    rangeDays,
     rpcMethod,
     rpcRegion,
     rpcTimeframe,
@@ -281,7 +286,7 @@ export function SolanaDataDashboard() {
             activeTab={activeTab}
             availableProviders={availableProviders}
             isRefreshing={isRefreshing}
-            rangeDays={rangeDays}
+            range={range}
             rpcInfra={rpcInfra}
             rpcMethod={rpcMethod}
             rpcRegion={rpcRegion}
@@ -303,14 +308,21 @@ export function SolanaDataDashboard() {
           className="mt-8 max-w-[720px]"
         >
           <h2 className="sr-only">{activeTabContent.label}</h2>
-          <p className="nd-body-m text-nd-mid-em-text">
-            {activeTabContent.description}
-          </p>
-          {activeTabContent.clarification ? (
-            <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
-              {activeTabContent.clarification}
-            </p>
+          {/* Only RPC and Tx Senders show the tab description; the data tabs
+              lead with the provider links instead. */}
+          {isLiveInfrastructureTab ? (
+            <>
+              <p className="nd-body-m text-nd-mid-em-text">
+                {activeTabContent.description}
+              </p>
+              {activeTabContent.clarification ? (
+                <p className="mt-3 nd-body-s text-nd-mid-em-text/80">
+                  {activeTabContent.clarification}
+                </p>
+              ) : null}
+            </>
           ) : null}
+          <ProviderLinkTable tab={activeTab} />
         </section>
 
         {error ? <DataError error={error} /> : null}
@@ -350,7 +362,7 @@ export function SolanaDataDashboard() {
                 isConnectedToPrevious={hasKpiGrid}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
-                rangeDays={rangeDays}
+                range={range}
                 rows={rows}
                 rpcTimeframe={rpcTimeframe}
                 selectedProviders={selectedProviders}
@@ -377,7 +389,7 @@ export function SolanaDataDashboard() {
               />
               {isLiveInfrastructureTab
                 ? t("footer.lastTimeframe", { timeframe: rpcTimeframe })
-                : t("footer.lastDays", { days: rangeDays })}
+                : getRangeLabel(t, range, locale)}
             </span>
             <span className="flex flex-wrap items-center gap-x-6 gap-y-2 lg:justify-end">
               {isRpcTab ? (

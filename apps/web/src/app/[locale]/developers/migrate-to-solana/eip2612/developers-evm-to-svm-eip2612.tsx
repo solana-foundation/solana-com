@@ -1,18 +1,12 @@
 "use client";
 
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import {
-  CardDeck,
-  CodeBlock,
-  ContentEditor,
-  Heading,
-  Hero,
-  HtmlParser,
-  Section,
-} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
-  BLOCK_STYLES,
+  DocsCode,
+  DocsHtml,
+  MigrationDocsLayout,
+} from "../components/migration-docs-layout";
+import {
   CODE_BLOCKS,
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
@@ -36,193 +30,153 @@ export function DevelopersEvmToSvmEip2612Page() {
   }));
 
   return (
-    <>
-      <Section>
-        <Hero
-          headingAs="h1"
-          centered={false}
-          newsLetter={false}
-          eyebrow={t("hero.eyebrow")}
-          headline={t("hero.headline")}
-          body={t.raw("hero.body")}
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/eip2612"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body")}
+      buttons={navButtons.map((button) => ({
+        url: button.url,
+        label: button.label,
+      }))}
+      tocHeadline={t("contentEditor.tocHeadline")}
+      callToAction={{
+        eyebrow: t("contentEditor.callToAction.eyebrow"),
+        headline: t("contentEditor.callToAction.headline"),
+        description: t("contentEditor.callToAction.description"),
+        button: {
+          label: t("contentEditor.callToAction.button.label"),
+          url: "/developers/migrate-to-solana/erc20",
+        },
+      }}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceCards={resourceCards.map((card) => ({
+        heading: card.heading,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      <div key="copy-0" className="min-w-0 max-w-full overflow-x-auto">
+        <div>
+          <p>{t("contentEditor.intro")}</p>
+        </div>
+      </div>
+      <div
+        id="key-characteristics"
+        key="copy-1"
+        className="min-w-0 max-w-full overflow-x-auto"
+      >
+        <h3>
+          <strong>{t("contentEditor.keyCharacteristics.title")}</strong>
+        </h3>
+        <ul>
+          <li>
+            <strong>
+              {t("contentEditor.keyCharacteristics.items.0.label")}
+            </strong>
+            : {t("contentEditor.keyCharacteristics.items.0.description")}
+          </li>
+          <li>
+            <strong>
+              {t("contentEditor.keyCharacteristics.items.1.label")}
+            </strong>
+            : {t("contentEditor.keyCharacteristics.items.1.description")}
+          </li>
+          <li>
+            <strong>
+              {t("contentEditor.keyCharacteristics.items.2.label")}
+            </strong>
+            : {t("contentEditor.keyCharacteristics.items.2.description")}
+          </li>
+        </ul>
+      </div>
+      <div
+        id="why-eip-2612-is-unnecessary-on-solana"
+        key="copy-2"
+        className="min-w-0 max-w-full overflow-x-auto"
+      >
+        <div>
+          <h2>
+            <strong>{t("contentEditor.whyUnnecessary.title")}</strong>
+          </h2>
+          <p>{t("contentEditor.whyUnnecessary.body")}</p>
+        </div>
+      </div>
+      <div
+        id="token-approval-model"
+        key="copy-3"
+        className="min-w-0 max-w-full overflow-x-auto"
+      >
+        <div>
+          <h3>
+            <strong>{t("contentEditor.tokenApprovalModel.title")}</strong>
+          </h3>
+          <p>{t("contentEditor.tokenApprovalModel.body")}</p>
+        </div>
+      </div>
+      <div
+        id="fee-payer-(gas-delegation)-model"
+        key="copy-4"
+        className="min-w-0 max-w-full overflow-x-auto"
+      >
+        <div>
+          <h3>
+            <strong>{t("contentEditor.feePayerModel.title")}</strong>
+          </h3>
+          <p>{t("contentEditor.feePayerModel.body")}</p>
+        </div>
+      </div>
+      <div
+        id="how-to-do-eip-2612-on-solana"
+        key="copy-5"
+        className="min-w-0 max-w-full overflow-x-auto"
+      >
+        <div>
+          <h2>
+            <strong>{t("contentEditor.howTo.title")}</strong>
+          </h2>
+          <p>{t("contentEditor.howTo.body")}</p>
+        </div>
+      </div>
+      <div
+        id="1.-owner-pays-the-fee-(self-sponsored-transfer)"
+        key="copy-6"
+        className="min-w-0 max-w-full overflow-x-auto"
+      >
+        <div>
+          <h3>
+            <strong>{t("contentEditor.exampleOne.title")}</strong>
+          </h3>
+          <p>{t("contentEditor.exampleOne.body")}</p>
+        </div>
+      </div>
+      <div key="code-7">
+        <DocsCode
+          code={CODE_BLOCKS[0].code}
+          language={CODE_BLOCKS[0].language}
         />
-
-        <ContentEditor
-          tocHeadline={t("contentEditor.tocHeadline")}
-          callToAction={{
-            eyebrow: t("contentEditor.callToAction.eyebrow"),
-            headline: t("contentEditor.callToAction.headline"),
-            description: t("contentEditor.callToAction.description"),
-            button: {
-              label: t("contentEditor.callToAction.button.label"),
-              url: "/developers/migrate-to-solana/erc20",
-            },
-          }}
-        >
-          <div key="copy-0" className="min-w-0 max-w-full overflow-x-auto">
-            <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacingWithMargins}>
-              <p>{t("contentEditor.intro")}</p>
-            </ResponsiveBox>
-          </div>
-          <div
-            id="key-characteristics"
-            key="copy-1"
-            className="min-w-0 max-w-full overflow-x-auto"
-          >
-            <h3>
-              <strong>{t("contentEditor.keyCharacteristics.title")}</strong>
-            </h3>
-            <ul>
-              <li>
-                <strong>
-                  {t("contentEditor.keyCharacteristics.items.0.label")}
-                </strong>
-                : {t("contentEditor.keyCharacteristics.items.0.description")}
-              </li>
-              <li>
-                <strong>
-                  {t("contentEditor.keyCharacteristics.items.1.label")}
-                </strong>
-                : {t("contentEditor.keyCharacteristics.items.1.description")}
-              </li>
-              <li>
-                <strong>
-                  {t("contentEditor.keyCharacteristics.items.2.label")}
-                </strong>
-                : {t("contentEditor.keyCharacteristics.items.2.description")}
-              </li>
-            </ul>
-          </div>
-          <div
-            id="why-eip-2612-is-unnecessary-on-solana"
-            key="copy-2"
-            className="min-w-0 max-w-full overflow-x-auto"
-          >
-            <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
-              <h2>
-                <strong>{t("contentEditor.whyUnnecessary.title")}</strong>
-              </h2>
-              <p>{t("contentEditor.whyUnnecessary.body")}</p>
-            </ResponsiveBox>
-          </div>
-          <div
-            id="token-approval-model"
-            key="copy-3"
-            className="min-w-0 max-w-full overflow-x-auto"
-          >
-            <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacingNoBottom}>
-              <h3>
-                <strong>{t("contentEditor.tokenApprovalModel.title")}</strong>
-              </h3>
-              <p>{t("contentEditor.tokenApprovalModel.body")}</p>
-            </ResponsiveBox>
-          </div>
-          <div
-            id="fee-payer-(gas-delegation)-model"
-            key="copy-4"
-            className="min-w-0 max-w-full overflow-x-auto"
-          >
-            <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
-              <h3>
-                <strong>{t("contentEditor.feePayerModel.title")}</strong>
-              </h3>
-              <p>{t("contentEditor.feePayerModel.body")}</p>
-            </ResponsiveBox>
-          </div>
-          <div
-            id="how-to-do-eip-2612-on-solana"
-            key="copy-5"
-            className="min-w-0 max-w-full overflow-x-auto"
-          >
-            <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
-              <h2>
-                <strong>{t("contentEditor.howTo.title")}</strong>
-              </h2>
-              <p>{t("contentEditor.howTo.body")}</p>
-            </ResponsiveBox>
-          </div>
-          <div
-            id="1.-owner-pays-the-fee-(self-sponsored-transfer)"
-            key="copy-6"
-            className="min-w-0 max-w-full overflow-x-auto"
-          >
-            <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
-              <h3>
-                <strong>{t("contentEditor.exampleOne.title")}</strong>
-              </h3>
-              <p>{t("contentEditor.exampleOne.body")}</p>
-            </ResponsiveBox>
-          </div>
-          <div key="code-7">
-            <CodeBlock
-              code={CODE_BLOCKS[0].code}
-              language={
-                CODE_BLOCKS[0].language as React.ComponentProps<
-                  typeof CodeBlock
-                >["language"]
-              }
-            />
-          </div>
-          <div
-            id="2.-third-party-pays-the-fee-(relayed-transfer)"
-            key="copy-8"
-            className="min-w-0 max-w-full overflow-x-auto"
-          >
-            <ResponsiveBox responsiveStyles={BLOCK_STYLES.spacing}>
-              <h3>
-                <strong>{t("contentEditor.exampleTwo.title")}</strong>
-              </h3>
-              <p>{t("contentEditor.exampleTwo.body")}</p>
-            </ResponsiveBox>
-          </div>
-          <div key="code-9">
-            <CodeBlock
-              code={CODE_BLOCKS[1].code}
-              language={
-                CODE_BLOCKS[1].language as React.ComponentProps<
-                  typeof CodeBlock
-                >["language"]
-              }
-            />
-          </div>
-        </ContentEditor>
-
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
+      </div>
+      <div
+        id="2.-third-party-pays-the-fee-(relayed-transfer)"
+        key="copy-8"
+        className="min-w-0 max-w-full overflow-x-auto"
+      >
+        <div>
+          <h3>
+            <strong>{t("contentEditor.exampleTwo.title")}</strong>
+          </h3>
+          <p>{t("contentEditor.exampleTwo.body")}</p>
+        </div>
+      </div>
+      <div key="code-9">
+        <DocsCode
+          code={CODE_BLOCKS[1].code}
+          language={CODE_BLOCKS[1].language}
         />
-
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.cardDeckWrapper}>
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.smallOnly}>
-          <HtmlParser rawHtml={t.raw("nodeComparison")} />
-        </ResponsiveBox>
-      </Section>
-
-      <Section>
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.smallOnly}>
-          <HtmlParser rawHtml={t.raw("nodeComparison")} />
-        </ResponsiveBox>
-      </Section>
-    </>
+      </div>
+      <div className="md:hidden">
+        <DocsHtml rawHtml={t.raw("nodeComparison")} />
+      </div>
+    </MigrationDocsLayout>
   );
 }

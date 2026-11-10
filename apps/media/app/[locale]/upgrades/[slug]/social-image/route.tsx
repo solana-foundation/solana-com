@@ -1,3 +1,4 @@
+import { locales } from "@workspace/i18n/config";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
@@ -38,6 +39,9 @@ function loadFontFiles(): Promise<FontFiles> {
 
 export async function GET(_request: Request, { params }: RouteContext) {
   const { locale, slug } = await params;
+  if (!locales.includes(locale as (typeof locales)[number])) {
+    return new Response("Not Found", { status: 404 });
+  }
   const entry = await reader.collections.upgrades.read(slug);
 
   if (!isPublishedUpgrade(entry)) {

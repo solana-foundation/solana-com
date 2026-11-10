@@ -95,7 +95,10 @@ describe("privacy page data", () => {
   it("mirrors every data list with a matching English object", () => {
     const groups: Array<[readonly string[], string]> = [
       [CONFIDENTIAL_BALANCES_TAGS, "confidentialBalances.tags"],
-      [CONFIDENTIAL_BALANCES_STATS, "confidentialBalances.stats"],
+      [
+        CONFIDENTIAL_BALANCES_STATS.map(({ key }) => key),
+        "confidentialBalances.stats",
+      ],
       [PRIVATE_CHANNELS_TAGS, "privateChannels.tags"],
       [PRIVATE_CHANNELS_STEPS, "privateChannels.steps"],
       [RINGS_TAGS, "rings.tags"],

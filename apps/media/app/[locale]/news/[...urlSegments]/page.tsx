@@ -15,6 +15,7 @@ import Switchback from "@/components/ui/switchback";
 import { SocialShare } from "@/components/ui/social-share";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { remarkRejectMdxCode, safeHref } from "@/lib/mdx-security";
 import rehypeSlug from "rehype-slug";
 import { newsPostMetadata } from "@/lib/metadata";
 import { fetchPublishedPostBySlug } from "@/lib/post-data";
@@ -213,7 +214,7 @@ export default async function PostPage({
                   components={mdxComponents}
                   options={{
                     mdxOptions: {
-                      remarkPlugins: [remarkGfm],
+                      remarkPlugins: [remarkGfm, remarkRejectMdxCode],
                       rehypePlugins: [rehypeSlug],
                     },
                   }}
@@ -258,7 +259,9 @@ export default async function PostPage({
                 source={preprocessMDX(await switchback.body())}
                 components={mdxComponents}
                 options={{
-                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                  mdxOptions: {
+                    remarkPlugins: [remarkGfm, remarkRejectMdxCode],
+                  },
                 }}
               />
             }
@@ -285,7 +288,9 @@ export default async function PostPage({
                 source={preprocessMDX(await report.body())}
                 components={mdxComponents}
                 options={{
-                  mdxOptions: { remarkPlugins: [remarkGfm] },
+                  mdxOptions: {
+                    remarkPlugins: [remarkGfm, remarkRejectMdxCode],
+                  },
                 }}
               />
             }
@@ -325,7 +330,7 @@ export default async function PostPage({
                 {report.pdfUrl && (
                   <Button asChild size="lg">
                     <a
-                      href={String(report.pdfUrl)}
+                      href={safeHref(String(report.pdfUrl))}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

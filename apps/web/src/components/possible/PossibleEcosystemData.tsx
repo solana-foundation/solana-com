@@ -19,7 +19,6 @@ import magicEdenLogo from "../../../assets/possible/ecosystem-logos/MagicEden.jp
 import realmsLogo from "../../../assets/possible/ecosystem-logos/Realms.jpg";
 import hivemapperLogo from "../../../assets/possible/ecosystem-logos/Hivemapper.jpg";
 import sMBLogo from "../../../assets/possible/ecosystem-logos/SMB.jpg";
-import driftLogo from "../../../assets/possible/ecosystem-logos/Drift.jpg";
 import helloMoonLogo from "../../../assets/possible/ecosystem-logos/HelloMoon.jpg";
 import anchorLogo from "../../../assets/possible/ecosystem-logos/Anchor.jpg";
 import genopetsLogo from "../../../assets/possible/ecosystem-logos/Genopets.jpg";
@@ -300,7 +299,6 @@ const PossibleEcosystemData = [
     category: "DePin",
   },
   { name: "SMB", logo: sMBLogo, category: "NFT Projects" },
-  { name: "Drift", logo: driftLogo, category: "DeFi" },
   {
     name: "Hello Moon",
     logo: helloMoonLogo,

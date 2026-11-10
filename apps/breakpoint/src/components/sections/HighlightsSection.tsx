@@ -29,7 +29,7 @@ const HIGHLIGHT_QUOTES = [
     href: "https://x.com/rajgokal/status/1999181588962431098",
   },
   {
-    text: "Breakpoint AD25 @SolanaConf was the best event. People, energy, talks... everything shows you that this ecosystem is NOT slowing down. Very impressed by how @solana shifted from their meme culture to big boy plays with JPM and UAE gov't, meanwhile still retaining that fun culture.",
+    text: "Breakpoint AD25 @SolanaEvents was the best event. People, energy, talks... everything shows you that this ecosystem is NOT slowing down. Very impressed by how @solana shifted from their meme culture to big boy plays with JPM and UAE gov't, meanwhile still retaining that fun culture.",
     author: "Alsie",
     handle: "@AlsieLC",
     role: "Dune / now Solana",

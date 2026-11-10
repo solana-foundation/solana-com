@@ -56,7 +56,9 @@ export default async function middleware(req: NextRequest) {
   ) {
     const url = req.nextUrl.clone();
     url.pathname = `/api/markdown/${normalizedSegments.join("/")}`;
-    return NextResponse.rewrite(url);
+    const markdown = NextResponse.rewrite(url);
+    markdown.headers.set("Vary", "Accept");
+    return markdown;
   }
 
   // Serve raw markdown for .md extension URLs
@@ -69,7 +71,13 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  return handleI18nRouting(req);
+  const response = await handleI18nRouting(req);
+  // The same URL serves HTML or markdown depending on Accept, so shared caches
+  // must key on it; otherwise one negotiated response can be served to all.
+  if (matchesMarkdownPrefix(normalizedPath)) {
+    response.headers.append("Vary", "Accept");
+  }
+  return response;
 }
 
 export const config = {

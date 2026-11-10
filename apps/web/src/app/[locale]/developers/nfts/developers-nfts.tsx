@@ -26,12 +26,22 @@ import {
   SWITCHBACK_IMAGE,
 } from "@/data/developers/nfts";
 import { useTranslations } from "next-intl";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
-export function DevelopersNftsPage() {
+export function DevelopersNftsPage({
+  statsMetrics,
+}: {
+  /** Registry figures for STATS_METRICS, in display order. */
+  statsMetrics: DisplayMetric[];
+}) {
   const t = useTranslations("developers-nfts");
   const blockSpacing = { large: { marginTop: "20px" } };
 
-  const stats = t.raw("stats") as { stat: string; description: string }[];
+  const stats = statsMetrics.map((metric, index) => ({
+    stat: metric.value,
+    description: t(`stats.${index}.description`),
+  }));
   const heroButtons = HERO_BUTTONS.map((button, index) => ({
     ...button,
     label: t(`hero.buttons.${index}`),
@@ -114,6 +124,14 @@ export function DevelopersNftsPage() {
       <ResponsiveBox responsiveStyles={blockSpacing}>
         <Stats stats={stats} contained={STATS_CONFIG.contained} />
       </ResponsiveBox>
+      <div className="mx-auto -mt-8 mb-8 max-w-screen-xl px-4 sm:-mt-12 sm:px-6 lg:-mt-16 lg:px-8">
+        <MetricSourcesFootnote
+          items={statsMetrics.map((metric, index) => ({
+            label: stats[index].description,
+            source: metric.source,
+          }))}
+        />
+      </div>
       <ResponsiveBox responsiveStyles={blockSpacing}>
         <Heading
           eyebrow={t("headings.whySolana.eyebrow")}
@@ -162,7 +180,7 @@ export function DevelopersNftsPage() {
       />
       <Heading
         eyebrow={t("headings.earlyMovers.eyebrow")}
-        headline={t("headings.earlyMovers.headline")}
+        headline={statsMetrics[2].value}
         body={t("headings.earlyMovers.body")}
       />
       <CommunityGallery

@@ -4,6 +4,7 @@ import {
   templatesAppUrl,
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
+  BREAKPOINT_BADGE_URL,
 } from "./apps-urls";
 import { locales } from "@workspace/i18n/config";
 
@@ -57,19 +58,21 @@ function withLocaleRedirects(redirects: RedirectInput[]): LocaleRedirect[] {
 /**
  * Adds a `.md` twin for each redirect so the raw-markdown variants of moved
  * pages (served via the docs app's markdown middleware) keep working.
- * Skipped for external destinations and destinations with anchors.
+ * Skipped for external destinations. Anchors are preserved after the `.md`
+ * suffix.
  */
 function withMdVariants(redirects: RedirectInput[]): RedirectInput[] {
   return redirects.flatMap((redirect) => {
     const { source, destination } = redirect;
     const isExternalDest =
       destination.startsWith("https://") || destination.startsWith("http://");
-    if (isExternalDest || destination.includes("#")) {
+    if (isExternalDest) {
       return [redirect];
     }
+    const markdownDestination = destination.replace(/(#|$)/, ".md$1");
     return [
       redirect,
-      { ...redirect, source: `${source}.md`, destination: `${destination}.md` },
+      { ...redirect, source: `${source}.md`, destination: markdownDestination },
     ];
   });
 }
@@ -140,7 +143,7 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/developers/guides/advanced/security-best-practices",
-    destination: "/docs/tools/production-readiness",
+    destination: "/docs/tools/security",
   },
   {
     source: "/developers/guides/advanced/confirmation",
@@ -340,6 +343,25 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
   },
 ]);
 
+/**
+ * The badge site is English only: locale-prefixed URLs go to the one page
+ * (not through withLocaleRedirects: its bare-path twins would redirect to themselves).
+ */
+const breakpointBadgeLocaleRedirects: LocaleRedirect[] = [
+  {
+    source: `/:locale(${LOCALE_REGEX})/breakpoint/badge`,
+    destination: "/breakpoint/badge",
+    locale: false,
+    permanent: false,
+  },
+  {
+    source: `/:locale(${LOCALE_REGEX})/breakpoint/badge/:path*`,
+    destination: "/breakpoint/badge/:path*",
+    locale: false,
+    permanent: false,
+  },
+];
+
 const breakpointSubrouteRedirects: RedirectInput[] = [
   { source: "/agenda", destination: "/breakpoint/schedule" },
   { source: "/faq", destination: "/breakpoint/faq" },
@@ -371,8 +393,15 @@ const chainMigrationRedirects: RedirectInput[] = [
   },
   {
     source: "/developers/cosmos-to-svm",
-    destination: "/developers/migrate-to-solana/cosmos",
+    destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
     permanent: true,
+  },
+  // The Cosmos hub only listed two guides, which the docs sidebar now
+  // covers. Temporary so the hub can come back without cached redirects.
+  {
+    source: "/developers/migrate-to-solana/cosmos",
+    destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
+    permanent: false,
   },
   // The CosmWasm guide lives under the Cosmos hub
   {
@@ -385,6 +414,17 @@ const chainMigrationRedirects: RedirectInput[] = [
 export default {
   rewrites: {
     beforeFiles: [
+      // Breakpoint badge site, before the Breakpoint app's catch-all below
+      {
+        source: "/breakpoint/badge",
+        destination: `${BREAKPOINT_BADGE_URL}/breakpoint/badge`,
+        locale: false,
+      },
+      {
+        source: "/breakpoint/badge/:path*",
+        destination: `${BREAKPOINT_BADGE_URL}/breakpoint/badge/:path*`,
+        locale: false,
+      },
       {
         source: "/breakpoint",
         destination: `${BREAKPOINT_APP_URL}/breakpoint`,
@@ -412,12 +452,8 @@ export default {
         destination: `${BREAKPOINT_APP_URL}/breakpoint-assets/:path+`,
         locale: false,
       },
-      // Media app rewrites - new routes
-      {
-        source: "/admin",
-        destination: `${MEDIA_APP_URL}/admin`,
-        locale: false,
-      },
+      // Media app rewrites - new routes. The CMS (/keystatic) is deliberately
+      // not proxied: editor cookies must stay on the media host, not solana.com.
       {
         source: "/news",
         destination: `${MEDIA_APP_URL}/news`,
@@ -553,11 +589,6 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
-      {
-        source: "/api/upgrades/alpenglow/:path*",
-        destination: `${MEDIA_APP_URL}/api/upgrades/alpenglow/:path*`,
-        locale: false,
-      },
       // Proxy /_next/image requests for /uploads/* to the media app's image
       // optimizer. The web app's /_next/image reads from its own filesystem,
       // but /uploads/ files live in the media app's deployment.
@@ -681,21 +712,6 @@ export default {
         locale: false,
       },
       {
-        source: "/learn",
-        destination: `${DOCS_APP_URL}/learn`,
-        locale: false,
-      },
-      {
-        source: "/learn/:path*.md",
-        destination: `${DOCS_APP_URL}/learn/:path*.md`,
-        locale: false,
-      },
-      {
-        source: "/learn/:path*",
-        destination: `${DOCS_APP_URL}/learn/:path*`,
-        locale: false,
-      },
-      {
         source: "/developers",
         destination: `${DOCS_APP_URL}/developers`,
         locale: false,
@@ -749,21 +765,6 @@ export default {
       {
         source: "/:locale/docs/:path*",
         destination: `${DOCS_APP_URL}/:locale/docs/:path*`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn",
-        destination: `${DOCS_APP_URL}/:locale/learn`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn/:path*.md",
-        destination: `${DOCS_APP_URL}/:locale/learn/:path*.md`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn/:path*",
-        destination: `${DOCS_APP_URL}/:locale/learn/:path*`,
         locale: false,
       },
       {
@@ -872,6 +873,11 @@ export default {
     {
       source: "/upgrades/larger-transaction-size",
       destination: "/upgrades/larger-transaction-sizes",
+    },
+    {
+      source: "/upgrades/alpenglow/dashboard",
+      destination: "/upgrades/alpenglow",
+      permanent: true,
     },
 
     // /scholars applications moved from the built-in form to Typeform
@@ -1802,8 +1808,7 @@ export default {
     },
     {
       source: "/docs/references/feature-gates/direct-mapping",
-      destination:
-        "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
+      destination: "/upgrades/direct-mapping",
       permanent: true,
     },
     {
@@ -2007,5 +2012,5 @@ export default {
         "/developers/cookbook/development/using-mainnet-accounts-programs",
       destination: "/docs/intro/installation/surfpool-cli-basics",
     },
-  ]),
+  ]).concat(breakpointBadgeLocaleRedirects),
 };

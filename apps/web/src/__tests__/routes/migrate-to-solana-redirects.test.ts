@@ -38,13 +38,30 @@ describe("Chain migration redirects", () => {
         }),
         expect.objectContaining({
           source: "/developers/cosmos-to-svm",
-          destination: "/developers/migrate-to-solana/cosmos",
+          destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
           permanent: true,
         }),
         expect.objectContaining({
           source: `/:locale(${LOCALE_REGEX})/developers/cosmos-to-svm`,
-          destination: "/:locale/developers/migrate-to-solana/cosmos",
+          destination: "/:locale/developers/migrate-to-solana/cosmos/cosmwasm",
           permanent: true,
+        }),
+      ]),
+    );
+  });
+
+  it("temporarily redirects the Cosmos hub to the CosmWasm guide", () => {
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "/developers/migrate-to-solana/cosmos",
+          destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
+          permanent: false,
+        }),
+        expect.objectContaining({
+          source: `/:locale(${LOCALE_REGEX})/developers/migrate-to-solana/cosmos`,
+          destination: "/:locale/developers/migrate-to-solana/cosmos/cosmwasm",
+          permanent: false,
         }),
       ]),
     );

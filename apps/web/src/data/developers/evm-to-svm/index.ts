@@ -18,41 +18,6 @@ export const HERO_BUTTONS = [
   },
 ] as const;
 
-export const CHAIN_SELECTOR = {
-  headingAs: "h2",
-} as const;
-
-export const CHAIN_SELECTOR_CARDS = [
-  {
-    color: "purple",
-    stat: {
-      value: {
-        statType: "none",
-      },
-      description: "",
-    },
-    button: {
-      hierarchy: "outline",
-      size: "md",
-      url: "/developers/migrate-to-solana/ethereum",
-    },
-  },
-  {
-    color: "aqua",
-    stat: {
-      value: {
-        statType: "none",
-      },
-      description: "",
-    },
-    button: {
-      hierarchy: "outline",
-      size: "md",
-      url: "/developers/migrate-to-solana/cosmos",
-    },
-  },
-] as const;
-
 export const EVM_GUIDES_HEADING = {
   variant: "floatingButton",
 };
@@ -73,7 +38,7 @@ export const COSMOS_CARD_DECK = {
       },
       backgroundGradient: "aqua",
       callToAction: {
-        url: "/developers/migrate-to-solana/cosmos",
+        url: "/developers/migrate-to-solana/cosmos/cosmwasm",
         size: "md",
         hierarchy: "primary",
       },

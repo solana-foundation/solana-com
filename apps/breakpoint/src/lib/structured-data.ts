@@ -1,10 +1,7 @@
 import { getTranslations } from "@workspace/i18n/server";
 import { config, publicLocalizedRouteUrl } from "@/config";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
-import {
-  GENERAL_ADMISSION_PRICE_CHANGE,
-  LATE_BIRD_START_AT,
-} from "@/content/ticket-pricing";
+import { GENERAL_ADMISSION_PRICE_CHANGE } from "@/content/ticket-pricing";
 
 type JsonLd = Record<string, unknown>;
 
@@ -32,14 +29,8 @@ const TICKET_OFFERS: OfferSeed[] = [
   },
   {
     price: GENERAL_ADMISSION_PRICE_CHANGE.increased.amount,
-    priceValidUntil: new Date(LATE_BIRD_START_AT - 1000).toISOString(),
     url: GENERAL_ADMISSION_HREF,
     validFrom: GENERAL_ADMISSION_PRICE_CHANGE.increasesAt,
-  },
-  {
-    price: 800,
-    url: GENERAL_ADMISSION_HREF,
-    validFrom: new Date(LATE_BIRD_START_AT).toISOString(),
   },
 ];
 

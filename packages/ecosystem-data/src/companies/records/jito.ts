@@ -33,7 +33,7 @@ export const jito = {
       website: "https://www.jito.network/",
     },
     socials: {
-      x: "https://x.com/jito_sol",
+      x: "https://x.com/jito",
       linkedin: "https://www.linkedin.com/company/jito-labs",
       discord: "https://discord.gg/jito",
       github: "https://github.com/jito-foundation",

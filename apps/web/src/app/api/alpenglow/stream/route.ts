@@ -528,7 +528,7 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         });
         reconnecting = false;
       }
-    } catch (error) {
+    } catch {
       if (signal.aborted) return;
       reconnecting = true;
       emit({
@@ -536,7 +536,7 @@ async function runLive(url: string, emit: Emit, signal: AbortSignal) {
         status: "reconnecting",
         protocol,
         sampled: false,
-        message: error instanceof Error ? error.message : "RPC unavailable",
+        message: "RPC unavailable",
       });
     }
     await wait(POLL_MS, signal);
@@ -558,15 +558,14 @@ function ensureProducer() {
   });
   const runner = runLive(rpcUrl, emit, signal);
   runner
-    .catch(async (error) => {
+    .catch(async () => {
       if (!signal.aborted) {
         emit({
           type: "stream_status",
           status: "reconnecting",
           protocol: "unknown",
           sampled: false,
-          message:
-            error instanceof Error ? error.message : "Stream unavailable",
+          message: "Stream unavailable",
         });
         await wait(POLL_MS, signal);
       }

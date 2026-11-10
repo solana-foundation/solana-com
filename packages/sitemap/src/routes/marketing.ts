@@ -31,7 +31,6 @@ const archivedRoutes = new Set([
   "/privacyhack",
   "/graveyard-hack",
   "/prediction-markets-hack",
-  "/wsop",
   "/nftshowdown",
   "/playgg",
 ]);

@@ -2,13 +2,18 @@ import { ResearchPage } from "./research";
 import { getIndexMetadata } from "@/app/metadata";
 import { getTranslations } from "next-intl/server";
 import { META } from "@/data/research";
+import { RESEARCH_METRIC_KEYS } from "@/data/research-evidence";
+import { getDisplayMetrics } from "@/lib/metrics/present";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
 
 export default async function Page(_props: Props) {
-  const t = await getTranslations("research");
+  const [t, metrics] = await Promise.all([
+    getTranslations("research"),
+    getDisplayMetrics(RESEARCH_METRIC_KEYS),
+  ]);
 
   const translations = {
     heroHeadline: t("hero.headline"),
@@ -30,7 +35,6 @@ export default async function Page(_props: Props) {
     evidence: {
       eyebrow: t("evidence.eyebrow"),
       latestAnalysis: t("evidence.latestAnalysis"),
-      source: t("evidence.source"),
       readReport: t("evidence.readReport"),
       liveDashboard: t("evidence.liveDashboard"),
       relatedReading: t("evidence.relatedReading"),
@@ -40,7 +44,7 @@ export default async function Page(_props: Props) {
         validators: t("evidence.metrics.validators"),
         nakamoto: t("evidence.metrics.nakamoto"),
         countries: t("evidence.metrics.countries"),
-        voteParticipation: t("evidence.metrics.voteParticipation"),
+        solPercentStaked: t("evidence.metrics.solPercentStaked"),
         energyPerTransaction: t("evidence.metrics.energyPerTransaction"),
         annualizedEnergy: t("evidence.metrics.annualizedEnergy"),
         slotTarget: t("evidence.metrics.slotTarget"),
@@ -49,7 +53,7 @@ export default async function Page(_props: Props) {
     },
   };
 
-  return <ResearchPage translations={translations} />;
+  return <ResearchPage translations={translations} metrics={metrics} />;
 }
 
 export async function generateMetadata({ params }: Props) {

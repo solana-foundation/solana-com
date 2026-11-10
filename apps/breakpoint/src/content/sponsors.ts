@@ -98,13 +98,6 @@ const platinumSponsors = [
     height: 449,
   },
   {
-    companyId: "bloomberg-media",
-    displayName: "Bloomberg",
-    logoVariant: { id: "logo-horizontal-light" },
-    width: 666.06,
-    height: 173.85,
-  },
-  {
     companyId: "grayscale",
     logoVariant: { id: "logo-light" },
     width: 1050,
@@ -113,6 +106,11 @@ const platinumSponsors = [
   { companyId: "tether", width: 121, height: 28 },
   { companyId: "payoneer", width: 1316, height: 256 },
   { companyId: "ramp", width: 599, height: 171 },
+  {
+    companyId: "kast",
+    width: 384,
+    height: 80,
+  },
 ] satisfies SponsorLogo[];
 
 const goldSponsors = [
@@ -127,9 +125,9 @@ const goldSponsors = [
     height: 950,
   },
   {
-    companyId: "vybe-network",
-    width: 2400,
-    height: 368,
+    companyId: "tickr",
+    width: 826.58,
+    height: 180.78,
   },
   {
     companyId: "alchemy",
@@ -176,11 +174,6 @@ const goldSponsors = [
     companyId: "rain",
     width: 300,
     height: 91.13,
-  },
-  {
-    companyId: "kast",
-    width: 384,
-    height: 80,
   },
   {
     companyId: "raiku",
@@ -257,8 +250,8 @@ const goldSponsors = [
   },
   {
     companyId: "soilonic",
-    width: 1693,
-    height: 929,
+    width: 178.1,
+    height: 151.99,
   },
   {
     companyId: "triton",
@@ -372,7 +365,7 @@ const goldSponsors = [
   { companyId: "kamino", width: 216.6, height: 50 },
   { companyId: "raydium", width: 847, height: 231 },
   { companyId: "zan", displayName: "ZAN", width: 1593, height: 324 },
-  { companyId: "western-union", width: 300, height: 70 },
+  { companyId: "stablecard", width: 1863, height: 560 },
   { companyId: "jupiter", width: 780, height: 210 },
   {
     companyId: "checkout",
@@ -384,9 +377,72 @@ const goldSponsors = [
   {
     companyId: "jurassicfi",
     displayName: "JurassicFi",
-    width: 1532,
-    height: 1201,
+    width: 2009,
+    height: 1470,
   },
+  {
+    companyId: "bloomberg-media",
+    displayName: "Bloomberg",
+    logoVariant: { id: "logo-horizontal-light" },
+    width: 666.06,
+    height: 173.85,
+  },
+  {
+    companyId: "arcium",
+    width: 1643.5,
+    height: 274.7,
+  },
+  {
+    companyId: "sanctum",
+    width: 1246,
+    height: 235,
+  },
+  {
+    companyId: "solana-incubator",
+    width: 200,
+    height: 16,
+  },
+  {
+    companyId: "ledger",
+    width: 568,
+    height: 190,
+  },
+  {
+    companyId: "reap",
+    width: 612,
+    height: 219,
+  },
+  {
+    companyId: "solblaze",
+    width: 794,
+    height: 200,
+  },
+  {
+    companyId: "nagy-wolfe-appleton",
+    width: 5132,
+    height: 2561,
+  },
+  {
+    companyId: "open-standard",
+    displayName: "Open Standard (OUSD)",
+    width: 1115,
+    height: 150,
+  },
+  {
+    companyId: "creditcoop",
+    width: 680,
+    height: 254,
+  },
+  {
+    companyId: "truther",
+    displayName: "Truther (by Rezolve)",
+    width: 800,
+    height: 240,
+  },
+  { companyId: "doublezero", width: 659, height: 105 },
+  { companyId: "openledger", width: 3080, height: 1168 },
+  { companyId: "greed-academy", width: 1051, height: 222 },
+  { companyId: "coindesk", width: 913, height: 172 },
 ] satisfies SponsorLogo[];
 
 const activationSponsors = [

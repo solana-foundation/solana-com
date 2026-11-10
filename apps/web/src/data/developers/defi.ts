@@ -10,26 +10,15 @@ export const HERO_BUTTONS = [
   { id: "defiDocs", variant: "secondary", href: "/docs/defi" },
 ] as const;
 
-// Values and labels are dated in the English messages and recorded in
-// content-audit/claims.json; `statSource` must match the claim's source.
+// Each stat renders its registry value (src/data/metrics) beside its label.
 export const STATS = [
-  {
-    id: "dexVolume",
-    statSource: "https://defillama.com/dexs/chain/solana",
-  },
-  {
-    id: "stablecoins",
-    statSource: "https://defillama.com/stablecoins/Solana",
-  },
-  {
-    id: "computeUnits",
-    statSource: "https://solana.com/upgrades/100m-cu-blocks",
-  },
-  {
-    id: "txSize",
-    statSource: "https://solana.com/upgrades",
-  },
+  { id: "dexVolume", metric: "defi.dex-volume-30d" },
+  { id: "stablecoins", metric: "stablecoins.circulating-supply" },
+  { id: "computeUnits", metric: "network.block-compute-limit" },
+  { id: "txSize", metric: "network.max-transaction-size" },
 ] as const;
+
+export const STATS_METRICS = STATS.map(({ metric }) => metric);
 
 export const STATS_LIVE_LINK = { id: "liveData", href: "/data" } as const;
 
@@ -250,7 +239,7 @@ export const SECURITY_ITEMS = [
 
 export const SECURITY_CHECKLIST_LINK = {
   id: "productionReadiness",
-  href: "/docs/tools/production-readiness",
+  href: "/docs/tools/security#key-management",
 } as const;
 
 export const READING = [

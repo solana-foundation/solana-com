@@ -1,3 +1,5 @@
+import { getAirtableAgenda } from "@/content/agenda/airtable";
+import { attachSpeakerSessions } from "@/content/speakers/sessions";
 import PageShell from "@/components/PageShell";
 import SpeakersList from "@/components/pages/speakers/SpeakersList";
 import SubpageHero from "@/components/SubpageHero";
@@ -11,8 +13,11 @@ type SpeakersPageProps = {
 export default async function SpeakersPage({
   title = "Speakers",
 }: SpeakersPageProps = {}) {
-  const airtableSpeakers = await getAirtableSpeakers();
-  const speakers = airtableSpeakers ?? [];
+  const [airtableSpeakers, agenda] = await Promise.all([
+    getAirtableSpeakers(),
+    getAirtableAgenda(),
+  ]);
+  const speakers = attachSpeakerSessions(airtableSpeakers ?? [], agenda ?? []);
 
   return (
     <PageShell

@@ -15,10 +15,15 @@ vi.mock("@/lib/delivery-vs-payment/server/solana", () => ({
 
 const validAddress = "So11111111111111111111111111111111111111112";
 
-function request(body: unknown) {
+function request(body: unknown, headers: Record<string, string> = {}) {
   return new Request("http://localhost/api/dvp-demo/fund", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      origin: "http://localhost",
+      "sec-fetch-site": "same-origin",
+      ...headers,
+    },
     body: JSON.stringify(body),
   });
 }
@@ -37,6 +42,23 @@ describe("DvP funding route", () => {
     const response = await POST(request({ addresses }));
     expect(response.status).toBe(200);
     expect(mocks.fundRoles).toHaveBeenCalledWith(addresses);
+  });
+
+  it("refuses cross-origin callers before touching the treasury", async () => {
+    const crossSite = await POST(
+      request(
+        { addresses: {} },
+        { origin: "https://evil.example", "sec-fetch-site": "cross-site" },
+      ),
+    );
+    expect(crossSite.status).toBe(403);
+    const noOrigin = new Request("http://localhost/api/dvp-demo/fund", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    expect((await POST(noOrigin)).status).toBe(403);
+    expect(mocks.fundRoles).not.toHaveBeenCalled();
   });
 
   it("does not fund missing roles or requests over the limit", async () => {

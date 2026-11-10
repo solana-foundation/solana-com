@@ -1,20 +1,14 @@
 "use client";
 
-import { ResponsiveBox } from "@/component-library/responsive-box";
-import { Columns } from "@/component-library/columns";
-import {
-  CardDeck,
-  Heading,
-  Hero,
-  HtmlParser,
-  Section,
-} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import {
-  BLOCK_STYLES,
+  BLOCK_CLASSES,
+  DocsHtml,
+  MigrationDocsLayout,
+} from "../components/migration-docs-layout";
+import {
   NAV_BUTTONS,
   RESOURCE_CARD_DECK,
-  TABLE_OF_CONTENTS_ANCHORS,
 } from "@/data/developers/evm-to-svm/smart-contracts";
 
 export function DevelopersEvmToSvmSmartContractsPage() {
@@ -46,12 +40,12 @@ export function DevelopersEvmToSvmSmartContractsPage() {
   }: {
     index: number;
     id?: string;
-    styleKey?: keyof typeof BLOCK_STYLES;
+    styleKey?: string;
   }) => {
     const html = contentBlocks[index];
     const content = (
       <div className="min-w-0 max-w-full overflow-x-auto" id={id}>
-        <HtmlParser rawHtml={html} />
+        <DocsHtml rawHtml={html} />
       </div>
     );
 
@@ -59,11 +53,7 @@ export function DevelopersEvmToSvmSmartContractsPage() {
       return content;
     }
 
-    return (
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES[styleKey]}>
-        {content}
-      </ResponsiveBox>
-    );
+    return <div className={BLOCK_CLASSES[styleKey]}>{content}</div>;
   };
 
   const renderHtmlBlock = ({
@@ -71,11 +61,11 @@ export function DevelopersEvmToSvmSmartContractsPage() {
     styleKey,
   }: {
     html: string;
-    styleKey?: keyof typeof BLOCK_STYLES;
+    styleKey?: string;
   }) => {
     const content = (
       <div className="min-w-0 max-w-full overflow-x-auto">
-        <HtmlParser rawHtml={html} />
+        <DocsHtml rawHtml={html} />
       </div>
     );
 
@@ -83,123 +73,73 @@ export function DevelopersEvmToSvmSmartContractsPage() {
       return content;
     }
 
-    return (
-      <ResponsiveBox responsiveStyles={BLOCK_STYLES[styleKey]}>
-        {content}
-      </ResponsiveBox>
-    );
+    return <div className={BLOCK_CLASSES[styleKey]}>{content}</div>;
   };
 
   return (
-    <>
-      <Hero
-        headingAs="h1"
-        centered={false}
-        newsLetter={false}
-        eyebrow={t("hero.eyebrow")}
-        headline={t("hero.headline")}
-        body={t.raw("hero.body")}
-      />
-
-      <Section>
-        <div key="columns-0">
-          <Columns space={30} stackColumnsAt="tablet">
-            <div key="toc-0">
-              <ResponsiveBox responsiveStyles={BLOCK_STYLES.tocBox}>
-                <p>
-                  <strong>{tableOfContents.title}</strong>
-                </p>
-                {tableOfContents.items.map((item, index) => {
-                  const href = TABLE_OF_CONTENTS_ANCHORS[index] ?? "#";
-                  return (
-                    <p key={item} style={{ textIndent: "2em" }}>
-                      <a href={href} rel="noopener noreferrer">
-                        {item}
-                      </a>
-                    </p>
-                  );
-                })}
-              </ResponsiveBox>
-            </div>
-            <div key="copy-0">
-              {renderCopyBlock({ index: 0, styleKey: "columnCopy" })}
-            </div>
-          </Columns>
-        </div>
-        <div key="copy-1">
-          {renderCopyBlock({ index: 1, styleKey: "spacing" })}
-        </div>
-        <div key="copy-2">
-          {renderCopyBlock({ index: 2, id: "SPL", styleKey: "spacing" })}
-        </div>
-        <div key="copy-3">
-          {renderCopyBlock({
-            index: 3,
-            id: "writing-programs",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="table-4">
-          {renderHtmlBlock({
-            html: t.raw("tables.programArchitecture"),
-            styleKey: "tableWrapper",
-          })}
-        </div>
-        <div key="copy-5">
-          {renderCopyBlock({ index: 4, styleKey: "spacing" })}
-        </div>
-        <div key="table-6">
-          {renderHtmlBlock({
-            html: t.raw("tables.clusterEnvironments"),
-            styleKey: "tableWrapper",
-          })}
-        </div>
-        <div key="copy-7">
-          {renderCopyBlock({ index: 5, styleKey: "spacing" })}
-        </div>
-        <div key="copy-8">
-          {renderCopyBlock({
-            index: 6,
-            id: "deploying-programs",
-            styleKey: "spacing",
-          })}
-        </div>
-        <div key="copy-9">
-          {renderCopyBlock({ index: 7, styleKey: "codeBlock" })}
-        </div>
-        <div key="copy-10">
-          {renderCopyBlock({ index: 8, styleKey: "spacing" })}
-        </div>
-        <div key="copy-11">
-          {renderCopyBlock({ index: 9, id: "summary", styleKey: "spacing" })}
-        </div>
-
-        <Heading
-          variant="centered"
-          eyebrow={t("navHeading.eyebrow")}
-          headline=""
-          body=""
-          buttons={
-            navButtons as React.ComponentProps<typeof Heading>["buttons"]
-          }
-        />
-
-        <Heading eyebrow="" headline={t("resourceHeading.headline")} body="" />
-
-        <ResponsiveBox responsiveStyles={BLOCK_STYLES.cardDeckWrapper}>
-          <CardDeck
-            cards={
-              resourceCards as React.ComponentProps<typeof CardDeck>["cards"]
-            }
-            numCols={
-              RESOURCE_CARD_DECK.numCols as React.ComponentProps<
-                typeof CardDeck
-              >["numCols"]
-            }
-            featured={RESOURCE_CARD_DECK.featured}
-          />
-        </ResponsiveBox>
-      </Section>
-    </>
+    <MigrationDocsLayout
+      activeUrl="/developers/migrate-to-solana/smart-contracts"
+      eyebrow={t("hero.eyebrow")}
+      headline={t("hero.headline")}
+      bodyHtml={t.raw("hero.body")}
+      buttons={navButtons.map((button) => ({
+        url: button.url,
+        label: button.label,
+      }))}
+      tocHeadline={tableOfContents.title}
+      resourceHeadline={t("resourceHeading.headline")}
+      resourceCards={resourceCards.map((card) => ({
+        heading: card.heading,
+        url: card.callToAction.url,
+        ctaLabel: card.callToAction.label,
+      }))}
+    >
+      {renderCopyBlock({ index: 0 })}
+      <div key="copy-1">
+        {renderCopyBlock({ index: 1, styleKey: "spacing" })}
+      </div>
+      <div key="copy-2">
+        {renderCopyBlock({ index: 2, id: "SPL", styleKey: "spacing" })}
+      </div>
+      <div key="copy-3">
+        {renderCopyBlock({
+          index: 3,
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="table-4">
+        {renderHtmlBlock({
+          html: t.raw("tables.programArchitecture"),
+          styleKey: "tableWrapper",
+        })}
+      </div>
+      <div key="copy-5">
+        {renderCopyBlock({ index: 4, styleKey: "spacing" })}
+      </div>
+      <div key="table-6">
+        {renderHtmlBlock({
+          html: t.raw("tables.clusterEnvironments"),
+          styleKey: "tableWrapper",
+        })}
+      </div>
+      <div key="copy-7">
+        {renderCopyBlock({ index: 5, styleKey: "spacing" })}
+      </div>
+      <div key="copy-8">
+        {renderCopyBlock({
+          index: 6,
+          styleKey: "spacing",
+        })}
+      </div>
+      <div key="copy-9">
+        {renderCopyBlock({ index: 7, styleKey: "codeBlock" })}
+      </div>
+      <div key="copy-10">
+        {renderCopyBlock({ index: 8, styleKey: "spacing" })}
+      </div>
+      <div key="copy-11">
+        {renderCopyBlock({ index: 9, styleKey: "spacing" })}
+      </div>
+    </MigrationDocsLayout>
   );
 }

@@ -22,6 +22,14 @@ interface CreateMiddlewareOptions {
   preserveProxiedLocaleCookie?: boolean;
 }
 
+const TRUSTED_HOST_PATTERN =
+  /^(?:(?:[a-z0-9-]+\.)*solana\.com|[a-z0-9-]+\.vercel\.app|localhost|127\.0\.0\.1)(?::\d{1,5})?$/i;
+
+/** Hosts a proxied request may legitimately report having been sent to. */
+export function isTrustedForwardedHost(host: string): boolean {
+  return TRUSTED_HOST_PATTERN.test(host.trim());
+}
+
 export function getEffectiveOrigin<
   T extends { host: string; protocol: string },
 >(req: { nextUrl: { clone(): T }; headers: Pick<Headers, "get"> }) {
@@ -29,7 +37,9 @@ export function getEffectiveOrigin<
   const forwardedHost = req.headers.get("x-forwarded-host");
   const forwardedProto = req.headers.get("x-forwarded-proto");
 
-  if (forwardedHost) {
+  // Vercel sets x-forwarded-host itself, but a redirect target must never be
+  // built from a value we would not recognise; limit it to our own hosts.
+  if (forwardedHost && isTrustedForwardedHost(forwardedHost)) {
     url.host = forwardedHost;
   }
 

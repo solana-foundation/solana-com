@@ -14,20 +14,6 @@ export const GENERAL_ADMISSION_PRICE_INCREASE_AT = Date.parse(
   GENERAL_ADMISSION_PRICE_CHANGE.increasesAt,
 );
 
-// November 9 starts at 00:00 GMT in London.
-export const LATE_BIRD_START_AT = Date.parse("2026-11-09T00:00:00Z");
-
-export function hasLateBirdStarted(now: number): boolean {
-  return now >= LATE_BIRD_START_AT;
-}
-
-export function getNextTicketPriceChangeAt(now: number): number | null {
-  if (now < GENERAL_ADMISSION_PRICE_INCREASE_AT) {
-    return GENERAL_ADMISSION_PRICE_INCREASE_AT;
-  }
-  return now < LATE_BIRD_START_AT ? LATE_BIRD_START_AT : null;
-}
-
 export type TicketPriceCountdownParts = {
   days: number;
   hours: number;
@@ -42,9 +28,8 @@ export function hasGeneralAdmissionPriceIncreased(now: number): boolean {
 export function getTicketPriceCountdownParts(
   now: number,
 ): TicketPriceCountdownParts {
-  const nextChange = getNextTicketPriceChangeAt(now);
   const remainingSeconds = Math.ceil(
-    Math.max(0, (nextChange ?? now) - now) / 1000,
+    Math.max(0, GENERAL_ADMISSION_PRICE_INCREASE_AT - now) / 1000,
   );
 
   return {

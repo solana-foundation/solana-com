@@ -19,6 +19,7 @@ export { Header } from "./header";
 export { ThemeProvider } from "./theme-provider";
 export { InkeepChatButton } from "./inkeep-chat-button";
 export { InkeepSearchBar } from "./inkeep-searchbar";
+export { InkeepProvider } from "./inkeep-provider";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
 export { GoogleAnalyticsTag } from "./google-analytics-tag";

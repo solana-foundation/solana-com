@@ -81,8 +81,8 @@
 
 ## Payments
 
-- [Commerce Kit Repository](https://github.com/solana-foundation/commerce-kit)
-- [Commerce Kit Documentation](https://commercekit.solana.com/)
+- [Solana Pay Documentation](https://solana.com/docs/tools/solana-pay)
+- [Solana Pay Repository](https://github.com/solana-foundation/pay)
 - [Kora Documentation](https://docs.kora.network/)
 
 ## Security

@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { securityHeadersRoute } from "@workspace/security-headers";
 import { withBotId } from "botid/next/config";
 import { locales } from "@workspace/i18n/config";
 import { createNextIntlPlugin } from "@workspace/i18n/plugin";
@@ -9,8 +10,23 @@ const assetPrefix = "/breakpoint-assets";
 const localeRoutePattern = `:locale(${locales.join("|")})`;
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
+  // Allow Airtable's 30s cooldown and bounded retries during cold deploy builds.
+  staticPageGenerationTimeout: 300,
+  async headers() {
+    return [securityHeadersRoute()];
+  },
   reactStrictMode: true,
   assetPrefix,
+  outputFileTracingIncludes: {
+    "/api/here-for/card": [
+      "./public/fonts/abc-favorit/*.woff",
+      "./public/fonts/abc-favorit-mono/*.woff",
+      "./public/img/here-for/card-band-*.jpg",
+      "./public/assets/pixel-edge.svg",
+      "./public/assets/nav-bp26.svg",
+    ],
+  },
   env: {
     NEXT_PUBLIC_APP_NAME: "breakpoint",
   },

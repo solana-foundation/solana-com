@@ -111,7 +111,12 @@ export const CONFIDENTIAL_BALANCES_TAGS = [
   "tokenizedFunds",
 ] as const;
 
-export const CONFIDENTIAL_BALANCES_STATS = ["audits", "tokens", "fee"] as const;
+/** `metric` stats render a registry value; `tokens` is a fixed fact. */
+export const CONFIDENTIAL_BALANCES_STATS = [
+  { key: "audits", metric: "privacy.confidential-balances-audits" },
+  { key: "tokens" },
+  { key: "fee", metric: "privacy.confidential-transfer-fee" },
+] as const;
 
 export const PRIVATE_CHANNELS_TAGS = [
   "tokenizedDeposits",
@@ -144,17 +149,33 @@ export const COMPLIANCE_ITEMS = [
 ] as const;
 
 export const GLANCE_STATS = [
-  { key: "transactions", highlight: true },
-  { key: "uptime", highlight: false },
-  { key: "blockTime", highlight: false },
-  { key: "finality", highlight: false },
-  { key: "fee", highlight: false },
-  { key: "spot", highlight: false },
-  { key: "rwa", highlight: true },
-  { key: "xstocks", highlight: false },
-  { key: "x402", highlight: false },
-  { key: "gsibs", highlight: false },
+  {
+    key: "transactions",
+    metric: "network.successful-transactions-daily-30d",
+    highlight: true,
+  },
+  { key: "uptime", metric: "network.years-without-outage", highlight: false },
+  { key: "blockTime", metric: "network.slot-time", highlight: false },
+  { key: "finality", metric: "network.finality-target", highlight: false },
+  { key: "fee", metric: "network.average-fee-30d", highlight: false },
+  { key: "spot", metric: "privacy.spot-volume-rank", highlight: false },
+  { key: "rwa", metric: "privacy.rwa-growth-12m", highlight: true },
+  { key: "xstocks", metric: "privacy.xstocks-solana-share", highlight: false },
+  {
+    key: "x402",
+    metric: "x402.solana-transaction-share-30d",
+    highlight: false,
+  },
+  { key: "gsibs", metric: "privacy.gsib-count", highlight: false },
 ] as const;
+
+/** Registry keys the privacy page reads, for getDisplayMetrics. */
+export const PRIVACY_METRICS = [
+  ...GLANCE_STATS.map(({ metric }) => metric),
+  ...CONFIDENTIAL_BALANCES_STATS.flatMap((stat) =>
+    "metric" in stat ? [stat.metric] : [],
+  ),
+];
 
 /** Brand names as printed in the brochure. Not translated. */
 export const BUILDING_ON_SOLANA = [

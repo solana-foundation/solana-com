@@ -37,7 +37,6 @@ export const tabIndicatorSpring = {
 } as const;
 
 export const emptyProvidersParam = "none";
-export const defaultRangeDays = 90;
 export const kpiCount = 4;
 export const chartHeight = 320;
 export const fallbackProviderColors = [

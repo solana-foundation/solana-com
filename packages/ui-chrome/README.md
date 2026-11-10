@@ -120,6 +120,14 @@ Inkeep is wired in `src/inkeep-config.ts` and used by `InkeepChatButton` and
   requests fail closed when a rule is missing or the rate-limit service fails.
 - **Components**: Use `InkeepChatButton` and/or `InkeepSearchBar`; no extra
   setup in app code beyond layout placement.
+- **Web experience**: The web layout wraps its triggers in `InkeepProvider`,
+  which owns one modal and keyboard shortcut. The web chat route uses
+  `inkeep-context-gpt-5.4-mini` with server-owned site-wide guidance and
+  destinations derived from the maintained header/footer navigation. Search adds
+  matching destinations, consolidates locale variants, and groups sources by
+  content type. Matching navigation results remain available during upstream
+  search failures. The docs app does not opt into this provider or the
+  `siteWide` proxy option; its search and QA behavior are unchanged.
 - **Verification**: Confirm chat streams an answer with working citations,
   search returns source links, `?search=<query>` opens the modal, and browser
   network requests contain only the non-secret internal proxy identifier.

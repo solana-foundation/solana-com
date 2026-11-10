@@ -17,9 +17,12 @@ import {
   STACK_STEPS,
   STATS,
   STATS_LIVE_LINK,
+  type STATS_METRICS,
   TEMPLATES,
   TEMPLATES_LINK,
 } from "@/data/developers/defi";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import { CopyCommand, HeroScene, PageSelectionColor } from "./interactions";
 
 const container = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
@@ -119,7 +122,13 @@ function Section({ id, children }: { id: string; children: ReactNode }) {
   );
 }
 
-export async function DevelopersDefiPage({ locale }: { locale: string }) {
+export async function DevelopersDefiPage({
+  locale,
+  metrics,
+}: {
+  locale: string;
+  metrics: Record<(typeof STATS_METRICS)[number], DisplayMetric>;
+}) {
   const t = await getTranslations({ locale, namespace: "developers-defi" });
 
   const linksFor = (
@@ -185,7 +194,7 @@ export async function DevelopersDefiPage({ locale }: { locale: string }) {
           {t("stats.heading")}
         </h2>
         <dl className="m-0 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-nd-border-light bg-nd-border-light sm:grid-cols-2 xl:grid-cols-4">
-          {STATS.map(({ id, statSource }) => (
+          {STATS.map(({ id, metric }) => (
             <div key={id} className="flex flex-col gap-3 bg-nd-bg p-6 md:p-8">
               <dt
                 className={`order-2 text-sm leading-snug md:text-base ${muted}`}
@@ -193,20 +202,18 @@ export async function DevelopersDefiPage({ locale }: { locale: string }) {
                 {t(`stats.items.${id}.label`)}
               </dt>
               <dd className="order-1 m-0 font-brand text-4xl font-medium tracking-[-0.04em] text-white md:text-5xl">
-                {t(`stats.items.${id}.value`)}
-              </dd>
-              <dd className="order-3 m-0 mt-auto pt-2">
-                <Link
-                  href={statSource}
-                  className={`inline-flex items-center gap-1 rounded-sm font-brand-mono text-xs uppercase tracking-[0.12em] text-nd-mid-em-text no-underline hover:text-white ${focusRing}`}
-                >
-                  {t("stats.sourceLabel")}
-                  <ArrowUpRight aria-hidden className="!size-3.5" />
-                </Link>
+                {metrics[metric].value}
               </dd>
             </div>
           ))}
         </dl>
+        <MetricSourcesFootnote
+          className="mt-4"
+          items={STATS.map(({ id, metric }) => ({
+            label: t(`stats.items.${id}.label`),
+            source: metrics[metric].source,
+          }))}
+        />
         <div className="mt-6">
           <TextLink href={STATS_LIVE_LINK.href}>
             {t(`stats.links.${STATS_LIVE_LINK.id}`)}

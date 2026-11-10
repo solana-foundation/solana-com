@@ -1,0 +1,134 @@
+---
+title: Program Rewards
+seoTitle: Program Rewards Solana untuk Token Vesting dan Distribusi Merkle
+description:
+  Distribusikan token SPL Token dan Token-2022 dengan jadwal vesting, menggunakan akun per penerima atau merkle root, dengan opsi pencabutan dan clawback.
+---
+
+Program Rewards mendistribusikan token dari vault milik program kepada sekumpulan
+penerima, masing-masing dengan jadwal vesting. Seorang authority mendanai vault dan
+menentukan siapa yang menerima berapa. Penerima mengklaim token yang sudah vested
+seiring waktu, dan authority dapat mencabut penerima atau menarik kembali sisa token
+ketika distribusi mengizinkannya. Program ini dibangun dengan Pinocchio, dikelola oleh
+Solana Foundation, dan bekerja dengan mint SPL Token maupun Token-2022, kecuali mint
+Token-2022 dengan ekstensi transfer hook.
+
+ID program (mainnet dan devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  Program ini telah diaudit oleh OtterSec. Lihat
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md)
+  untuk commit yang telah diaudit.
+</Callout>
+
+## Pilih jenis distribusi
+
+Program ini mendukung dua jenis distribusi. Keduanya menggunakan jadwal vesting
+dan mode pencabutan yang sama.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Cara kerja** | Membuat akun onchain untuk setiap penerima     | Menyimpan satu merkle root di onchain; penerima memberikan proof untuk mengklaim  |
+| **Biaya di muka** | Payer mendanai rent untuk setiap akun penerima | Tidak ada akun per penerima hingga seseorang mengklaim                           |
+| **Skala**        | Praktis hingga beberapa ribu penerima  | Dapat diskalakan hingga jutaan penerima; penyimpanan bertambah hanya saat penerima mengklaim |
+| **Mutabilitas**   | Penerima dapat ditambahkan setelah pembuatan       | Kumpulan penerima ditetapkan saat pembuatan                                       |
+| **Cocok untuk**   | Distribusi kecil yang berubah seiring waktu    | Distribusi besar dan tetap seperti airdrop                              |
+
+## Jadwal vesting
+
+Setiap alokasi memiliki salah satu dari empat jadwal. Timestamp dalam detik Unix.
+
+| Jadwal      | Perilaku                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | Semua token dapat langsung diklaim                                                                                    |
+| `Linear`      | Token terbuka secara proporsional antara `startTs` dan `endTs`                                                             |
+| `Cliff`       | Tidak ada yang terbuka hingga `cliffTs`, lalu semuanya terbuka sekaligus                                                       |
+| `CliffLinear` | Vesting linear dari `startTs` hingga `endTs`, tanpa token yang dapat diklaim sampai `cliffTs`; akumulasi sebelumnya terbuka pada cliff |
+
+## Akun
+
+| Akun              | Seed PDA                                        | Menyimpan                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Authority, mint, dan total alokasi       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | Alokasi dan vesting satu penerima       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Authority, mint, total, dan merkle root |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Jumlah yang telah diklaim sejauh ini oleh satu claimant        |
+| `Revocation`         | `["revocation", distribution, user]`             | Penanda yang memblokir claimant merkle yang dicabut |
+
+`seed` adalah alamat signer tambahan yang diteruskan saat pembuatan, sehingga satu
+authority dapat menjalankan beberapa distribusi untuk mint yang sama. Vault setiap
+distribusi adalah associated token account dari PDA distribusi untuk mint tersebut.
+
+## Instruksi
+
+### Distribusi Direct
+
+1. Authority memanggil `CreateDirectDistribution` untuk membuat PDA distribusi
+   dan vault-nya.
+2. Authority memanggil `AddDirectRecipient` satu kali per penerima dengan jumlah
+   dan jadwal vesting. Setiap panggilan mentransfer jumlah tersebut dari token account
+   milik authority ke dalam vault.
+3. Penerima memanggil `ClaimDirect` untuk menarik token yang sudah vested. Berikan
+   `amount: 0` untuk mengklaim semua yang saat ini sudah vested.
+4. Setelah penerima mengklaim semuanya, atau distribusi ditutup,
+   `CloseDirectRecipient` menutup akun penerima dan mengembalikan rent ke
+   akun yang membayarnya.
+5. Authority memanggil `CloseDirectDistribution` untuk memulihkan sisa saldo vault
+   dan rent. Jika `clawbackTs` ditetapkan, penutupan hanya diizinkan setelah waktu
+   tersebut.
+
+### Distribusi Merkle
+
+1. Authority membangun merkle tree secara offchain. Setiap leaf berkomitmen pada
+   seorang claimant, total jumlah claimant tersebut, dan jadwal vesting.
+2. Authority memanggil `CreateMerkleDistribution` dengan root, total jumlah yang
+   dapat diklaim, dan `clawbackTs`, serta mendanai vault dalam instruksi yang
+   sama.
+3. Claimant memanggil `ClaimMerkle` dengan data leaf dan proof mereka. Klaim pertama
+   membuat akun `MerkleClaim` milik claimant. Berikan `amount: 0` untuk mengklaim
+   semua yang saat ini sudah vested.
+4. Setelah `clawbackTs`, authority memanggil `CloseMerkleDistribution` untuk memulihkan
+   sisa saldo vault dan rent.
+5. Setelah distribusi ditutup, claimant memanggil `CloseMerkleClaim` untuk
+   memulihkan rent akun klaim mereka.
+
+Program melakukan hash pada leaf dengan Keccak-256 sebagai
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, di mana
+`totalAmount` adalah `u64` little-endian dan `schedule` menggunakan encoding yang sama
+dengan argumen `VestingSchedule` pada instruksi. Node proof di-hash sebagai
+pasangan terurut, dengan hash yang lebih kecil lebih dulu.
+
+### Pencabutan
+
+Pencabutan bersifat opt-in. Bitmask `revocable` yang ditetapkan saat pembuatan menentukan
+mode mana yang boleh digunakan authority: bit 0 mengaktifkan `NonVested`, bit 1 mengaktifkan `Full`,
+dan `0` menonaktifkan pencabutan.
+
+| Mode        | Instruksi                                    | Hasil                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` atau `RevokeMerkleClaim` | Token yang sudah vested dan belum diklaim diberikan kepada pengguna; token yang belum vested dikembalikan ke authority |
+| `Full`      | `RevokeDirectRecipient` atau `RevokeMerkleClaim` | Semua token yang belum diklaim, baik yang sudah vested maupun belum, dikembalikan ke authority               |
+
+Mencabut claimant merkle akan membuat penanda `Revocation` yang memblokir klaim di
+masa depan, bahkan jika mereka belum pernah mengklaim. Mencabut penerima direct akan menutup
+akun `DirectRecipient` mereka dan mengembalikan rent-nya.
+
+## Klien
+
+Repositori ini menyertakan klien [`@solana/kit`](/docs/clients/official/javascript) dan
+Rust yang dihasilkan dari IDL program dengan Codama, di
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+Klien ini belum dipublikasikan ke npm. Bangun dari source dengan
+`just generate-clients`.
+
+## Sumber Daya
+
+- [Kode sumber](https://github.com/solana-foundation/rewards)
+- [Laporan audit OtterSec](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Laporkan masalah](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), tag
+  `rewards-program`

@@ -12,6 +12,15 @@ import { Latex } from "./latex";
 import { ArticleFigure } from "./article-figure";
 import { PostCard } from "./post/post-card";
 import { formatPublishedAt } from "@/lib/keystatic/publishing";
+import { preprocessMDX } from "@/lib/mdx-preprocess";
+import {
+  EMBED_ALLOW,
+  EMBED_SANDBOX,
+  isAllowedEmbedSrc,
+  safeHref,
+} from "@/lib/mdx-security";
+
+export { preprocessMDX };
 
 // Block types for post body templates
 type VideoBlockData = {
@@ -59,83 +68,6 @@ type GalleryImage = {
   square?: boolean;
 };
 
-function readJsExpression(
-  input: string,
-  start: number,
-): { expression: string; end: number } | null {
-  let depth = 0;
-  let quote: '"' | "'" | "`" | null = null;
-  let escaped = false;
-
-  for (let i = start; i < input.length; i++) {
-    const char = input[i];
-
-    if (quote) {
-      if (escaped) {
-        escaped = false;
-        continue;
-      }
-      if (char === "\\") {
-        escaped = true;
-        continue;
-      }
-      if (char === quote) {
-        quote = null;
-      }
-      continue;
-    }
-
-    if (char === '"' || char === "'" || char === "`") {
-      quote = char;
-      continue;
-    }
-
-    if (char === "{" || char === "[" || char === "(") {
-      depth++;
-      continue;
-    }
-
-    if (char === "}" || char === "]" || char === ")") {
-      if (depth === 0) {
-        return {
-          expression: input.slice(start, i),
-          end: i,
-        };
-      }
-      depth--;
-    }
-  }
-
-  return null;
-}
-
-function serializeLegacyGalleryProps(source: string): string {
-  return source.replace(/<Gallery\b[\s\S]*?\/>/g, (tag) => {
-    const imagesPropIndex = tag.indexOf("images={");
-    if (imagesPropIndex === -1) {
-      return tag;
-    }
-
-    const expressionStart = imagesPropIndex + "images={".length;
-    const parsedExpression = readJsExpression(tag, expressionStart);
-    if (!parsedExpression) {
-      return tag;
-    }
-
-    const backgroundMatch = tag.match(/\sbackground="([^"]+)"/);
-    const backgroundProp = backgroundMatch
-      ? ` background="${backgroundMatch[1]}"`
-      : "";
-
-    const serializedImages = Buffer.from(
-      parsedExpression.expression.trim(),
-      "utf8",
-    ).toString("base64");
-
-    return `<Gallery${backgroundProp} imagesRaw="${serializedImages}" />`;
-  });
-}
-
 // Keystatic DocumentRenderer renderers for MDX content
 // Using 'as any' to work around complex type constraints in DocumentRendererProps
 // Custom component blocks are added via the 'component' property
@@ -150,7 +82,7 @@ export const components = {
     ),
     // Links
     link: ({ href, children }) => (
-      <a href={href} className="text-primary hover:underline">
+      <a href={safeHref(href)} className="text-primary hover:underline">
         {children}
       </a>
     ),
@@ -363,18 +295,22 @@ export const components = {
           paddingBottom: props.height ? 0 : "61.5746%",
         }}
       >
-        <iframe
-          src={props.src}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-          }}
-          allow={props.allow || "encrypted-media"}
-          allowFullScreen
-        />
+        {isAllowedEmbedSrc(props.src) ? (
+          <iframe
+            src={props.src}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "100%",
+            }}
+            allow={EMBED_ALLOW}
+            sandbox={EMBED_SANDBOX}
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        ) : null}
       </div>
     ),
 
@@ -415,42 +351,6 @@ export const components = {
 // Custom component tags used in MDX content (from Keystatic component blocks).
 // MDX v3 compiles inline JSX lowercase tags as literal HTML elements, NOT through
 // the components map. Only markdown-generated elements (p, h1, img, etc.) go through
-// the components prop. To render custom components like <tweet> and <video>, we:
-// 1. Capitalize the tags in the MDX source before compilation (preprocessMDX)
-// 2. Pass the capitalized components via MDXRemote's components prop
-//    (MDX v3 resolves capitalized JSX from props.components via destructuring)
-const CUSTOM_COMPONENT_TAGS = [
-  "tweet",
-  "video",
-  "postcard",
-  "iframe",
-  "gallery",
-  "stats",
-  "blockquote",
-  "datetime",
-  "newslettersignup",
-  "footnotes",
-  "sup",
-] as const;
-
-/**
- * Pre-processes MDX source to capitalize custom component tags so that
- * MDX v3 compiles them as component references (resolved from scope)
- * rather than literal HTML elements.
- */
-export function preprocessMDX(source: string): string {
-  let result = source;
-  for (const tag of CUSTOM_COMPONENT_TAGS) {
-    const capitalized = tag.charAt(0).toUpperCase() + tag.slice(1);
-    // Match opening and closing tags: <tag, </tag
-    // Followed by whitespace, >, or / to avoid matching partial names
-    result = result.replace(
-      new RegExp(`<(/?)(${tag})(\\s|>|/)`, "g"),
-      (_, slash, _name, after) => `<${slash}${capitalized}${after}`,
-    );
-  }
-  return serializeLegacyGalleryProps(result);
-}
 
 // Component implementations for custom MDX blocks.
 // Capitalized names are passed via MDXRemote's components prop so MDX v3
@@ -504,18 +404,22 @@ const IframeBlock = (props: {
       paddingBottom: props.height ? 0 : "61.5746%",
     }}
   >
-    <iframe
-      src={props.src}
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-      }}
-      allow={props.allow || "encrypted-media"}
-      allowFullScreen
-    />
+    {isAllowedEmbedSrc(props.src) ? (
+      <iframe
+        src={props.src}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+        }}
+        allow={EMBED_ALLOW}
+        sandbox={EMBED_SANDBOX}
+        referrerPolicy="strict-origin-when-cross-origin"
+        allowFullScreen
+      />
+    ) : null}
   </div>
 );
 

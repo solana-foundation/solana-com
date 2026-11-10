@@ -38,13 +38,23 @@ import {
   toggleProvider,
 } from "./dashboard-providers";
 import type { QueryUpdates } from "./dashboard-types";
+import {
+  getRangeBounds,
+  getRangeDates,
+  getUtcToday,
+  isIsoDate,
+  type DashboardRange,
+  type DateBounds,
+} from "./date-range";
+
+const customRangeValue = "custom";
 
 export function DashboardControls({
   activeTab,
   availableProviders,
   isRefreshing,
   onUpdateQuery,
-  rangeDays,
+  range,
   rpcInfra,
   rpcMethod,
   rpcRegion,
@@ -60,7 +70,7 @@ export function DashboardControls({
   availableProviders: ProviderName[];
   isRefreshing: boolean;
   onUpdateQuery: (_updates: QueryUpdates) => void;
-  rangeDays: number;
+  range: DashboardRange;
   rpcInfra: RpcLatencyInfra;
   rpcMethod: RpcLatencyMethod;
   rpcRegion: RpcLatencyRegion;
@@ -73,6 +83,7 @@ export function DashboardControls({
   showTimeframeControl: boolean;
 }) {
   const t = useTranslations("dataDashboard");
+  const showCustomRange = showRangeControl && range.kind === "custom";
 
   return (
     <div className="px-4 md:px-8 xl:px-10 py-2 grid gap-2">
@@ -93,11 +104,26 @@ export function DashboardControls({
           <>
             <Separator />
             <div className="-mx-1 flex items-center overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:px-0">
-              <InlineControl
+              <InlineControl<number | typeof customRangeValue>
                 ariaLabel={t("controls.rangeAriaLabel")}
-                options={rangeOptions}
-                value={rangeDays}
-                onChange={(value) => onUpdateQuery({ days: value })}
+                options={[
+                  ...rangeOptions,
+                  {
+                    label: t("controls.customRange"),
+                    value: customRangeValue,
+                  },
+                ]}
+                value={range.kind === "custom" ? customRangeValue : range.days}
+                onChange={(value) => {
+                  if (value !== customRangeValue) {
+                    onUpdateQuery({ days: value });
+                  } else if (range.kind !== "custom") {
+                    // Start from the dates the current preset already shows.
+                    onUpdateQuery({
+                      range: getRangeDates(range, getUtcToday()),
+                    });
+                  }
+                }}
               />
             </div>
           </>
@@ -158,9 +184,17 @@ export function DashboardControls({
         ) : null}
       </div>
 
-      {isRefreshing ||
+      {showCustomRange ||
+      isRefreshing ||
       (showProviderControls && availableProviders.length > 0) ? (
         <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:gap-x-4">
+          {showCustomRange ? (
+            // Second row, so the From/To fields don't crowd the tabs.
+            <CustomRangeInputs
+              range={{ from: range.from, to: range.to }}
+              onChange={(nextRange) => onUpdateQuery({ range: nextRange })}
+            />
+          ) : null}
           {isRefreshing ? <RefreshingIndicator /> : null}
           {showProviderControls && availableProviders.length > 0 ? (
             <ProviderControls
@@ -304,6 +338,73 @@ function ProviderControls({
         {allProvidersSelected ? t("legend.deselectAll") : t("legend.selectAll")}
       </button>
     </div>
+  );
+}
+
+function CustomRangeInputs({
+  onChange,
+  range,
+}: {
+  onChange: (_range: DateBounds) => void;
+  range: DateBounds;
+}) {
+  const t = useTranslations("dataDashboard");
+  const bounds = getRangeBounds(getUtcToday());
+
+  const updateDate = (key: keyof DateBounds, value: string) => {
+    // Ignore half-typed or cleared dates; the URL keeps the last valid range.
+    if (!isIsoDate(value)) {
+      return;
+    }
+
+    const next = { ...range, [key]: value };
+
+    onChange(next.from <= next.to ? next : { from: next.to, to: next.from });
+  };
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
+      <DateInput
+        bounds={bounds}
+        label={t("controls.customFrom")}
+        onChange={(value) => updateDate("from", value)}
+        value={range.from}
+      />
+      <DateInput
+        bounds={bounds}
+        label={t("controls.customTo")}
+        onChange={(value) => updateDate("to", value)}
+        value={range.to}
+      />
+    </div>
+  );
+}
+
+function DateInput({
+  bounds,
+  label,
+  onChange,
+  value,
+}: {
+  bounds: DateBounds;
+  label: string;
+  onChange: (_value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="inline-flex shrink-0 items-center gap-1.5">
+      <span className="font-brand-mono text-[11px] leading-[1.42] font-bold uppercase text-nd-mid-em-text/70">
+        {label}
+      </span>
+      <input
+        className="border border-nd-border-prominent bg-transparent px-2 py-0.5 font-brand-mono text-[11px] leading-[1.42] font-bold text-nd-high-em-text [color-scheme:dark] transition-colors hover:bg-nd-border-light/20 focus:outline-none focus:ring-1 focus:ring-nd-primary"
+        max={bounds.to}
+        min={bounds.from}
+        onChange={(event) => onChange(event.target.value)}
+        type="date"
+        value={value}
+      />
+    </label>
   );
 }
 

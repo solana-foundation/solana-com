@@ -1,3 +1,4 @@
+import type { MetricKey } from "@/lib/metrics/registry";
 import { Coins } from "@boxicons/react/Coins";
 import { Code } from "@boxicons/react/Code";
 import { NetworkChart } from "@boxicons/react/NetworkChart";
@@ -32,7 +33,7 @@ export const LOGOS = [
   },
 ];
 
-export const PROJECTS = [
+export const PROJECTS: { src: string; key: string; metric?: MetricKey }[] = [
   {
     src: "/src/img/logos-eco/western-union.svg",
     key: "western-union",
@@ -48,14 +49,18 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/franklin-templeton.webp",
     key: "franklinTempleton",
+    /** Registry figure; cards without one show their message `stat`. */
+    metric: "institutions.franklin-benji-growth-30d",
   },
   {
     src: "/src/img/logos-eco/r3.webp",
     key: "r3",
+    metric: "institutions.r3-tokenized-rwa",
   },
   {
     src: "/src/img/logos-eco/bullish.svg",
     key: "bullish",
+    metric: "institutions.bullish-daily-volume",
   },
 ];
 

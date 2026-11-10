@@ -1,6 +1,13 @@
 import "server-only";
 
 import { checkRateLimit } from "@vercel/firewall";
+import { clientIpFromHeaders } from "./client-ip";
+import { RATE_LIMIT_IDS } from "./inkeep-rate-limits";
+import { getSiteChatPrompt } from "./inkeep-site-context";
+import { buildSiteSearchResponse } from "./inkeep-search";
+import { getSourceLocation } from "./inkeep-sources";
+
+export { RATE_LIMIT_IDS };
 
 const INKEEP_AI_API_BASE_URL = "https://api.inkeep.com";
 const INKEEP_ANALYTICS_API_BASE_URL = "https://api.io.inkeep.com";
@@ -27,13 +34,6 @@ const ENDPOINTS = {
     upstreamUrl: `${INKEEP_AI_API_BASE_URL}/graphql`,
   },
 } as const;
-
-const RATE_LIMIT_IDS: Record<InkeepEndpoint, string> = {
-  analytics: "inkeep-analytics",
-  chat: "inkeep-chat",
-  challenge: "inkeep-chat",
-  search: "inkeep-search",
-};
 
 const SEARCH_QUERY = `query GetSearchResults($searchInput: SearchInput!) {
   search(searchInput: $searchInput) {
@@ -100,11 +100,12 @@ const SEARCH_QUERY = `query GetSearchResults($searchInput: SearchInput!) {
 
 type InkeepEndpoint = keyof typeof ENDPOINTS | "analytics";
 
-type ProxyOptions =
+type ProxyOptions = (
   | { endpoint: "chat" }
   | { endpoint: "challenge" }
   | { endpoint: "search" }
-  | { endpoint: "analytics"; path: string[] };
+  | { endpoint: "analytics"; path: string[] }
+) & { siteWide?: boolean };
 
 export async function proxyInkeepRequest(
   request: Request,
@@ -117,7 +118,7 @@ export async function proxyInkeepRequest(
 
   try {
     const apiKey = process.env.INKEEP_API_KEY?.trim();
-    if (!apiKey) {
+    if (!apiKey && !(endpoint === "search" && options.siteWide)) {
       status = 503;
       failureClass = "missing_configuration";
       return errorResponse(
@@ -165,6 +166,35 @@ export async function proxyInkeepRequest(
       return preparedRequest.response;
     }
 
+    const searchInput =
+      endpoint === "search" && options.siteWide
+        ? JSON.parse(preparedRequest.body!).variables.searchInput
+        : null;
+    const locale =
+      getSourceLocation(request.headers.get("referer") ?? "")?.locale ?? "en";
+    const searchResponse = (payload: unknown) =>
+      searchInput
+        ? buildSiteSearchResponse(
+            payload,
+            searchInput.searchQuery,
+            locale,
+            searchInput.filters?.limit,
+          )
+        : null;
+
+    if (!apiKey) {
+      failureClass = "missing_configuration";
+      const fallback = searchResponse(null);
+      status = fallback ? 200 : 503;
+      return fallback
+        ? Response.json(fallback, { headers: NO_STORE_HEADERS })
+        : errorResponse(
+            status,
+            "inkeep_not_configured",
+            "Search and chat are temporarily unavailable.",
+          );
+    }
+
     const abort = createUpstreamAbortSignal(request.signal);
     const siteOrigin = new URL(request.url).origin;
     const challengeSolution = request.headers.get(
@@ -198,7 +228,24 @@ export async function proxyInkeepRequest(
         failureClass = classifyUpstreamFailure(upstreamResponse.status);
         abort.cleanup();
         await upstreamResponse.body?.cancel().catch(() => undefined);
+        const fallback = searchResponse(null);
+        if (fallback) {
+          status = 200;
+          return Response.json(fallback, { headers: NO_STORE_HEADERS });
+        }
         return mapUpstreamError(upstreamResponse.status);
+      }
+
+      if (endpoint === "search" && options.siteWide) {
+        const payload = await upstreamResponse.json();
+        const result = searchResponse(payload);
+        abort.cleanup();
+        if (!result) {
+          status = 502;
+          failureClass = "invalid_upstream_response";
+          return mapUpstreamError(502);
+        }
+        return Response.json(result, { headers: NO_STORE_HEADERS });
       }
 
       abort.headersReceived();
@@ -208,6 +255,12 @@ export async function proxyInkeepRequest(
       abort.cleanup();
 
       if (abort.timedOut()) {
+        const fallback = !request.signal.aborted && searchResponse(null);
+        if (fallback) {
+          status = 200;
+          failureClass = "timeout";
+          return Response.json(fallback, { headers: NO_STORE_HEADERS });
+        }
         status = 504;
         failureClass = "timeout";
         return errorResponse(
@@ -221,6 +274,16 @@ export async function proxyInkeepRequest(
         status = 499;
         failureClass = "client_abort";
         return new Response(null, { status });
+      }
+
+      const fallback = searchResponse(null);
+      if (fallback) {
+        status = 200;
+        failureClass =
+          error instanceof SyntaxError
+            ? "invalid_upstream_response"
+            : "network";
+        return Response.json(fallback, { headers: NO_STORE_HEADERS });
       }
 
       status = 502;
@@ -269,7 +332,7 @@ async function prepareUpstreamRequest(
     if (!isValidChallengeSolution(request)) {
       return invalidRequest("The chat challenge solution is invalid.");
     }
-    const body = validateChatBody(parsedBody.value);
+    const body = validateChatBody(parsedBody.value, options.siteWide);
     return body
       ? {
           ok: true,
@@ -290,7 +353,8 @@ async function prepareUpstreamRequest(
   }
 
   const upstreamUrl = getAnalyticsUrl(options.path);
-  return upstreamUrl && isRecord(parsedBody.value)
+  return upstreamUrl &&
+    isValidAnalyticsBody(options.path.join("/"), parsedBody.value)
     ? {
         ok: true,
         url: upstreamUrl,
@@ -360,7 +424,10 @@ async function readJsonBody(
   }
 }
 
-function validateChatBody(value: unknown): Record<string, unknown> | null {
+function validateChatBody(
+  value: unknown,
+  siteWide = false,
+): Record<string, unknown> | null {
   if (!isRecord(value) || !Array.isArray(value.messages)) return null;
   if (value.messages.length < 1 || value.messages.length > MAX_MESSAGES) {
     return null;
@@ -386,10 +453,53 @@ function validateChatBody(value: unknown): Record<string, unknown> | null {
 
   if (totalContentLength > MAX_TOTAL_MESSAGE_CONTENT_LENGTH) return null;
 
-  return {
-    ...value,
-    model: "inkeep-qa-expert",
+  return pickChatFields(value, siteWide);
+}
+
+const MAX_CHAT_MAX_TOKENS = 4_096;
+
+/**
+ * Only the fields the widget legitimately sends reach Inkeep. Unknown keys are
+ * dropped rather than rejected so a widget upgrade degrades gracefully, and
+ * the model and token budget are always set server-side.
+ */
+function pickChatFields(value: Record<string, unknown>, siteWide: boolean) {
+  const body: Record<string, unknown> = {
+    messages: siteWide
+      ? [
+          { role: "system", content: getSiteChatPrompt() },
+          ...(value.messages as Record<string, unknown>[]).filter(
+            (message) => message.role !== "system",
+          ),
+        ]
+      : value.messages,
+    model: siteWide ? "inkeep-context-gpt-5.4-mini" : "inkeep-qa-expert",
   };
+  if (typeof value.stream === "boolean") body.stream = value.stream;
+  if (Array.isArray(value.tools)) body.tools = value.tools;
+  if (value.tool_choice !== undefined) body.tool_choice = value.tool_choice;
+  if (isRecord(value.response_format)) {
+    body.response_format = value.response_format;
+  }
+  if (isRecord(value.metadata)) body.metadata = value.metadata;
+  if (typeof value.temperature === "number" && value.temperature >= 0) {
+    body.temperature = Math.min(value.temperature, 2);
+  }
+  if (typeof value.top_p === "number" && value.top_p > 0) {
+    body.top_p = Math.min(value.top_p, 1);
+  }
+  // The budget is always set here; callers may only lower it.
+  body.max_tokens = MAX_CHAT_MAX_TOKENS;
+  if (typeof value.max_tokens === "number" && value.max_tokens > 0) {
+    body.max_tokens = Math.min(
+      Math.floor(value.max_tokens),
+      MAX_CHAT_MAX_TOKENS,
+    );
+  }
+  if (typeof value.user === "string" && value.user.length <= 200) {
+    body.user = value.user;
+  }
+  return body;
 }
 
 function getStringContentLength(value: unknown): number | null {
@@ -445,6 +555,38 @@ function buildSearchBody(value: unknown): Record<string, unknown> {
     query: SEARCH_QUERY,
     variables: { searchInput },
   };
+}
+
+const MAX_ANALYTICS_STRING_LENGTH = 2_000;
+
+/**
+ * The analytics API is written with the server key, so the proxy only
+ * forwards the shapes the widget produces: a conversation with messages, an
+ * event with a type, or feedback on a message. Anything else is rejected.
+ */
+function isValidAnalyticsBody(path: string, value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  const shortString = (v: unknown) =>
+    typeof v === "string" && v.length <= MAX_ANALYTICS_STRING_LENGTH;
+  if (path === "conversations") {
+    return (
+      Array.isArray(value.messages) &&
+      value.messages.length > 0 &&
+      value.messages.length <= MAX_MESSAGES &&
+      value.messages.every(
+        (m) =>
+          isRecord(m) &&
+          shortString(m.role) &&
+          (getStringContentLength(m.content) ?? Infinity) <=
+            MAX_MESSAGE_CONTENT_LENGTH,
+      )
+    );
+  }
+  if (path === "events") return shortString(value.type);
+  if (path === "feedback") {
+    return shortString(value.type) && shortString(value.messageId);
+  }
+  return false;
 }
 
 function getAnalyticsUrl(path: string[]): string | null {
@@ -580,7 +722,7 @@ function errorResponse(
   );
 }
 
-function isSameOriginBrowserRequest(
+export function isSameOriginBrowserRequest(
   request: Request,
   options: { allowRefererFallback: boolean },
 ): boolean {
@@ -600,14 +742,10 @@ function isSameOriginBrowserRequest(
   }
 }
 
+// Only Vercel-set headers; see ./client-ip for why cf-connecting-ip and
+// true-client-ip must never be used as a rate-limit key.
 function getClientIp(headers: Headers): string {
-  const direct =
-    headers.get("cf-connecting-ip") ??
-    headers.get("true-client-ip") ??
-    headers.get("x-real-ip");
-  if (direct?.trim()) return direct.trim();
-
-  return headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  return clientIpFromHeaders(headers);
 }
 
 async function checkDistributedRateLimit(

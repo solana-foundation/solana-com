@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import stablecardLogoWhite from "../../../assets/companies/stablecard/logo-white.svg";
 import stablecardLogoColorDark from "../../../assets/companies/stablecard/logo-color-dark.svg";
 import stablecardLogoDark from "../../../assets/companies/stablecard/logo-dark.svg";
 
@@ -25,6 +26,18 @@ export const stablecard = {
   defaultLogoId: "logo-color-dark",
   logos: [
     {
+      id: "breakpoint-2026-white",
+      fileName: "logo-white.svg",
+      format: "svg",
+      source: stablecardLogoWhite,
+      theme: "dark",
+      kind: "logo",
+      background: "transparent",
+      treatment: "monotone",
+      width: 1863,
+      height: 560,
+    },
+    {
       id: "logo-color-dark",
       fileName: "logo-color-dark.svg",
       format: "svg",
@@ -39,7 +52,7 @@ export const stablecard = {
       source: stablecardLogoDark,
       theme: "light",
       kind: "logo",
-      background: "light",
+      background: "transparent",
     },
   ],
 } satisfies CompanyRecord;

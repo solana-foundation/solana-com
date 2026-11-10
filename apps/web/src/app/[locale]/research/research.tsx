@@ -11,12 +11,23 @@ import {
   PERFORMANCE_CARD_DECK,
   VALIDATOR_CARD_DECK,
 } from "@/data/research";
-import { RESEARCH_METRICS, RESEARCH_SOURCES } from "@/data/research-evidence";
+import {
+  RESEARCH_METRICS,
+  RESEARCH_SOURCES,
+  type RESEARCH_METRIC_KEYS,
+} from "@/data/research-evidence";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import { getMetricDefinition } from "@/lib/metrics/registry";
+import type { DisplayMetric } from "@/lib/metrics/present";
+
+type ResearchMetrics = Record<
+  (typeof RESEARCH_METRIC_KEYS)[number],
+  DisplayMetric
+>;
 
 type EvidenceText = {
   eyebrow: string;
   latestAnalysis: string;
-  source: string;
   readReport: string;
   liveDashboard: string;
   relatedReading: string;
@@ -48,6 +59,7 @@ interface ResearchPageProps {
     conversionPanelButtons: unknown;
     evidence: EvidenceText;
   };
+  metrics: ResearchMetrics;
 }
 
 type ResearchCard = {
@@ -152,7 +164,14 @@ function plainText(body: string) {
   return body.replace(/<\/?p>/g, "");
 }
 
-export function ResearchPage({ translations: t }: ResearchPageProps) {
+/** Splits "200ms" into its number and unit so the unit can be styled. */
+function splitValue(value: string) {
+  const match = /^([^a-zA-Z]*?)\s*([a-zA-Z]+)$/.exec(value);
+  return match ? { number: match[1], unit: match[2] } : { number: value };
+}
+
+export function ResearchPage({ translations: t, metrics }: ResearchPageProps) {
+  const slotTarget = splitValue(metrics["network.slot-time"].value);
   const nav = HERO_SWITCHBACK.buttons.map(({ id, url }) => ({
     id,
     href: url,
@@ -164,7 +183,7 @@ export function ResearchPage({ translations: t }: ResearchPageProps) {
       id: "validator",
       title: t.validatorHeadline,
       body: t.validatorBody,
-      report: RESEARCH_SOURCES.networkHealth,
+      report: RESEARCH_SOURCES.validatorData,
       metrics: RESEARCH_METRICS.validator,
       cards: translatedCards(
         VALIDATOR_CARD_DECK.cards.filter((card) => card.id !== "blockZero"),
@@ -267,10 +286,12 @@ export function ResearchPage({ translations: t }: ResearchPageProps) {
             </div>
             <div className="relative mt-20 border-b border-white/15 pb-9">
               <span className="block text-[clamp(5rem,10vw,9rem)] font-medium leading-none tracking-[-0.09em] text-white">
-                250
-                <span className="ml-2 text-[0.3em] tracking-tight text-nd-highlight-lavendar">
-                  ms
-                </span>
+                {slotTarget.number}
+                {slotTarget.unit && (
+                  <span className="ml-2 text-[0.3em] tracking-tight text-nd-highlight-lavendar">
+                    {slotTarget.unit}
+                  </span>
+                )}
               </span>
               <span className="mt-3 block text-base text-nd-mid-em-text">
                 {t.evidence.metrics.slotTarget}
@@ -334,33 +355,33 @@ export function ResearchPage({ translations: t }: ResearchPageProps) {
               </div>
               <div className="self-end">
                 <div className="grid gap-px overflow-hidden rounded-2xl border border-nd-border-light bg-nd-border-light sm:grid-cols-2">
-                  {section.metrics.map((metric) => {
-                    const source = RESEARCH_SOURCES[metric.source];
-                    return (
-                      <div
-                        key={metric.label}
-                        className="flex min-h-48 flex-col bg-[#111115] p-6 md:p-8"
-                      >
-                        <span className="text-[clamp(2.5rem,4vw,4.5rem)] font-medium leading-none tracking-[-0.07em] text-white">
-                          {metric.value}
-                        </span>
-                        <span className="mt-3 max-w-xs text-sm leading-snug text-nd-mid-em-text">
-                          {t.evidence.metrics[metric.label]}
-                        </span>
-                        <div className="mt-auto pt-7">
-                          <SourceLink
-                            href={source.href}
-                            label={`${t.evidence.source} · ${source.date}`}
-                            source={source.title}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {section.metrics.map((metric) => (
+                    <div
+                      key={metric.label}
+                      className="flex min-h-48 flex-col bg-[#111115] p-6 md:p-8"
+                    >
+                      <span className="text-[clamp(2.5rem,4vw,4.5rem)] font-medium leading-none tracking-[-0.07em] text-white">
+                        {metrics[metric.key].value}
+                      </span>
+                      <span className="mt-3 max-w-xs text-sm leading-snug text-nd-mid-em-text">
+                        {t.evidence.metrics[metric.label]}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-                <p className="mb-0 mt-4 text-xs text-nd-mid-em-text/70">
-                  {t.evidence.snapshotNote}
-                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-nd-mid-em-text">
+                  <MetricSourcesFootnote
+                    items={section.metrics.map((metric) => ({
+                      label: t.evidence.metrics[metric.label],
+                      source: metrics[metric.key].source,
+                    }))}
+                  />
+                  {section.metrics.every(
+                    (metric) => !getMetricDefinition(metric.key).live,
+                  ) && (
+                    <p className="m-0 opacity-70">{t.evidence.snapshotNote}</p>
+                  )}
+                </div>
               </div>
             </div>
             <details className="group/archive mt-14 border-t border-nd-border-light pt-7 md:mt-20">

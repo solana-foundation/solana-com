@@ -62,6 +62,25 @@ pnpm db:reset  # remove all local nominations and recreate the schema
 pnpm prisma:migrate # create a new migration after editing schema.prisma
 ```
 
+## Who are you here for map
+
+The `/here-for` map shares this database, schema, and migration history. Its
+tables use a `here_for_` prefix next to the `awards_` tables, and
+`here_for_people.claimedById` points at `awards_users`, so the X sign-in reuses
+the awards ballot. Do not point it at a separate database.
+
+To fill the local map with synthetic people after `pnpm db:up`, run from
+`apps/breakpoint`:
+
+```bash
+pnpm here-for:seed            # ~6,000 people and 15,000 adds, then a layout
+pnpm here-for:seed --reset    # replace the seeded map and its seed-* users
+pnpm here-for:layout          # recompute the layout snapshot only
+```
+
+The seed writes to whatever `POSTGRES_URL` points at. Only run it against the
+local container.
+
 For deployed environments, set `POSTGRES_URL` to the managed Postgres connection
 string. Production Vercel builds run `pnpm prisma:deploy` before `next build`
 and fail before deployment if the connection string is absent. Preview builds do
@@ -95,6 +114,20 @@ rewrite. Check the pre-open boundary, one successful vote and refresh, duplicate
 vote rejection, and the closed boundary. Confirm both desktop and mobile views.
 
 ## Production safeguards
+
+Mutuals X sign-ins use `here_for_x_sessions` for server-enforced 30-day expiry
+and logout revocation. Deploy the `20261026000000_here_for` migration before
+serving the updated app; the production build's `prisma:deploy` step does this
+automatically. Existing cookies from before this change require a fresh X
+sign-in. OAuth request cookies expire after ten minutes. Expired session records
+are removed when a new session is created. Fresh X sign-in binds each handle to
+its stable X user ID. Profile writes check that binding inside the transaction;
+the awards ballot remains the browser association.
+
+The unreleased Mutuals tables, sessions, and ownership binding share one
+migration. If a disposable local or preview database already applied an earlier
+version of these migrations, recreate that database before applying the
+consolidated history. Do not reset the production Awards database.
 
 The nominations route requires these sensitive Vercel environment variables in
 Production and Preview:

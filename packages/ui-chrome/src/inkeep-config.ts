@@ -8,7 +8,7 @@ import type {
 } from "@inkeep/cxkit-react";
 import LongArrowUp from "./assets/long-arrow-up.svg";
 
-const baseSettings: InkeepBaseSettings = {
+export const baseSettings: InkeepBaseSettings = {
   // CXKit requires a non-empty client identifier even when its API traffic is
   // routed through our server. This is not a credential.
   apiKey: "solana-com-internal-proxy",

@@ -26,6 +26,40 @@ describe("awards voting", () => {
       </NextIntlClientProvider>,
     );
 
+  it("renders the closed view immediately without loading a ballot", () => {
+    const fetch = vi.spyOn(globalThis, "fetch");
+    render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <AwardsVoting finalists={approvedFinalists} initialStatus="closed" />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getByRole("heading", { name: "Thank you for taking part" }),
+    ).toBeInTheDocument();
+    const closed = screen.getByRole("button", { name: "Voting is now closed" });
+    expect(closed).toBeDisabled();
+    expect(closed).toHaveAttribute("tabindex", "-1");
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit vote" })).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("replaces an older open ballot when the server reports closure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ votes: [], votingStatus: "closed" }),
+    } as Response);
+    renderBallot();
+    expect(
+      await screen.findByRole("heading", { name: "Thank you for taking part" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Voting is now closed" }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit vote" })).toBeNull();
+  });
+
   it("allows finalist selection when the vote session cannot load", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false } as Response);
 
@@ -90,6 +124,7 @@ describe("awards voting", () => {
   });
 
   it("restores the persisted vote after a duplicate submission", async () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
     const savedVote = {
       category: awardCategories[0]!.id,
       twitterHandle: "@grizzle_art",
@@ -119,5 +154,15 @@ describe("awards voting", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit vote" })).toBeNull();
     expect(fetch).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "Share vote" }));
+    const shareUrl = new URL(open.mock.calls[0]![0] as string);
+    expect(shareUrl.origin + shareUrl.pathname).toBe(
+      "https://x.com/intent/tweet",
+    );
+    expect(shareUrl.searchParams.get("text")).toBe(
+      `I voted for Grizz (@grizzle_art) in the ${messages.breakpoint.awards.categories[awardCategories[0]!.id].name} at @SolanaEvents. 🏆`,
+    );
+    expect(shareUrl.searchParams.get("url")).toBe(window.location.href);
   });
 });

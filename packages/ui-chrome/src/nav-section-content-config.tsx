@@ -402,12 +402,6 @@ export const productToolItems: NavItemDefinition[] = [
     icon: MoneyIcon,
   },
   {
-    id: "products-commerce-kit",
-    titleKey: "nav.products.tools.items.commerceKit.title",
-    href: "/docs/tools/commerce-kit",
-    icon: StoreIcon,
-  },
-  {
     id: "products-kora",
     titleKey: "nav.products.tools.items.kora.title",
     href: "/docs/tools/kora",
@@ -525,6 +519,14 @@ export const ecosystemCommunityItems: NavItemDefinition[] = [
     href: "/podcasts",
     icon: ApiConnectionCommunityIcon,
     partiallyActive: true,
+  },
+  {
+    id: "ecosystem-superteam",
+    titleKey: "community.superteam.title",
+    descriptionKey: "community.superteam.description",
+    href: "https://superteam.fun/",
+    icon: GlobusIcon,
+    external: true,
   },
 ];
 

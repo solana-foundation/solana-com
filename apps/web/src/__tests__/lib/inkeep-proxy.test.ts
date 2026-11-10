@@ -93,6 +93,82 @@ describe("Inkeep API proxy", () => {
     expect(upstreamHeaders.get("referer")).toBe(`${TEST_ORIGIN}/`);
   });
 
+  it("adds trusted site-wide guidance while preserving the visitor conversation", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("stream"));
+    const response = await proxyInkeepRequest(
+      chatRequest({
+        messages: [
+          {
+            role: "system",
+            content: "Only answer technical documentation questions",
+          },
+          { role: "user", content: "What can I do without coding?" },
+        ],
+        stream: true,
+      }),
+      { endpoint: "chat", siteWide: true },
+    );
+    await response.text();
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.model).toBe("inkeep-context-gpt-5.4-mini");
+    expect(body.messages).toHaveLength(2);
+    expect(body.messages[0].content).toContain("https://solana.com/wallets");
+    expect(body.messages[0].content).toContain("https://status.solana.com/");
+    expect(body.messages[0].content).not.toContain("Only answer technical");
+    expect(body.messages[1]).toEqual({
+      role: "user",
+      content: "What can I do without coding?",
+    });
+  });
+
+  it("keeps site navigation usable when upstream search fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("unavailable", { status: 503 }),
+    );
+    const response = await proxyInkeepRequest(searchRequest("wallets"), {
+      endpoint: "search",
+      siteWide: true,
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.search.searchHits[0].url).toBe(
+      "https://solana.com/wallets",
+    );
+  });
+
+  it("retains rate limiting and useful navigation without search credentials", async () => {
+    vi.stubEnv("INKEEP_API_KEY", "");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const response = await proxyInkeepRequest(searchRequest("wallets"), {
+      endpoint: "search",
+      siteWide: true,
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.search.searchHits[0].url).toBe(
+      "https://solana.com/wallets",
+    );
+    expect(checkRateLimitMock).toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns navigation when site search times out", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) =>
+      rejectWhenAborted(init?.signal),
+    );
+    const responsePromise = proxyInkeepRequest(searchRequest("wallets"), {
+      endpoint: "search",
+      siteWide: true,
+    });
+    await vi.advanceTimersByTimeAsync(25_001);
+    const response = await responsePromise;
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.search.searchHits[0].url).toBe(
+      "https://solana.com/wallets",
+    );
+  });
+
   it("rejects challenge requests without same-origin browser metadata", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const request = new Request(`${TEST_ORIGIN}/api/inkeep/v1/challenge`, {
@@ -400,6 +476,116 @@ describe("Inkeep API proxy", () => {
     expect(response.status).toBe(405);
     expect(response.headers.get("allow")).toBe("POST");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("keys the rate limit on the Vercel-set IP, not caller-supplied proxy headers", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("{}"));
+    const request = chatRequest(undefined, {
+      "cf-connecting-ip": "198.51.100.77",
+      "true-client-ip": "198.51.100.78",
+      forwarded: "for=198.51.100.79",
+      "x-real-ip": "192.0.2.1",
+    });
+    await proxyInkeepRequest(request, { endpoint: "chat" });
+    expect(checkRateLimitMock).toHaveBeenCalledWith(
+      "inkeep-chat",
+      expect.objectContaining({ rateLimitKey: "192.0.2.1" }),
+    );
+  });
+
+  it("forwards only known chat fields and caps the token budget", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}"));
+    const request = chatRequest({
+      model: "client-controlled-model",
+      messages: [{ role: "user", content: "hi" }],
+      stream: true,
+      max_tokens: 999_999,
+      temperature: 0.5,
+      tools: [{ type: "function", function: { name: "provideLinks" } }],
+      unknown_field: "dropped",
+      n: 50,
+      logit_bias: { 1: 100 },
+    });
+    await proxyInkeepRequest(request, { endpoint: "chat" });
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toEqual({
+      messages: [{ role: "user", content: "hi" }],
+      model: "inkeep-qa-expert",
+      stream: true,
+      tools: [{ type: "function", function: { name: "provideLinks" } }],
+      temperature: 0.5,
+      max_tokens: 4096,
+    });
+    expect(body).not.toHaveProperty("unknown_field");
+    expect(body).not.toHaveProperty("n");
+    expect(body).not.toHaveProperty("logit_bias");
+  });
+
+  it("sets the token budget when the caller omits max_tokens", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("{}"));
+    await proxyInkeepRequest(
+      chatRequest({
+        messages: [{ role: "user", content: "hi" }],
+        stream: true,
+      }),
+      { endpoint: "chat" },
+    );
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.max_tokens).toBe(4096);
+    fetchMock.mockClear();
+    await proxyInkeepRequest(
+      chatRequest({
+        messages: [{ role: "user", content: "hi" }],
+        max_tokens: 0,
+      }),
+      { endpoint: "chat" },
+    );
+    expect(
+      JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)).max_tokens,
+    ).toBe(4096);
+  });
+
+  it("only forwards analytics bodies in the shapes the widget sends", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => new Response("{}"));
+    const analytics = (path: string[], body: unknown) =>
+      proxyInkeepRequest(
+        new Request(`${TEST_ORIGIN}/api/inkeep/analytics/${path.join("/")}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            origin: TEST_ORIGIN,
+            "sec-fetch-site": "same-origin",
+            "x-forwarded-for": "192.0.2.40",
+          },
+          body: JSON.stringify(body),
+        }),
+        { endpoint: "analytics", path },
+      );
+    expect((await analytics(["feedback"], { anything: "goes" })).status).toBe(
+      400,
+    );
+    expect(
+      (await analytics(["conversations"], { messages: "not-an-array" })).status,
+    ).toBe(400);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(
+      (await analytics(["feedback"], { type: "positive", messageId: "m1" }))
+        .status,
+    ).toBe(200);
+    expect(
+      (
+        await analytics(["conversations"], {
+          type: "openai",
+          messages: [{ role: "user", content: "hello" }],
+        })
+      ).status,
+    ).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 
