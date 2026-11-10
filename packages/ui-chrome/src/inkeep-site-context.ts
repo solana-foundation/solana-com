@@ -143,6 +143,7 @@ export function findSitePages(query: string) {
       terms.length === 1 &&
       titleTerms.length > 1 &&
       path.length > 1 &&
+      path[path.length - 1] !== terms[0] &&
       !keywords.includes(terms[0]!)
     )
       return { page, score: 0 };

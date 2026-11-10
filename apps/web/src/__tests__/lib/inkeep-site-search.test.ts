@@ -14,6 +14,7 @@ describe("site-wide search", () => {
     ["official logos", "https://solana.com/branding"],
     ["Superteam", "https://superteam.fun/"],
     ["Agent Registry", "https://solana.com/agent-registry"],
+    ["SDP", "https://solana.com/solutions/sdp"],
     ["events", "https://solana.com/events"],
   ])("finds the maintained destination for %s", (query, url) => {
     expect(findSitePages(query)[0]?.url).toBe(url);
