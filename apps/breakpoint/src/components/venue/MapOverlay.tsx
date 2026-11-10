@@ -2,7 +2,7 @@
 
 import type { KeyboardEvent } from "react";
 import { publicAssetPath } from "@/config";
-import { AMENITY_ICONS, AMENITY_PAIR_ICONS } from "@/content/venue/map-data";
+import { AMENITY_ICONS } from "@/content/venue/map-data";
 import type {
   AmenityType,
   MapAmenity,
@@ -135,9 +135,8 @@ export default function MapOverlay({
           id: amenity.id,
         });
         const label = amenity.label ?? amenityLabels[amenity.type];
-        const pair = AMENITY_PAIR_ICONS[amenity.type];
         const select = () => onSelect({ kind: "amenity", id: amenity.id });
-        const x = amenity.position.x - (pair ? iconSize : iconSize / 2);
+        const x = amenity.position.x - iconSize / 2;
         const y = amenity.position.y - iconSize / 2;
 
         return (
@@ -157,7 +156,7 @@ export default function MapOverlay({
                 cx={amenity.position.x}
                 cy={amenity.position.y}
                 fill="none"
-                r={(pair ? iconSize : iconSize / 2) + 4 * u}
+                r={iconSize / 2 + 4 * u}
                 stroke={accent}
                 strokeWidth={1.5 * u}
                 style={{ transformBox: "fill-box", transformOrigin: "center" }}
@@ -170,21 +169,12 @@ export default function MapOverlay({
               x={x}
               y={y}
             />
-            {pair && (
-              <image
-                height={iconSize}
-                href={publicAssetPath(pair)}
-                width={iconSize}
-                x={x + iconSize}
-                y={y}
-              />
-            )}
             <circle
               className={focusRingClass}
               cx={amenity.position.x}
               cy={amenity.position.y}
               fill="none"
-              r={(pair ? iconSize : iconSize / 2) + focusRingGap}
+              r={iconSize / 2 + focusRingGap}
               stroke="#fff"
               strokeWidth={focusRingWidth}
             />

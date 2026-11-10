@@ -69,7 +69,7 @@ export const ZONES: MapZone[] = [
     number: 4,
     name: "The Private Key",
     description: "Invite-only lounge in the south-east corner.",
-    marker: { x: 905, y: 345 },
+    marker: { x: 905, y: 318 },
     target: { x: 836, y: 360 },
   },
   {
@@ -87,7 +87,7 @@ export const ZONES: MapZone[] = [
     floor: "first",
     number: 6,
     name: "Latent Space",
-    description: "Walkway and lounge between The Borough Block and The Kernel.",
+    description: "Welcome to the AI Zone.",
     marker: { x: 290, y: 30 },
     target: { x: 319, y: 67 },
   },
@@ -116,7 +116,7 @@ export const ZONES: MapZone[] = [
     floor: "first",
     number: 9,
     name: "Processing Unit",
-    description: "Activations along the east wall.",
+    description: "Media Zone / Interview Lounge.",
     marker: { x: 930, y: 110 },
     target: { x: 850, y: 167 },
   },
@@ -129,7 +129,7 @@ export const ZONES: MapZone[] = [
     items: ["Sponsor kiosks and booths", "Ecosystem activations"],
     marker: { x: 300, y: 200 },
     target: { x: 206, y: 147 },
-    amenities: ["lost-found", "cloak-room", "lockers"],
+    amenities: ["food", "drinks"],
   },
   {
     id: "market-square",
@@ -154,9 +154,9 @@ export const ZONES: MapZone[] = [
     id: "icsm-store",
     floor: "first",
     number: 13,
-    name: "ICSM Store",
+    name: "Merch",
     description: "Merch store next to The Borough Block.",
-    marker: { x: 164, y: 282 },
+    marker: { x: 227, y: 237 },
     amenities: ["merch"],
   },
 ];
@@ -210,9 +210,9 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-lost-found",
     floor: "ground",
     type: "lost-found",
-    position: { x: 805, y: 206 },
+    position: { x: 842, y: 221 },
   },
-  { id: "g-exit", floor: "ground", type: "exit", position: { x: 760, y: 232 } },
+  { id: "g-exit", floor: "ground", type: "exit", position: { x: 805, y: 206 } },
   {
     id: "g-info-west",
     floor: "ground",
@@ -223,7 +223,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-info-east",
     floor: "ground",
     type: "info",
-    position: { x: 691, y: 238 },
+    position: { x: 691, y: 232 },
   },
   {
     id: "g-stairs-north",
@@ -247,19 +247,19 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-prayer-room",
     floor: "ground",
     type: "prayer-room",
-    position: { x: 382, y: 436 },
+    position: { x: 384, y: 444 },
   },
   {
     id: "g-restroom-south",
     floor: "ground",
     type: "restroom",
-    position: { x: 408, y: 467 },
+    position: { x: 426, y: 472 },
   },
   {
     id: "g-nursing-room",
     floor: "ground",
     type: "nursing-room",
-    position: { x: 382, y: 497 },
+    position: { x: 407, y: 444 },
   },
   // First floor
   {
@@ -272,7 +272,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "f-restroom-north",
     floor: "first",
     type: "restroom",
-    position: { x: 522, y: 12 },
+    position: { x: 534, y: 12 },
   },
   {
     id: "f-lockers",
@@ -281,10 +281,10 @@ export const AMENITIES: MapAmenity[] = [
     position: { x: 612, y: 12 },
   },
   {
-    id: "f-restroom-south",
+    id: "f-restroom-east",
     floor: "first",
     type: "restroom",
-    position: { x: 620, y: 307 },
+    position: { x: 940, y: 232 },
   },
 ];
 
@@ -314,7 +314,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "spi",
     logo: "/img/venue/logos/solana-policy-institute.svg",
     logoAspect: 1015 / 269,
-    position: { x: 435, y: 164 },
+    position: { x: 435, y: 154 },
   },
   {
     id: "solflare",
@@ -323,7 +323,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "solflare",
     logo: "/img/venue/logos/solflare.svg",
     logoAspect: 1049 / 250,
-    position: { x: 553, y: 178 },
+    position: { x: 598, y: 228 },
   },
   {
     id: "bloomberg-media",
@@ -332,7 +332,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "bloomberg-media",
     logo: "/img/venue/logos/bloomberg-media.svg",
     logoAspect: 1028 / 394,
-    position: { x: 412, y: 251 },
+    position: { x: 412, y: 240 },
   },
   {
     id: "phantom",
@@ -341,7 +341,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "phantom",
     logo: "/img/venue/logos/phantom.svg",
     logoAspect: 1274 / 251,
-    position: { x: 440, y: 343 },
+    position: { x: 447, y: 313 },
   },
   {
     id: "seeker",
@@ -350,7 +350,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "seeker",
     logo: "",
     logoAspect: 3,
-    position: { x: 523, y: 351 },
+    position: { x: 529, y: 336 },
   },
   {
     id: "sunrise",
@@ -368,7 +368,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "kast",
     logo: "/img/venue/logos/kast.svg",
     logoAspect: 1047 / 220,
-    position: { x: 820, y: 448 },
+    position: { x: 835, y: 474 },
   },
   {
     id: "zelle",
@@ -377,7 +377,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "zelle",
     logo: "/img/venue/logos/zelle.svg",
     logoAspect: 1475 / 603,
-    position: { x: 110, y: 330 },
+    position: { x: 235, y: 235 },
     zoneId: "main-stage",
   },
   {
@@ -387,7 +387,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "kraken",
     logo: "/img/venue/logos/kraken.svg",
     logoAspect: 2014 / 479,
-    position: { x: 110, y: 365 },
+    position: { x: 235, y: 270 },
     zoneId: "main-stage",
   },
 ];
@@ -403,17 +403,12 @@ export const AMENITY_ICONS: Record<AmenityType, string> = {
   lockers: "/img/venue/icons/lockers.svg",
   "lost-found": "/img/venue/icons/lost-found.svg",
   market: "/img/venue/icons/market.svg",
-  merch: "/img/venue/icons/merch.svg",
+  merch: "/img/venue/icons/market.svg",
   "nursing-room": "/img/venue/icons/nursing-room.svg",
   "prayer-room": "/img/venue/icons/prayer-room.svg",
   restroom: "/img/venue/icons/restroom-women.svg",
   smoking: "/img/venue/icons/smoking.svg",
   stairs: "/img/venue/icons/stairs.svg",
-};
-
-/** Second icon for types drawn as a pair, e.g. the two restroom figures. */
-export const AMENITY_PAIR_ICONS: Partial<Record<AmenityType, string>> = {
-  restroom: "/img/venue/icons/restroom-men.svg",
 };
 
 export const VENUE_MAP: VenueMapData = {
