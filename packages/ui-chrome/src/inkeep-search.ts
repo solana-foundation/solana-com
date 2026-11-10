@@ -31,8 +31,16 @@ export function buildSiteSearchResponse(
   const ordered = [...upstreamHits].sort(
     (a, b) => languageScore(b) - languageScore(a),
   );
+  const preferredDestinations = destinations.map((destination) => {
+    if (languageScore(destination)) return destination;
+    const key = hitKey(destination);
+    return (
+      ordered.find((hit) => languageScore(hit) && hitKey(hit) === key) ??
+      destination
+    );
+  });
   const seen = new Set<string>();
-  const hits = [...destinations, ...ordered]
+  const hits = [...preferredDestinations, ...ordered]
     .filter((hit) => {
       const location = getSourceLocation(hitUrl(hit) ?? "");
       if (!location || !["https:", "http:"].includes(location.url.protocol))
@@ -43,9 +51,7 @@ export function buildSiteSearchResponse(
       if (isSite && /^\/(llms[^/]*\.txt|SKILL\.md)$/.test(location.pathname))
         return false;
       // Keep distinct heading links, but consolidate locale variants and repeated chunks.
-      const key = isSite
-        ? `solana.com${location.pathname}${location.url.hash}`
-        : `${location.url.origin}${location.url.pathname}${location.url.hash}`;
+      const key = hitKey(hit)!;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -62,4 +68,12 @@ function hitUrl(hit: Record<string, unknown>): string | null {
   return isRecord(hit.rootRecord) && typeof hit.rootRecord.url === "string"
     ? hit.rootRecord.url
     : null;
+}
+
+function hitKey(hit: Record<string, unknown>): string | null {
+  const location = getSourceLocation(hitUrl(hit) ?? "");
+  if (!location) return null;
+  return ["solana.com", "www.solana.com"].includes(location.url.hostname)
+    ? `solana.com${location.pathname}${location.url.hash}`
+    : `${location.url.origin}${location.url.pathname}${location.url.hash}`;
 }

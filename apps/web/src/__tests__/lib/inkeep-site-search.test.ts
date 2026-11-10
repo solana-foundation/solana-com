@@ -62,6 +62,58 @@ describe("site-wide search", () => {
     expect(buildSiteSearchResponse(null, "Quantum Banana SDK")).toBeNull();
   });
 
+  it("prefers a translated destination before removing the English variant", () => {
+    const response = buildSiteSearchResponse(
+      {
+        data: {
+          search: {
+            searchHits: [
+              {
+                id: "english",
+                url: "https://solana.com/wallets",
+                title: "Wallets",
+              },
+              {
+                id: "german",
+                url: "https://solana.com/de/wallets",
+                title: "Wallets auf Solana",
+              },
+            ],
+          },
+        },
+      },
+      "wallets",
+      "de",
+    );
+    expect(response?.data.search.searchHits[0]?.url).toBe(
+      "https://solana.com/de/wallets",
+    );
+    expect(response?.data.search.searchHits).toHaveLength(1);
+  });
+
+  it("retains the English destination when no matching translation is available", () => {
+    const response = buildSiteSearchResponse(
+      {
+        data: {
+          search: {
+            searchHits: [
+              {
+                id: "german-news",
+                url: "https://solana.com/de/news/wallets",
+                title: "Wallet news",
+              },
+            ],
+          },
+        },
+      },
+      "wallets",
+      "de",
+    );
+    expect(response?.data.search.searchHits[0]?.url).toBe(
+      "https://solana.com/wallets",
+    );
+  });
+
   it("handles root-only URLs and distinguishes malformed data from zero results", () => {
     const response = buildSiteSearchResponse(
       {
