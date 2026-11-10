@@ -1,29 +1,14 @@
-export const NAV_BUTTONS = [
-  {
-    label: "",
-    hierarchy: "outline",
-    size: "md",
-    iconSize: "md",
-    startIcon: "none",
-    endIcon: "none",
-    url: "/developers/migrate-to-solana/cosmos",
-  },
-  {
-    label: "",
-    hierarchy: "outline",
-    size: "md",
-    iconSize: "md",
-    startIcon: "none",
-    endIcon: "none",
-    url: "/developers/migrate-to-solana/cosmos/cosmwasm",
-  },
+// Header button labels are in the catalog (`navHeading.buttons`), index-aligned.
+export const NAV_BUTTON_URLS = [
+  "/developers/migrate-to-solana/cosmos/app-chain",
+  "/developers/migrate-to-solana/cosmos/cosmwasm",
 ];
 
 // Prose lives in the i18n catalog (`sections.<id>.prose`); each "prose"
 // entry consumes the next catalog string, code blocks stay here untranslated.
 export const RUNBOOK_SECTIONS = [
   {
-    id: "why-solana",
+    id: "before-you-start",
     blocks: ["prose"],
   },
   {
@@ -122,17 +107,6 @@ The chain will halt at block HEIGHT on DATE.
     blocks: [
       "prose",
       {
-        language: "text",
-        code: `Cosmos final snapshot
-  -> normalized claims file
-  -> Merkle tree build
-  -> published root + claim JSON
-  -> Solana claimer program initialized with root
-  -> token vault funded
-  -> users submit proof and receive SPL tokens`,
-      },
-      "prose",
-      {
         language: "rust",
         code: `pub struct Distributor {
     pub merkle_root: [u8; 32],
@@ -203,6 +177,54 @@ pub struct ClaimStatus {
   "nonce": "migration-v1"
 }`,
       },
+      "prose",
+      {
+        language: "json",
+        code: `{
+  "account_number": "0",
+  "chain_id": "",
+  "fee": { "amount": [], "gas": "0" },
+  "memo": "",
+  "msgs": [
+    {
+      "type": "sign/MsgSignData",
+      "value": {
+        "data": "BASE64(claim:SOLANA_BENEFICIARY:ROOTS_COMMITMENT_HEX:CLAIM_PROGRAM_ID)",
+        "signer": "osmo1..."
+      }
+    }
+  ],
+  "sequence": "0"
+}`,
+      },
+      "prose",
+      {
+        language: "rust",
+        code: `// Sketch of the claim check. Helpers such as adr036_sign_doc, is_high_s,
+// compress, hash160, and hash_leaf are yours to implement.
+let payload = format!(
+    "claim:{}:{}:{}",
+    beneficiary,               // Solana wallet that receives the tokens
+    hex(&amp;roots_commitment),    // ties the signature to this snapshot
+    crate::ID,                 // ties the signature to this program
+);
+let digest = sha256(adr036_sign_doc(&amp;cosmos_address, payload.as_bytes()).as_bytes());
+
+require!(!is_high_s(&amp;signature), ClaimError::MalleableSignature);
+let key = secp256k1_recover(&amp;digest, recovery_id, &amp;signature)
+    .map_err(|_| ClaimError::BadSignature)?;
+
+// A Cosmos account address is RIPEMD160(SHA256(compressed public key)).
+require!(
+    hash160(&amp;compress(&amp;key.to_bytes())) == cosmos_address_bytes,
+    ClaimError::WrongSigner
+);
+require!(
+    verify_proof(root, hash_leaf(index, &amp;cosmos_address_bytes, amount), &amp;proof),
+    ClaimError::InvalidProof
+);`,
+      },
+      "prose",
     ],
   },
   {
@@ -328,6 +350,10 @@ aws s3 cp final_state_archive.json.gz s3://your-archive-bucket/`,
     id: "learn-from-others",
     blocks: ["prose"],
   },
+  {
+    id: "case-study-sentinel",
+    blocks: ["prose"],
+  },
 ];
 
 // Card copy is in the catalog (`resourceCards`), index-aligned.
@@ -335,4 +361,5 @@ export const RESOURCE_CARD_URLS = [
   "https://github.com/solana-foundation/program-examples/tree/main/tokens/merkle-tree-token-claimer",
   "https://realms.today",
   "https://squads.xyz",
+  "https://github.com/sentinel-official/sentinel-solana",
 ];

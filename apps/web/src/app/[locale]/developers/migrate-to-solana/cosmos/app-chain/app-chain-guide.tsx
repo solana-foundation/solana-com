@@ -1,24 +1,21 @@
 "use client";
-
 import {
   DocsCodeSnippet,
   type DocsCodeSnippetProps,
 } from "@/app/components/docs-code-snippet";
-import {
-  NAV_BUTTONS,
-  RESOURCE_CARD_URLS,
-  RUNBOOK_SECTIONS,
-} from "@/data/developers/evm-to-svm/cosmos-app-chain";
 import { useTranslations } from "next-intl";
 import {
   assembleGuideHtml,
   MigrationDocsLayout,
+  type GuideSectionBlock,
+  type MigrationGuideUrl,
 } from "../../components/migration-docs-layout";
 
 const HIGHLIGHT_NUMBERS = ["01", "02", "03"] as const;
 
-const SUPPORTED_CODE_LANGUAGES = new Set<DocsCodeSnippetProps["language"]>([
+const SUPPORTED_CODE_LANGUAGES = new Set<string>([
   "bash",
+  "go",
   "json",
   "rust",
   "typescript",
@@ -92,23 +89,22 @@ function renderRunbookSegment(segment: RunbookSegment, key: number) {
       />
     );
   }
+
   return (
     <DocsCodeSnippet
       key={key}
       code={segment.code}
       language={
-        (SUPPORTED_CODE_LANGUAGES.has(
-          segment.language as DocsCodeSnippetProps["language"],
-        )
-          ? (segment.language as DocsCodeSnippetProps["language"])
+        (SUPPORTED_CODE_LANGUAGES.has(segment.language)
+          ? segment.language
           : "bash") as DocsCodeSnippetProps["language"]
       }
     />
   );
 }
 
-function Highlights() {
-  const t = useTranslations("developers-chain-migration-cosmos-app-chain");
+function Highlights({ namespace }: { namespace: string }) {
+  const t = useTranslations(namespace);
   return (
     <div className="mb-12 grid gap-4 md:grid-cols-3">
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-5 md:col-span-3">
@@ -142,39 +138,62 @@ function Highlights() {
   );
 }
 
-export function DevelopersChainMigrationCosmosAppChainPage() {
-  const t = useTranslations("developers-chain-migration-cosmos-app-chain");
+export type AppChainGuideSection = {
+  id: string;
+  blocks: readonly (GuideSectionBlock | string)[];
+};
+
+export type AppChainGuideProps = {
+  /** i18n catalog namespace that holds this guide's prose. */
+  namespace: string;
+  activeUrl: MigrationGuideUrl;
+  /** Header buttons; labels come from `navHeading.buttons.<index>.label`. */
+  navButtonUrls: readonly string[];
+  sections: readonly AppChainGuideSection[];
+  /** Card copy comes from `resourceCards.<index>`, index-aligned. */
+  resourceCardUrls: readonly string[];
+};
+
+/**
+ * Shared renderer for the Cosmos app-chain guides: catalog prose interleaved
+ * with untranslated code blocks from the guide's data file.
+ */
+export function AppChainGuide({
+  namespace,
+  activeUrl,
+  navButtonUrls,
+  sections,
+  resourceCardUrls,
+}: AppChainGuideProps) {
+  const t = useTranslations(namespace);
 
   return (
     <MigrationDocsLayout
-      activeUrl="/developers/migrate-to-solana/cosmos/app-chain"
+      activeUrl={activeUrl}
       eyebrow={t("hero.eyebrow")}
       headline={t("hero.headline")}
       bodyHtml={t.raw("hero.body") as string}
-      // The Cosmos hub now redirects here; the sidebar covers "back to hub".
-      buttons={NAV_BUTTONS.map((button, index) => ({
-        url: button.url,
+      buttons={navButtonUrls.map((url, index) => ({
+        url,
         label: t(`navHeading.buttons.${index}.label`),
-      })).filter(
-        (button) => button.url !== "/developers/migrate-to-solana/cosmos",
-      )}
+      }))}
       tocHeadline={t("contentEditor.tocHeadline")}
-      toc={RUNBOOK_SECTIONS.map((section) => ({
+      toc={sections.map((section) => ({
         id: section.id,
         title: t(`sections.${section.id}.navLabel`),
       }))}
       resourceEyebrow={t("resourceHeading.eyebrow")}
       resourceHeadline={t("resourceHeading.headline")}
       resourceBody={t("resourceHeading.body")}
-      resourceCards={RESOURCE_CARD_URLS.map((url, index) => ({
+      resourceCards={resourceCardUrls.map((url, index) => ({
         heading: t(`resourceCards.${index}.heading`),
         body: t(`resourceCards.${index}.body`),
         url,
         ctaLabel: t(`resourceCards.${index}.label`),
       }))}
     >
-      <Highlights />
-      {RUNBOOK_SECTIONS.map((section) => (
+      <Highlights namespace={namespace} />
+      {sections.map((section) => (
         <section
           key={section.id}
           id={section.id}

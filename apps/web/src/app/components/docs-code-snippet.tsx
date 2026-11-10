@@ -6,6 +6,7 @@ import { Code as Code2 } from "@boxicons/react/Code";
 import { Copy } from "@boxicons/react/Copy";
 import Prism from "prismjs";
 import "prismjs/components/prism-bash";
+import "prismjs/components/prism-go";
 import "prismjs/components/prism-json";
 import "prismjs/components/prism-jsx";
 import "prismjs/components/prism-latex";
@@ -17,6 +18,7 @@ import { useState } from "react";
 
 const LANGUAGE_LABELS: Record<string, string> = {
   bash: "Bash",
+  go: "Go",
   javascript: "JavaScript",
   json: "JSON",
   jsx: "JSX",
@@ -34,6 +36,7 @@ export type DocsCodeSnippetProps = {
   code: string;
   language:
     | "bash"
+    | "go"
     | "javascript"
     | "json"
     | "jsx"
