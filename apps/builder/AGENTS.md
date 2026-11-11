@@ -21,7 +21,7 @@ apps/builder/
 │   ├── app/globals.css      # palette tokens, surface classes, chamfer utility
 │   ├── assets/              # themeable inline SVGs (*.inline.svg)
 │   ├── components/          # one file per page section, plus motion parts
-│   ├── content/links.ts     # Luma, speaker and sponsor URLs
+│   ├── content/links.ts     # Luma and sponsor URLs
 │   └── fonts/               # display and body font files
 └── public/images/           # logos and the About photo
 ```
@@ -138,12 +138,11 @@ review options only) and the Program and Speakers sections.
 ## Launch scope
 
 Homepage only, with the sections the copy doc covers: hero, overview, Get
-involved (speaker interest and sponsor cards), FAQ and the closing call to
-action. Program and Speakers exist in the design but are not built until that
-content is announced. `components/Campus.tsx` (the three venues) is built but
-not rendered: the copy doc has no venue copy and its figures differ. "Get
-involved" is not in Figma; it is composed from the design's existing card
-styles.
+involved (a sponsor card), FAQ and the closing call to action. Program and
+Speakers exist in the design but are not built until that content is announced.
+`components/Campus.tsx` (the three venues) is built but not rendered: the copy
+doc has no venue copy and its figures differ. "Get involved" is not in Figma; it
+is composed from the design's existing card styles.
 
 Before launch:
 
