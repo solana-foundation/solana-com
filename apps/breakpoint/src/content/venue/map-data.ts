@@ -267,7 +267,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "f-restroom-west",
     floor: "first",
     type: "restroom",
-    position: { x: 28, y: 228 },
+    position: { x: 35, y: 230 },
   },
   {
     id: "f-restroom-north",
@@ -369,7 +369,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "kast",
     logo: "/img/venue/logos/kast.svg",
     logoAspect: 1047 / 220,
-    position: { x: 835, y: 474 },
+    position: { x: 825, y: 464 },
   },
   {
     id: "zelle",
