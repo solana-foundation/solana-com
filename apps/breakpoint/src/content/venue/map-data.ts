@@ -217,7 +217,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-info-west",
     floor: "ground",
     type: "info",
-    position: { x: 356, y: 132 },
+    position: { x: 356, y: 140 },
   },
   {
     id: "g-info-east",
@@ -260,7 +260,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-nursing-room",
     floor: "ground",
     type: "nursing-room",
-    position: { x: 384, y: 466 },
+    position: { x: 384, y: 472 },
   },
   // First floor
   {
