@@ -2,7 +2,6 @@ import { getTranslations } from "@workspace/i18n/server";
 import { config } from "@@/src/config";
 import { links } from "@@/src/content/links";
 import { About } from "@@/src/components/About";
-import { Campus } from "@@/src/components/Campus";
 import { ComeBuild } from "@@/src/components/ComeBuild";
 import { Faq } from "@@/src/components/Faq";
 import { Footer } from "@@/src/components/Footer";
@@ -12,7 +11,9 @@ import { Hero } from "@@/src/components/Hero";
 
 type Props = { params: Promise<{ locale: string }> };
 
-// Launch scope is the homepage only. The Figma file also designs Program and
+// Launch scope is the homepage only, with the sections the copy doc covers.
+// components/Campus.tsx (venues) is built but not shown: the copy doc has no
+// venue copy and its figures differ. The Figma file also designs Program and
 // Speakers sections; they are intentionally not built until that content is
 // announced.
 export default async function BuilderPage({ params }: Props) {
@@ -62,7 +63,6 @@ export default async function BuilderPage({ params }: Props) {
       <main>
         <Hero locale={locale} />
         <About locale={locale} />
-        <Campus locale={locale} />
         <GetInvolved locale={locale} />
         <Faq locale={locale} />
         <ComeBuild locale={locale} />

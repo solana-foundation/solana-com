@@ -1,12 +1,19 @@
 import { getTranslations } from "@workspace/i18n/server";
-import { getImagePath } from "@@/src/config";
-import { container, label } from "./layout";
+import { links } from "@@/src/content/links";
+import { CtaLink } from "./CtaLink";
+import { container } from "./layout";
 import { Build, TurnHeading } from "./motion";
 
-const STATS = ["days", "builders", "places", "sessions"] as const;
+const STATS = [
+  { key: "days", label: true },
+  { key: "attendees", label: true },
+  { key: "stages", label: false },
+  { key: "campus", label: false },
+] as const;
 
 export async function About({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "builder.about" });
+  const tCta = await getTranslations({ locale, namespace: "builder.cta" });
 
   return (
     <section id="about" className="surface-b">
@@ -36,36 +43,15 @@ export async function About({ locale }: { locale: string }) {
             delay={0.12}
             fill="bg-bldr-purple"
             className="chamfer flex min-h-[180px] p-6 text-black [--chamfer:48px] md:min-h-[230px] md:p-8 md:[--chamfer:72px]"
-            contentClassName="justify-between gap-8"
           >
-            <p className={label}>{t("callout.eyebrow")}</p>
-            <p className="max-w-[460px] text-[28px] leading-none tracking-[-0.03em] md:text-[36px]">
-              {t("callout.body")}
+            <p className="max-w-[540px] text-[20px] leading-[1.05] tracking-[-0.03em] md:text-[24px]">
+              {t("body")}
             </p>
           </Build>
         </div>
 
-        {/* Same crop as the Figma frame: the photo is 209.5% of the frame's
-            desktop height and starts 22.44% of its own height above it. */}
-        <Build
-          as="figure"
-          delay={0.06}
-          className="mt-3 aspect-[4/3] overflow-hidden md:aspect-[1342/447]"
-          fillContent={
-            <img
-              src={getImagePath("/images/about-campus.webp")}
-              alt={t("imageAlt")}
-              width={1600}
-              height={1277}
-              loading="lazy"
-              decoding="async"
-              className="absolute left-0 top-0 aspect-[1342/936.5] w-full max-w-none max-md:h-full max-md:object-cover max-md:[object-position:50%_34%] md:-translate-y-[22.44%]"
-            />
-          }
-        />
-
         <dl className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {STATS.map((key, i) => (
+          {STATS.map(({ key, label: hasLabel }, i) => (
             <Build
               key={key}
               delay={0.1 + i * 0.06}
@@ -73,15 +59,27 @@ export async function About({ locale }: { locale: string }) {
               className="chamfer flex min-h-[130px] p-4 text-surface [--chamfer:20px] sm:min-h-[150px] sm:p-6 sm:[--chamfer:32px] md:min-h-[190px] md:p-7"
               contentClassName="justify-end gap-[9px]"
             >
-              <dt className="order-2 text-[12px] uppercase leading-none text-surface/65">
-                {t(`stats.${key}.label`)}
-              </dt>
+              {hasLabel && (
+                <dt className="order-2 text-[12px] uppercase leading-none text-surface/65">
+                  {t(`stats.${key}.label`)}
+                </dt>
+              )}
               <dd className="order-1 text-[22px] font-bold leading-none tracking-[-0.03em] sm:text-[32px] md:text-[40px]">
                 {t(`stats.${key}.value`)}
               </dd>
             </Build>
           ))}
         </dl>
+
+        <div className="mt-8 md:mt-10">
+          <CtaLink
+            href={links.register}
+            pendingLabel={tCta("pending")}
+            className="h-12 bg-bldr-purple px-[22px] text-[16px] leading-none tracking-[-0.03em] text-surface"
+          >
+            {tCta("register")}
+          </CtaLink>
+        </div>
       </div>
     </section>
   );

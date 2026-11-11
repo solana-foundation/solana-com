@@ -8,7 +8,6 @@ import { HeaderBar } from "./motion";
 
 const NAV = [
   { id: "about", key: "about" },
-  { id: "campus", key: "campus" },
   { id: "get-involved", key: "getInvolved" },
   { id: "faq", key: "faq" },
 ] as const;

@@ -164,4 +164,4 @@ Each app has its own CLAUDE.md with app-specific details:
 - `apps/media/CLAUDE.md` - Blog/Media site
 - `apps/templates/CLAUDE.md` - Templates showcase
 - `apps/breakpoint/CLAUDE.md` - Breakpoint event site
-- `apps/builder/CLAUDE.md` - BLDR (Builder) event site
+- `apps/builder/AGENTS.md` - BLDR (Builder) event site

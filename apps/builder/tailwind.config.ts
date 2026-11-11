@@ -17,7 +17,7 @@ const config: Config = {
           "sans-serif",
         ],
         // Suisse Int'l is the design's body face. Until the licensed files are
-        // added (see CLAUDE.md), ABC Diatype stands in via --font-bldr-body.
+        // added (see AGENTS.md), ABC Diatype stands in via --font-bldr-body.
         body: [
           "var(--font-bldr-body)",
           "Helvetica Neue",
