@@ -1049,6 +1049,10 @@ export default {
       destination: "https://launch.solana.com/products/contra",
     },
     {
+      source: "/solutions/actions",
+      destination: "/solutions",
+    },
+    {
       source: "/2024-outlook",
       destination: "/2024outlook",
     },
