@@ -210,7 +210,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-lost-found",
     floor: "ground",
     type: "lost-found",
-    position: { x: 842, y: 221 },
+    position: { x: 848, y: 221 },
   },
   { id: "g-exit", floor: "ground", type: "exit", position: { x: 805, y: 206 } },
   {
