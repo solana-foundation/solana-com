@@ -3,8 +3,8 @@ import type { MenuData } from "./types";
 export const DEFAULT_MENU_DATA: MenuData = {
   title: "Explore Solana",
   tabs: [
-    { id: "builder", title: "Builder", icon: "builder" },
     { id: "business", title: "Business", icon: "business" },
+    { id: "builder", title: "Builder", icon: "builder" },
     { id: "consumer", title: "Consumer", icon: "consumer" },
   ],
   featured: {
