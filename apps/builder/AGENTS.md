@@ -138,15 +138,17 @@ review options only) and the Program and Speakers sections.
 ## Launch scope
 
 Homepage only, with the sections the copy doc covers: hero, overview, Get
-involved (sponsor card), FAQ and the closing call to action. Program and
-Speakers exist in the design but are not built until that content is announced.
-`components/Campus.tsx` (the three venues) is built but not rendered: the copy
-doc has no venue copy and its figures differ. "Get involved" is not in Figma; it
-is composed from the design's existing card styles.
+involved (speaker interest and sponsor cards), FAQ and the closing call to
+action. Program and Speakers exist in the design but are not built until that
+content is announced. `components/Campus.tsx` (the three venues) is built but
+not rendered: the copy doc has no venue copy and its figures differ. "Get
+involved" is not in Figma; it is composed from the design's existing card
+styles.
 
 Before launch:
 
-1. Set the two URLs in `src/content/links.ts` (buttons are inert while `null`).
+1. Set the three URLs in `src/content/links.ts` (buttons are inert while
+   `null`).
 2. Replace the FAQ questions and answers, which are still placeholders; the copy
    doc lists the FAQ heading only.
 3. Confirm `solana.com/builder` reaches the `solana-com-bldr` Vercel project.
