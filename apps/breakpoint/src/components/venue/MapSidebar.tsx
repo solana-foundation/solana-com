@@ -145,11 +145,13 @@ function StageSession({
 }) {
   return (
     <div className="flex flex-col gap-4xs">
-      <p className={`type-eyebrow flex items-center gap-2xs ${accentClass}`}>
+      <p
+        className={`flex items-center gap-2xs font-mono text-button-small uppercase tracking-[0.06rem] ${accentClass}`}
+      >
         <span aria-hidden="true" className="inline-flex size-2 bg-current" />
         {label}
       </p>
-      <p className="type-eyebrow text-text-secondary">
+      <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
         {formatMinutes(session.startMinutes)}–
         {formatMinutes(session.endMinutes)}
       </p>
@@ -403,7 +405,7 @@ export default function MapSidebar({
                       ? (selectedCompany?.name ?? selected.item.name)
                       : selected.item.name}
                 </h3>
-                <p className="type-eyebrow text-text-secondary">
+                <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
                   {floorLabels[selected.item.floor]}
                   {selected.kind === "sponsor" &&
                     ` · ${sponsorZone ? t("details.inZone", { zone: sponsorZone.name }) : t("sponsorActivation")}`}
@@ -526,7 +528,7 @@ export default function MapSidebar({
               )}
               {selected.item.items && selected.item.items.length > 0 && (
                 <div className="flex flex-col gap-3xs">
-                  <p className="type-eyebrow text-text-secondary">
+                  <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
                     {t("details.inside")}
                   </p>
                   <ul className="unstyled-list m-0 flex list-none flex-col gap-3xs p-0">
@@ -545,7 +547,7 @@ export default function MapSidebar({
                 (sponsor) => sponsor.zoneId === selected.item.id,
               ) && (
                 <div className="flex flex-col gap-3xs">
-                  <p className="type-eyebrow text-text-secondary">
+                  <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
                     {t("details.poweredBy")}
                   </p>
                   <div className="flex flex-wrap items-center gap-3xs">
@@ -567,7 +569,7 @@ export default function MapSidebar({
               {selected.item.amenities &&
                 selected.item.amenities.length > 0 && (
                   <div className="flex flex-col gap-3xs">
-                    <p className="type-eyebrow text-text-secondary">
+                    <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
                       {t("details.services")}
                     </p>
                     <ul className="unstyled-list m-0 flex list-none flex-wrap gap-xs p-0">
@@ -636,7 +638,7 @@ export default function MapSidebar({
 
           {floorSponsors.length > 0 && (
             <div className="flex flex-col gap-3xs">
-              <p className="type-eyebrow text-text-secondary">
+              <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
                 {t("details.sponsors", { floor: floorLabels[activeFloor.id] })}
               </p>
               <div className="flex flex-wrap gap-3xs">
@@ -656,7 +658,7 @@ export default function MapSidebar({
 
           {floorAmenityTypes.length > 0 && (
             <div className="flex flex-col gap-3xs">
-              <p className="type-eyebrow text-text-secondary">
+              <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
                 {t("legend.heading")}
               </p>
               <ul className="unstyled-list m-0 grid list-none grid-cols-2 gap-x-xs gap-y-3xs p-0">
