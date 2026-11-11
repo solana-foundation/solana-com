@@ -7,22 +7,25 @@ import {
   LIVE_POLL_INTERVAL_MS,
   LIVE_SESSIONS_API,
 } from "@/content/live/streams";
-import { calculateLiveSchedule, REFRESH_LEAD_MS } from "@/lib/live-sessions";
+import {
+  calculateLiveSchedule,
+  parseEventInstant,
+  REFRESH_LEAD_MS,
+} from "@/lib/live-sessions";
 
 /** Re-read the clock this long after a boundary so the labels have crossed it. */
 const BOUNDARY_TICK_MARGIN_MS = 250;
 
 /**
  * Outside the production deployment, `?now=2026-11-16T10:05` freezes the
- * clock so the live layout can be checked on any date. The server decides
- * whether that is allowed, because only it knows the deployment environment.
+ * clock so the live layout can be checked on any date. The value is London
+ * time unless it names a zone (`Z` or `+01:00`). The server decides whether
+ * the preview is allowed, because only it knows the deployment environment.
  */
 function readPreviewNow(): number | null {
   if (typeof window === "undefined") return null;
   const value = new URLSearchParams(window.location.search).get("now");
-  if (!value) return null;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? null : parsed;
+  return value ? parseEventInstant(value) : null;
 }
 
 export function useLiveSchedule(

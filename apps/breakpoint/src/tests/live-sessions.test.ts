@@ -6,6 +6,7 @@ import {
   formatInstantInZone,
   formatMinutes,
   londonNow,
+  parseEventInstant,
   parseClock,
   parseDurationMinutes,
   sessionsForStage,
@@ -237,5 +238,28 @@ describe("formatInstantInZone", () => {
     expect(formatInstantInZone(DAY_ONE("00:30"), "Europe/London")).toBe(
       "00:30",
     );
+  });
+});
+
+describe("parseEventInstant", () => {
+  it("reads a value without a zone as London time", () => {
+    expect(parseEventInstant("2026-11-16T10:05")).toBe(DAY_ONE("10:05"));
+    // British Summer Time: 10:05 in London is 09:05 UTC.
+    expect(parseEventInstant("2026-07-10T10:05:30")).toBe(
+      Date.parse("2026-07-10T09:05:30Z"),
+    );
+    expect(parseEventInstant("2026-11-16")).toBe(DAY_ONE("00:00"));
+  });
+
+  it("keeps an explicit zone", () => {
+    expect(parseEventInstant("2026-11-16T10:05:00Z")).toBe(DAY_ONE("10:05"));
+    expect(parseEventInstant("2026-11-16T05:05:00-05:00")).toBe(
+      DAY_ONE("10:05"),
+    );
+  });
+
+  it("is null for something that is not a date", () => {
+    expect(parseEventInstant("tomorrow")).toBeNull();
+    expect(parseEventInstant("2026-11-16T25:00")).toBeNull();
   });
 });

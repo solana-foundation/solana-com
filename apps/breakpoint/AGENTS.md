@@ -156,10 +156,10 @@ constant and merging is the release; there is no runtime toggle.
   placeholder naming the next session.
 - Outside the production deployment (`VERCEL_ENV !== "production"`, so local dev
   and Vercel previews), `/?preview=live` renders the live edition while the
-  constant still says `pre`, and `&now=2026-11-16T10:05:00Z` freezes the clock
-  so the live layout can be checked on any date. Production ignores both
-  parameters. `?preview=pre` shows the marketing page once the constant has
-  flipped.
+  constant still says `pre`, and `&now=2026-11-16T10:05` freezes the clock so
+  the live layout can be checked on any date (London time unless the value names
+  a zone). Production ignores both parameters. `?preview=pre` shows the
+  marketing page once the constant has flipped.
 
 ## Venue Map
 

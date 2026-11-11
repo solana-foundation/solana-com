@@ -293,6 +293,31 @@ export function sessionInstant(date: string, minutes: number): number {
 }
 
 /**
+ * Reads an ISO date-time as an instant. A value without a zone is London
+ * wall-clock time, not the reader's own, so `2026-11-16T10:05` means the
+ * same moment on every machine. A value with `Z` or an offset is used as is.
+ */
+export function parseEventInstant(value: string): number | null {
+  const text = value.trim();
+  const local = text.match(
+    /^(\d{4}-\d{2}-\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?$/,
+  );
+  if (!local) {
+    const parsed = Date.parse(text);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  const [, date, hours = "0", minutes = "0", seconds = "0"] = local;
+  if (!date || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) return null;
+  if (Number(hours) > 23 || Number(minutes) > 59 || Number(seconds) > 59) {
+    return null;
+  }
+  return sessionInstant(
+    date,
+    Number(hours) * 60 + Number(minutes) + Number(seconds) / 60,
+  );
+}
+
+/**
  * How a viewer's time zone relates to the event's at `instant`. Returns
  * `null` for the event zone itself (or an unknown zone), so the page shows
  * nothing extra to people in London.
