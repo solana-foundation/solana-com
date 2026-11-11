@@ -241,7 +241,8 @@ import {
   fillTransactionMessageProvisoryResourceLimits,
   pipe,
   setTransactionMessageFeePayerSigner,
-  setTransactionMessageLifetimeUsingBlockhash
+  setTransactionMessageLifetimeUsingBlockhash,
+  setTransactionMessagePriorityFeeLamports
 } from "@solana/kit";
 
 const draftMessage = pipe(
@@ -249,6 +250,7 @@ const draftMessage = pipe(
   (m) => setTransactionMessageFeePayerSigner(payer, m),
   (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
   (m) => appendTransactionMessageInstructions(instructions, m),
+  (m) => setTransactionMessagePriorityFeeLamports(5_000n, m),
   fillTransactionMessageProvisoryResourceLimits
 );
 
@@ -317,44 +319,39 @@ const { lastValidBlockHeight } = latestBlockhash;
 Every Solana transaction requires a transaction fee, paid in SOL. Transaction
 fees are split into two parts: the base fee and the priority fee. The base fee
 compensates validators for processing the transaction. The priority fee is an
-optional fee, to increase the chance that the current leader will process your
-transaction. Think of it like express shipping: you pay more for faster, more
-reliable delivery.
+optional fee that increases the chance that the current leader will process your
+transaction.
 
-**How fees work:**
+For V1 transactions, set the priority fee as an absolute total in lamports in
+the transaction message config. Do not add a `SetComputeUnitPrice` instruction:
+Compute Budget instructions are no-ops in V1 transactions.
 
 ```
 Total fee = Base fee (5,000 lamports per signature) + Priority fee
-Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,000) lamports
-Priority fee (v1 only) = Absolute total in lamports set in the message config
+V1 priority fee = Absolute total in lamports set in the message config
 ```
 
-**Real-world costs:**
+Use `setTransactionMessagePriorityFeeLamports` from `@solana/kit` to set or
+replace the total priority fee:
 
-- Simple USDC transfer: ~$0.001-0.005 during normal conditions
-- During congestion: ~$0.01-0.05
-- Peak congestion: Can spike higher
-
-**Sample Implementation:**
-
-The
-[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
-package provides a helper function to easily update or append the compute unit
-price (in micro-lamports) instruction to a transaction.
-
-```typescript
-import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
-
-const tx = pipe(
-  createTransactionMessage({ version: 0 }),
-  (m) => setTransactionMessageFeePayerSigner(payer, m),
-  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
-  (m) => appendTransactionMessageInstructions([myInstructions], m),
-  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+```ts
+const messageWithPriorityFee = setTransactionMessagePriorityFeeLamports(
+  5_000n,
+  transactionMessage
 );
 ```
 
-**Getting fee estimates:** Most RPC providers offer priority fee APIs:
+Some priority fee APIs return a price in micro-lamports per compute unit rather
+than a total in lamports. Convert those quotes before setting a V1 priority fee:
+
+```ts
+const priorityFeeLamports =
+  (microLamportsPerComputeUnit * BigInt(computeUnitLimit) + 999_999n) /
+  1_000_000n;
+```
+
+Check the units returned by your provider before using its estimate. Priority
+fee APIs include:
 
 - [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
 - [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
