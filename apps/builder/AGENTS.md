@@ -126,8 +126,10 @@ Before launch:
 1. Set the two URLs in `src/content/links.ts` (buttons are inert while `null`).
 2. Replace the FAQ questions and answers, which are still placeholders; the copy
    doc lists the FAQ heading only.
-3. Create the `solana-com-bldr` Vercel project and add it to the web app's
-   related projects (or set `NEXT_PUBLIC_BUILDER_APP_URL`).
+3. Confirm `solana.com/builder` reaches the `solana-com-bldr` Vercel project.
+   The web app allows three related projects and all three are taken, so
+   `/builder` resolves to `https://solana-com-bldr.vercel.app` (as Accelerate
+   and Breakpoint do) unless `NEXT_PUBLIC_BUILDER_APP_URL` is set.
 
 ## Commands
 
