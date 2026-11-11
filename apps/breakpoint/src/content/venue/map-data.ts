@@ -223,7 +223,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-info-east",
     floor: "ground",
     type: "info",
-    position: { x: 691, y: 232 },
+    position: { x: 696, y: 232 },
   },
   {
     id: "g-stairs-north",
@@ -260,7 +260,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-nursing-room",
     floor: "ground",
     type: "nursing-room",
-    position: { x: 407, y: 444 },
+    position: { x: 384, y: 466 },
   },
   // First floor
   {
@@ -378,7 +378,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "zelle",
     logo: "/img/venue/logos/zelle.svg",
     logoAspect: 1475 / 603,
-    position: { x: 235, y: 235 },
+    position: { x: 235, y: 198 },
     zoneId: "main-stage",
   },
   {
@@ -388,7 +388,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "kraken",
     logo: "/img/venue/logos/kraken.svg",
     logoAspect: 2014 / 479,
-    position: { x: 235, y: 270 },
+    position: { x: 235, y: 233 },
     zoneId: "main-stage",
   },
 ];
