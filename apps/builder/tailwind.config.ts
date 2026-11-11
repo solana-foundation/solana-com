@@ -4,7 +4,10 @@ const config: Config = {
   darkMode: ["class"],
   content: [
     "./src/**/*.{ts,tsx}",
-    "../../packages/ui-chrome/src/**/*.{js,ts,jsx,tsx}",
+    // Only the shared components this app renders; scanning the whole
+    // package adds the site header and footer's styles to the stylesheet.
+    "../../packages/ui-chrome/src/cookie-consent-banner.tsx",
+    "../../packages/ui/src/components/button.tsx",
   ],
   theme: {
     extend: {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useMotionValueEvent, useReducedMotion, useScroll } from "motion/react";
+import { useReducedMotion } from "./useReducedMotion";
 
 /*
  * The slash field: the BLDR pattern, generated rather than drawn. Rows of
@@ -196,7 +196,7 @@ function field(W: number, H: number, seed: number): Piece[] {
 
 export function SlashField({ label }: { label: string }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const reduced = Boolean(useReducedMotion());
+  const reduced = useReducedMotion();
   const state = useRef({
     seed: 20261028,
     pieces: [] as Piece[],
@@ -246,14 +246,44 @@ export function SlashField({ label }: { label: string }) {
       for (const q of s.pieces) if (q.x <= limit) ctx.fill(q.path);
     };
 
-    draw.current(true);
-    const ro = new ResizeObserver(() => draw.current(false));
+    // The field sits near the foot of the page. Nothing is generated or
+    // listened for until it is within a screen of the viewport, and scroll
+    // work is held to one draw a frame.
+    let near = false;
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        draw.current(false);
+      });
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        const next = entries.some((entry) => entry.isIntersecting);
+        if (next === near) return;
+        near = next;
+        if (near) {
+          draw.current(false);
+          window.addEventListener("scroll", onScroll, { passive: true });
+        } else {
+          window.removeEventListener("scroll", onScroll);
+        }
+      },
+      { rootMargin: "100% 0px" },
+    );
+    io.observe(cv);
+    const ro = new ResizeObserver(() => {
+      if (near) draw.current(false);
+    });
     ro.observe(cv);
-    return () => ro.disconnect();
+    return () => {
+      io.disconnect();
+      ro.disconnect();
+      window.removeEventListener("scroll", onScroll);
+      cancelAnimationFrame(frame);
+    };
   }, [reduced]);
-
-  const { scrollY } = useScroll();
-  useMotionValueEvent(scrollY, "change", () => draw.current(false));
 
   return (
     <div className="surface-black">

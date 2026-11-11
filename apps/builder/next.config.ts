@@ -91,6 +91,10 @@ const nextConfig: NextConfig = {
 
   experimental: {
     externalDir: true,
+    // The layout takes two components from ui-chrome, and the cookie banner
+    // one button from ui. Without this each package's whole index ships to
+    // the browser: the site header and footer, dialogs and their Radix parts.
+    optimizePackageImports: ["@solana-com/ui-chrome", "@workspace/ui"],
   },
 };
 

@@ -7,7 +7,7 @@ import { staticLocales } from "@workspace/i18n/config";
 import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getTranslations } from "@workspace/i18n/server";
 import { CookieConsentBanner, GoogleAnalyticsTag } from "@solana-com/ui-chrome";
-import { FabMenu } from "@@/src/components/FabMenu";
+import { DeferredFabMenu } from "@@/src/components/DeferredFabMenu";
 import { THEME_INIT_SCRIPT } from "@@/src/components/theme";
 import { getBaseMetadata } from "../metadata";
 import "../globals.css";
@@ -43,7 +43,25 @@ const displayFont = localFont({
 
 // Motion starts from hidden states; without script, show everything.
 const NO_SCRIPT_CSS =
-  ".bldr-anim{transform:none!important;opacity:1!important;clip-path:none!important}";
+  ".bldr-anim{transform:none!important;opacity:1!important;clip-path:none!important}.bldr-anim::after{content:none!important}[data-bldr-poster]{display:none}";
+
+/**
+ * The messages client components read. The provider's messages are written
+ * into every page, and the merged catalog includes all of solana.com's copy
+ * (about 900 KB), so only these go to the browser. Server components read the
+ * full catalog through `getTranslations`. Add a namespace here when a client
+ * component starts calling `useTranslations` for it.
+ */
+function pickClientMessages(messages: AbstractIntlMessages) {
+  const builder = messages.builder as AbstractIntlMessages;
+
+  return {
+    // CookieConsentBanner
+    "cookie-consent": messages["cookie-consent"],
+    // not-found.tsx
+    builder: { notFound: builder.notFound },
+  } as AbstractIntlMessages;
+}
 
 type Props = {
   children: ReactNode;
@@ -67,10 +85,12 @@ export async function generateMetadata({ params }: Props) {
 
 export default async function RootLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
-  const messages = (await loadMergedMessages({
-    app: "builder",
-    locale,
-  })) as AbstractIntlMessages;
+  const messages = pickClientMessages(
+    (await loadMergedMessages({
+      app: "builder",
+      locale,
+    })) as AbstractIntlMessages,
+  );
 
   return (
     <html
@@ -91,7 +111,7 @@ export default async function RootLayout({ children, params }: Props) {
         <GoogleAnalyticsTag measurementId="G-1YDTXXYYQ4" />
         <NextIntlClientProvider messages={messages} locale={locale}>
           {children}
-          <FabMenu bundled={process.env.VERCEL_ENV !== "production"} />
+          <DeferredFabMenu bundled={process.env.VERCEL_ENV !== "production"} />
           <CookieConsentBanner />
         </NextIntlClientProvider>
       </body>

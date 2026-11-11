@@ -15,6 +15,8 @@ export async function Footer({ locale }: { locale: string }) {
           alt={t("logoAlt")}
           width={300}
           height={192}
+          loading="lazy"
+          decoding="async"
           className="h-auto w-[200px] md:w-[300px]"
         />
         <div className="flex flex-col gap-[9px] md:items-end">
@@ -24,6 +26,8 @@ export async function Footer({ locale }: { locale: string }) {
               alt={t("solanaAlt")}
               width={150}
               height={23}
+              loading="lazy"
+              decoding="async"
               className="h-auto w-full"
             />
           </a>

@@ -1,9 +1,9 @@
 "use client";
 
 import type { MouseEvent } from "react";
-import { animate, steps, useReducedMotion } from "motion/react";
 import FaqToggle from "@@/src/assets/faq-toggle.inline.svg";
 import { EASE_LAND, TURN } from "./motion";
+import { useReducedMotion } from "./useReducedMotion";
 
 const HIDDEN = "inset(0% 0% 100% 0%)";
 
@@ -19,29 +19,33 @@ export function FaqList({ items }: { items: Item[] }) {
 
   // Opened here rather than in a toggle handler: toggle fires a frame after
   // the row opens, so the whole answer painted once before its fill began.
+  // The animations start in the same task, so the row's first frame is their
+  // first keyframe.
   const onSummaryClick = (event: MouseEvent<HTMLElement>) => {
     const details = event.currentTarget.closest("details");
     if (reduced || !details || details.open) return;
     event.preventDefault();
-    const marker = details.querySelector<HTMLElement>("[data-faq-marker]");
-    const answer = details.querySelector<HTMLElement>("[data-faq-answer]");
-    if (answer) answer.style.clipPath = HIDDEN;
     details.open = true;
-    if (marker)
-      animate(
-        marker,
-        // Perspective is pinned for the whole turn. A single value animates
-        // up from 0, and near 0 the edge-on marker projects as a purple slab
-        // down the full height of the column.
-        { transformPerspective: [200, 200], rotateY: [-90, 0] },
-        { duration: TURN, ease: EASE_LAND },
+    // Perspective is on both keyframes: animated up from none, the edge-on
+    // marker projects as a purple slab down the full height of the column.
+    details
+      .querySelector("[data-faq-marker]")
+      ?.animate(
+        [
+          { transform: "perspective(200px) rotateY(-90deg)" },
+          { transform: "perspective(200px) rotateY(0deg)" },
+        ],
+        {
+          duration: TURN * 1000,
+          easing: `cubic-bezier(${EASE_LAND.join(",")})`,
+        },
       );
-    if (answer)
-      animate(
-        answer,
-        { clipPath: [HIDDEN, "inset(0% 0% 0% 0%)"] },
-        { duration: 0.32, ease: steps(4, "end") },
-      );
+    details
+      .querySelector("[data-faq-answer]")
+      ?.animate([{ clipPath: HIDDEN }, { clipPath: "inset(0% 0% 0% 0%)" }], {
+        duration: 320,
+        easing: "steps(4, end)",
+      });
   };
 
   return (

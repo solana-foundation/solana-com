@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  motion,
-  steps,
-  useInView,
-  useMotionValueEvent,
-  useReducedMotion,
-  useScroll,
-} from "motion/react";
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { SLAB_KERN } from "./slabKern";
 
 /** The design's "land" curve: a slow start and a long, soft stop. */
@@ -16,7 +14,37 @@ export const EASE_LAND = [0.42, 0, 0.12, 1] as const;
 /** One quarter turn, in seconds. */
 export const TURN = 0.56;
 
-const IN_VIEW = { once: true, amount: 0.25 } as const;
+/*
+ * Motion here is CSS transitions switched on by one attribute, so the page
+ * ships no animation library and a section costs nothing until it is seen.
+ * Each piece reads its own start time from `--d` (seconds).
+ */
+const delayVar = (seconds: number) =>
+  ({ "--d": `${+seconds.toFixed(3)}s` }) as CSSProperties;
+
+/** True from the first time a quarter of the element is on screen. */
+function useSeen<T extends Element>() {
+  const ref = useRef<T>(null);
+  const [seen, setSeen] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setSeen(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, seen] as const;
+}
 
 /* -------------------------------------------------------------------------
  * Headings that turn in, letter by letter, on tiles
@@ -27,44 +55,32 @@ function Letter({
   next,
   tile,
   delay,
-  on,
-  reduced,
 }: {
   char: string;
   next: string;
   tile: string;
   delay: number;
-  on: boolean;
-  reduced: boolean;
 }) {
-  // The tile stands behind the letter while it turns and drops 80ms after it
-  // lands.
-  const [landed, setLanded] = useState(false);
   const kern = SLAB_KERN[(char + next).toUpperCase()];
 
   return (
     // pointer-events-none: before it turns, a letter is edge-on under the
     // heading's perspective, and browsers hit-test that plane far outside its
     // box, which blocked taps on the FAQ rows above "Come build."
-    <motion.span
-      className={`bldr-anim pointer-events-none relative isolate inline-block ${
-        landed || reduced
-          ? ""
-          : "after:absolute after:-inset-x-[0.02em] after:-bottom-[0.04em] after:-top-[0.06em] after:-z-10 after:bg-[var(--tile)] after:content-['']"
-      }`}
+    //
+    // The tile (::after) stands behind the letter while it turns and drops
+    // 80ms after it lands. The letter rests at `transform: none` so it does
+    // not keep a compositor layer once it has turned.
+    <span
+      className="bldr-anim pointer-events-none relative isolate inline-block [transform:rotateY(-90deg)] [transition:transform_0.56s_cubic-bezier(0.42,0,0.12,1)_var(--d)] after:absolute after:-inset-x-[0.02em] after:-bottom-[0.04em] after:-top-[0.06em] after:-z-10 after:bg-[var(--tile)] after:content-[''] after:[transition:visibility_0s_linear_calc(var(--d)_+_0.64s)] group-data-[on]/turn:[transform:none] group-data-[on]/turn:after:invisible motion-reduce:[transition:none] motion-reduce:after:hidden"
       style={{
+        ...delayVar(delay),
         ["--tile" as string]: tile,
         marginRight: kern ? `${kern}em` : undefined,
       }}
-      initial={{ rotateY: -90 }}
-      animate={on ? { rotateY: 0 } : undefined}
-      transition={
-        reduced ? { duration: 0 } : { duration: TURN, ease: EASE_LAND, delay }
-      }
-      onAnimationComplete={() => window.setTimeout(() => setLanded(true), 80)}
     >
       {char}
-    </motion.span>
+    </span>
   );
 }
 
@@ -91,16 +107,15 @@ export function TurnHeading({
   className?: string;
   stagger?: number;
 }) {
-  const ref = useRef<HTMLHeadingElement>(null);
-  const on = useInView(ref, IN_VIEW);
-  const reduced = Boolean(useReducedMotion());
+  const [ref, seen] = useSeen<HTMLHeadingElement>();
   let index = 0;
 
   return (
     <h2
       ref={ref}
       aria-label={label}
-      className={`font-display uppercase leading-[0.7785] tracking-[-0.065em] [perspective:1200px] ${className ?? ""}`}
+      data-on={seen ? "" : undefined}
+      className={`group/turn font-display uppercase leading-[0.7785] tracking-[-0.065em] [perspective:1200px] ${className ?? ""}`}
     >
       {lines.map((line, l) => (
         <span key={l} aria-hidden className={`block ${line.className ?? ""}`}>
@@ -115,8 +130,6 @@ export function TurnHeading({
                     next={word[c + 1] ?? ""}
                     tile={line.tile ?? "#7745FF"}
                     delay={index++ * stagger}
-                    on={on}
-                    reduced={reduced}
                   />
                 ))}
               </span>
@@ -132,12 +145,11 @@ export function TurnHeading({
  * Blocks: scaffold, then fill
  * ---------------------------------------------------------------------- */
 
-const buildTags = {
-  div: motion.div,
-  li: motion.li,
-  article: motion.article,
-  figure: motion.figure,
-} as const;
+type BuildTag = "div" | "li" | "article" | "figure";
+
+/* The layers are the block's own children, so a block inside another block
+   waits for its own turn. */
+const BUILT = "[[data-on]>&]:[clip-path:inset(0%_0%_0%_0%)]";
 
 /**
  * A block that is built rather than faded in: its outline is drawn first (six
@@ -157,7 +169,7 @@ export function Build({
   delay = 0,
   children,
 }: {
-  as?: keyof typeof buildTags;
+  as?: BuildTag;
   className?: string;
   contentClassName?: string;
   /** Classes for the fill layer, e.g. a background colour. Omit for none. */
@@ -169,57 +181,46 @@ export function Build({
   delay?: number;
   children?: ReactNode;
 }) {
-  const Tag = buildTags[as] as typeof motion.div;
-  const ref = useRef<HTMLDivElement>(null);
-  const on = useInView(ref, IN_VIEW);
-  const reduced = Boolean(useReducedMotion());
-  const t = (duration: number, extra: number, count: number) =>
-    reduced
-      ? { duration: 0 }
-      : { duration, delay: delay + extra, ease: steps(count, "end") };
+  // One element type for the ref; the tag only changes what is rendered.
+  const Tag = as as "div";
+  const [ref, seen] = useSeen<HTMLDivElement>();
   const hasFill = fill !== undefined || fillContent !== undefined;
 
   return (
-    <Tag ref={ref} className={`relative ${className ?? ""}`}>
+    <Tag
+      ref={ref}
+      data-on={seen ? "" : undefined}
+      className={`relative ${className ?? ""}`}
+      style={delayVar(delay)}
+    >
       {outline !== "none" && (
-        <motion.span
+        <span
           aria-hidden
-          className={`bldr-anim pointer-events-none absolute inset-0 ${
+          className={`bldr-anim pointer-events-none absolute inset-0 [clip-path:inset(0%_100%_100%_0%)] [transition:clip-path_0.42s_steps(6,end)_var(--d)] motion-reduce:[transition:none] ${BUILT} ${
             outline === "solid"
               ? "border border-current opacity-35"
               : outline === "faint"
                 ? "border border-current opacity-20"
                 : ""
           }`}
-          initial={{ clipPath: "inset(0% 100% 100% 0%)" }}
-          animate={on ? { clipPath: "inset(0% 0% 0% 0%)" } : undefined}
-          transition={t(0.42, 0, 6)}
         >
           {typeof outline === "string" ? null : outline}
-        </motion.span>
+        </span>
       )}
       {hasFill && (
-        <motion.span
+        <span
           aria-hidden={fillContent ? undefined : true}
-          className={`bldr-anim absolute inset-0 ${fill ?? ""}`}
-          initial={{ clipPath: "inset(0% 0% 0% 100%)" }}
-          animate={on ? { clipPath: "inset(0% 0% 0% 0%)" } : undefined}
-          transition={t(0.48, 0.38, 4)}
+          className={`bldr-anim absolute inset-0 [clip-path:inset(0%_0%_0%_100%)] [transition:clip-path_0.48s_steps(4,end)_calc(var(--d)_+_0.38s)] motion-reduce:[transition:none] ${BUILT} ${fill ?? ""}`}
         >
           {fillContent}
-        </motion.span>
+        </span>
       )}
       {children !== undefined && (
-        <motion.div
-          className={`bldr-anim relative flex flex-1 flex-col ${contentClassName ?? ""}`}
-          initial={{ opacity: 0 }}
-          animate={on ? { opacity: 1 } : undefined}
-          transition={
-            reduced ? { duration: 0 } : { duration: 0, delay: delay + 0.86 }
-          }
+        <div
+          className={`bldr-anim relative flex flex-1 flex-col opacity-0 [transition:opacity_0s_linear_calc(var(--d)_+_0.86s)] motion-reduce:[transition:none] [[data-on]>&]:opacity-100 ${contentClassName ?? ""}`}
         >
           {children}
-        </motion.div>
+        </div>
       )}
     </Tag>
   );
@@ -231,9 +232,13 @@ export function Build({
 
 export function HeaderBar({ children }: { children: ReactNode }) {
   const [solid, setSolid] = useState(false);
-  const { scrollY } = useScroll();
-  useMotionValueEvent(scrollY, "change", (y) => setSolid(y > 24));
-  useEffect(() => setSolid(window.scrollY > 24), []);
+
+  useEffect(() => {
+    const update = () => setSolid(window.scrollY > 24);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
 
   return (
     <header

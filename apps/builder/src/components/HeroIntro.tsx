@@ -8,8 +8,8 @@ import {
   useState,
   type PointerEvent,
 } from "react";
-import { cubicBezier, motion, useReducedMotion } from "motion/react";
 import { CtaLink } from "./CtaLink";
+import { cubicBezier } from "./easing";
 import {
   LOCKUP_PIECES,
   LOCKUP_TAB,
@@ -17,6 +17,7 @@ import {
   type LockupPiece,
 } from "./heroLockup";
 import { EASE_LAND } from "./motion";
+import { useReducedMotion } from "./useReducedMotion";
 
 /*
  * The cube intro, ported from the design studio's motion file.
@@ -117,6 +118,9 @@ const SCALE = VB.width / 985.46;
 const SLASH_FROM = 340 * SCALE;
 const SLASH_TO = 1500 * SCALE;
 const DIGIT_AT = DIGIT.x + DIGIT.y;
+
+/** Fired on `window` when the intro has finished (or was skipped). */
+export const INTRO_DONE_EVENT = "bldr:intro-done";
 
 const clamp = (v: number) => Math.max(0, Math.min(1, v));
 const wait = (ms: number) =>
@@ -265,8 +269,9 @@ export function HeroIntro({
   registerHref: string | null;
 }) {
   const wipeId = `${useId()}-wipe`;
-  const reduced = Boolean(useReducedMotion());
+  const reduced = useReducedMotion();
   const stage = useRef<HTMLDivElement>(null);
+  const poster = useRef<HTMLSpanElement>(null);
   const cells = useRef<HTMLDivElement>(null);
   // The current run of the intro; a replay or an unmount moves it on, which
   // stops whatever was still playing.
@@ -329,11 +334,14 @@ export function HeroIntro({
       root.style.opacity = "1";
     };
 
+    const done = () => window.dispatchEvent(new Event(INTRO_DONE_EVENT));
+
     setHot(false);
     if (reduced) {
       finish();
       setReady(true);
       setDealt(true);
+      done();
       return;
     }
 
@@ -427,6 +435,8 @@ export function HeroIntro({
 
     frame(0, 0);
     root.style.opacity = "1";
+    // The stage now draws the block the poster was standing in for.
+    if (poster.current) poster.current.style.display = "none";
 
     await new Promise<void>((resolve) => {
       let t = 0;
@@ -518,6 +528,7 @@ export function HeroIntro({
     if (!alive()) return;
     setHot(true);
     setDealt(true);
+    done();
   }, [reduced, runs, wipeId]);
 
   useEffect(() => {
@@ -569,12 +580,38 @@ export function HeroIntro({
   return (
     <>
       <div className="relative [container-type:inline-size]">
+        {/* The intro's first frame, drawn by the server: the symbol block is
+            on screen at first paint and the intro picks up from it once the
+            script has loaded. Without it the first screen stays empty until
+            then, which on a slow connection is several seconds. */}
+        <span
+          ref={poster}
+          aria-hidden
+          data-bldr-poster
+          className="absolute block [--u:calc(100cqw/1342)] motion-reduce:hidden"
+          style={{
+            left: u(VB.width / 2 - TILE_W),
+            top: u(VB.height / 2 - TILE_H),
+            width: u(2 * TILE_W),
+            height: u(2 * TILE_H),
+          }}
+        >
+          <svg
+            viewBox={`0 0 ${TAB.w} ${TAB.h}`}
+            preserveAspectRatio="none"
+            className="block size-full"
+          >
+            <TabMark />
+          </svg>
+        </span>
+
         {/* Hidden until the intro starts; shown as the finished lock-up
             without script or with reduced motion. */}
         <div
           ref={stage}
           aria-hidden
-          className="bldr-anim group/lock relative select-none [--u:calc(100cqw/1342)]"
+          data-bldr-intro
+          className="bldr-anim group/lock relative select-none [--u:calc(100cqw/1342)] motion-reduce:!opacity-100"
           style={{ opacity: 0 }}
         >
           <svg
@@ -709,7 +746,7 @@ export function HeroIntro({
         {/* The caption sits in the lock-up's lower-right notch from md up and
             scales with it (container units). */}
         <div
-          className={`bldr-anim mt-8 flex flex-wrap gap-x-10 gap-y-4 text-[20px] leading-none tracking-[-0.03em] transition-opacity duration-[400ms] ease-linear md:absolute md:bottom-0 md:left-[66.9%] md:mt-0 md:block md:translate-y-[0.19cqw] md:whitespace-nowrap md:text-[2.385cqw] md:leading-[0.875] ${
+          className={`bldr-anim mt-8 flex flex-wrap gap-x-10 gap-y-4 text-[20px] leading-none tracking-[-0.03em] transition-opacity duration-[400ms] ease-linear md:absolute md:bottom-0 md:left-[66.9%] md:mt-0 md:block md:translate-y-[0.19cqw] md:whitespace-nowrap md:text-[2.385cqw] md:leading-[0.875] motion-reduce:!opacity-100 ${
             ready ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -730,7 +767,7 @@ export function HeroIntro({
           lock-up and its caption are the whole first screen. */}
       <div className="md:hidden">
         <div
-          className={`bldr-anim transition-opacity duration-[400ms] ease-linear ${
+          className={`bldr-anim transition-opacity duration-[400ms] ease-linear motion-reduce:!opacity-100 ${
             ready ? "opacity-100" : "opacity-0"
           }`}
         >
@@ -782,19 +819,15 @@ export function HeroIntro({
                 >
                   <span className="pointer-events-none absolute inset-0 bg-bldr-purple opacity-0 transition-opacity duration-[600ms] ease-linear group-data-[lit]:opacity-100 group-data-[lit]:transition-none" />
                   {char && (
-                    <motion.span
+                    <span
                       aria-hidden
-                      className="bldr-anim absolute inset-0 flex items-center justify-center font-display text-[9.4cqw] leading-none tracking-normal group-data-[lit]:text-black sm:text-[7.83cqw]"
-                      initial={{ rotateY: -90 }}
-                      animate={dealt ? { rotateY: 0 } : undefined}
-                      transition={
-                        reduced
-                          ? { duration: 0 }
-                          : { duration: 0.32, ease: EASE_LAND, delay }
-                      }
+                      className={`bldr-anim absolute inset-0 flex items-center justify-center font-display text-[9.4cqw] leading-none tracking-normal [transition:transform_0.32s_cubic-bezier(0.42,0,0.12,1)_var(--d)] group-data-[lit]:text-black motion-reduce:[transition:none] sm:text-[7.83cqw] ${
+                        dealt ? "" : "[transform:rotateY(-90deg)]"
+                      }`}
+                      style={{ ["--d" as string]: `${delay.toFixed(2)}s` }}
                     >
                       <span className="translate-y-[0.05em]">{char}</span>
-                    </motion.span>
+                    </span>
                   )}
                 </div>
               );

@@ -77,9 +77,11 @@ use the Tailwind colors `surface` and `ink`. The header toggle sets
 
 ## Motion
 
-Motion follows the design studio's prototype ("Buildr Landing Page" artifact)
-and uses the `motion` package. The rule is steps, not fades: the page is built,
-not faded in.
+Motion follows the design studio's prototype ("Buildr Landing Page" artifact).
+The rule is steps, not fades: the page is built, not faded in. There is no
+animation library: sections use CSS transitions that start when a `data-on`
+attribute is set on first view (`useSeen` in `components/motion.tsx`), the FAQ
+uses the Web Animations API, and the hero is stepped by hand.
 
 - `TurnHeading` (`components/motion.tsx`): each letter turns a quarter into
   place on a tile, 45ms apart (70ms in the call to action).
@@ -94,11 +96,14 @@ not faded in.
   Afterwards a letter under the pointer turns to the next letter and back. It is
   CSS 3D transforms driven by `requestAnimationFrame` and the Web Animations
   API, as in the prototype: no WebGL. Geometry is in lock-up units (`--u`), so
-  it scales without script. On phones it adds the tagline, Register, "Rebuild
-  the logo" (replays the intro) and the date row, whose cells light as they are
-  dealt and under the pointer.
+  it scales without script. The server draws the intro's first frame (the symbol
+  block, `data-bldr-poster`), so the first screen is not empty while the script
+  loads; the intro hides it as it starts. On phones it adds the tagline,
+  Register, "Rebuild the logo" (replays the intro) and the date row, whose cells
+  light as they are dealt and under the pointer.
 - `SlashField`: the pattern is generated on a canvas, scrubbed in by scroll; a
-  click deals a new one.
+  click deals a new one. It is generated only once it is within a screen of the
+  viewport.
 - `FaqList`: native `<details>`; the marker turns and the answer fills in four
   steps.
 - `CtaLink`: live links cut their lower-right corner on hover (`btn-cut`) and
@@ -108,6 +113,24 @@ not faded in.
 
 Anything that starts hidden carries the `bldr-anim` class so the `<noscript>`
 rule in the layout can show it. Reduced-motion users get the end state at once.
+
+## Load performance
+
+Measured on a throttled phone, the first screen depends on how much script and
+HTML arrive before the hero can start. Keep these in place:
+
+- **Client messages**: `pickClientMessages` in the layout passes only the
+  namespaces client components read. The merged catalog includes all of
+  solana.com's copy (about 900 KB) and would be written into every page. Add a
+  namespace there when a client component starts using `useTranslations`.
+- **Solana menu**: `DeferredFabMenu` loads the FAB in its own chunk after the
+  intro has played (`INTRO_DONE_EVENT`), or when idle on a page with no intro.
+- **Shared packages**: `optimizePackageImports` in `next.config.ts` covers
+  `@solana-com/ui-chrome` and `@workspace/ui`. Without it their whole indexes
+  (site header and footer, dialogs, Radix) ship with the layout.
+- **Tailwind**: `content` lists only the shared components this app renders.
+- **Cookie banner**: stays in the layout's own script. It is the largest paint
+  for a first-time visitor, so deferring it delays LCP.
 
 Not built from the prototype: its two alternative intros (Lock-up and Block,
 review options only) and the Program and Speakers sections.
