@@ -51,7 +51,8 @@ export const providerLinks: Record<
     DeFiLlama: "https://defillama.com/stablecoins/solana",
     Dune: `${duneDocs}/curated/stablecoins/activity-enriched/stablecoins-solana-activity-enriched`,
     RWA: "https://app.rwa.xyz/networks/solana",
-    "Token Terminal": `${tokenTerminalSolana}/metrics/ecosystem-stablecoin-supply`,
+    "Token Terminal":
+      "https://tokenterminal.com/explorer/tokenized-assets/stablecoins?chains=solana&stablecoinsBridged=true",
     "Top Ledger": `${topLedgerResearch}/rwas/stablecoins`,
   },
   defi: {
