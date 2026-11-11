@@ -197,7 +197,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-smoking",
     floor: "ground",
     type: "smoking",
-    position: { x: 885, y: 93 },
+    position: { x: 879, y: 99 },
   },
   {
     id: "g-first-aid-reception",
