@@ -267,7 +267,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "f-restroom-west",
     floor: "first",
     type: "restroom",
-    position: { x: 22, y: 228 },
+    position: { x: 28, y: 228 },
   },
   {
     id: "f-restroom-north",
