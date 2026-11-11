@@ -47,6 +47,8 @@ export const config = {
   twitterHandle: "solana",
   event: {
     name: "BLDR Epoch//01",
+    // The copy also spells the name out; search engines should match both.
+    alternateName: "Solana Builder Epoch//01",
     city: "San Francisco",
     region: "CA",
     country: "US",

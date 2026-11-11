@@ -14,7 +14,10 @@ const rewritesRedirectsPath = path.join(
 function getRedirectBlockSource() {
   const fileContents = fs.readFileSync(rewritesRedirectsPath, "utf8");
   const start = fileContents.indexOf("redirects: withLocaleRedirects([");
-  const end = fileContents.lastIndexOf("]),");
+  // The block closes with "])" followed by "," or a chained call such as
+  // ".concat(...)". Missing it falls back to the whole file, which would treat
+  // every rewrite source (/builder, /accelerate, /breakpoint) as a redirect.
+  const end = fileContents.lastIndexOf("])");
 
   if (start === -1 || end === -1 || end <= start) {
     return fileContents;

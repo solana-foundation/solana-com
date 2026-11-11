@@ -17,13 +17,18 @@ export async function Header({ locale }: { locale: string }) {
 
   return (
     <HeaderBar>
-      <div className={`${container} flex h-[68px] items-center gap-4`}>
+      <div
+        className={`${container} flex h-[68px] items-center gap-4 max-[339px]:gap-2`}
+      >
         <a
           href="#top"
           aria-label={t("nav.home")}
           className="mr-auto block shrink-0"
         >
-          <LogoHorizontal className="h-[28px] w-auto md:h-[34px]" aria-hidden />
+          <LogoHorizontal
+            className="h-[28px] w-auto max-[339px]:h-[22px] md:h-[34px]"
+            aria-hidden
+          />
         </a>
         <nav aria-label={t("nav.label")} className="hidden md:block">
           <ul className="flex items-center gap-7 text-[16px] leading-none tracking-[-0.5px]">
@@ -49,6 +54,7 @@ export async function Header({ locale }: { locale: string }) {
           href={links.register}
           pendingLabel={t("cta.pending")}
           className="h-10 bg-bldr-purple px-4 text-[14px] leading-none tracking-[-0.4px] text-surface"
+          hoverClassName="hover:bg-[rgb(var(--bldr-btn-hover))]"
         >
           {t("cta.register")}
         </CtaLink>

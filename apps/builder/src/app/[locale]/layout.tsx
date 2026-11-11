@@ -34,7 +34,7 @@ const bodyFont = localFont({
 // The BLDR display face ("Solana Builder SF"), taken from the design studio's
 // prototype. Replace with the supplied file when the asset toolkit arrives.
 const displayFont = localFont({
-  src: "../../fonts/bldr-slab/BLDRSlab-Regular.ttf",
+  src: "../../fonts/bldr-slab/BLDRSlab-Regular.woff2",
   weight: "400",
   style: "normal",
   variable: "--font-bldr-display",
@@ -61,6 +61,7 @@ export async function generateMetadata({ params }: Props) {
   return getBaseMetadata(locale, {
     title: t("title"),
     description: t("description"),
+    imageAlt: t("socialImageAlt"),
   });
 }
 

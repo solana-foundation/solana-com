@@ -5,14 +5,18 @@ import { config } from "@@/src/config";
 
 export function getBaseMetadata(
   locale: string,
-  { title, description }: { title: string; description: string },
+  {
+    title,
+    description,
+    imageAlt,
+  }: { title: string; description: string; imageAlt: string },
 ): Metadata {
   const image = {
     url: config.socialShare,
     secureUrl: config.socialShare,
     width: 1200,
     height: 630,
-    alt: title,
+    alt: imageAlt,
     type: "image/jpeg",
   };
 
@@ -47,7 +51,17 @@ export function getBaseMetadata(
     robots: {
       index: true,
       follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-video-preview": -1,
+        "max-image-preview": "large",
+        "max-snippet": -1,
+      },
     },
+    // Every locale canonicalizes to the English URL and there is no hreflang:
+    // the copy is English only, so localized URLs would be duplicates. Add
+    // per-locale canonicals and `languages` once translations ship.
     alternates: {
       canonical: config.publicUrl,
     },

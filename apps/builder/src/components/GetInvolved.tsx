@@ -20,7 +20,7 @@ export async function GetInvolved({ locale }: { locale: string }) {
         <TurnHeading
           label={t("getInvolved.heading")}
           lines={[{ text: t("getInvolved.heading"), tile: "#000000" }]}
-          className="text-[clamp(44px,8vw,128px)] min-[1200px]:text-[120px]"
+          className="text-[length:clamp(32px,min(12.8vw,max(44px,8vw)),128px)] min-[1200px]:text-[120px]"
         />
 
         <Build
@@ -39,6 +39,7 @@ export async function GetInvolved({ locale }: { locale: string }) {
               href={links.sponsorship}
               pendingLabel={t("cta.pending")}
               className="h-12 bg-bldr-purple px-5 text-[16px] leading-none tracking-[-0.5px] text-black"
+              hoverClassName="hover:bg-white"
             >
               {t("getInvolved.sponsor.cta")}
             </CtaLink>

@@ -34,7 +34,26 @@ Copy lives in `packages/i18n/messages/builder/en/common.json`.
   for anything in `public/`.
 - `apps/web/rewrites-redirects.ts` proxies `/builder`, `/:locale/builder` and
   `/builder-assets/*` to this app (`BUILDER_APP_URL` in `apps/web/apps-urls.ts`,
-  Vercel project `solana-com-builder`).
+  Vercel project `solana-com-bldr`; the pnpm package stays
+  `solana-com-builder`).
+- On production, `src/middleware.ts` redirects direct visits to the
+  `*.vercel.app` host to `solana.com/builder` (308). Proxied requests and
+  preview deployments are served as is. Assets are not redirected.
+
+## SEO
+
+- Title, description and social image alt are `builder.metadata.*` in the copy
+  file; `src/app/metadata.ts` builds the tags.
+- `src/lib/structured-data.ts` emits one JSON-LD graph: Event, organizer and
+  FAQPage. The FAQ node reads the rendered FAQ strings. Add the venue's street
+  address and ticket offers there when they are announced.
+- Crawlers find the page through `solana.com/sitemap.xml`:
+  `packages/sitemap/src/routes/builder.ts` reads `src/app/sitemap-routes.json`.
+  Add new routes to that JSON file.
+- The copy is English only, so every locale canonicalizes to `/builder`, there
+  is no hreflang, and the sitemap lists the English URL alone. When translations
+  ship, switch to per-locale canonicals with `languages` alternates and
+  `createLocalizedEntries` in the sitemap route.
 
 ## Palettes
 
@@ -46,11 +65,11 @@ use the Tailwind colors `surface` and `ink`. The header toggle sets
 
 ## Fonts
 
-- **Display ("Solana Builder SF")**: `src/fonts/bldr-slab/BLDRSlab-Regular.ttf`,
-  taken from the design studio's prototype and exposed as `font-display`.
-  Replace it with the supplied file when the asset toolkit arrives. Headings are
-  live text (`TurnHeading`); the outlined heading SVGs in
-  `public/images/headings/` are no longer used.
+- **Display ("Solana Builder SF")**:
+  `src/fonts/bldr-slab/BLDRSlab-Regular.woff2`, taken from the design studio's
+  prototype and exposed as `font-display`. Replace it with the supplied file
+  when the asset toolkit arrives. Headings are live text (`TurnHeading`); the
+  outlined heading SVGs in `public/images/headings/` are no longer used.
 - **Body ("Suisse Int'l")**: not in the repo. ABC Diatype stands in. To switch,
   replace the `src` paths in `src/app/[locale]/layout.tsx`. The studio's
   prototype embeds Suisse, but it is a licensed face and this repo is public, so
@@ -67,20 +86,31 @@ not faded in.
 - `Build`: a block's outline is drawn in six steps, its fill comes in from the
   left in four, then its content appears. Give each block the delay the
   prototype gives it.
-- `HeroIntro`: the lock-up rises and drops in piece by piece
-  (`components/heroLockup.ts` holds the pieces, cut from the Figma export). On
-  phones it adds the tagline, Register, "Rebuild the logo" and the date row.
+- `HeroIntro`: the prototype's cube intro (its default, "Intro A"), ported from
+  the studio's motion file onto the Figma lock-up (`components/heroLockup.ts`
+  holds the pieces). The symbol block shrinks onto the line and turns face by
+  face, pushing R, D, L, B out of its edge; the tiles drop, the row moves to the
+  lock-up's place, EPOCH comes in under one 45° slash and //00 turns to //01.
+  Afterwards a letter under the pointer turns to the next letter and back. It is
+  CSS 3D transforms driven by `requestAnimationFrame` and the Web Animations
+  API, as in the prototype: no WebGL. Geometry is in lock-up units (`--u`), so
+  it scales without script. On phones it adds the tagline, Register, "Rebuild
+  the logo" (replays the intro) and the date row, whose cells light as they are
+  dealt and under the pointer.
 - `SlashField`: the pattern is generated on a canvas, scrubbed in by scroll; a
   click deals a new one.
 - `FaqList`: native `<details>`; the marker turns and the answer fills in four
   steps.
-- `CtaLink`: live links cut their lower-right corner on hover (`btn-cut`).
+- `CtaLink`: live links cut their lower-right corner on hover (`btn-cut`) and
+  change colour at once (`hoverClassName`): a violet button turns white on a
+  black ground and stays violet on a white one (`--bldr-btn-hover`). The outline
+  button (`btn-ghost`) closes its line around the cut.
 
 Anything that starts hidden carries the `bldr-anim` class so the `<noscript>`
 rule in the layout can show it. Reduced-motion users get the end state at once.
 
-Not built from the prototype: the studio's cube film intro, the letter cubes
-that turn under the pointer, and the Program and Speakers sections.
+Not built from the prototype: its two alternative intros (Lock-up and Block,
+review options only) and the Program and Speakers sections.
 
 ## Launch scope
 
@@ -96,7 +126,7 @@ Before launch:
 1. Set the two URLs in `src/content/links.ts` (buttons are inert while `null`).
 2. Replace the FAQ questions and answers, which are still placeholders; the copy
    doc lists the FAQ heading only.
-3. Create the `solana-com-builder` Vercel project and add it to the web app's
+3. Create the `solana-com-bldr` Vercel project and add it to the web app's
    related projects (or set `NEXT_PUBLIC_BUILDER_APP_URL`).
 
 ## Commands

@@ -43,8 +43,11 @@ function Letter({
   const kern = SLAB_KERN[(char + next).toUpperCase()];
 
   return (
+    // pointer-events-none: before it turns, a letter is edge-on under the
+    // heading's perspective, and browsers hit-test that plane far outside its
+    // box, which blocked taps on the FAQ rows above "Come build."
     <motion.span
-      className={`bldr-anim relative isolate inline-block ${
+      className={`bldr-anim pointer-events-none relative isolate inline-block ${
         landed || reduced
           ? ""
           : "after:absolute after:-inset-x-[0.02em] after:-bottom-[0.04em] after:-top-[0.06em] after:-z-10 after:bg-[var(--tile)] after:content-['']"

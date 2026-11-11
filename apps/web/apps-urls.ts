@@ -65,8 +65,8 @@ export const BREAKPOINT_APP_URL =
 
 // Builder (BLDR) app URLs
 const vercelBuilderUrl = withRelatedProject({
-  projectName: "solana-com-builder",
-  defaultHost: "https://solana-com-builder.vercel.app",
+  projectName: "solana-com-bldr",
+  defaultHost: "https://solana-com-bldr.vercel.app",
 });
 const developmentBuilderUrl = "http://localhost:3007";
 

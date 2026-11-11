@@ -1,6 +1,7 @@
-import { getTranslations } from "@workspace/i18n/server";
-import { config } from "@@/src/config";
-import { links } from "@@/src/content/links";
+import {
+  buildBuilderJsonLd,
+  serializeJsonLd,
+} from "@@/src/lib/structured-data";
 import { About } from "@@/src/components/About";
 import { ComeBuild } from "@@/src/components/ComeBuild";
 import { Faq } from "@@/src/components/Faq";
@@ -18,45 +19,14 @@ type Props = { params: Promise<{ locale: string }> };
 // announced.
 export default async function BuilderPage({ params }: Props) {
   const { locale } = await params;
-  const t = await getTranslations({ locale, namespace: "builder.metadata" });
-
-  const eventJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Event",
-    name: config.event.name,
-    description: t("description"),
-    startDate: config.event.startDate,
-    endDate: config.event.endDate,
-    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-    eventStatus: "https://schema.org/EventScheduled",
-    url: config.publicUrl,
-    image: config.socialShare,
-    location: {
-      "@type": "Place",
-      name: config.event.city,
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: config.event.city,
-        addressRegion: config.event.region,
-        addressCountry: config.event.country,
-      },
-    },
-    organizer: {
-      "@type": "Organization",
-      name: "Solana Foundation",
-      url: "https://solana.com",
-    },
-    ...(links.register
-      ? { offers: { "@type": "Offer", url: links.register } }
-      : {}),
-  };
+  const jsonLd = await buildBuilderJsonLd(locale);
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(eventJsonLd).replace(/</g, "\\u003c"),
+          __html: serializeJsonLd(jsonLd),
         }}
       />
       <Header locale={locale} />

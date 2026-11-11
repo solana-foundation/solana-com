@@ -4,6 +4,7 @@ import {
 } from "@workspace/i18n/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
+import { getCanonicalRedirect } from "@@/src/lib/canonical-host";
 
 // routingWithoutDetection: prevents redirects based on Accept-Language that would leak Vercel URL
 // preserveProxiedLocaleCookie: prevents overwriting the main app's NEXT_LOCALE cookie
@@ -14,6 +15,18 @@ const handleI18nRouting = createMiddleware(routingWithoutDetection, {
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // The production *.vercel.app host is not a public address: send direct
+  // visits to solana.com so the page has one URL.
+  const canonical = getCanonicalRedirect({
+    host: req.headers.get("host"),
+    forwardedHost: req.headers.get("x-forwarded-host"),
+    pathname,
+    search: req.nextUrl.search,
+  });
+  if (canonical) {
+    return NextResponse.redirect(canonical, 308);
+  }
 
   if (pathname !== pathname.toLowerCase()) {
     return NextResponse.redirect(

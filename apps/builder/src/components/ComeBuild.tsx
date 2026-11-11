@@ -41,6 +41,7 @@ export async function ComeBuild({ locale }: { locale: string }) {
               href={links.register}
               pendingLabel={t("cta.pending")}
               className="h-[60px] bg-[rgb(var(--bldr-cta-button))] [--btn-cut-size:24px] px-8 text-[18px] leading-none tracking-[-0.03em] text-white md:mr-8 md:h-[72px] md:px-[38px] md:text-[20px]"
+              hoverClassName="hover:bg-white hover:text-black"
             >
               {t("cta.registerEpoch")}
             </CtaLink>
