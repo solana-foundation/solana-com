@@ -208,10 +208,9 @@ block, you should ensure you have properly assembled your transaction. This
 means:
 
 - including a fresh blockhash before sending the transaction
-- including a priority fee instruction in the transaction with a competitive
-  priority fee
-- including a compute unit limit instruction in the transaction with a compute
-  unit limit based on the estimated compute units required for the transaction
+- including a competitive priority fee
+- setting a compute unit limit based on the estimated compute units required for
+  the transaction
 
 ### Transaction V1
 
@@ -222,6 +221,47 @@ already support building V1 transactions out of the box.
 
 You can include support for V1 transactions with the
 [migration guide here](https://solana.com/upgrades/larger-transaction-sizes).
+
+For V1 transactions, resource limits live in the transaction message config
+rather than Compute Budget instructions. You must explicitly set the compute
+unit limit and loaded accounts data size limit because both default to zero when
+omitted. Compute Budget instructions included in a V1 transaction are processed
+as no-ops and do not change its limits.
+
+Use `@solana/kit` to estimate the required limits by simulation and write them
+to the message config. Fill the provisional limits before simulation so the
+message has the same size when simulated and sent:
+
+```ts
+import {
+  appendTransactionMessageInstructions,
+  createTransactionMessage,
+  estimateAndSetResourceLimitsFactory,
+  estimateResourceLimitsFactory,
+  fillTransactionMessageProvisoryResourceLimits,
+  pipe,
+  setTransactionMessageFeePayerSigner,
+  setTransactionMessageLifetimeUsingBlockhash
+} from "@solana/kit";
+
+const draftMessage = pipe(
+  createTransactionMessage({ version: 1 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions(instructions, m),
+  fillTransactionMessageProvisoryResourceLimits
+);
+
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimitsFactory({ rpc })
+);
+const transactionMessage = await estimateAndSetResourceLimits(draftMessage, {
+  commitment: "confirmed"
+});
+```
+
+Simulation returns the exact resource use for that run, so add a margin before
+using the estimate in production.
 
 ### Blockhash expiry
 
@@ -271,52 +311,6 @@ const signature = await rpc
 const { lastValidBlockHeight } = latestBlockhash;
 // Stop retrying when current block height exceeds lastValidBlockHeight
 ```
-
-### Handling compute unit budgets
-
-Compute on Solana is measured in compute units (CUs) which are a rough estimate
-of the amount of work the program is doing. Compute limits today are 50 million
-CUs per block, and 1.4 million CUs per transaction. When you submit a
-transaction, you need to estimate the amount of compute that will be used, and
-set the compute unit limit accordingly - this is effectively a request for how
-much of the total capacity that should be reserved for your transaction. In
-practice, this means properly estimating the compute units required for your
-transaction is critical to having your transaction included in a block (and
-important for managing your priority fees). The transaction and block compute
-limit are determined by the protocol.
-
-The Solana JSON RPC API has a
-[`simulatetransaction`](/docs/rpc/http/simulatetransaction) method that can be
-used to estimate the compute units required for a transaction, which includes an
-estimate of the compute units that will be used.
-[`@solana/kit`](https://github.com/anza-xyz/kit) provides helper functions that
-estimate a transaction's resource limits and set them on the message in one step
-(using the `simulatetransaction` method under the hood). For version 1
-transactions these helpers also estimate the loaded accounts data size limit.
-
-```ts
-import {
-  estimateResourceLimitsFactory,
-  estimateAndSetResourceLimitsFactory
-} from "@solana/kit";
-
-const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
-const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
-  estimateResourceLimits
-);
-const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
-```
-
-<Callout type="info">
-  If you build and send transactions with a kit plugin client, you typically
-  don't need this step — the client adds compute budget instructions for you
-  when it sends (`.sendTransaction()`). The manual flow above is for when you
-  assemble transactions directly with `@solana/kit`.
-</Callout>
-
-In production, if you are repeating the same type of transaction multiple times,
-you should consider caching the compute estimate for the transaction type to
-avoid the overhead of estimating the compute units every time.
 
 ### Priority fees
 
