@@ -26,6 +26,7 @@ export function isProxiedPath(normalizedPathname: string) {
   return (
     normalizedPathname.startsWith("/accelerate") ||
     normalizedPathname.startsWith("/breakpoint") ||
+    normalizedPathname.startsWith("/builder") ||
     normalizedPathname === "/developers" ||
     normalizedPathname.startsWith("/developers/templates") ||
     normalizedPathname.startsWith("/developers/cookbook") ||
@@ -147,7 +148,7 @@ export const config = {
     "/skill.md",
     "/learn/:path*.md",
     "/:locale/learn/:path*.md",
-    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|changelog|docs|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
+    "/((?!api|opengraph|_next|_vercel|accelerate|breakpoint|builder|changelog|docs|news(?!letter)|reports|podcasts|upgrade|upgrades|media-assets|templates-assets|.*\\..*).*)",
   ],
   runtime: "nodejs",
 };

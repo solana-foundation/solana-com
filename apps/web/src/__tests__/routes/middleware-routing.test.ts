@@ -7,6 +7,15 @@ describe("Cross-app middleware routing", () => {
     expect(isProxiedPath("/changelog/rss.xml")).toBe(true);
   });
 
+  it("bypasses the main app middleware for the Builder app", () => {
+    const appRouteMatcher = new RegExp(`^${config.matcher.at(-1)}$`);
+
+    expect(isProxiedPath("/builder")).toBe(true);
+    expect(isProxiedPath("/builder/faq")).toBe(true);
+    expect(appRouteMatcher.test("/builder")).toBe(false);
+    expect(appRouteMatcher.test("/uk/builder")).toBe(true);
+  });
+
   it("keeps Learn routes in the main app", () => {
     expect(isProxiedPath("/learn")).toBe(false);
     expect(isProxiedPath("/learn/what-is-solana")).toBe(false);

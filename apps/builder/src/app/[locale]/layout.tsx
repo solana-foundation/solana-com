@@ -91,7 +91,7 @@ export default async function RootLayout({ children, params }: Props) {
         <GoogleAnalyticsTag measurementId="G-1YDTXXYYQ4" />
         <NextIntlClientProvider messages={messages} locale={locale}>
           {children}
-          <FabMenu />
+          <FabMenu bundled={process.env.VERCEL_ENV !== "production"} />
           <CookieConsentBanner />
         </NextIntlClientProvider>
       </body>
