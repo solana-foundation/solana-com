@@ -1,0 +1,88 @@
+import { getTranslations } from "@workspace/i18n/server";
+import { getImagePath } from "@@/src/config";
+import { container, label } from "./layout";
+import { Build, TurnHeading } from "./motion";
+
+const STATS = ["days", "builders", "places", "sessions"] as const;
+
+export async function About({ locale }: { locale: string }) {
+  const t = await getTranslations({ locale, namespace: "builder.about" });
+
+  return (
+    <section id="about" className="surface-b">
+      <div
+        className={`${container} pb-16 pt-16 md:pb-24 md:pt-28 xl:pb-[116px] xl:pt-[149px]`}
+      >
+        <TurnHeading
+          label={t("heading")}
+          lines={[
+            { text: t("headingLines.one") },
+            { text: t("headingLines.two") },
+            { text: t("headingLines.three") },
+          ]}
+          className="text-[clamp(30px,9.2vw,152px)] min-[1200px]:text-[128px]"
+        />
+
+        <div className="mt-12 grid gap-3 md:mt-20 lg:grid-cols-2 xl:mt-[81px]">
+          <Build
+            outline="faint"
+            className="flex min-h-[180px] p-6 md:min-h-[230px] md:p-8"
+          >
+            <p className="max-w-[540px] text-[22px] leading-none tracking-[-0.03em] md:text-[28px]">
+              {t("intro")}
+            </p>
+          </Build>
+          <Build
+            delay={0.12}
+            fill="bg-bldr-purple"
+            className="chamfer flex min-h-[180px] p-6 text-black [--chamfer:48px] md:min-h-[230px] md:p-8 md:[--chamfer:72px]"
+            contentClassName="justify-between gap-8"
+          >
+            <p className={label}>{t("callout.eyebrow")}</p>
+            <p className="max-w-[460px] text-[28px] leading-none tracking-[-0.03em] md:text-[36px]">
+              {t("callout.body")}
+            </p>
+          </Build>
+        </div>
+
+        {/* Same crop as the Figma frame: the photo is 209.5% of the frame's
+            desktop height and starts 22.44% of its own height above it. */}
+        <Build
+          as="figure"
+          delay={0.06}
+          className="mt-3 aspect-[4/3] overflow-hidden md:aspect-[1342/447]"
+          fillContent={
+            <img
+              src={getImagePath("/images/about-campus.webp")}
+              alt={t("imageAlt")}
+              width={1600}
+              height={1277}
+              loading="lazy"
+              decoding="async"
+              className="absolute left-0 top-0 aspect-[1342/936.5] w-full max-w-none max-md:h-full max-md:object-cover max-md:[object-position:50%_34%] md:-translate-y-[22.44%]"
+            />
+          }
+        />
+
+        <dl className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {STATS.map((key, i) => (
+            <Build
+              key={key}
+              delay={0.1 + i * 0.06}
+              fill="bg-ink"
+              className="chamfer flex min-h-[130px] p-4 text-surface [--chamfer:20px] sm:min-h-[150px] sm:p-6 sm:[--chamfer:32px] md:min-h-[190px] md:p-7"
+              contentClassName="justify-end gap-[9px]"
+            >
+              <dt className="order-2 text-[12px] uppercase leading-none text-surface/65">
+                {t(`stats.${key}.label`)}
+              </dt>
+              <dd className="order-1 text-[22px] font-bold leading-none tracking-[-0.03em] sm:text-[32px] md:text-[40px]">
+                {t(`stats.${key}.value`)}
+              </dd>
+            </Build>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}

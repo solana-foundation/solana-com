@@ -63,6 +63,19 @@ export const BREAKPOINT_APP_URL =
     ? vercelBreakpointUrl
     : developmentBreakpointUrl);
 
+// Builder (BLDR) app URLs
+const vercelBuilderUrl = withRelatedProject({
+  projectName: "solana-com-builder",
+  defaultHost: "https://solana-com-builder.vercel.app",
+});
+const developmentBuilderUrl = "http://localhost:3007";
+
+export const BUILDER_APP_URL =
+  process.env.NEXT_PUBLIC_BUILDER_APP_URL ||
+  (process.env.NODE_ENV === "production"
+    ? vercelBuilderUrl
+    : developmentBuilderUrl);
+
 // Breakpoint badge site (BP26 badges): a Bun server on Google Cloud Run, not a
 // Vercel project, behind its own load balancer at badge-api.solana.com. It
 // serves its site and API under /breakpoint/badge itself.

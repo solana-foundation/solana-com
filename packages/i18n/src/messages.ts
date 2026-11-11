@@ -10,6 +10,7 @@ export type AppId =
   | "accelerate"
   | "media"
   | "breakpoint"
+  | "builder"
   | "templates";
 
 type MessageLoader = (locale: string) => Promise<MessageModule>;
@@ -27,6 +28,7 @@ const appMessageLoaders: Partial<Record<AppId, MessageLoader>> = {
   breakpoint: (locale) =>
     import(`../messages/breakpoint/${locale}/breakpoint.json`),
   templates: (locale) => import(`../messages/templates/${locale}/common.json`),
+  builder: (locale) => import(`../messages/builder/${locale}/common.json`),
 };
 
 const appInheritance: Record<AppId, AppId[]> = {
@@ -35,6 +37,7 @@ const appInheritance: Record<AppId, AppId[]> = {
   accelerate: ["web"],
   media: ["web"],
   breakpoint: ["web"],
+  builder: ["web"],
   templates: ["web"],
 };
 

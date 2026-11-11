@@ -72,6 +72,8 @@ function routeInfo(pathname) {
     owner = "accelerate";
   } else if (route === "/breakpoint" || route.startsWith("/breakpoint/")) {
     owner = "breakpoint";
+  } else if (route === "/builder" || route.startsWith("/builder/")) {
+    owner = "builder";
   } else if (
     [
       "/docs",
