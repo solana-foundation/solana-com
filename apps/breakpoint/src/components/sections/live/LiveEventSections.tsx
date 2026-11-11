@@ -95,38 +95,6 @@ function SessionTimes({
   );
 }
 
-function SessionCard({
-  label,
-  session,
-  status,
-  viewer,
-}: {
-  label: string;
-  session: LiveSession;
-  status: SessionStatus;
-  viewer: ViewerTimes | null;
-}) {
-  const names = speakerNames(session);
-
-  return (
-    <div className="flex flex-col gap-3xs border-l-2 border-stroke-secondary pl-xs">
-      <p
-        className={`type-eyebrow flex items-center gap-2xs ${STATUS_CLASSES[status]}`}
-      >
-        {status === "live" && <LiveDot />}
-        {label}
-      </p>
-      <SessionTimes
-        className="text-text-secondary"
-        session={session}
-        viewer={viewer}
-      />
-      <p className="type-h5 text-white">{session.title}</p>
-      {names && <p className="type-eyebrow text-text-secondary">{names}</p>}
-    </div>
-  );
-}
-
 function StreamPlayer({
   message,
   stream,
@@ -376,27 +344,6 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
           </div>
 
           <div className="flex flex-col gap-s md:col-span-6 md:col-start-1 md:row-start-2">
-            {(streamCurrent || streamNext) && (
-              <div className="flex flex-col gap-s">
-                {streamCurrent && (
-                  <SessionCard
-                    label={t("nowOn", { stage: stream.stage })}
-                    session={streamCurrent}
-                    status="live"
-                    viewer={viewer}
-                  />
-                )}
-                {streamNext && (
-                  <SessionCard
-                    label={t("nextOn", { stage: stream.stage })}
-                    session={streamNext}
-                    status="next"
-                    viewer={viewer}
-                  />
-                )}
-              </div>
-            )}
-
             <div className="flex flex-col items-start gap-xs sm:flex-row sm:items-center">
               <Button
                 arrow
