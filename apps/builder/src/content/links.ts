@@ -9,3 +9,6 @@ export const links: Record<"register" | "sponsorship", string | null> = {
   /** Sponsorship enquiry form or mailto: link. */
   sponsorship: "https://solanafoundation.typeform.com/builder-sponsor",
 };
+
+/** Iterable list for BLDR email updates (the footer signup). */
+export const UPDATES_FORM_ID = "7467a09a-0635-4474-8a84-3abccb5f6c88";

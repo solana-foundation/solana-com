@@ -1,5 +1,6 @@
 import { getTranslations } from "@workspace/i18n/server";
 import { getImagePath } from "@@/src/config";
+import { FooterSignup } from "./FooterSignup";
 import { container, label } from "./layout";
 
 export async function Footer({ locale }: { locale: string }) {
@@ -7,8 +8,19 @@ export async function Footer({ locale }: { locale: string }) {
 
   return (
     <footer className="surface-black">
+      <div className={`${container} pt-14`}>
+        <FooterSignup
+          labels={{
+            heading: t("signup.heading"),
+            placeholder: t("signup.placeholder"),
+            submit: t("signup.submit"),
+            success: t("signup.success"),
+            error: t("signup.error"),
+          }}
+        />
+      </div>
       <div
-        className={`${container} flex flex-col gap-12 pb-9 pt-14 md:flex-row md:items-end md:justify-between`}
+        className={`${container} flex flex-col gap-12 pb-9 pt-10 md:flex-row md:items-end md:justify-between`}
       >
         <img
           src={getImagePath("/images/logo-stacked.svg")}
