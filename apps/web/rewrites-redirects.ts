@@ -139,7 +139,7 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/developers/guides/advanced/actions",
-    destination: "/docs/tools/actions",
+    destination: "/docs/tools",
   },
   {
     source: "/developers/guides/advanced/security-best-practices",
@@ -243,7 +243,7 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/developers/guides/getstarted/actions",
-    destination: "/docs/tools/actions",
+    destination: "/docs/tools",
   },
   {
     source: "/developers/guides/getstarted/solana-token-airdrop-and-faucets",
@@ -335,7 +335,7 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
   },
   {
     source: "/docs/advanced/actions",
-    destination: "/docs/tools/actions",
+    destination: "/docs/tools",
   },
   {
     source: "/developers/guides/token-extensions/confidential-transfer",
@@ -1097,15 +1097,15 @@ export default {
     // content redirects:
     {
       source: "/docs/actions",
-      destination: "/docs/tools/actions",
+      destination: "/docs/tools",
     },
     {
       source: "/docs/blinks",
-      destination: "/docs/tools/actions",
+      destination: "/docs/tools",
     },
     {
       source: "/docs/advanced/blinks",
-      destination: "/docs/tools/actions",
+      destination: "/docs/tools",
     },
     {
       source: "/docs/advanced",

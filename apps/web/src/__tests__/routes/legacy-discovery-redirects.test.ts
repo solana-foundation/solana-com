@@ -34,7 +34,7 @@ describe("legacy discovery URLs", () => {
 
   it.each([
     ["/developers/guides/getstarted/tokens", "/docs/tokens"],
-    ["/developers/guides/getstarted/actions", "/docs/tools/actions"],
+    ["/developers/guides/getstarted/actions", "/docs/tools"],
     [
       "/developers/guides/advanced/security-best-practices",
       "/docs/tools/security",
