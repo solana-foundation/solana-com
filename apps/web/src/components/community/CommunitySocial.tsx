@@ -42,7 +42,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
     twitter = 3028785,
     github = 97,
     discord = 141556,
-    meetup = 8656,
+    meetup,
     weibo = 4400,
     youtube = 75000,
     news = 237,
@@ -157,12 +157,12 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
               <p className="mb-0 break-words">
                 {item.membersStr ? (
                   item.membersStr
-                ) : (
+                ) : item.members !== undefined ? (
                   <>
-                    <FormattedNumber value={item.members ?? 0} />
+                    <FormattedNumber value={item.members} />
                     <span> {t(item.memberStrId ?? "")}</span>
                   </>
-                )}
+                ) : null}
               </p>
             </a>
           </div>
