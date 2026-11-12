@@ -64,6 +64,7 @@ import {
 import { DataResourceCarousel } from "./dashboard-resources";
 import { ProviderLinkTable } from "./provider-link-table";
 import { SenderProviderExperience } from "./sender-provider-experience";
+import { StablecoinCoverageTable } from "./stablecoin-coverage";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
 export { applyQueryUpdates } from "./dashboard-query";
@@ -96,6 +97,7 @@ export function SolanaDataDashboard() {
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
   const isSendersTab = activeTab === "senders";
+  const isStablecoinsTab = activeTab === "stablecoins";
   const isLiveInfrastructureTab = isRpcTab || isSendersTab;
   const { data: rpcFilters } = useSWR<RpcLatencyFiltersResponse>(
     isRpcTab ? "/api/rpc/filters" : null,
@@ -356,10 +358,12 @@ export function SolanaDataDashboard() {
                 />
               ) : null}
 
+              {isStablecoinsTab ? <StablecoinCoverageTable /> : null}
+
               <ChartGrid
                 activeCharts={activeCharts}
                 activeTab={activeTab}
-                isConnectedToPrevious={hasKpiGrid}
+                isConnectedToPrevious={hasKpiGrid && !isStablecoinsTab}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
                 range={range}
