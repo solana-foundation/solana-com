@@ -1,16 +1,9 @@
 "use client";
 
-import React, { useEffect, useId, useRef, useState } from "react";
-import {
-  getIterableActionUrl,
-  sendIterableFormRequest,
-} from "@solana-com/ui-chrome/iterable";
-import { trackLead } from "@solana-com/ui-chrome/analytics";
+import React, { useEffect, useId, useRef } from "react";
 import { useTranslations } from "@workspace/i18n/client";
-import Button from "@/components/Button";
-
-const NEWSLETTER_FORM_ID = "16189fcd-ac6c-4cc9-ac4a-94aa102fccc1";
-const NEWSLETTER_ACTION_URL = getIterableActionUrl(NEWSLETTER_FORM_ID);
+import EmailSubscribeForm from "@/components/EmailSubscribeForm";
+import { BREAKPOINT_NEWSLETTER_FORM_ID } from "@/content/links";
 
 interface Props {
   open: boolean;
@@ -20,20 +13,9 @@ interface Props {
 export default function EmailSubscribeDialog({ open, onClose }: Props) {
   const t = useTranslations("breakpoint.subscribe");
   const tAccessibility = useTranslations("breakpoint.accessibility");
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">(
-    "idle",
-  );
-  const inputRef = useRef<HTMLInputElement>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descriptionId = useId();
-
-  useEffect(() => {
-    if (open) return;
-    setEmail("");
-    setStatus("idle");
-  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -41,8 +23,6 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
     const dialog = dialogRef.current;
     const focusableSelector =
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-    inputRef.current?.focus();
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -80,34 +60,6 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
   }, [open, onClose]);
 
   if (!open) return null;
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !trimmedEmail.includes("@")) {
-      setStatus("error");
-      return;
-    }
-
-    setStatus("sending");
-
-    try {
-      await sendIterableFormRequest(NEWSLETTER_ACTION_URL, {
-        email: trimmedEmail,
-      });
-
-      setEmail("");
-      setStatus("done");
-      trackLead({
-        appName: "breakpoint",
-        leadType: "newsletter",
-        formId: "breakpoint_newsletter",
-        placement: "subscribe_dialog",
-      });
-    } catch {
-      setStatus("error");
-    }
-  };
 
   return (
     <div
@@ -152,50 +104,20 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
           {t("description")}
         </p>
 
-        {status === "done" ? (
-          <p
-            role="status"
-            aria-live="polite"
-            className="type-caption mt-6 text-green"
-          >
-            {t("success")}
-          </p>
-        ) : (
-          <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
-            <label htmlFor="bp-email" className="sr-only">
-              {t("emailLabel")}
-            </label>
-            <input
-              id="bp-email"
-              ref={inputRef}
-              autoComplete="email"
-              type="email"
-              value={email}
-              required
-              aria-invalid={status === "error"}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (status === "error") {
-                  setStatus("idle");
-                }
-              }}
-              placeholder={t("emailPlaceholder")}
-              disabled={status === "sending"}
-              className="type-field h-[40px] border border-white/15 bg-transparent px-3 text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
-            />
-            {status === "error" && (
-              <p role="alert" className="type-caption text-pink">
-                {t("error")}
-              </p>
-            )}
-            <Button
-              disabled={status === "sending"}
-              label={status === "sending" ? t("submitting") : t("submit")}
-              type="submit"
-              variant="primary"
-            />
-          </form>
-        )}
+        <EmailSubscribeForm
+          autoFocus
+          className="mt-6"
+          formId={BREAKPOINT_NEWSLETTER_FORM_ID}
+          placement="subscribe_dialog"
+          labels={{
+            emailLabel: t("emailLabel"),
+            emailPlaceholder: t("emailPlaceholder"),
+            submit: t("submit"),
+            submitting: t("submitting"),
+            success: t("success"),
+            error: t("error"),
+          }}
+        />
       </div>
     </div>
   );

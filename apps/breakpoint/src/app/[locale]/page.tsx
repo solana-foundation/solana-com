@@ -13,19 +13,28 @@ import SponsorsSection from "@/components/sections/SponsorsSection";
 import EventsSection from "@/components/sections/EventsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
+import NextEditionSection from "@/components/sections/NextEditionSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
+import {
+  isNextEditionVisible,
+  NEXT_EDITION,
+  type SearchParams,
+} from "@/content/next-edition";
 import { buildBreakpointJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string }>;
+  searchParams?: Promise<SearchParams>;
 }) {
   const { locale } = await params;
+  const showNextEdition = isNextEditionVisible(await searchParams);
   const t = await getTranslations({ locale, namespace: "breakpoint" });
   const initialNow = Date.now();
   const jsonLd = await buildBreakpointJsonLd(locale);
@@ -45,6 +54,7 @@ export default async function HomePage({
       }
     >
       <HeroSection />
+      {showNextEdition && <NextEditionSection announcement={NEXT_EDITION} />}
       <NarrativeSection />
       <Marquee />
       <TicketsSection initialNow={initialNow} />

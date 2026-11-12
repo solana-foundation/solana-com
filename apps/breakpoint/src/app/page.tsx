@@ -6,6 +6,7 @@ import HomePage from "./[locale]/page";
 import { getBaseMetadata } from "./metadata";
 import { FabMenu } from "@/components/FabMenu";
 import { loadBreakpointMessages } from "@/i18n/request";
+import type { SearchParams } from "@/content/next-edition";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +54,11 @@ export async function generateMetadata(): Promise<Metadata> {
   return await getBaseMetadata("en");
 }
 
-export default async function RootPage() {
+export default async function RootPage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
   const { messages } = await loadBreakpointMessages("en");
 
   return (
@@ -63,7 +68,10 @@ export default async function RootPage() {
       className={`${displayFont.variable} ${bodyFont.variable} ${monoFont.variable}`}
     >
       <NextIntlClientProvider locale="en" messages={messages}>
-        <HomePage params={Promise.resolve({ locale: "en" })} />
+        <HomePage
+          params={Promise.resolve({ locale: "en" })}
+          searchParams={searchParams}
+        />
         <FabMenu />
         <CookieConsentBanner />
       </NextIntlClientProvider>

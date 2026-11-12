@@ -20,6 +20,31 @@ export type BreakpointMessages = {
     venue: string;
     location: string;
   };
+  nextEdition: {
+    eyebrow: string;
+    headline: string;
+    headlineNoCity: string;
+    datesLabel: string;
+    venueLabel: string;
+    media: {
+      eyebrow: string;
+      title: string;
+      body: string;
+      cta: string;
+      videoTitle: string;
+    };
+    signup: {
+      eyebrow: string;
+      headline: string;
+      body: string;
+      emailLabel: string;
+      emailPlaceholder: string;
+      submit: string;
+      submitting: string;
+      success: string;
+      error: string;
+    };
+  };
   marquee: {
     text: string;
     highlight: string;
