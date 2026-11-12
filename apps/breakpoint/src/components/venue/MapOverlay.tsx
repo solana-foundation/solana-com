@@ -139,8 +139,10 @@ export default function MapOverlay({
           ? undefined
           : AMENITY_PAIR_ICONS[amenity.type];
         const select = () => onSelect({ kind: "amenity", id: amenity.id });
-        const x = amenity.position.x - (pair ? iconSize : iconSize / 2);
-        const y = amenity.position.y - iconSize / 2;
+        const stacked = Boolean(pair && amenity.stacked);
+        const x =
+          amenity.position.x - (pair && !stacked ? iconSize : iconSize / 2);
+        const y = amenity.position.y - (stacked ? iconSize : iconSize / 2);
 
         return (
           <g
@@ -177,8 +179,8 @@ export default function MapOverlay({
                 height={iconSize}
                 href={publicAssetPath(pair)}
                 width={iconSize}
-                x={x + iconSize}
-                y={y}
+                x={stacked ? x : x + iconSize}
+                y={stacked ? y + iconSize : y}
               />
             )}
             <circle

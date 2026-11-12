@@ -19,6 +19,7 @@ import {
   ZONES,
 } from "@/content/venue/map-data";
 import type { AmenityType } from "@/content/venue/types";
+import { resolveSponsorLogo } from "@/lib/sponsors";
 
 const PUBLIC_DIR = path.resolve(__dirname, "../../public");
 
@@ -76,6 +77,14 @@ describe("venue map data", () => {
       const company = getCompany(sponsor.companyId);
       expect(company, sponsor.id).toBeDefined();
       expect(company?.profile?.links?.website, sponsor.id).toBeTruthy();
+    }
+  });
+
+  it("resolves a logo for every company a zone description credits", () => {
+    for (const zone of ZONES) {
+      for (const logo of zone.sponsoredBy ?? []) {
+        expect(resolveSponsorLogo(logo).src, zone.id).toBeTruthy();
+      }
     }
   });
 

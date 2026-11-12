@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { useLiveScheduleContext } from "@/components/sections/live/LiveScheduleProvider";
 import {
@@ -30,7 +30,11 @@ import {
   searchVenue,
   type SearchResult,
 } from "./map-utils";
-import { sponsorCompany, sponsorLogoSrc } from "./sponsor-logo";
+import {
+  sponsorCompany,
+  sponsorLogoSrc,
+  zoneSponsorLogo,
+} from "./sponsor-logo";
 
 const BADGE_CLASSES: Record<MapFloor["accent"], string> = {
   blue: "bg-core-blue text-black",
@@ -499,6 +503,21 @@ export default function MapSidebar({
               {selected.item.description && (
                 <p className="type-paragraph text-white">
                   {selected.item.description}
+                  {selected.item.sponsoredBy?.map((logo, index) => {
+                    const { name, src } = zoneSponsorLogo(logo);
+                    return (
+                      <Fragment key={logo.companyId}>
+                        {` ${t(index === 0 ? "details.sponsoredBy" : "details.and")} `}
+                        <img
+                          alt={name}
+                          className="inline-block h-6 w-auto align-middle"
+                          height={24}
+                          src={src}
+                          width={Math.round((24 * logo.width) / logo.height)}
+                        />
+                      </Fragment>
+                    );
+                  })}
                 </p>
               )}
               {programme && (

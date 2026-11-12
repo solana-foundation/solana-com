@@ -1,4 +1,5 @@
 import { publicAssetPath } from "@/config";
+import type { SponsorLogo } from "@/content/sponsors";
 import type { MapSponsor } from "@/content/venue/types";
 import { getSponsorCompany, resolveSponsorLogo } from "@/lib/sponsors";
 
@@ -15,6 +16,12 @@ export function sponsorLogoSrc(sponsor: MapSponsor): string {
       height: 1,
     }).src,
   );
+}
+
+/** White logo and name for a company a zone description credits. */
+export function zoneSponsorLogo(logo: SponsorLogo) {
+  const resolved = resolveSponsorLogo(logo);
+  return { name: resolved.name, src: publicAssetPath(resolved.src) };
 }
 
 export function sponsorCompany(sponsor: MapSponsor) {

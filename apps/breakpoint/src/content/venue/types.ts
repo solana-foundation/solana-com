@@ -1,4 +1,5 @@
 import type { CompanyId } from "@workspace/ecosystem-data";
+import type { SponsorLogo } from "@/content/sponsors";
 
 /**
  * Coordinates are in the floor's own SVG units: `x` runs 0–1000 across the
@@ -36,6 +37,8 @@ export type MapZone = {
   name: string;
   /** One line under the name: what happens there. */
   description?: string;
+  /** Logos that finish the description: "… sponsored by A and B". */
+  sponsoredBy?: SponsorLogo[];
   /** Booths, stages or services inside the zone, in reading order. */
   items?: string[];
   /** Where the numbered marker sits. */
@@ -73,6 +76,8 @@ export type MapAmenity = {
   label?: string;
   /** Draws only the first icon for a type that is normally a pair. */
   single?: boolean;
+  /** Stacks a pair with the first icon above the second, not beside it. */
+  stacked?: boolean;
   position: MapPoint;
 };
 

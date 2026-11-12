@@ -70,7 +70,7 @@ export const ZONES: MapZone[] = [
     name: "The Private Key",
     description: "Invite-only lounge in the south-east corner.",
     marker: { x: 905, y: 318 },
-    target: { x: 836, y: 360 },
+    target: { x: 893, y: 378 },
   },
   {
     id: "the-pitstop",
@@ -154,8 +154,17 @@ export const ZONES: MapZone[] = [
     id: "icsm-store",
     floor: "first",
     number: 13,
-    name: "Merch",
-    description: "Merch store next to The Borough Block.",
+    name: "ICSM Store",
+    description: "Internet Capital Supermarket",
+    sponsoredBy: [
+      {
+        companyId: "solana-spaces",
+        logoVariant: { id: "logo-dark" },
+        width: 3190.5,
+        height: 1062.6,
+      },
+      { companyId: "brave", width: 3063, height: 950 },
+    ],
     marker: { x: 227, y: 237 },
     amenities: ["merch"],
   },
@@ -179,7 +188,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-first-aid",
     floor: "ground",
     type: "first-aid",
-    position: { x: 488, y: 14 },
+    position: { x: 558, y: 17 },
   },
   {
     id: "g-merch",
@@ -191,7 +200,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "g-cloak-room",
     floor: "ground",
     type: "cloak-room",
-    position: { x: 660, y: 22 },
+    position: { x: 707, y: 28 },
   },
   {
     id: "g-smoking",
@@ -267,7 +276,8 @@ export const AMENITIES: MapAmenity[] = [
     id: "f-restroom-west",
     floor: "first",
     type: "restroom",
-    position: { x: 35, y: 230 },
+    position: { x: 46, y: 219 },
+    stacked: true,
   },
   {
     id: "f-restroom-north",
@@ -285,7 +295,7 @@ export const AMENITIES: MapAmenity[] = [
     id: "f-restroom-east",
     floor: "first",
     type: "restroom",
-    position: { x: 940, y: 232 },
+    position: { x: 672, y: 290 },
   },
 ];
 
@@ -369,7 +379,7 @@ export const SPONSORS: MapSponsor[] = [
     companyId: "kast",
     logo: "/img/venue/logos/kast.svg",
     logoAspect: 1047 / 220,
-    position: { x: 825, y: 464 },
+    position: { x: 836, y: 360 },
   },
   {
     id: "zelle",
