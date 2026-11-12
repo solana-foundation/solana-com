@@ -94,19 +94,18 @@ export default async function HomePage({
             initialNow={initialNow}
           >
             <LiveEventSection />
-            {nextEdition}
             <VenueMapSection />
           </LiveScheduleProvider>
           <Marquee />
           <SponsorsSection />
           <SpeakersSection />
+          {nextEdition}
           <EventsSection />
           <FAQSection />
         </>
       ) : (
         <>
           <HeroSection />
-          {nextEdition}
           <NarrativeSection />
           <Marquee />
           <TicketsSection initialNow={initialNow} />
@@ -114,6 +113,7 @@ export default async function HomePage({
           <WhyAttendSection />
           <SponsorsSection />
           <SpeakersSection />
+          {nextEdition}
           <GallerySection />
           <StatsSection />
           <Marquee />

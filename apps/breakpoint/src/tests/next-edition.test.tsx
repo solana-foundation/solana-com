@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import NextEditionSection from "@/components/sections/NextEditionSection";
 import { resolveConferenceState } from "@/content/conference-state";
+import { BP27_UPDATES_FORM_ID } from "@/content/links";
 import {
   isNextEditionVisible,
   NEXT_EDITION,
@@ -20,10 +21,19 @@ import messages from "../../../../packages/i18n/messages/breakpoint/en/breakpoin
 const unpublished: NextEditionAnnouncement = {
   ...NEXT_EDITION,
   published: false,
+  city: null,
+  venue: null,
+  region: null,
+  startDate: null,
+  endDate: null,
+  videoId: null,
+  thumbnail: null,
+  signupArtwork: null,
+  signupFormId: null,
 };
 
 const confirmed: NextEditionAnnouncement = {
-  ...NEXT_EDITION,
+  ...unpublished,
   city: "Sample City",
   venue: "Sample Venue",
   region: "Sample Region",
@@ -116,11 +126,24 @@ describe("NextEditionSection", () => {
     expect(screen.queryByText("Venue")).not.toBeInTheDocument();
     expect(screen.queryByText(/Play video/)).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", {
+      screen.queryByRole("heading", {
         level: 2,
         name: "Sign up for updates and early registration for Breakpoint 2027",
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+  });
+
+  it("ships the stand-in sizzle and posts signups to the BP27 list form", () => {
+    renderSection(NEXT_EDITION);
+
+    fireEvent.click(screen.getByRole("button", { name: /^Play video$/ }));
+    expect(screen.getByTitle(/Breakpoint 2027 announcement/)).toHaveAttribute(
+      "src",
+      expect.stringContaining("youtube.com/embed/Mys5RoZPWMg"),
+    );
+    expect(NEXT_EDITION.signupFormId).toBe(BP27_UPDATES_FORM_ID);
+    expect(BP27_UPDATES_FORM_ID).toBe("a85fd8f3-c4f1-4771-ac3e-03851ac82add");
   });
 
   it("renders confirmed details and the announcement video", () => {

@@ -6,8 +6,9 @@
  * announcement video; and an updates / early-registration signup block.
  *
  * Every event fact lives here so the events team can review one file. A `null`
- * field is unconfirmed and is simply not rendered; nothing below is a
- * placeholder. Flip `published` once every input has been confirmed. Until
+ * field is unconfirmed and is simply not rendered. The only stand-in is the
+ * video id, called out below. Flip `published` once every input has been
+ * confirmed and the stand-in replaced. Until
  * then the section only renders on non-production deployments when the page
  * is opened with `?preview=bp27`. It shares the `preview` query with the
  * conference-state switch, so `?preview=live&preview=bp27` shows the
@@ -19,7 +20,7 @@ import {
   PREVIEW_PARAM,
   type SearchParams,
 } from "@/content/conference-state";
-import { BREAKPOINT_NEWSLETTER_FORM_ID } from "@/content/links";
+import { BP27_UPDATES_FORM_ID } from "@/content/links";
 
 export type NextEditionAnnouncement = {
   /** Render the section for every visitor. */
@@ -38,16 +39,15 @@ export type NextEditionAnnouncement = {
   startDate: string | null;
   /** Last day, ISO date (YYYY-MM-DD). */
   endDate: string | null;
-  /** YouTube id of the announcement video. The media card needs it. */
+  /** YouTube id of the announcement (sizzle) video. The media card needs it. */
   videoId: string | null;
   /** Thumbnail under `public/img`; falls back to the YouTube poster frame. */
   thumbnail: string | null;
   /** Optional artwork under `public/img` for the signup block. */
   signupArtwork: string | null;
   /**
-   * Iterable public form id the signup block posts to. Defaults to the
-   * Breakpoint newsletter form that the header "Get Updates" dialog already
-   * uses. Confirm the destination before publishing.
+   * Iterable public form id the signup block posts to: the public subscriber
+   * form of the Breakpoint 2027 updates list (`BP27_UPDATES_FORM_ID`).
    */
   signupFormId: string | null;
 };
@@ -61,10 +61,11 @@ export const NEXT_EDITION: NextEditionAnnouncement = {
   region: null,
   startDate: null,
   endDate: null,
-  videoId: null,
+  // STAND-IN: the BP26 sizzle, until the BP27 sizzle is live on YouTube.
+  videoId: "Mys5RoZPWMg",
   thumbnail: null,
   signupArtwork: null,
-  signupFormId: BREAKPOINT_NEWSLETTER_FORM_ID,
+  signupFormId: BP27_UPDATES_FORM_ID,
 };
 
 export const NEXT_EDITION_PREVIEW_VALUE = "bp27";
