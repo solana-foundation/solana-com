@@ -1,0 +1,294 @@
+---
+title: 交易落地
+description:
+  提升 Solana 应用在 Mainnet 上交易落地率的最佳实践
+---
+
+## RPC 基础设施
+
+[公共端点](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)(`api.mainnet.solana.com`)有速率限制,且没有 SLA。它们适合用于开发,但在生产环境的支付流程中会失败——就像试图通过一个没有正常运行时间保证的共享 API 来运行支付处理系统一样。
+
+<Callout type="caution" title="切勿在生产环境中使用公共 RPC">
+  请使用[私有 RPC 提供商](https://solana.com/rpc),以获得可靠、低延迟的访问。
+</Callout>
+
+选择 RPC 提供商时,请关注以下几点:
+
+- **可靠性**:提供正常运行时间保证(99.9% 以上)的 SLA
+- **延迟**:与用户的地理距离是否较近
+- **功能**:交易落地功能、索引、优先费用 API
+
+如需查看完整的 RPC 提供商列表,请参阅 [RPC 基础设施提供商](https://solana.com/rpc)指南。
+
+### 冗余 RPC 配置
+
+与任何网络服务提供商一样,RPC 提供商也可能出现停机或性能下降的情况。为确保应用具备足够的韧性,您应该将应用配置为使用多个 RPC 提供商。
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http) 提供了用于自定义 RPC 传输层的库,让您可以构建自己的冗余 RPC 客户端。以下示例展示了如何使用它来构建冗余 RPC 客户端:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+如果您不想自行构建路由工具,可以借助 [Iron Forge](https://www.ironforge.sanctum.so/) 等第三方服务来为您处理路由。
+
+## 交易落地
+
+在 Devnet 上,交易相当容易落地。而在 Mainnet 上,您需要争夺区块空间。为了提高交易被打包进区块的几率,您应确保正确组装交易。这意味着:
+
+- 在发送交易之前,包含一个最新的 blockhash
+- 在交易中包含一条优先费用指令,并设置具有竞争力的优先费用
+- 在交易中包含一条计算单元上限指令,并根据交易所需的预估计算单元数量来设置该上限
+
+此外,您还应考虑使用 Jito Bundles 等其他工具,以提高交易被打包进区块的几率。下面我们来详细了解这些工具。
+
+### 交易发送配置
+
+在 Mainnet 上发送交易时,请配置以下参数以获得最佳落地率:
+
+**Blockhash 管理:**
+
+- 使用 `confirmed` 确认级别获取
+- 保存 `getLatestBlockhash` 返回的 `lastValidBlockHeight`——它会告诉您交易何时过期
+- Blockhash 会在协议设定的一段时间后过期,具体取决于 slot 的时长。
+
+**发送选项:**
+
+- `maxRetries: 0` — 禁用 RPC 自动重试。请自行处理重试,以便在需要时刷新 blockhash。
+- `skipPreflight: true` — 发送前跳过模拟。当您已验证过交易并希望获得最低延迟时使用。开发期间请保持为 `false`,以便尽早发现错误。
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### 使用优先费用
+
+每笔 Solana 交易都需要支付交易费用,以 SOL 支付。交易费用分为两部分:基础费用和优先费用。基础费用用于补偿 validator 处理交易。优先费用是可选费用,用于提高当前领导者处理您交易的几率。可以把它想象成加急快递:您支付更多费用,换取更快、更可靠的送达。
+
+**费用的运作方式:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,000) lamports
+Priority fee (v1 only) = Absolute total in lamports set in the message config
+```
+
+**实际成本:**
+
+- 简单的 USDC 转账:正常情况下约 $0.001-0.005
+- 网络拥堵时:约 $0.01-0.05
+- 拥堵高峰期:可能飙升更高
+
+**示例实现:**
+
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget) 包提供了一个辅助函数,可轻松地更新交易中的计算单元价格指令(以 micro-lamports 计),或将其追加到交易中。
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**获取费用估算**:大多数 RPC 提供商都提供优先费用 API:
+
+- [Helius 优先费用 API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode 优先费用附加组件](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton 优先费用 API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+如需了解完整的费用机制,请参阅[交易费用](/docs/core/fees)以及我们的指南:[如何为交易添加优先费用](https://solana.com/developers/cookbook/transactions/add-priority-fees)。
+
+### 优化计算单元
+
+Solana 上的计算量以计算单元(CU)来衡量,它大致反映了程序所执行的工作量。目前的计算上限为每个区块 5000 万 CU,每笔交易 140 万 CU。提交交易时,您需要估算将使用的计算量,并相应地设置计算单元上限——这实际上是在请求为您的交易预留多少总容量。在实践中,这意味着准确估算交易所需的计算单元,对于让交易被打包进区块至关重要(对管理优先费用也很重要)。交易和区块的计算上限由协议决定。
+
+Solana JSON RPC API 提供了 [`simulatetransaction`](/docs/rpc/http/simulatetransaction) 方法,可用于估算交易所需的计算单元,其中包括对将使用的计算单元的估算。[`@solana/kit`](https://github.com/anza-xyz/kit) 提供了辅助函数,可一步完成估算交易的资源限制并将其设置到消息上(底层使用 `simulatetransaction` 方法)。对于版本 1 的交易,这些辅助函数还会估算已加载账户数据大小的上限。
+
+```ts
+import {
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
+
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
+);
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
+```
+
+<Callout type="info">
+  如果您使用 kit 插件客户端构建并发送交易,通常无需此步骤——客户端会在发送时(`.sendTransaction()`)为您添加计算预算指令。上述手动流程适用于直接使用 `@solana/kit` 组装交易的情况。
+</Callout>
+
+在生产环境中,如果您需要多次重复同一类型的交易,应考虑缓存该交易类型的计算估算值,以避免每次都估算计算单元所带来的开销。
+
+### Jito Bundles
+
+Jito bundles 是一种用于管理多笔交易原子化执行的工具。其实现方式是将多笔交易连同小费一起发送到 Jito 网络。小费可用来激励 Jito 网络将您的交易打包进区块。
+
+**资源:**
+
+- [Jito 文档](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 视频:Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [QuickNode 的 Jito bundles 指南](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### 重试策略
+
+交易可能因多种原因失败。与立即返回成功/失败结果的传统支付 API 不同,区块链交易需要进行确认跟踪。
+
+**关键概念:**
+
+- **Blockhash 过期**:交易的 blockhash 在 150 个 slot 内保持有效(按每个 slot 200ms 计算,约 30 秒)。实际过期时间可能因出块速度而异。请使用 lastValidBlockHeight 来判断 blockhash 是否已过期。
+- **幂等性**:同一笔已签名的交易始终产生相同的签名——重新提交是安全的
+- **指数退避**:避免因频繁重试而使网络不堪重负
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`@solana/kit` 中的 `sendAndConfirmTransactionFactory` 会自动处理确认轮询和区块高度跟踪。当交易的 blockhash 过期时,它会抛出 `SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`,表示您需要使用新的 blockhash 重新构建交易。
+
+### 其他资源
+
+- [Helius:如何在 Solana 上让交易落地](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode:优化 Solana 交易的策略](https://www.quicknode.com/docs/solana/transactions)
+
+## 错误处理
+
+Solana Kit 通过 `isSolanaError()` 提供类型化的错误。请使用具体的错误码,而不是字符串匹配:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**常见错误码:**
+
+| 错误码                   | 原因                 | 恢复方式                                                                                                 |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash 已过期     | 使用新的 blockhash 重新构建                                                                             |
+| `BLOCKHASH_NOT_FOUND`        | 未找到 Blockhash   | 使用新的 blockhash 重新构建                                                                             |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL 不足        | 为费用支付方充值,或使用[费用抽象](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | 代币不足     | 用户需要更多余额                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | 缺少 token account | 在交易中创建 ATA                                                                                |
+
+## 无 Gas 交易
+
+用户希望使用稳定币付款,而不是为了支付网络费用去获取 SOL。无 Gas 交易解决了这个问题——就像 Venmo 用户不会去考虑 ACH 费用一样。完整的实现请参阅[费用抽象](/docs/payments/send-payments/payment-processing/fee-abstraction)。

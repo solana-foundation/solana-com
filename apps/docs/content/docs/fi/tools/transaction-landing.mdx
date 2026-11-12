@@ -1,0 +1,365 @@
+---
+title: Transaktioiden läpimeno
+description:
+  Parhaat käytännöt Solana-sovelluksesi transaktioiden läpimenoprosentin parantamiseen Mainnetissä
+---
+
+## RPC-infrastruktuuri
+
+[Julkisille päätepisteille](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet.solana.com`) on asetettu käyttörajoituksia, eikä niillä ole SLA-sopimusta. Ne sopivat
+kehitykseen, mutta tuotantoympäristön maksuvirrat epäonnistuvat niillä – se on kuin yrittäisi pyörittää maksunvälitystä
+jaetun API:n kautta ilman käytettävyystakuuta.
+
+<Callout type="caution" title="Älä koskaan käytä julkista RPC:tä tuotannossa">
+  Käytä [yksityistä RPC-palveluntarjoajaa](https://solana.com/rpc) luotettavaan ja
+  matalan viiveen yhteyteen.
+</Callout>
+
+RPC-palveluntarjoajaa valitessasi kiinnitä huomiota seuraaviin:
+
+- **Luotettavuus**: SLA-sopimukset käytettävyystakuineen (99,9 %+)
+- **Viive**: Maantieteellinen läheisyys käyttäjiisi
+- **Ominaisuudet**: Transaktioiden läpimenoa tukevat ominaisuudet, indeksointi, prioriteettimaksujen API:t
+
+Täydellisen luettelon RPC-palveluntarjoajista löydät oppaasta
+[RPC-infrastruktuurin palveluntarjoajat](https://solana.com/rpc).
+
+### Redundantti RPC-konfiguraatio
+
+Kuten mikä tahansa verkkopalvelun tarjoaja, myös RPC-palveluntarjoajat voivat kokea käyttökatkoja tai
+jaksoja, jolloin suorituskyky heikkenee. Jotta sovelluksesi on kestävä, se
+tulisi konfiguroida käyttämään useita RPC-palveluntarjoajia.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+tarjoaa kirjaston RPC-kuljetuskerrosten mukauttamiseen, jonka avulla voit rakentaa
+oman redundantin RPC-asiakkaasi. Tässä on esimerkki siitä, miten sen avulla voi rakentaa
+redundantin RPC-asiakkaan:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Jos et halua rakentaa omia reititystyökaluja, voit hyödyntää kolmannen
+osapuolen palvelua, kuten [Iron Forgea](https://www.ironforge.sanctum.so/), reitityksen hoitamiseen
+puolestasi.
+
+## Transaktioiden läpimeno
+
+Devnetissä transaktiot menevät läpi melko helposti. Mainnetissä kilpailet
+lohkotilasta. Jotta transaktiosi päätyisi todennäköisemmin lohkoon,
+sinun tulee varmistaa, että olet koonnut transaktion oikein. Tämä
+tarkoittaa seuraavaa:
+
+- tuoreen blockhashin sisällyttäminen ennen transaktion lähettämistä
+- prioriteettimaksu-ohjeen sisällyttäminen transaktioon kilpailukykyisellä
+  prioriteettimaksulla
+- laskentayksikkörajan ohjeen sisällyttäminen transaktioon siten, että raja perustuu
+  transaktion arvioituun tarvitsemaan laskentayksikkömäärään
+
+Lisäksi kannattaa harkita muita työkaluja, kuten Jito Bundleja, jotta transaktiosi
+päätyy todennäköisemmin lohkoon. Tutustutaan näihin työkaluihin
+tarkemmin.
+
+### Transaktioiden lähetysasetukset
+
+Kun lähetät transaktioita Mainnetissä, määritä seuraavat parametrit optimaalisen
+läpimenoprosentin saavuttamiseksi:
+
+**Blockhashin hallinta:**
+
+- Hae `confirmed`-sitoumustasolla
+- Tallenna `getLatestBlockhash`-kutsun palauttama `lastValidBlockHeight` – se kertoo,
+  milloin transaktiosi vanhenee
+- Blockhashit vanhenevat protokollan määrittämän ajan jälkeen, joka riippuu slot-ajan
+  pituudesta.
+
+**Lähetysasetukset:**
+
+- `maxRetries: 0` – Poistaa RPC:n automaattiset uudelleenyritykset käytöstä. Hoida uudelleenyritykset itse,
+  jotta voit päivittää blockhashin tarvittaessa.
+- `skipPreflight: true` – Ohittaa simuloinnin ennen lähetystä. Käytä tätä, kun olet
+  jo validoinut transaktion ja haluat pienimmän mahdollisen viiveen. Pidä arvo `false`
+  kehityksen aikana, jotta virheet havaitaan ajoissa.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Käytä prioriteettimaksuja
+
+Jokainen Solana-transaktio vaatii transaktiomaksun, joka maksetaan SOL-valuutalla. Transaktiomaksut
+jakautuvat kahteen osaan: perusmaksuun ja prioriteettimaksuun. Perusmaksu
+korvaa validator-solmuille transaktion käsittelyn. Prioriteettimaksu on
+valinnainen maksu, joka lisää todennäköisyyttä, että nykyinen leader käsittelee
+transaktiosi. Ajattele sitä pikalähetyksenä: maksat enemmän nopeammasta ja
+luotettavammasta toimituksesta.
+
+**Näin maksut toimivat:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,000) lamports
+Priority fee (v1 only) = Absolute total in lamports set in the message config
+```
+
+**Todelliset kustannukset:**
+
+- Yksinkertainen USDC-siirto: ~0,001–0,005 $ normaaleissa olosuhteissa
+- Ruuhkan aikana: ~0,01–0,05 $
+- Huippuruuhka: voi nousta vielä korkeammaksi
+
+**Esimerkkitoteutus:**
+
+Paketti
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+tarjoaa apufunktion, jolla voit helposti päivittää tai lisätä transaktioon
+laskentayksikön hinnan (mikrolamporteina) määrittävän ohjeen.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Maksuarvioiden hakeminen:** Useimmat RPC-palveluntarjoajat tarjoavat prioriteettimaksujen API:t:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Täydelliset tiedot maksujen toiminnasta löydät sivulta [Transaktiomaksut](/docs/core/fees) ja oppaastamme:
+[Prioriteettimaksujen lisääminen transaktioon](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Optimoi laskentayksiköt
+
+Solanassa laskenta mitataan laskentayksiköissä (CU), jotka ovat karkea arvio
+ohjelman tekemän työn määrästä. Nykyiset laskentarajat ovat 50 miljoonaa
+CU:ta lohkoa kohden ja 1,4 miljoonaa CU:ta transaktiota kohden. Kun lähetät
+transaktion, sinun täytyy arvioida tarvittava laskennan määrä ja
+asettaa laskentayksikköraja sen mukaisesti – tämä on käytännössä pyyntö siitä,
+kuinka suuri osa kokonaiskapasiteetista varataan transaktiollesi. Käytännössä
+tämä tarkoittaa, että transaktion vaatimien laskentayksiköiden oikea arviointi
+on ratkaisevaa, jotta transaktiosi päätyy lohkoon (ja
+tärkeää prioriteettimaksujesi hallinnassa). Transaktion ja lohkon laskentarajat
+määrittää protokolla.
+
+Solanan JSON RPC API:ssa on
+[`simulatetransaction`](/docs/rpc/http/simulatetransaction)-metodi, jolla voi
+arvioida transaktion tarvitsemat laskentayksiköt ja joka sisältää arvion
+käytettävistä laskentayksiköistä.
+[`@solana/kit`](https://github.com/anza-xyz/kit) tarjoaa apufunktioita, jotka
+arvioivat transaktion resurssirajat ja asettavat ne viestiin yhdellä kertaa
+(käyttäen taustalla `simulatetransaction`-metodia). Version 1
+-transaktioille nämä apufunktiot arvioivat myös ladattujen tilien datakoon rajan.
+
+```ts
+import {
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
+
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
+);
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
+```
+
+<Callout type="info">
+  Jos rakennat ja lähetät transaktiot kit-plugin-asiakkaalla, et yleensä
+  tarvitse tätä vaihetta – asiakas lisää laskentabudjetin ohjeet puolestasi
+  lähettäessään (`.sendTransaction()`). Yllä oleva manuaalinen kulku on tarkoitettu tilanteisiin,
+  joissa kokoat transaktiot suoraan `@solana/kit`-kirjastolla.
+</Callout>
+
+Jos toistat tuotannossa samantyyppistä transaktiota useita kertoja,
+kannattaa harkita laskentaarvion välimuistiin tallentamista transaktiotyypeittäin, jotta
+vältät laskentayksiköiden arvioinnin aiheuttaman lisäkuorman joka kerta.
+
+### Jito Bundlet
+
+Jito bundlet ovat työkalu useiden transaktioiden atomisen suorituksen hallintaan.
+Tämä toteutetaan lähettämällä useita transaktioita Jito-verkkoon
+vinkkirahan (tip) kera. Vinkkirahoilla voidaan kannustaa Jito-verkkoa sisällyttämään
+transaktiosi lohkoon.
+
+**Resurssit:**
+
+- [Jiton dokumentaatio](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Video: Jito Bundlet](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [QuickNoden opas Jito bundleihin](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Uudelleenyrityksen strategiat
+
+Transaktiot voivat epäonnistua monesta syystä. Toisin kuin perinteiset maksu-API:t, jotka
+palauttavat onnistumisen tai epäonnistumisen heti, lohkoketjutransaktiot vaativat vahvistuksen
+seurantaa.
+
+**Keskeiset käsitteet:**
+
+- **Blockhashin vanheneminen**: Blockhashin vanheneminen: Transaktion blockhashit pysyvät
+  voimassa 150 slot-ajan verran (noin 30 sekuntia, kun slot-aika on 200 ms). Todellinen
+  vanhenemisaika voi vaihdella lohkontuotannon nopeuden mukaan. Käytä
+  lastValidBlockHeight-arvoa selvittääksesi, milloin blockhash on vanhentunut.
+- **Idempotenssi**: Sama allekirjoitettu transaktio tuottaa aina saman
+  allekirjoituksen – uudelleenlähetys on turvallista
+- **Eksponentiaalinen viivästys (backoff)**: Vältä verkon ylikuormittamista nopeilla uudelleenyrityksillä
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`@solana/kit`-kirjaston `sendAndConfirmTransactionFactory` hoitaa vahvistuksen
+kyselyn ja lohkokorkeuden seurannan automaattisesti. Se heittää
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED`-virheen, kun transaktion blockhash vanhenee,
+mikä tarkoittaa, että transaktio on koottava uudelleen tuoreella blockhashilla.
+
+### Lisäresurssit
+
+- [Helius: How to Land Transactions on Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Strategies to Optimize Solana Transactions](https://www.quicknode.com/docs/solana/transactions)
+
+## Virheenkäsittely
+
+Solana Kit tarjoaa tyypitetyt virheet `isSolanaError()`-funktion kautta. Käytä tarkkoja virhekoodeja
+merkkijonovertailun sijaan:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Yleiset virhekoodit:**
+
+| Virhekoodi                   | Syy                 | Korjaus                                                                                                 |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash vanheni     | Kokoa uudelleen tuoreella blockhashilla                                                                             |
+| `BLOCKHASH_NOT_FOUND`        | Blockhashia ei löytynyt   | Kokoa uudelleen tuoreella blockhashilla                                                                             |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOL-saldo ei riitä        | Lisää varoja maksajalle tai käytä [maksuabstraktiota](/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSUFFICIENT_FUNDS`         | Tokeneita ei ole tarpeeksi     | Käyttäjän saldo on liian pieni                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | token account puuttuu | Luo ATA transaktiossa                                                                                |
+
+## Gasittomat transaktiot
+
+Käyttäjät odottavat voivansa maksaa stablecoineilla eivätkä halua hankkia SOL-valuuttaa verkkomaksuja varten. Gasittomat
+transaktiot ratkaisevat tämän – samoin kuin Venmon käyttäjät eivät mieti ACH-maksuja.
+Katso täydellinen toteutus sivulta
+[Maksuabstraktio](/docs/payments/send-payments/payment-processing/fee-abstraction).

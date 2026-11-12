@@ -1,43 +1,73 @@
 ---
 title: "Jito DontFront ile MEV Koruması"
 description:
-  Jito'nun dontfront özelliğini kullanarak Solana işlemlerinizi sandwich saldırılarından nasıl koruyacağınızı öğrenin. Bu kılavuz sandwich saldırılarının nasıl çalıştığını, dontfront'un ön çalıştırmayı nasıl engellediğini, paket sıralama kurallarını, bahşiş stratejilerini ve TypeScript ile Rust'ta entegrasyon örneklerini ele almaktadır.
+  "Jito'nun dontfront özelliğini kullanarak Solana işlemlerinizi sandviç saldırılarından nasıl koruyacağınızı öğrenin. Bu rehber, sandviç saldırılarının nasıl çalıştığını, dontfront'un front-running'i nasıl önlediğini, bundle sıralama kurallarını, bahşiş (tip) stratejilerini ve TypeScript ile Rust'taki entegrasyon örneklerini kapsar."
 ---
 
 # Jito DontFront ile MEV Koruması
 
-Maksimum Çıkarılabilir Değer (MEV), bir blok içindeki işlemlerin yeniden sıralanması, dahil edilmesi veya hariç tutulması yoluyla elde edilebilecek değeri ifade eder. MEV, yalnızca belirli bir zincire özgü değildir; blok üreticilerinin işlem sıralamasını kontrol ettiği her blok zincirinin temel bir özelliğidir. Arbitraj gibi bazı MEV biçimleri, DEX'ler arasındaki fiyat farklılıklarını düzelterek piyasaların verimli kalmasına yardımcı olur. Sandwich saldırıları gibi diğerleri ise değeri doğrudan kullanıcılardan alır. DeFi uygulamaları geliştiren geliştiriciler için bu durum, daha kötü işlem gerçekleştirmesi ve kayıp kârlar anlamına gelebilir.
+Maksimum Çıkarılabilir Değer (MEV), bir blok içindeki işlemlerin yeniden
+sıralanması, bloğa dahil edilmesi veya dışarıda bırakılması yoluyla elde
+edilebilecek değeri ifade eder. MEV herhangi bir zincire özgü değildir; blok
+üreticilerinin işlem sıralamasını kontrol ettiği her blockchain'in temel bir
+özelliğidir. Arbitraj gibi bazı MEV biçimleri, DEX'ler arasındaki fiyat
+farklarını düzelterek piyasaların verimli kalmasına yardımcı olur. Sandviç
+saldırıları gibi diğerleri ise doğrudan kullanıcılardan değer çıkarır. DeFi
+uygulamaları geliştiren geliştiriciler için bu, daha kötü işlem gerçekleşmesi
+ve kaybedilen kâr anlamına gelebilir.
 
-Bu kılavuz, zararlı MEV'nin yaygın bir biçimi olan sandwich saldırılarına ve Jito'nun `dontfront` özelliğini kullanarak bunların nasıl azaltılabileceğine odaklanmaktadır.
+Bu rehber, zararlı MEV'in yaygın bir biçimi olan sandviç saldırılarına ve bunları
+Jito'nun `dontfront` özelliğiyle nasıl azaltabileceğinize odaklanır.
 
 Önerilen ön okuma:
-[Jito Paketleri](https://solana.com/docs/tools/transaction-landing#jito-bundles)
+[Jito Bundle'ları](https://solana.com/docs/tools/transaction-landing#jito-bundles)
 
 ## Solana'da MEV
 
-Solana'nın mimarisi, genel mempool'lara sahip zincirlere kıyasla MEV yüzey alanını zaten azaltmaktadır. İşlemler, ortak bir mempool'da beklemek yerine doğrudan yaklaşan blok liderine iletilir ve işlenmeyen işlemler yaklaşık 150 blok (~1 dakika) sonra sona erer. Bu durum, araştırmacıların bekleyen işlemleri gözlemleyip üzerlerine hareket etme penceresini önemli ölçüde daraltır.
+Solana'nın mimarisi, herkese açık mempool'lara sahip zincirlere kıyasla MEV
+yüzey alanını zaten azaltır. İşlemler ortak bir mempool'da beklemek yerine
+doğrudan sıradaki blok lideri'ne iletilir ve işlenmemiş işlemler yaklaşık 150
+blok (~1 dakika) sonra geçerliliğini yitirir. Bu durum, searcher'ların bekleyen
+işlemleri gözlemleyip bunlara göre hareket etme penceresini önemli ölçüde
+daraltır.
 
-Bununla birlikte MEV çıkarımı hâlâ gerçekleşmektedir. Optimize edilmiş altyapıya ve doğrudan validator bağlantılarına sahip araştırmacılar, işlem akışını gözlemleyip buna yanıt verebilir. Solana'daki MEV etkinliğinin büyük bölümü atomik arbitrajdır: DEX'ler arasındaki fiyat farklılıklarını tek bir işlemde düzelten botlar. Bu MEV türü, piyasalar arasında fiyat tutarlılığını artırdığı için genellikle faydalıdır.
+Bununla birlikte, MEV çıkarımı hâlâ gerçekleşmektedir. Optimize edilmiş
+altyapıya ve doğrudan validator bağlantılarına sahip searcher'lar işlem akışını
+gözlemleyebilir ve ona tepki verebilir. Solana'daki MEV faaliyetinin büyük bir
+kısmı atomik arbitrajdır: DEX'ler arasındaki fiyat farklarını tek bir işlemde
+düzelten botlar. Bu tür MEV, piyasalar arasında fiyat tutarlılığını
+iyileştirdiği için genellikle faydalıdır.
 
-Zararlı çeşidi olan sandwich saldırıları, geliştiricilerin aktif olarak korunması gereken şeydir.
+Zararlı olan türü, yani sandviç saldırıları, geliştiricilerin aktif olarak
+korunması gereken türdür.
 
-## Sandwich Saldırısı Nedir?
+## Sandviç Saldırısı Nedir?
 
-Bir araştırmacı bekleyen takas işleminizi tespit edip işlem sıralamasını istismar ettiğinde sandwich saldırısı gerçekleşir:
+Sandviç saldırısı, bir searcher bekleyen swap işleminizi tespit edip işlem
+sıralamasını istismar ettiğinde gerçekleşir:
 
-1. **Ön çalıştırma**: araştırmacı, işleminizden önce token'ı satın alarak fiyatı yukarı iter
-2. **İşleminiz**, beklenenden daha kötü bir fiyatta gerçekleşir
-3. **Arka çalıştırma**: araştırmacı, işleminizden sonra token'ı satarak farkı cebine atar
+1. **Front-run**: searcher, işleminizden önce token'ı satın alarak fiyatı
+   yukarı iter
+2. **İşleminiz**, beklenenden daha kötü bir fiyattan **gerçekleşir**
+3. **Back-run**: searcher, işleminizden sonra token'ı satarak aradaki farkı
+   cebine atar
 
 Solana'da bu durum
-[Jito paketleri](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles) aracılığıyla gerçekleşebilir. Bir araştırmacı şunun gibi bir işlem paketi gönderir:
-`[frontrun_tx, your_tx, backrun_tx]` ve blok motoru bunları sırayla atomik olarak çalıştırır. Mağdur daha kötü bir gerçekleştirme fiyatı alırken araştırmacı spread'den kâr eder.
+[Jito bundle'ları](https://docs.jito.wtf/lowlatencytxnsend/#what-are-bundles) aracılığıyla gerçekleşebilir. Bir
+searcher şu şekilde bir işlem bundle'ı gönderir:
+`[frontrun_tx, your_tx, backrun_tx]` ve block engine bunları sırayla
+atomik olarak yürütür. Mağdur daha kötü bir yürütme fiyatı elde ederken searcher
+spread'den kâr eder.
 
 ## DontFront Nasıl Çalışır?
 
-[DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation), araştırmacıların bir pakette işleminizin önüne işlem yerleştirmesini engelleyen Jito blok motorunun bir özelliğidir.
+[DontFront](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation), Jito block engine'in bir özelliğidir ve searcher'ların bir
+bundle içinde işlemlerini sizinkinden önce yerleştirmesini engeller.
 
-Mekanizma: işleminizdeki herhangi bir talimata `jitodontfront` ile başlayan geçerli bir Solana public key ekleyin. Blok motoru bu ön eki tanır ve bir kural uygular: **işleminizi içeren herhangi bir paket, onu 0. indekse yerleştirmek zorundadır**.
+Mekanizma şöyledir: işleminizdeki herhangi bir instruction'a `jitodontfront` ile
+başlayan geçerli herhangi bir Solana public key'i ekleyin. Block engine bu
+öneki tanır ve şu kuralı uygular: **işleminizi içeren herhangi bir bundle, onu
+0. indekse yerleştirmek zorundadır**.
 
 ```
 Without dontfront:  [frontrun_tx, your_tx, backrun_tx]  ← sandwich possible
@@ -46,38 +76,44 @@ With dontfront:     [your_tx, ...]                       ← your tx must be fir
 
 ### Adım Adım
 
-1. **`jitodontfront` ile başlayan geçerli bir adres seçin** (örn. `jitodontfront111111111111111111111111111111`). Hesabın zincir üzerinde mevcut olması gerekmez; asla okunmaz veya yazılmaz. Bir dizenin geçerli bir adres olup olmadığını @solana/kit'ten
+1. `jitodontfront` ile başlayan **geçerli bir adres seçin** (ör.
+   `jitodontfront111111111111111111111111111111`). Hesabın onchain'de var olması
+   gerekmez; hiçbir zaman okunmaz veya yazılmaz. Bir dizenin geçerli bir adres
+   olup olmadığını @solana/kit içindeki
    [`assertIsAddress`](https://www.solanakit.com/api/functions/assertIsAddress)
-   işlevini kullanarak doğrulayabilir ya da adresi Solana Explorer'a girerek çözümlenip çözümlenmediğini görebilirsiniz. İşte
-   [geçersiz bir adres](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID) örneği.
+   fonksiyonuyla doğrulayabilir veya adresi Solana Explorer'a girerek çözümlenip
+   çözümlenmediğini görebilirsiniz. İşte bir
+   [geçersiz adres](https://explorer.solana.com/address/jitodontfront11111111111111111111111111111INVALID) örneği.
 
-2. **Herhangi bir talimattaki işleminize salt okunur, imzasız bir hesap olarak ekleyin.** Optimum yerleşim hızı için salt okunur olarak işaretleyin. Çoğu program (System Program dahil) beklentileri dışındaki ek hesapları görmezden gelir.
+2. **Bunu, işleminizdeki herhangi bir instruction'a salt okunur, imzalayıcı olmayan bir hesap olarak ekleyin.** En iyi landing hızı için salt okunur olarak işaretleyin. Çoğu program (System Program dahil) beklediklerinin ötesindeki ekstra hesapları yok sayar.
 
-3. **Jito blok motoru aracılığıyla gönderin**:
+3. **Jito block engine üzerinden gönderin**:
    - `sendTransaction`:
      `https://mainnet.block-engine.jito.wtf/api/v1/transactions`
    - `sendBundle`: `https://mainnet.block-engine.jito.wtf/api/v1/bundles`
 
-   Belgeler:
+   Dokümanlar:
    [sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
    ve [sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
 
-4. Blok motoru `jitodontfront` ön ekini algılar ve sıralama kurallarını uygular.
+4. Block engine `jitodontfront` önekini algılar ve sıralama kurallarını uygular.
 
-### Blok Motorunda Neler Olur?
+### Block Engine'de Neler Olur?
 
-Blok motoru bir `jitodontfront` hesabı içeren bir işlem gördüğünde:
+Block engine, `jitodontfront` hesabı içeren bir işlem gördüğünde:
 
-- `sendTransaction` aracılığıyla: işlem korunur. Hiçbir paket onun önüne başka bir işlem yerleştiremez
-- `sendBundle` aracılığıyla: işlem 0. indekste görünmek zorundadır, aksi takdirde paketin tamamı reddedilir
+- `sendTransaction` ile: işlem korunur. Hiçbir bundle başka bir işlemi onun
+  önüne yerleştiremez
+- `sendBundle` ile: işlem 0. indekste yer almalıdır, aksi hâlde tüm bundle
+  reddedilir
 
-`jitodontfront` hesabı içermeyen işlemler ve paketler etkilenmez.
+`jitodontfront` hesabı içermeyen işlemler ve bundle'lar bundan etkilenmez.
 
-## Paket Sıralama Kuralları
+## Bundle Sıralama Kuralları
 
-Bu kurallar, bir pakette `jitodontfront` işlemi göründüğünde geçerlidir.
+Bu kurallar, bir `jitodontfront` işlemi bir bundle içinde yer aldığında geçerlidir.
 
-### İzin Verilen Desenler
+### İzin Verilen Düzenler
 
 ```
 [tx_with_dontfront, tip]
@@ -85,12 +121,14 @@ Bu kurallar, bir pakette `jitodontfront` işlemi göründüğünde geçerlidir.
 [tx_with_dontfront_signer1, tx_with_dontfront_signer1_and_signer2, tip]
 ```
 
-### Bir Pakette Birden Fazla DontFront İşlemi
+### Tek Bir Bundle'da Birden Fazla DontFront İşlemi
 
-Tek bir pakette birden fazla dontfront işlemine, **her iki** koşul da sağlandığında izin verilir:
+Tek bir bundle içinde birden fazla dontfront işlemine, **her iki** koşul da
+sağlandığında izin verilir:
 
-1. Tüm dontfront işlemleri paketin **ön kısmında bitişik** olarak yer alır
-2. Her dontfront işlemi, ilk dontfront işlemiyle **en az bir imzalayıcıyı** paylaşır
+1. Tüm dontfront işlemleri bundle'ın **başında bitişik** olmalıdır
+2. Her dontfront işlemi, ilk dontfront işlemiyle **en az bir imzalayıcıyı**
+   paylaşmalıdır
 
 ```
 ✅ [txA_df, txB_df, txC_df, arbitrage, tip]
@@ -100,7 +138,7 @@ Tek bir pakette birden fazla dontfront işlemine, **her iki** koşul da sağland
    (each shares a signer with txA)
 ```
 
-### Reddedilen Desenler
+### Reddedilen Düzenler
 
 ```
 ❌ [tip, tx_with_dontfront]
@@ -116,11 +154,11 @@ Tek bir pakette birden fazla dontfront işlemine, **her iki** koşul da sağland
 ## Entegrasyon Örnekleri
 
 Hızlı bir kod tarifi için
-[MEV Koruması kılavuz girişine](/developers/cookbook/transactions/mev-protection) bakın.
+[MEV Koruması cookbook girdisine](/developers/cookbook/transactions/mev-protection) bakın.
 
 ### TypeScript (@solana/kit)
 
-Temel fikir, dontfront hesabını herhangi bir talimata ekleyen bir yardımcıdır:
+Temel fikir, dontfront hesabını herhangi bir instruction'a ekleyen bir yardımcı fonksiyondur:
 
 <CodeTabs storage="guide-mev">
 
@@ -169,7 +207,9 @@ fn with_dontfront(ix: &mut Instruction) {
 
 </CodeTabs>
 
-Ardından imzalanmış işlemi standart bir RPC düğümü yerine Jito blok motoruna gönderin. Her zaman base64 kodlaması kullanın. Base58, Jito'nun API'sinde kullanımdan kaldırılmıştır.
+Ardından imzalanmış işlemi standart bir RPC düğümü yerine Jito block engine'e
+gönderin. Her zaman base64 kodlaması kullanın. Base58, Jito'nun API'sinde
+kullanımdan kaldırılmıştır.
 
 <CodeTabs storage="guide-mev">
 
@@ -214,43 +254,64 @@ let response = client
 
 ## En İyi Uygulamalar
 
-DontFront, koruma katmanlarından yalnızca biridir. Sağlam bir MEV azaltma stratejisi birden fazla yaklaşımı bir arada kullanır:
+DontFront bir koruma katmanıdır. Sağlam bir MEV azaltma stratejisi birden fazla
+yaklaşımı bir araya getirir:
 
 ### İşlem Düzeyinde Koruma
 
-- **Sıkı kayma toleransları belirleyin.** Sandwich saldırılarına karşı en etkili tek savunma, takaslarda kabul edilebilir kaymayı sınırlandırmaktır. Daha küçük bir kayma penceresi, saldırganların kullanabileceği kâr marjını azaltarak işleminizi sandwich açısından daha az cazip hâle getirir.
+- **Dar slippage toleransları belirleyin.** Sandviç saldırılarına karşı en etkili
+  tek savunma, swap işlemlerinde kabul edilebilir slippage'i sınırlamaktır. Daha
+  dar bir slippage aralığı, saldırganların elde edebileceği kâr marjını azaltır
+  ve işleminizi sandviç saldırısı için daha az cazip hâle getirir.
 
-- **Uygun bahşişler ve öncelik ücretleri belirleyin.** Yoğunluk dönemlerinde daha yüksek bahşişler ve öncelik ücretleri, işleminizin/paketinizin hızlıca yerleşme olasılığını artırarak araştırmacıların hareket etme penceresini daraltır. Uygun bahşişlerin nasıl ayarlanacağına ilişkin daha fazla ayrıntı için Jito'nun
-  [Bahşiş Miktarları](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount) belgelerine bakın.
+- **Uygun bahşişler (tip) ve öncelik ücretleri belirleyin.** Ağ tıkanıklığı
+  sırasında daha yüksek bahşişler ve öncelik ücretleri, işleminizin/bundle'ınızın
+  hızlıca işleme alınma olasılığını artırır ve searcher'ların harekete geçme
+  penceresini daraltır. Uygun bahşişlerin nasıl belirleneceği hakkında daha fazla
+  bilgi için Jito'nun [Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount) dokümantasyonuna bakın.
 
-- **Hesaplama birimi kullanımını optimize edin.** Her blokta sınırlı sayıda hesaplama birimi bulunur (ve hesapların blok başına kullanabileceği sınırlı sayıda hesaplama birimi vardır). İşleminizin/paketinizin bir bloğa dahil edilme olasılığını en üst düzeye çıkarmak için hesaplama birimi kullanımınızı optimize etmelisiniz. Ayrıntılar için
-  [Solana'da Hesaplama Kullanımı Nasıl Optimize Edilir](/developers/cookbook/transactions/optimize-compute)
-  kılavuzuna bakın.
+- **Compute unit kullanımını optimize edin.** Her blokta kullanılabilir compute
+  unit sayısı sınırlıdır (ve hesapların blok başına kullanabileceği compute unit
+  sayısı da sınırlıdır). İşleminizin/bundle'ınızın bir bloğa dahil edilme
+  olasılığını en üst düzeye çıkarmak için compute unit kullanımınızı optimize
+  etmelisiniz. Ayrıntılar için
+  [Solana'da Compute Kullanımı Nasıl Optimize Edilir](/developers/cookbook/transactions/optimize-compute)
+  rehberine bakın.
 
 ### DontFront'a Özgü
 
-1. **Dontfront hesabını salt okunur olarak işaretleyin.** Yazılabilir işaretleme çalışır ancak salt okunur
-   [yerleşim hızını optimize eder](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation).
+1. **dontfront hesabını salt okunur olarak işaretleyin.** Yazılabilir olarak
+   işaretlemek de çalışır ancak salt okunur olarak işaretlemek
+   [landing hızını optimize eder](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation).
 
-2. **Uygulama başına benzersiz bir dontfront pubkey kullanın.** `jitodontfront` ile başlayan herhangi bir pubkey işe yarar. Benzersiz bir varyant kullanmak (örn. `jitodontfront111111111111111111111111111123`), zincir üzeri verileri incelerken uygulama başına kullanımı ayırt etmenizi sağlar.
+2. **Uygulama başına benzersiz bir dontfront pubkey kullanın.** `jitodontfront` ile
+   başlayan herhangi bir pubkey çalışır. Benzersiz bir varyant kullanmak (ör.
+   `jitodontfront111111111111111111111111111123`), onchain verileri incelerken
+   kullanımı uygulama bazında ayırt etmenizi sağlar.
 
-3. **DontFront, Adres Arama Tablolarını destekler.** Dontfront hesabı bir ALT aracılığıyla dahil edilebilir. Ancak bahşiş hesapları için ALT kullanmayın.
+3. **DontFront, Address Lookup Table'ları destekler.** dontfront hesabı bir ALT
+   aracılığıyla dahil edilebilir. Ancak tip hesapları için ALT kullanmayın.
 
 ## Sınırlamalar
 
-- **Yalnızca blok motoru.** DontFront, Jito blok motoru tarafından uygulanır. Doğrudan validator'lara gönderilen işlemler (Jito atlanarak) korunmaz.
+- **Yalnızca block engine.** DontFront, Jito block engine tarafından uygulanır.
+  Doğrudan validator'lara gönderilen (Jito'yu atlayan) işlemler korunmaz.
 
-- **Garanti değildir.** Jito'nun belgelerinden: _"Bu özellik sandwich saldırılarını azaltmaya yardımcı olabilir ancak bunu garanti etmez ve üçüncü tarafların gerçekleştirdiği sıralama dahil olmak üzere işlem sıralamasındaki tüm değişkenler için bir çözüm değildir."_
+- **Garanti değildir.** Jito'nun dokümanlarından: _"Bu özellik sandviç
+  saldırılarını azaltmaya yardımcı olabilir ancak bunu garanti etmez ve üçüncü
+  tarafların gerçekleştirdiği her türlü sıralama dahil, işlem sıralamasındaki
+  tüm varyasyonlar için bir çözüm değildir."_
 
-- **Yalnızca Mainnet/Testnet.** Bu bir Jito blok motoru özelliğidir. Devnet veya localhost üzerinde çalışmaz.
+- **Yalnızca Mainnet/Testnet.** Bu, Jito block engine'in bir özelliğidir. devnet
+  veya localhost üzerinde çalışmaz.
 
 ## Kaynaklar
 
-- [Jito Belgeleri: Sandwich Azaltma](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
-- [Jito Belgeleri: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
-- [Jito Belgeleri: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
-- [Jito Belgeleri: Bahşiş Hesapları](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
-- [Jito Belgeleri: Bahşiş Miktarları](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
-- [Bahşiş Taban API'si](https://bundles.jito.wtf/api/v1/bundles/tip_floor)
+- [Jito Dokümanları: Sandwich Mitigation](https://docs.jito.wtf/lowlatencytxnsend/#sandwich-mitigation)
+- [Jito Dokümanları: sendTransaction](https://docs.jito.wtf/lowlatencytxnsend/#sendtransaction)
+- [Jito Dokümanları: sendBundle](https://docs.jito.wtf/lowlatencytxnsend/#sendbundle)
+- [Jito Dokümanları: Tip Accounts](https://docs.jito.wtf/lowlatencytxnsend/#gettipaccounts)
+- [Jito Dokümanları: Tip Amounts](https://docs.jito.wtf/lowlatencytxnsend/#tip-amount)
+- [Tip Floor API](https://bundles.jito.wtf/api/v1/bundles/tip_floor)
 - [GitHub'da @solana/kit](https://github.com/anza-xyz/kit)
 - [crates.io'da solana-sdk](https://crates.io/crates/solana-sdk)

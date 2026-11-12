@@ -1,0 +1,186 @@
+---
+title: Recursos de despliegue
+description: Preparación de la compilación de tu programa para desplegarlo en Mainnet
+---
+
+Antes de desplegar tu aplicación en Mainnet, asegúrate de contar con lo siguiente:
+
+- El archivo ELF del programa: normalmente el resultado de `anchor build` o
+  `cargo-build-sbf`, que termina en `.so`
+- El keypair del programa: un archivo JSON que contiene un arreglo de enteros
+
+En esta sección describiremos dónde encontrar estos recursos y cómo
+prepararlos.
+
+## Preparación de tu archivo ELF
+
+El archivo ELF contiene el bytecode compilado, la información del diseño de
+memoria y los metadatos que la máquina virtual de Solana (SVM) necesita para
+entender cómo cargar y ejecutar tu programa. El archivo ELF se crea al compilar
+tu código fuente.
+
+Para crear tu archivo ELF, puedes ejecutar el siguiente comando en Anchor:
+
+```bash
+anchor build
+```
+
+o el siguiente en otros frameworks:
+
+```bash
+cargo build-sbf
+```
+
+Después podrás encontrar tu archivo ELF en un directorio como
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Tu programa está listo cuando el archivo ELF se compila para
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). Para
+verificar tu programa, puedes ejecutar el siguiente comando en Linux:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Y los siguientes comandos en macOS:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Si ves una salida como la siguiente, tu programa está listo:
+
+```
+  Flags:                             0x3
+```
+
+Si no es así, sigue la guía de migración enlazada
+[aquí](https://solana.com/upgrades/sbpfv3-programs).
+
+## Preparación de la dirección de tu programa
+
+La dirección de tu programa es el ID de programa que usarás para invocar las
+instrucciones de tu programa. Puedes 1) usar el keypair del programa generado
+durante la compilación, 2) generar por fuerza bruta un nuevo keypair cuya
+dirección empiece con un prefijo personalizado, o 3) derivar una dirección de
+cuenta a partir de una dirección base y un seed. Las dos primeras opciones
+producen un keypair que puede firmar en nombre de la program account. Una cuenta
+creada con un seed no tiene su propia clave privada; la controla la cuenta base.
+
+### Usar el keypair generado
+
+De forma predeterminada, `anchor build` y `cargo build-sbf` colocan el keypair del programa en:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Haz una copia de seguridad de este archivo antes de limpiar el directorio de
+compilación. Cualquiera con acceso al keypair puede firmar como la program
+account, así que no lo subas al control de versiones.
+
+### Generar por fuerza bruta un keypair con un prefijo personalizado
+
+Usa [`vanity`](https://github.com/cavemanloverboy/vanity) para buscar un
+keypair Ed25519 cuya clave pública empiece con un prefijo base58 específico.
+Instala la versión para CPU desde crates.io:
+
+```bash
+cargo install vanity
+```
+
+El proyecto también ofrece compilaciones para CUDA, Metal y OpenCL para
+búsquedas aceleradas por GPU. Consulta las instrucciones de instalación de
+`vanity` para conocer los requisitos de cada backend.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Cuando encuentra una coincidencia, `vanity` imprime la clave pública, la semilla
+privada en hexadecimal y un arreglo JSON de keypair compatible con Solana. Guarda
+el archivo JSON en un lugar seguro y luego confirma que contiene la clave
+pública esperada:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Trata la salida del comando y el archivo JSON guardado como material de clave
+privada.
+
+### Crear una cuenta con un seed
+
+Para una búsqueda más rápida, `vanity grind` busca cadenas de seed para
+`CreateAccountWithSeed` en lugar de generar keypairs Ed25519. Proporciona la
+clave pública de la cuenta base que autorizará la creación, el propietario de la
+cuenta y el prefijo que se desea buscar. Para una program account actualizable,
+usa el cargador BPF actualizable como propietario:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+El resultado incluye la dirección derivada y una cadena de seed. Verifícalas
+antes de crear la cuenta:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Usa la misma dirección base, el mismo seed y el mismo propietario para derivar
+la dirección con `Pubkey::create_with_seed` y, después, envía una instrucción
+`create_account_with_seed` del System Program. La cuenta base y la cuenta que
+aporta los fondos deben firmar la transacción. Como la cuenta derivada no tiene
+un keypair independiente, esta opción requiere un flujo de creación de cuenta y
+despliegue que use la cuenta base en lugar de un archivo de keypair del
+programa.
+
+### Actualizar la dirección del programa en tu código fuente
+
+Después de elegir un keypair o una cuenta creada con un seed, usa su dirección
+pública como ID del programa en todos los lugares donde el proyecto lo declare.
+Si el código fuente aún contiene la dirección anterior, los clientes pueden
+enviar instrucciones al programa equivocado y las verificaciones de ID en el
+runtime pueden fallar.
+
+En un workspace de Anchor, actualiza tanto la entrada del programa en el
+`Anchor.toml` raíz como la invocación de `declare_id!` en
+`programs/<PROGRAM_NAME>/src/lib.rs`. La clave bajo `[programs.<CLUSTER>]` es el
+nombre del programa en el workspace. Actualiza cada tabla de clúster en la que
+quieras usar la nueva dirección; el ejemplo siguiente actualiza Mainnet.
+
+En Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+En `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio no usa `Anchor.toml`. Actualiza la invocación de `declare_id!` en el
+`src/lib.rs` del crate del programa. Los proyectos actuales de Pinocchio
+importan la macro desde `pinocchio::address`.
+
+Quasar también declara la dirección en el `src/lib.rs` del crate del programa
+onchain y no usa `Anchor.toml`. La macro `declare_id!` está disponible a través
+de `quasar_lang::prelude::*`.
+
+Vuelve a compilar el programa y regenera cualquier IDL o artefacto de cliente
+tras cambiar la dirección. Además, busca el ID de programa anterior en los
+scripts de despliegue, las pruebas y la configuración de la aplicación, y
+reemplaza cualquier referencia codificada de forma fija.

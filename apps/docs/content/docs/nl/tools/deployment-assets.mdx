@@ -1,0 +1,177 @@
+---
+title: Deployment-assets
+description: Je programmabuild voorbereiden op deployment naar Mainnet
+---
+
+Zorg dat je het volgende hebt voordat je je applicatie naar Mainnet deployt:
+
+- Het ELF-bestand van het programma - meestal het resultaat van een `anchor build` of
+  `cargo-build-sbf` en eindigend op `.so`
+- De keypair van het programma - Een JSON-bestand met een array van gehele getallen
+
+In dit gedeelte beschrijven we waar je deze assets kunt vinden en hoe je ze
+voorbereidt.
+
+## Je ELF-bestand voorbereiden
+
+Het ELF-bestand bevat de gecompileerde bytecode, informatie over de geheugenindeling en
+metadata die de Solana virtual machine (SVM) nodig heeft om te begrijpen hoe je programma
+moet worden geladen en uitgevoerd. Het ELF-bestand wordt aangemaakt wanneer je broncode wordt gecompileerd.
+
+Om je ELF-bestand te maken, kun je voor Anchor het volgende commando uitvoeren:
+
+```bash
+anchor build
+```
+
+of het volgende voor andere frameworks:
+
+```bash
+cargo build-sbf
+```
+
+Je vindt je ELF-bestand vervolgens in een map zoals
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Je programma is klaar wanneer het ELF-bestand is gecompileerd naar
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). Om
+je programma te controleren, kun je op Linux het volgende commando uitvoeren:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+En de volgende commando's op macOS:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Als je uitvoer ziet zoals hieronder, is je programma klaar:
+
+```
+  Flags:                             0x3
+```
+
+Zo niet, volg dan de migratiegids die
+[hier](https://solana.com/upgrades/sbpfv3-programs) is gelinkt.
+
+## Je programma-adres voorbereiden
+
+Je programma-adres is de program-ID die je gebruikt om de instructies van je programma
+aan te roepen. Je kunt 1) de tijdens de build gegenereerde keypair van het programma gebruiken, 2) een nieuwe keypair grinden waarvan het adres met een eigen prefix begint, of 3)
+een accountadres afleiden van een basisadres en seed. De eerste twee opties
+leveren een keypair op dat kan ondertekenen voor het program account. Een account dat met
+een seed is aangemaakt, heeft geen eigen private key; het basisaccount beheert het.
+
+### Gebruik de gegenereerde keypair
+
+Standaard plaatsen `anchor build` en `cargo build-sbf` de keypair van het programma op:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Maak een back-up van dit bestand voordat je de build-map opschoont. Iedereen met toegang tot de
+keypair kan ondertekenen als het program account, dus commit het niet naar je versiebeheer.
+
+### Een keypair grinden met een eigen prefix
+
+Gebruik [`vanity`](https://github.com/cavemanloverboy/vanity) om te zoeken naar een
+Ed25519 keypair waarvan de public key met een specifieke base58-prefix begint. Installeer
+de CPU-versie vanaf crates.io:
+
+```bash
+cargo install vanity
+```
+
+Het project biedt ook CUDA-, Metal- en OpenCL-builds voor GPU-versnelde
+zoekopdrachten. Zie de installatie-instructies van `vanity` voor de vereisten van
+elke backend.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Wanneer `vanity` een match vindt, toont het de public key, de private seed in hex
+en een Solana-compatibele keypair-JSON-array. Sla het JSON-bestand op een veilige
+locatie op en controleer vervolgens of het de verwachte public key bevat:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Behandel de uitvoer van het commando en het opgeslagen JSON-bestand als private key-materiaal.
+
+### Een account aanmaken met een seed
+
+Voor een snellere zoekopdracht doorzoekt `vanity grind` seed-strings voor
+`CreateAccountWithSeed` in plaats van Ed25519 keypairs te genereren. Geef de
+pubkey van het basisaccount op dat het aanmaken autoriseert, de accounteigenaar
+en de prefix waarnaar gezocht moet worden. Gebruik voor een upgradebaar program account de
+upgradeable BPF loader als eigenaar:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+Het resultaat bevat het afgeleide adres en een seed-string. Controleer deze voordat je
+het account aanmaakt:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Gebruik hetzelfde basisadres, dezelfde seed en dezelfde eigenaar om het adres af te leiden met
+`Pubkey::create_with_seed` en dien vervolgens een System Program-instructie
+`create_account_with_seed` in. Het basisaccount en het financieringsaccount
+moeten de transactie ondertekenen. Omdat het afgeleide account geen losstaande
+keypair heeft, vereist deze optie een flow voor het aanmaken van accounts en deployment die gebruikmaakt van
+het basisaccount in plaats van een keypair-bestand van het programma.
+
+### Het programma-adres in je broncode bijwerken
+
+Gebruik na het kiezen van een keypair of een account met seed het publieke adres als
+program-ID overal waar het project dit declareert. Als de broncode nog het
+oude adres bevat, kunnen clients instructies naar het verkeerde programma sturen en kunnen runtime-ID-
+controles mislukken.
+
+Werk in een Anchor-workspace zowel de programma-invoer in de root-`Anchor.toml`
+als de `declare_id!`-aanroep in `programs/<PROGRAM_NAME>/src/lib.rs` bij. De
+sleutel onder `[programs.<CLUSTER>]` is de workspacenaam van het programma. Werk elke
+cluster-tabel bij waarin je het nieuwe adres wilt gebruiken; het onderstaande voorbeeld werkt
+Mainnet bij.
+
+In Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+In `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio gebruikt geen `Anchor.toml`. Werk de `declare_id!`-aanroep bij in de
+`src/lib.rs` van de programma-crate. Huidige Pinocchio-projecten importeren de macro uit
+`pinocchio::address`.
+
+Quasar declareert het adres ook in de `src/lib.rs` van de onchain programma-crate en
+gebruikt geen `Anchor.toml`. De `declare_id!`-macro is beschikbaar via
+`quasar_lang::prelude::*`.
+
+Bouw het programma opnieuw en genereer eventuele IDL- of client-artifacts opnieuw nadat je
+het adres hebt gewijzigd. Doorzoek ook deployment-scripts, tests en applicatieconfiguratie
+naar de oude program-ID en vervang alle hardgecodeerde verwijzingen.

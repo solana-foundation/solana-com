@@ -1,0 +1,180 @@
+---
+title: Aset deployment
+description: Menyiapkan build program Anda untuk deployment ke Mainnet
+---
+
+Pastikan Anda memiliki hal-hal berikut sebelum men-deploy aplikasi Anda ke Mainnet:
+
+- File ELF program - biasanya hasil dari `anchor build` atau
+  `cargo-build-sbf` yang berakhiran `.so`
+- Keypair program - File JSON yang berisi array bilangan bulat
+
+Pada bagian ini, kami akan menjelaskan di mana menemukan aset-aset ini dan cara
+menyiapkannya.
+
+## Menyiapkan file ELF Anda
+
+File ELF berisi bytecode hasil kompilasi, informasi tata letak memori, dan
+metadata yang diperlukan agar Solana virtual machine (SVM) memahami cara memuat
+dan menjalankan program Anda. File ELF dibuat saat kode sumber Anda dikompilasi.
+
+Untuk membuat file ELF, Anda dapat menjalankan perintah berikut untuk Anchor:
+
+```bash
+anchor build
+```
+
+atau perintah berikut untuk framework lainnya:
+
+```bash
+cargo build-sbf
+```
+
+Anda kemudian dapat menemukan file ELF di direktori seperti
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Program Anda siap ketika file ELF dikompilasi ke
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). Untuk
+memeriksa program Anda, jalankan perintah berikut di Linux:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Dan perintah berikut di macOS:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Jika Anda melihat output seperti berikut, program Anda sudah siap:
+
+```
+  Flags:                             0x3
+```
+
+Jika tidak, ikuti panduan migrasi yang ditautkan
+[di sini](https://solana.com/upgrades/sbpfv3-programs).
+
+## Menyiapkan alamat program Anda
+
+Alamat program Anda adalah ID program yang akan Anda gunakan untuk memanggil
+instruksi program Anda. Anda dapat 1) menggunakan keypair program yang dihasilkan
+saat build, 2) melakukan grind keypair baru yang alamatnya diawali prefiks
+kustom, atau 3) menurunkan alamat akun dari alamat dasar dan seed. Dua opsi
+pertama menghasilkan keypair yang dapat menandatangani untuk program account.
+Akun yang dibuat dengan seed tidak memiliki private key sendiri; akun dasar
+yang mengendalikannya.
+
+### Gunakan keypair yang dihasilkan
+
+Secara default, `anchor build` dan `cargo build-sbf` menempatkan keypair program di:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Cadangkan file ini sebelum membersihkan direktori build. Siapa pun yang memiliki
+akses ke keypair dapat menandatangani sebagai program account, jadi jangan
+melakukan commit file ini ke source control.
+
+### Grind keypair dengan prefiks kustom
+
+Gunakan [`vanity`](https://github.com/cavemanloverboy/vanity) untuk mencari
+keypair Ed25519 yang public key-nya diawali prefiks base58 tertentu. Instal
+versi CPU dari crates.io:
+
+```bash
+cargo install vanity
+```
+
+Proyek ini juga menyediakan build CUDA, Metal, dan OpenCL untuk pencarian dengan
+akselerasi GPU. Lihat petunjuk instalasi `vanity` untuk persyaratan setiap
+backend.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Ketika menemukan kecocokan, `vanity` mencetak public key, seed privat dalam hex,
+dan array JSON keypair yang kompatibel dengan Solana. Simpan file JSON di lokasi
+yang aman, lalu pastikan file tersebut berisi public key yang diharapkan:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Perlakukan output perintah dan file JSON yang disimpan sebagai materi private key.
+
+### Membuat akun dengan seed
+
+Untuk pencarian yang lebih cepat, `vanity grind` mencari string seed untuk
+`CreateAccountWithSeed` alih-alih menghasilkan keypair Ed25519. Berikan
+public key dari akun dasar yang akan mengotorisasi pembuatan, pemilik akun,
+dan prefiks yang dicari. Untuk program account yang dapat di-upgrade, gunakan
+upgradeable BPF loader sebagai pemilik:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+Hasilnya mencakup alamat turunan dan string seed. Verifikasi keduanya sebelum
+membuat akun:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Gunakan alamat dasar, seed, dan pemilik yang sama untuk menurunkan alamat dengan
+`Pubkey::create_with_seed`, lalu kirim instruksi System Program
+`create_account_with_seed`. Akun dasar dan akun pendanaan harus menandatangani
+transaksi. Karena akun turunan tidak memiliki keypair mandiri, opsi ini
+memerlukan alur pembuatan akun dan deployment yang menggunakan akun dasar,
+bukan file keypair program.
+
+### Memperbarui alamat program di source Anda
+
+Setelah memilih keypair atau akun ber-seed, gunakan alamat publiknya sebagai
+ID program di mana pun proyek mendeklarasikannya. Jika source masih berisi
+alamat lama, klien dapat mengirim instruksi ke program yang salah dan
+pemeriksaan ID runtime dapat gagal.
+
+Di workspace Anchor, perbarui entri program di `Anchor.toml` root dan
+pemanggilan `declare_id!` di `programs/<PROGRAM_NAME>/src/lib.rs`. Key di bawah
+`[programs.<CLUSTER>]` adalah nama workspace program. Perbarui setiap tabel
+cluster tempat Anda ingin menggunakan alamat baru; contoh di bawah memperbarui
+Mainnet.
+
+Di Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+Di `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio tidak menggunakan `Anchor.toml`. Perbarui pemanggilan `declare_id!` di
+`src/lib.rs` milik crate program. Proyek Pinocchio saat ini mengimpor makro
+tersebut dari `pinocchio::address`.
+
+Quasar juga mendeklarasikan alamat di `src/lib.rs` milik crate program onchain
+dan tidak menggunakan `Anchor.toml`. Makro `declare_id!` tersedia melalui
+`quasar_lang::prelude::*`.
+
+Build ulang program dan buat ulang IDL atau artefak klien setelah mengubah
+alamat. Cari juga di skrip deployment, pengujian, dan konfigurasi aplikasi untuk
+ID program lama, lalu ganti semua referensi yang di-hardcode.

@@ -1,0 +1,135 @@
+---
+title: デプロイ用アセット
+description: プログラムのビルドをメインネットにデプロイするための準備
+---
+
+アプリケーションをメインネットにデプロイする前に、次のものが揃っていることを確認してください:
+
+- プログラムのELFファイル - 通常は `anchor build` または `cargo-build-sbf` の実行結果として生成される、`.so` で終わるファイル
+- プログラムの keypair - 整数の配列を含むJSONファイル
+
+このセクションでは、これらのアセットの場所と準備方法について説明します。
+
+## ELFファイルの準備
+
+ELFファイルには、コンパイル済みのバイトコード、メモリレイアウト情報、そしてSolana仮想マシン(SVM)がプログラムのロードと実行方法を理解するために必要なメタデータが含まれています。ELFファイルは、ソースコードのコンパイル時に作成されます。
+
+ELFファイルを作成するには、Anchor の場合は次のコマンドを実行します:
+
+```bash
+anchor build
+```
+
+その他のフレームワークの場合は、次のコマンドを実行します:
+
+```bash
+cargo build-sbf
+```
+
+ELFファイルは、`target/deploy/<PROGRAM_NAME>.so` のようなディレクトリにあります。
+
+ELFファイルが [sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3) にコンパイルされていれば、プログラムの準備は完了です。プログラムを確認するには、Linuxで次のコマンドを実行します:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+macOSでは次のコマンドを実行します:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+次のような出力が表示されれば、プログラムの準備は完了です:
+
+```
+  Flags:                             0x3
+```
+
+表示されない場合は、[こちら](https://solana.com/upgrades/sbpfv3-programs)にリンクされている移行ガイドに従ってください。
+
+## プログラムアドレスの準備
+
+プログラムアドレスは、プログラムの instructions を呼び出す際に使用するプログラムIDです。1) ビルド時に生成されたプログラムの keypair を使用する、2) カスタムプレフィックスで始まるアドレスを持つ新しい keypair を grind(総当たり生成)する、3) ベースアドレスと seed からアカウントアドレスを導出する、のいずれかの方法を選べます。最初の2つの方法では、program account に対して署名できる keypair が生成されます。seed を使って作成されたアカウントは独自の秘密鍵を持たず、ベースアカウントによって制御されます。
+
+### 生成された keypair を使用する
+
+デフォルトでは、`anchor build` と `cargo build-sbf` はプログラムの keypair を次の場所に配置します:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+ビルドディレクトリをクリーンアップする前に、このファイルをバックアップしてください。この keypair にアクセスできる人は誰でも program account として署名できるため、ソース管理にコミットしないでください。
+
+### カスタムプレフィックスで keypair を grind する
+
+[`vanity`](https://github.com/cavemanloverboy/vanity) を使用すると、公開鍵が特定のbase58プレフィックスで始まるEd25519の keypair を検索できます。crates.io からCPU版をインストールします:
+
+```bash
+cargo install vanity
+```
+
+このプロジェクトでは、GPUによる高速検索向けに、CUDA、Metal、OpenCLのビルドも提供されています。各バックエンドの要件については、`vanity` のインストール instructions を参照してください。
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+一致するものが見つかると、`vanity` は公開鍵、16進数の秘密 seed、そしてSolana互換の keypair のJSON配列を出力します。JSONファイルを安全な場所に保存し、想定した公開鍵が含まれていることを確認してください:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+コマンドの出力と保存したJSONファイルは、秘密鍵の情報として扱ってください。
+
+### seed を使ってアカウントを作成する
+
+より高速に検索するには、`vanity grind` を使用します。Ed25519の keypair を生成する代わりに、`CreateAccountWithSeed` 用の seed 文字列を検索します。作成を承認するベースアカウントの公開鍵、アカウントのオーナー、検索するプレフィックスを指定してください。アップグレード可能な program account の場合は、オーナーとしてアップグレード可能なBPFローダーを指定します:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+結果には、導出されたアドレスと seed 文字列が含まれます。アカウントを作成する前に、これらを検証してください:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+同じベースアドレス、seed、オーナーを使用して `Pubkey::create_with_seed` でアドレスを導出し、System Program の `create_account_with_seed` instruction を送信します。ベースアカウントと資金提供アカウントの両方がトランザクションに署名する必要があります。導出されたアカウントには単独の keypair がないため、この方法では、プログラムの keypair ファイルではなくベースアカウントを使用する、アカウント作成およびデプロイのフローが必要です。
+
+### ソース内のプログラムアドレスを更新する
+
+keypair または seed で作成したアカウントを選択したら、プロジェクト内でプログラムIDを宣言しているすべての箇所で、その公開アドレスをプログラムIDとして使用してください。ソースに古いアドレスが残っていると、クライアントが誤ったプログラムに instructions を送信したり、ランタイムのIDチェックが失敗したりする可能性があります。
+
+Anchor ワークスペースでは、ルートの `Anchor.toml` にあるプログラムのエントリと、`programs/<PROGRAM_NAME>/src/lib.rs` 内の `declare_id!` の呼び出しの両方を更新してください。`[programs.<CLUSTER>]` 配下のキーは、プログラムのワークスペース名です。新しいアドレスを使用するすべてのクラスターのテーブルを更新してください。以下の例ではメインネットを更新しています。
+
+Anchor.toml の場合:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+`programs/<your_program>/lib.rs` の場合:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio は `Anchor.toml` を使用しません。プログラムクレートの `src/lib.rs` にある `declare_id!` の呼び出しを更新してください。現在のPinocchioプロジェクトでは、このマクロを `pinocchio::address` からインポートします。
+
+Quasar も、オンチェーンプログラムクレートの `src/lib.rs` でアドレスを宣言し、`Anchor.toml` は使用しません。`declare_id!` マクロは `quasar_lang::prelude::*` から利用できます。
+
+アドレスを変更した後は、プログラムを再ビルドし、IDLやクライアントのアーティファクトを再生成してください。また、デプロイスクリプト、テスト、アプリケーション設定の中から古いプログラムIDを検索し、ハードコードされている参照をすべて置き換えてください。

@@ -1,0 +1,180 @@
+---
+title: Dağıtım varlıkları
+description: Program derlemenizi Mainnet'e dağıtıma hazırlama
+---
+
+Uygulamanızı Mainnet'e dağıtmadan önce aşağıdakilere sahip olduğunuzdan emin olun:
+
+- Program ELF dosyası - genellikle bir `anchor build` veya
+  `cargo-build-sbf` çıktısıdır ve `.so` ile biter
+- Program keypair'i - Tam sayılardan oluşan bir dizi içeren bir JSON dosyası
+
+Bu bölümde, bu varlıkları nerede bulacağınızı ve nasıl hazırlayacağınızı
+anlatacağız.
+
+## ELF dosyanızı hazırlama
+
+ELF dosyası; derlenmiş bayt kodunu, bellek düzeni bilgilerini ve Solana sanal
+makinesinin (SVM) programınızı nasıl yükleyip çalıştıracağını anlaması için
+gereken meta verileri içerir. ELF dosyası, kaynak kodunuz derlendiğinde oluşturulur.
+
+ELF dosyanızı oluşturmak için Anchor'da aşağıdaki komutu çalıştırabilirsiniz:
+
+```bash
+anchor build
+```
+
+veya diğer framework'ler için aşağıdaki komutu:
+
+```bash
+cargo build-sbf
+```
+
+ELF dosyanızı daha sonra `target/deploy/<PROGRAM_NAME>.so` gibi bir dizinde
+bulabilirsiniz.
+
+ELF dosyası [sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3) olarak
+derlendiğinde programınız hazırdır. Programınızı kontrol etmek için Linux'ta
+aşağıdaki komutu çalıştırabilirsiniz:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+macOS'ta ise aşağıdaki komutları çalıştırın:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Aşağıdakine benzer bir çıktı görüyorsanız programınız hazırdır:
+
+```
+  Flags:                             0x3
+```
+
+Görmüyorsanız, [burada](https://solana.com/upgrades/sbpfv3-programs) bağlantısı verilen geçiş kılavuzunu izleyin.
+
+## Program adresinizi hazırlama
+
+Program adresiniz, program talimatlarınızı çağırmak için kullanacağınız program
+ID'sidir. Şunlardan birini yapabilirsiniz: 1) derleme sırasında oluşturulan
+program keypair'ini kullanmak, 2) adresi özel bir önekle başlayan yeni bir
+keypair üretmek (grind) veya 3) bir temel adres ve seed'den hesap adresi
+türetmek. İlk iki seçenek, program account adına imza atabilen bir keypair
+üretir. Seed ile oluşturulan hesabın kendi özel anahtarı yoktur; onu temel hesap
+kontrol eder.
+
+### Oluşturulan keypair'i kullanma
+
+Varsayılan olarak `anchor build` ve `cargo build-sbf`, program keypair'ini şu
+konuma yerleştirir:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Derleme dizinini temizlemeden önce bu dosyanın yedeğini alın. Keypair'e erişimi
+olan herkes program account adına imza atabilir, bu nedenle dosyayı kaynak
+kontrolüne commit etmeyin.
+
+### Özel önekli bir keypair üretme (grind)
+
+Genel anahtarı belirli bir base58 önekiyle başlayan bir Ed25519 keypair'i
+aramak için [`vanity`](https://github.com/cavemanloverboy/vanity) aracını kullanın. CPU sürümünü crates.io
+üzerinden yükleyin:
+
+```bash
+cargo install vanity
+```
+
+Proje ayrıca GPU hızlandırmalı aramalar için CUDA, Metal ve OpenCL derlemeleri
+sunar. Her bir arka ucun gereksinimleri için `vanity` kurulum talimatlarına
+bakın.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Bir eşleşme bulduğunda `vanity`, genel anahtarı, hex biçimindeki gizli tohum
+değerini ve Solana ile uyumlu bir keypair JSON dizisini yazdırır. JSON dosyasını
+güvenli bir konuma kaydedin, ardından beklenen genel anahtarı içerdiğini doğrulayın:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Komut çıktısını ve kaydedilen JSON dosyasını özel anahtar materyali olarak değerlendirin.
+
+### Seed ile hesap oluşturma
+
+Daha hızlı bir arama için `vanity grind`, Ed25519 keypair'leri üretmek yerine
+`CreateAccountWithSeed` için seed dizelerini arar. Oluşturmayı yetkilendirecek
+temel hesabın pubkey değerini, hesap sahibini ve aranacak öneki girin.
+Yükseltilebilir bir program account için sahip olarak yükseltilebilir BPF
+loader'ı kullanın:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+Sonuç, türetilen adresi ve bir seed dizesini içerir. Hesabı oluşturmadan önce
+bunları doğrulayın:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Adresi `Pubkey::create_with_seed` ile türetmek için aynı temel adresi, seed'i ve
+sahibi kullanın, ardından bir System Program `create_account_with_seed`
+talimatı gönderin. Temel hesap ve fonlama hesabı işlemi imzalamalıdır. Türetilen
+hesabın bağımsız bir keypair'i olmadığından bu seçenek, program keypair dosyası
+yerine temel hesabı kullanan bir hesap oluşturma ve dağıtım akışı gerektirir.
+
+### Kaynak kodunuzdaki program adresini güncelleme
+
+Bir keypair veya seed ile oluşturulmuş bir hesap seçtikten sonra, projenin
+program ID'sini tanımladığı her yerde onun genel adresini kullanın. Kaynak kod
+hâlâ eski adresi içeriyorsa istemciler talimatları yanlış programa gönderebilir
+ve çalışma zamanı ID kontrolleri başarısız olabilir.
+
+Bir Anchor çalışma alanında, kök dizindeki `Anchor.toml` dosyasındaki program
+girdisini ve `programs/<PROGRAM_NAME>/src/lib.rs` içindeki `declare_id!`
+çağrısını güncelleyin. `[programs.<CLUSTER>]` altındaki anahtar, programın
+çalışma alanı adıdır. Yeni adresi kullanmayı planladığınız her cluster tablosunu
+güncelleyin; aşağıdaki örnek Mainnet'i günceller.
+
+Anchor.toml içinde:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+`programs/<your_program>/lib.rs` içinde:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio `Anchor.toml` kullanmaz. Program crate'inin `src/lib.rs` dosyasındaki
+`declare_id!` çağrısını güncelleyin. Güncel Pinocchio projeleri makroyu
+`pinocchio::address` üzerinden içe aktarır.
+
+Quasar da adresi zincir üstü program crate'inin `src/lib.rs` dosyasında tanımlar
+ve `Anchor.toml` kullanmaz. `declare_id!` makrosu `quasar_lang::prelude::*`
+üzerinden kullanılabilir.
+
+Adresi değiştirdikten sonra programı yeniden derleyin ve tüm IDL veya istemci
+artefaktlarını yeniden oluşturun. Ayrıca dağıtım betiklerinde, testlerde ve
+uygulama yapılandırmasında eski program ID'sini arayın ve koda sabitlenmiş
+tüm referansları değiştirin.

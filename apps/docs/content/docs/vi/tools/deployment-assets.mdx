@@ -1,0 +1,178 @@
+---
+title: Tài sản triển khai
+description: Chuẩn bị bản build chương trình của bạn để triển khai lên Mainnet
+---
+
+Hãy đảm bảo bạn có những thứ sau trước khi triển khai ứng dụng lên Mainnet:
+
+- Tệp ELF của chương trình - thường là kết quả của lệnh `anchor build` hoặc
+  `cargo-build-sbf`, có đuôi `.so`
+- keypair của chương trình - Một tệp JSON chứa một mảng các số nguyên
+
+Trong phần này, chúng tôi sẽ mô tả nơi tìm các tài sản này và cách chuẩn bị
+chúng.
+
+## Chuẩn bị tệp ELF của bạn
+
+Tệp ELF chứa bytecode đã biên dịch, thông tin bố cục bộ nhớ và siêu dữ liệu
+cần thiết để máy ảo Solana (SVM) hiểu cách tải và chạy chương trình của bạn.
+Tệp ELF được tạo ra khi mã nguồn của bạn được biên dịch.
+
+Để tạo tệp ELF, bạn có thể chạy lệnh sau cho Anchor:
+
+```bash
+anchor build
+```
+
+hoặc lệnh sau cho các framework khác:
+
+```bash
+cargo build-sbf
+```
+
+Sau đó, bạn có thể tìm thấy tệp ELF trong một thư mục như
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Chương trình của bạn đã sẵn sàng khi tệp ELF được biên dịch sang
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). Để
+kiểm tra chương trình, bạn có thể chạy lệnh sau trên Linux:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Và các lệnh sau trên macOS:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Nếu bạn thấy kết quả đầu ra như sau, chương trình của bạn đã sẵn sàng:
+
+```
+  Flags:                             0x3
+```
+
+Nếu không, hãy làm theo hướng dẫn di chuyển được liên kết
+[tại đây](https://solana.com/upgrades/sbpfv3-programs).
+
+## Chuẩn bị địa chỉ chương trình của bạn
+
+Địa chỉ chương trình của bạn là program ID mà bạn sẽ dùng để gọi các instruction
+của chương trình. Bạn có thể 1) dùng keypair của chương trình được tạo trong quá
+trình build, 2) grind một keypair mới có địa chỉ bắt đầu bằng tiền tố tùy chỉnh, hoặc 3)
+suy ra địa chỉ tài khoản từ một địa chỉ cơ sở và seed. Hai tùy chọn đầu tiên
+tạo ra một keypair có thể ký cho program account. Tài khoản được tạo bằng
+seed không có khóa riêng tư của riêng nó; tài khoản cơ sở kiểm soát tài khoản đó.
+
+### Sử dụng keypair được tạo sẵn
+
+Theo mặc định, `anchor build` và `cargo build-sbf` đặt keypair của chương trình tại:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Hãy sao lưu tệp này trước khi dọn dẹp thư mục build. Bất kỳ ai có quyền truy cập
+vào keypair đều có thể ký với tư cách program account, vì vậy đừng commit nó vào hệ thống quản lý mã nguồn.
+
+### Grind một keypair với tiền tố tùy chỉnh
+
+Sử dụng [`vanity`](https://github.com/cavemanloverboy/vanity) để tìm kiếm một
+keypair Ed25519 có khóa công khai bắt đầu bằng một tiền tố base58 cụ thể. Cài đặt
+phiên bản CPU từ crates.io:
+
+```bash
+cargo install vanity
+```
+
+Dự án cũng cung cấp các bản build CUDA, Metal và OpenCL để tìm kiếm tăng tốc
+bằng GPU. Xem hướng dẫn cài đặt `vanity` để biết yêu cầu của
+từng backend.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Khi tìm thấy kết quả khớp, `vanity` sẽ in ra khóa công khai, seed riêng tư ở dạng hex,
+và một mảng JSON keypair tương thích với Solana. Hãy lưu tệp JSON ở một
+nơi an toàn, sau đó xác nhận rằng nó chứa khóa công khai như mong đợi:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Hãy coi kết quả đầu ra của lệnh và tệp JSON đã lưu là tài liệu khóa riêng tư.
+
+### Tạo tài khoản bằng seed
+
+Để tìm kiếm nhanh hơn, `vanity grind` tìm kiếm các chuỗi seed cho
+`CreateAccountWithSeed` thay vì tạo các keypair Ed25519. Hãy cung cấp
+khóa công khai của tài khoản cơ sở sẽ ủy quyền việc tạo, chủ sở hữu tài khoản,
+và tiền tố cần tìm. Đối với program account có thể nâng cấp, hãy dùng
+bộ nạp BPF có thể nâng cấp làm chủ sở hữu:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+Kết quả bao gồm địa chỉ được suy ra và một chuỗi seed. Hãy xác minh chúng trước khi
+tạo tài khoản:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Dùng cùng địa chỉ cơ sở, seed và chủ sở hữu để suy ra địa chỉ bằng
+`Pubkey::create_with_seed`, sau đó gửi instruction `create_account_with_seed` của System Program.
+Tài khoản cơ sở và tài khoản cấp vốn
+phải ký giao dịch. Vì tài khoản được suy ra không có keypair
+độc lập, tùy chọn này yêu cầu quy trình tạo tài khoản và triển khai sử dụng
+tài khoản cơ sở thay vì tệp keypair của chương trình.
+
+### Cập nhật địa chỉ chương trình trong mã nguồn của bạn
+
+Sau khi chọn keypair hoặc tài khoản seed, hãy dùng địa chỉ công khai của nó làm
+program ID ở mọi nơi dự án khai báo nó. Nếu mã nguồn vẫn chứa
+địa chỉ cũ, client có thể gửi instruction đến sai chương trình và việc kiểm tra ID
+tại runtime có thể thất bại.
+
+Trong workspace Anchor, hãy cập nhật cả mục chương trình trong `Anchor.toml` ở thư mục gốc
+và lệnh gọi `declare_id!` trong `programs/<PROGRAM_NAME>/src/lib.rs`. Khóa
+dưới `[programs.<CLUSTER>]` là tên workspace của chương trình. Hãy cập nhật mọi
+bảng cluster mà bạn định dùng địa chỉ mới; ví dụ bên dưới cập nhật
+Mainnet.
+
+Trong Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+Trong `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio không dùng `Anchor.toml`. Hãy cập nhật lệnh gọi `declare_id!` trong
+`src/lib.rs` của crate chương trình. Các dự án Pinocchio hiện tại nhập macro này từ
+`pinocchio::address`.
+
+Quasar cũng khai báo địa chỉ trong `src/lib.rs` của crate chương trình onchain và
+không dùng `Anchor.toml`. Macro `declare_id!` có sẵn thông qua
+`quasar_lang::prelude::*`.
+
+Hãy build lại chương trình và tạo lại mọi IDL hoặc artifact của client sau khi thay đổi
+địa chỉ. Đồng thời tìm trong các tập lệnh triển khai, bài kiểm thử và cấu hình
+ứng dụng để phát hiện program ID cũ và thay thế mọi tham chiếu được mã hóa cứng.

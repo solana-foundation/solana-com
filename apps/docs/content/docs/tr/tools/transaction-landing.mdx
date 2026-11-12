@@ -1,0 +1,365 @@
+---
+title: İşlem İletimi (Transaction Landing)
+description:
+  Solana uygulamanızın Mainnet'teki işlem iletim oranını iyileştirmeye yönelik en iyi uygulamalar
+---
+
+## RPC Altyapısı
+
+[Herkese açık uç noktalar](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet.solana.com`) hız sınırlamalıdır ve SLA sunmaz. Geliştirme için
+yeterlidir ancak üretim ödeme akışlarında başarısız olur; tıpkı çalışma süresi
+garantisi olmayan ortak bir API üzerinden ödeme işlemcisi çalıştırmaya
+çalışmak gibi.
+
+<Callout type="caution" title="Üretimde asla herkese açık RPC kullanmayın">
+  Güvenilir ve düşük gecikmeli erişim için [özel bir RPC sağlayıcısı](https://solana.com/rpc)
+  kullanın.
+</Callout>
+
+Bir RPC sağlayıcısı seçerken şunlara dikkat edin:
+
+- **Güvenilirlik**: Çalışma süresi garantili SLA'lar (%99,9+)
+- **Gecikme**: Kullanıcılarınıza coğrafi yakınlık
+- **Özellikler**: İşlem iletimi özellikleri, indeksleme, öncelik ücreti API'leri
+
+RPC sağlayıcılarının tam listesi için
+[RPC Altyapı Sağlayıcıları](https://solana.com/rpc) kılavuzuna bakın.
+
+### Yedekli RPC Yapılandırması
+
+Her ağ hizmeti sağlayıcısı gibi RPC sağlayıcıları da kesinti veya düşük performans
+dönemleri yaşayabilir. Uygulamanızın dayanıklı olmasını sağlamak için
+uygulamanızı birden fazla RPC sağlayıcısı kullanacak şekilde yapılandırmalısınız.
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)
+, RPC taşıma katmanlarını özelleştirmeye yarayan bir kütüphane sunar; bu sayede
+kendi yedekli RPC istemcinizi oluşturabilirsiniz. Yedekli bir RPC istemcisi
+oluşturmak için bunu nasıl kullanabileceğinize dair bir örnek:
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+Kendi yönlendirme araçlarınızı oluşturmak istemiyorsanız, yönlendirmeyi sizin
+yerinize yönetmesi için [Iron Forge](https://www.ironforge.sanctum.so/) gibi bir
+üçüncü taraf hizmetten yararlanabilirsiniz.
+
+## İşlem İletimi (Transaction Landing)
+
+Devnet'te işlemler oldukça kolay iletilir. Mainnet'te ise blok alanı için
+rekabet edersiniz. İşleminizin bir bloğa dahil edilme şansını artırmak için
+işleminizi doğru şekilde oluşturduğunuzdan emin olmalısınız. Bu şu anlama gelir:
+
+- işlemi göndermeden önce güncel bir blockhash eklemek
+- işleme, rekabetçi bir öncelik ücretine sahip bir öncelik ücreti talimatı
+  eklemek
+- işleme, işlem için gereken tahmini hesaplama birimlerine dayanan bir hesaplama
+  birimi limitiyle bir hesaplama birimi limiti talimatı eklemek
+
+Ayrıca, işleminizin bir bloğa dahil edilme şansını artırmak için Jito Bundles
+gibi diğer araçları da değerlendirmelisiniz. Bu araçları daha ayrıntılı
+inceleyelim.
+
+### İşlem Gönderim Yapılandırması
+
+Mainnet'te işlem gönderirken en iyi iletim oranları için şu parametreleri
+yapılandırın:
+
+**Blockhash yönetimi:**
+
+- `confirmed` commitment ile alın
+- `getLatestBlockhash` tarafından döndürülen `lastValidBlockHeight` değerini
+  saklayın; bu, işleminizin ne zaman sona ereceğini söyler
+- Blockhash'ler, slot süresine bağlı olarak protokol tarafından belirlenen bir
+  süre sonunda geçerliliğini yitirir.
+
+**Gönderim seçenekleri:**
+
+- `maxRetries: 0` — Otomatik RPC yeniden denemelerini devre dışı bırakır. Gerektiğinde
+  blockhash'i yenileyebilmek için yeniden denemeleri kendiniz yönetin.
+- `skipPreflight: true` — Göndermeden önceki simülasyonu atlar. İşlemi zaten
+  doğruladıysanız ve en düşük gecikmeyi istiyorsanız bunu kullanın. Hataları
+  erken yakalamak için geliştirme sırasında `false` olarak bırakın.
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### Öncelik Ücretlerini Kullanın
+
+Her Solana işlemi, SOL cinsinden ödenen bir işlem ücreti gerektirir. İşlem
+ücretleri iki bölüme ayrılır: temel ücret ve öncelik ücreti. Temel ücret,
+işlemi işledikleri için validator'ları tazmin eder. Öncelik ücreti ise mevcut
+lider'in işleminizi işleme alma şansını artırmak için ödenen isteğe bağlı bir
+ücrettir. Bunu ekspres kargoya benzetebilirsiniz: daha hızlı ve daha güvenilir
+teslimat için daha fazla ödersiniz.
+
+**Ücretler nasıl işler:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,000) lamports
+Priority fee (v1 only) = Absolute total in lamports set in the message config
+```
+
+**Gerçek dünya maliyetleri:**
+
+- Basit USDC transferi: normal koşullarda ~0,001-0,005 $
+- Yoğunluk sırasında: ~0,01-0,05 $
+- Yoğunluğun zirvesinde: Daha da yükselebilir
+
+**Örnek Uygulama:**
+
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)
+paketi, bir işleme hesaplama birimi fiyatı (mikro-lamport cinsinden)
+talimatını kolayca güncellemek veya eklemek için bir yardımcı fonksiyon sunar.
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**Ücret tahminlerini alma:** Çoğu RPC sağlayıcısı öncelik ücreti API'leri sunar:
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+Ücret mekanizmalarının tamamı için [İşlem Ücretleri](/docs/core/fees) bölümüne ve
+kılavuzumuza bakın:
+[Bir İşleme Öncelik Ücretleri Nasıl Eklenir](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+
+### Hesaplama Birimlerini Optimize Edin
+
+Solana'da hesaplama, programın yaptığı işin kabaca bir tahmini olan hesaplama
+birimleri (CU) ile ölçülür. Günümüzde hesaplama limitleri blok başına 50 milyon
+CU ve işlem başına 1,4 milyon CU'dur. Bir işlem gönderdiğinizde, kullanılacak
+hesaplama miktarını tahmin etmeniz ve hesaplama birimi limitini buna göre
+ayarlamanız gerekir; bu, toplam kapasitenin ne kadarının işleminiz için ayrılması
+gerektiğine dair fiilen bir talep anlamına gelir. Uygulamada bu, işleminiz için
+gereken hesaplama birimlerini doğru tahmin etmenin işleminizin bir bloğa dahil
+edilmesi için kritik olduğu (ve öncelik ücretlerinizi yönetmek için önemli
+olduğu) anlamına gelir. İşlem ve blok hesaplama limitleri protokol tarafından
+belirlenir.
+
+Solana JSON RPC API'sinde, bir işlem için gereken hesaplama birimlerini tahmin
+etmek amacıyla kullanılabilecek bir [`simulatetransaction`](/docs/rpc/http/simulatetransaction)
+yöntemi vardır; bu yöntem kullanılacak hesaplama birimlerinin bir tahminini içerir.
+[`@solana/kit`](https://github.com/anza-xyz/kit), bir işlemin kaynak limitlerini tahmin eden ve bunları
+mesaj üzerinde tek adımda ayarlayan yardımcı fonksiyonlar sunar
+(arka planda `simulatetransaction` yöntemini kullanarak). Sürüm 1
+işlemleri için bu yardımcılar, yüklenen hesap verisi boyutu limitini de tahmin eder.
+
+```ts
+import {
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
+
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
+);
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
+```
+
+<Callout type="info">
+  İşlemleri bir kit eklenti istemcisiyle oluşturup gönderiyorsanız, genellikle bu
+  adıma ihtiyacınız yoktur — istemci, işlemi gönderirken (`.sendTransaction()`)
+  hesaplama bütçesi talimatlarını sizin için ekler. Yukarıdaki manuel akış,
+  işlemleri doğrudan `@solana/kit` ile oluşturduğunuz durumlar içindir.
+</Callout>
+
+Üretimde aynı türden işlemi birden çok kez tekrarlıyorsanız, hesaplama birimlerini
+her seferinde tahmin etmenin getireceği ek yükten kaçınmak için o işlem türünün
+hesaplama tahminini önbelleğe almayı düşünmelisiniz.
+
+### Jito Bundles
+
+Jito bundle'ları, birden fazla işlemin atomik yürütülmesini yönetmeye yarayan bir
+araçtır. Bu, birden fazla işlemin bir bahşişle (tip) birlikte Jito ağına
+gönderilmesiyle sağlanır. Bahşişler, Jito ağını işlemlerinizi bir bloğa dahil
+etmeye teşvik etmek için kullanılabilir.
+
+**Kaynaklar:**
+
+- [Jito dokümantasyonu](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 Video: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [QuickNode'un Jito bundle'ları kılavuzu](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### Yeniden Deneme Stratejileri
+
+İşlemler birçok nedenle başarısız olabilir. Başarı/başarısızlık sonucunu anında
+döndüren geleneksel ödeme API'lerinin aksine, blockchain işlemleri onay takibi
+gerektirir.
+
+**Temel kavramlar:**
+
+- **Blockhash süre sonu**: Blockhash süre sonu: İşlem blockhash'leri 150 slot
+  boyunca geçerli kalır (200 ms'lik slot süresinde yaklaşık 30 saniye). Gerçek
+  sona erme süresi blok üretim hızına bağlı olarak değişebilir. Bir blockhash'in
+  ne zaman sona erdiğini belirlemek için lastValidBlockHeight kullanın.
+- **İdempotentlik**: Aynı imzalı işlem her zaman aynı imzayı üretir—yeniden
+  göndermek güvenlidir
+- **Üstel geri çekilme (exponential backoff)**: Hızlı yeniden denemelerle ağı
+  aşırı yüklemekten kaçının
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`@solana/kit` içindeki `sendAndConfirmTransactionFactory`, onay yoklamasını ve
+blok yüksekliği takibini otomatik olarak yönetir. İşlemin blockhash'i sona erdiğinde
+`SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` hatasını fırlatır; bu, işlemi yeni bir
+blockhash ile yeniden oluşturmanız gerektiğini bildirir.
+
+### Ek Kaynaklar
+
+- [Helius: Solana'da İşlemler Nasıl İletilir](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Solana İşlemlerini Optimize Etme Stratejileri](https://www.quicknode.com/docs/solana/transactions)
+
+## Hata Yönetimi
+
+Solana Kit, `isSolanaError()` aracılığıyla tipli hatalar sunar. Metin eşleştirme
+yerine belirli hata kodlarını kullanın:
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**Yaygın Hata Kodları:**
+
+| Hata Kodu                   | Neden                 | Çözüm                                                                                                 |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhash süresi doldu     | Yeni blockhash ile yeniden oluşturun                                                                             |
+| `BLOCKHASH_NOT_FOUND`        | Blockhash bulunamadı   | Yeni blockhash ile yeniden oluşturun                                                                             |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | Yeterli SOL yok        | Ücreti ödeyen hesabı fonlayın veya [ücret soyutlamasını](/docs/payments/send-payments/payment-processing/fee-abstraction) kullanın |
+| `INSUFFICIENT_FUNDS`         | Yeterli token yok     | Kullanıcının daha fazla bakiyeye ihtiyacı var                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | token account eksik | İşlemde ATA oluşturun                                                                                |
+
+## Gassız İşlemler
+
+Kullanıcılar, ağ ücretleri için SOL edinmek yerine stablecoin ile ödeme yapmayı
+bekler. Gassız işlemler bunu çözer; tıpkı Venmo kullanıcılarının ACH ücretlerini
+düşünmemesi gibi. Eksiksiz uygulama için
+[Ücret Soyutlaması](/docs/payments/send-payments/payment-processing/fee-abstraction) bölümüne bakın.

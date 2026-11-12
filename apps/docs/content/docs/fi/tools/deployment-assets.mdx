@@ -1,0 +1,176 @@
+---
+title: Käyttöönoton resurssit
+description: Ohjelman koonnin valmistelu Mainnetiin julkaisua varten
+---
+
+Varmista, että sinulla on seuraavat ennen kuin otat sovelluksesi käyttöön Mainnetissä:
+
+- Ohjelman ELF-tiedosto – yleensä `anchor build`- tai
+  `cargo-build-sbf`-komennon tulos, jonka pääte on `.so`
+- Ohjelman keypair – JSON-tiedosto, joka sisältää kokonaislukujen taulukon
+
+Tässä osiossa kerromme, mistä nämä resurssit löytyvät ja miten ne valmistellaan.
+
+## ELF-tiedoston valmistelu
+
+ELF-tiedosto sisältää käännetyn tavukoodin, muistin asettelutiedot ja
+metatiedot, joita Solana-virtuaalikone (SVM) tarvitsee ymmärtääkseen, miten ohjelmasi
+ladataan ja suoritetaan. ELF-tiedosto luodaan, kun lähdekoodisi käännetään.
+
+Voit luoda ELF-tiedoston Anchorille seuraavalla komennolla:
+
+```bash
+anchor build
+```
+
+tai muille kehyksille seuraavalla:
+
+```bash
+cargo build-sbf
+```
+
+Löydät ELF-tiedoston sen jälkeen hakemistosta, kuten
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Ohjelmasi on valmis, kun ELF-tiedosto on käännetty muotoon
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). Voit
+tarkistaa ohjelmasi suorittamalla Linuxissa seuraavan komennon:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Ja macOS:ssä seuraavat komennot:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Jos näet seuraavankaltaisen tulosteen, ohjelmasi on valmis:
+
+```
+  Flags:                             0x3
+```
+
+Jos et näe, noudata migraatio-oppaan ohjeita, johon on linkki
+[tässä](https://solana.com/upgrades/sbpfv3-programs).
+
+## Ohjelman osoitteen valmistelu
+
+Ohjelmasi osoite on program ID, jonka avulla kutsut ohjelmasi
+ohjeita. Voit joko 1) käyttää koonnin aikana luotua ohjelman keypair-tiedostoa,
+2) louhia uuden keypairin, jonka osoite alkaa omalla etuliitteellä, tai 3)
+johtaa tilin osoitteen perusosoitteesta ja seed-arvosta. Kaksi ensimmäistä vaihtoehtoa
+tuottavat keypairin, joka voi allekirjoittaa program accountin puolesta. Seed-arvolla
+luodulla tilillä ei ole omaa yksityistä avainta; sitä hallitsee perustili.
+
+### Käytä luotua keypairia
+
+Oletuksena `anchor build` ja `cargo build-sbf` tallentavat ohjelman keypairin sijaintiin:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Varmuuskopioi tämä tiedosto ennen koontihakemiston tyhjentämistä. Jokainen, jolla on pääsy
+keypairiin, voi allekirjoittaa program accountin puolesta, joten älä tallenna sitä lähdekoodin versionhallintaan.
+
+### Louhi keypair mukautetulla etuliitteellä
+
+Käytä [`vanity`](https://github.com/cavemanloverboy/vanity)-työkalua etsiäksesi
+Ed25519-keypairin, jonka julkinen avain alkaa tietyllä base58-etuliitteellä. Asenna
+CPU-versio crates.io:sta:
+
+```bash
+cargo install vanity
+```
+
+Projekti tarjoaa myös CUDA-, Metal- ja OpenCL-versiot GPU-kiihdytettyihin
+hakuihin. Katso kunkin taustajärjestelmän vaatimukset `vanity`-työkalun asennusohjeista.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Kun `vanity` löytää osuman, se tulostaa julkisen avaimen, yksityisen siemenen heksadesimaalimuodossa
+sekä Solana-yhteensopivan keypair-JSON-taulukon. Tallenna JSON-tiedosto turvalliseen
+paikkaan ja varmista sitten, että se sisältää odotetun julkisen avaimen:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Käsittele komennon tulostetta ja tallennettua JSON-tiedostoa yksityisenä avainmateriaalina.
+
+### Luo tili seed-arvolla
+
+Nopeampaa hakua varten `vanity grind` etsii `CreateAccountWithSeed`-toiminnolle
+seed-merkkijonoja Ed25519-keypairien luomisen sijaan. Anna sen perustilin
+julkinen avain, joka valtuuttaa luomisen, tilin omistaja
+ja etsittävä etuliite. Päivitettävää program accountia varten käytä
+päivitettävää BPF-latainta omistajana:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+Tulos sisältää johdetun osoitteen ja seed-merkkijonon. Tarkista ne ennen
+tilin luomista:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Käytä samaa perusosoitetta, seed-arvoa ja omistajaa osoitteen johtamiseen
+`Pubkey::create_with_seed`-funktiolla ja lähetä sitten System Program
+`create_account_with_seed` -ohje. Perustilin ja rahoitustilin
+täytyy allekirjoittaa transaktio. Koska johdetulla tilillä ei ole erillistä
+keypairia, tämä vaihtoehto edellyttää tilin luonti- ja käyttöönottoprosessia, joka käyttää
+perustiliä ohjelman keypair-tiedoston sijaan.
+
+### Päivitä ohjelman osoite lähdekoodiin
+
+Kun olet valinnut keypairin tai seed-arvolla luodun tilin, käytä sen julkista osoitetta
+program ID:nä kaikkialla, missä projekti sen määrittelee. Jos lähdekoodi sisältää yhä
+vanhan osoitteen, asiakkaat voivat lähettää ohjeita väärälle ohjelmalle ja ajonaikaiset ID-
+tarkistukset voivat epäonnistua.
+
+Anchor-työtilassa päivitä sekä ohjelmamerkintä juuritason `Anchor.toml`-tiedostossa
+että `declare_id!`-kutsu tiedostossa `programs/<PROGRAM_NAME>/src/lib.rs`. Avain
+kohdassa `[programs.<CLUSTER>]` on ohjelman työtilan nimi. Päivitä jokainen
+klusteritaulukko, jossa aiot käyttää uutta osoitetta; alla oleva esimerkki päivittää
+Mainnetin.
+
+Tiedostossa Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+Tiedostossa `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio ei käytä `Anchor.toml`-tiedostoa. Päivitä `declare_id!`-kutsu
+ohjelman crate-paketin tiedostossa `src/lib.rs`. Nykyiset Pinocchio-projektit tuovat makron
+moduulista `pinocchio::address`.
+
+Quasar määrittelee osoitteen myös onchain-ohjelman crate-paketin tiedostossa `src/lib.rs` eikä
+käytä `Anchor.toml`-tiedostoa. `declare_id!`-makro on saatavilla
+moduulin `quasar_lang::prelude::*` kautta.
+
+Koonna ohjelma uudelleen ja luo IDL- ja asiakasartefaktit uudelleen osoitteen vaihtamisen jälkeen.
+Etsi myös käyttöönottoskripteistä, testeistä ja sovelluksen
+konfiguraatiosta vanhaa program ID:tä ja korvaa kaikki kovakoodatut viittaukset.

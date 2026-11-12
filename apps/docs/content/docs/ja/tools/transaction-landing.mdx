@@ -1,0 +1,294 @@
+---
+title: トランザクションのランディング
+description:
+  MainnetでSolanaアプリのトランザクションランディングRateを改善するためのベストプラクティス
+---
+
+## RPCインフラストラクチャ
+
+[パブリックエンドポイント](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)(`api.mainnet.solana.com`)にはレート制限があり、SLAもありません。開発用途であれば問題ありませんが、本番の決済フローでは失敗します。これは、稼働保証のない共有APIを介して決済処理を行おうとするようなものです。
+
+<Callout type="caution" title="本番環境ではパブリックRPCを使用しないでください">
+  信頼性が高く低レイテンシなアクセスには、[プライベートRPCプロバイダー](https://solana.com/rpc)を使用してください。
+</Callout>
+
+RPCプロバイダーを選ぶ際は、次の点を確認してください。
+
+- **信頼性**: 稼働率を保証するSLA(99.9%以上)
+- **レイテンシ**: ユーザーとの地理的な近さ
+- **機能**: トランザクションランディング機能、インデックス作成、優先手数料API
+
+RPCプロバイダーの一覧については、[RPCインフラストラクチャプロバイダー](https://solana.com/rpc)ガイドをご覧ください。
+
+### 冗長なRPC構成
+
+他のネットワークサービスプロバイダーと同様に、RPCプロバイダーでもダウンタイムやパフォーマンス低下が発生することがあります。アプリケーションの耐障害性を確保するため、複数のRPCプロバイダーを使用するように構成してください。
+
+[Solana Kit](https://github.com/anza-xyz/kit/tree/main/packages/rpc-transport-http)は、RPCトランスポートをカスタマイズするためのライブラリを提供しており、独自の冗長RPCクライアントを構築できます。以下は、それを使って冗長RPCクライアントを構築する例です。
+
+```ts
+import { RpcTransport } from "@solana/rpc-spec";
+import { RpcResponse } from "@solana/rpc-spec-types";
+import { createHttpTransport } from "@solana/rpc-transport-http";
+
+// Create a transport for each RPC server
+const transports = [
+  createHttpTransport({ url: "https://mainnet-beta.my-server-1.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-2.com" }),
+  createHttpTransport({ url: "https://mainnet-beta.my-server-3.com" })
+];
+
+// Create a wrapper transport that distributes requests to them
+let nextTransport = 0;
+async function roundRobinTransport<TResponse>(
+  ...args: Parameters<RpcTransport>
+): Promise<RpcResponse<TResponse>> {
+  const transport = transports[nextTransport];
+  nextTransport = (nextTransport + 1) % transports.length;
+  return await transport(...args);
+}
+```
+
+独自のルーティングツールを構築したくない場合は、[Iron Forge](https://www.ironforge.sanctum.so/)のようなサードパーティサービスを利用してルーティングを任せることもできます。
+
+## トランザクションのランディング
+
+Devnetではトランザクションは比較的簡単にランディングします。Mainnetではブロックスペースを巡って競合します。トランザクションがブロックに含まれる可能性を高めるには、トランザクションを正しく組み立てる必要があります。具体的には次のとおりです。
+
+- トランザクションを送信する前に、新しいblockhashを含める
+- 競争力のある優先手数料を設定した priority fee instruction をトランザクションに含める
+- トランザクションに必要と見積もられたコンピュートユニットに基づくコンピュートユニット上限を設定する compute unit limit instruction をトランザクションに含める
+
+さらに、トランザクションがブロックに含まれる可能性を高めるために、Jito Bundlesなどの他のツールの利用も検討してください。これらのツールについて詳しく見ていきましょう。
+
+### トランザクション送信の設定
+
+Mainnetでトランザクションを送信する際は、最適なランディング率を得るために次のパラメータを設定してください。
+
+**Blockhashの管理:**
+
+- `confirmed` コミットメントで取得する
+- `getLatestBlockhash` が返す `lastValidBlockHeight` を保存しておく。これにより、トランザクションがいつ期限切れになるかがわかります
+- Blockhashは、slotの長さに応じてプロトコルが定める時間が経過すると期限切れになります。
+
+**送信オプション:**
+
+- `maxRetries: 0` — RPCの自動リトライを無効にします。必要に応じてblockhashを更新できるよう、リトライは自分で処理してください。
+- `skipPreflight: true` — 送信前のシミュレーションをスキップします。トランザクションをすでに検証済みで、最小のレイテンシを求める場合に使用します。開発中はエラーを早期に検出できるよう `false` のままにしてください。
+
+```typescript
+import { createSolanaRpc } from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+
+// 1. Get blockhash with confirmed commitment
+const { value: latestBlockhash } = await rpc
+  .getLatestBlockhash({ commitment: "confirmed" })
+  .send();
+
+// 2. Build and sign your transaction with the blockhash
+// ... (transaction building code)
+
+// 3. Send with production settings
+const signature = await rpc
+  .sendTransaction(encodedTransaction, {
+    encoding: "base64",
+    maxRetries: 0n, // Handle retries yourself
+    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    preflightCommitment: "confirmed"
+  })
+  .send();
+
+// 4. Track expiration using lastValidBlockHeight
+const { lastValidBlockHeight } = latestBlockhash;
+// Stop retrying when current block height exceeds lastValidBlockHeight
+```
+
+### 優先手数料を使用する
+
+すべてのSolanaトランザクションにはトランザクション手数料が必要で、SOLで支払います。トランザクション手数料は、基本手数料と優先手数料の2つに分かれています。基本手数料は、トランザクションを処理する validator への報酬です。優先手数料は任意の手数料で、現在のリーダーがトランザクションを処理する可能性を高めます。速達配送のようなものだと考えてください。より多く支払うことで、より速く確実に届けられます。
+
+**手数料の仕組み:**
+
+```
+Total fee = Base fee (5,000 lamports per signature) + Priority fee
+Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,000) lamports
+Priority fee (v1 only) = Absolute total in lamports set in the message config
+```
+
+**実際のコスト:**
+
+- シンプルなUSDC送金: 通常時は約$0.001〜0.005
+- 混雑時: 約$0.01〜0.05
+- ピーク時の混雑: さらに高騰する場合があります
+
+**実装例:**
+
+[`@solana-program/compute-budget`](https://github.com/solana-program/compute-budget)パッケージは、コンピュートユニット価格(マイクロラムポート単位)の instruction をトランザクションに簡単に更新または追加できるヘルパー関数を提供します。
+
+```typescript
+import { updateOrAppendSetComputeUnitPriceInstruction } from "@solana-program/compute-budget";
+
+const tx = pipe(
+  createTransactionMessage({ version: 0 }),
+  (m) => setTransactionMessageFeePayerSigner(payer, m),
+  (m) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, m),
+  (m) => appendTransactionMessageInstructions([myInstructions], m),
+  (m) => updateOrAppendSetComputeUnitPriceInstruction(1000n as MicroLamports, m)
+);
+```
+
+**手数料の見積もりを取得する:** ほとんどのRPCプロバイダーが優先手数料APIを提供しています。
+
+- [Helius Priority Fee API](https://docs.helius.dev/solana-apis/priority-fee-api)
+- [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
+- [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
+
+手数料の仕組みの詳細については、[トランザクション手数料](/docs/core/fees)と、ガイド[トランザクションに優先手数料を追加する方法](https://solana.com/developers/cookbook/transactions/add-priority-fees)をご覧ください。
+
+### コンピュートユニットを最適化する
+
+Solanaにおけるコンピュートは、プログラムが行う作業量のおおよその目安であるコンピュートユニット(CU)で計測されます。現在のコンピュート上限は、ブロックあたり5,000万CU、トランザクションあたり140万CUです。トランザクションを送信する際は、使用されるコンピュート量を見積もり、それに応じてコンピュートユニット上限を設定する必要があります。これは事実上、総容量のうちどれだけをそのトランザクション用に確保するかを要求するものです。実際には、トランザクションに必要なコンピュートユニットを適切に見積もることが、トランザクションをブロックに含めてもらううえで重要であり、優先手数料の管理においても重要です。トランザクションおよびブロックのコンピュート上限はプロトコルによって決まります。
+
+Solana JSON RPC APIには、トランザクションに必要なコンピュートユニットを見積もるために使える [`simulatetransaction`](/docs/rpc/http/simulatetransaction) メソッドがあり、使用されるコンピュートユニットの見積もりが含まれます。[`@solana/kit`](https://github.com/anza-xyz/kit) は、トランザクションのリソース上限を見積もってメッセージに一括で設定するヘルパー関数を提供しています(内部では `simulatetransaction` メソッドを使用)。バージョン1のトランザクションでは、これらのヘルパーはロードされるアカウントデータサイズの上限も見積もります。
+
+```ts
+import {
+  estimateResourceLimitsFactory,
+  estimateAndSetResourceLimitsFactory
+} from "@solana/kit";
+
+const estimateResourceLimits = estimateResourceLimitsFactory({ rpc });
+const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
+  estimateResourceLimits
+);
+const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
+```
+
+<Callout type="info">
+  kit plugin client でトランザクションを構築・送信する場合、通常この手順は不要です。クライアントが送信時(`.sendTransaction()`)にコンピュートバジェットの instruction を自動で追加します。上記の手動フローは、`@solana/kit` で直接トランザクションを組み立てる場合のものです。
+</Callout>
+
+本番環境で同じ種類のトランザクションを繰り返し送信する場合は、毎回コンピュートユニットを見積もるオーバーヘッドを避けるため、トランザクションの種類ごとにコンピュート見積もりをキャッシュすることを検討してください。
+
+### Jito Bundles
+
+Jito bundleは、複数のトランザクションをアトミックに実行するためのツールです。これは、複数のトランザクションをチップ付きでJitoネットワークに送信することで実現されます。チップは、Jitoネットワークがトランザクションをブロックに含めるインセンティブとして利用できます。
+
+**リソース:**
+
+- [Jitoドキュメント](https://docs.jito.wtf/lowlatencytxnsend/)
+- [🎥 動画: Jito Bundles](https://www.youtube.com/watch?v=HZ1pK9i6zx4)
+- [Jito bundlesに関するQuickNodeのガイド](https://www.quicknode.com/guides/solana-development/transactions/jito-bundles)
+
+### リトライ戦略
+
+トランザクションは様々な理由で失敗することがあります。成功/失敗を即座に返す従来の決済APIとは異なり、ブロックチェーンのトランザクションでは確認状況の追跡が必要です。
+
+**重要な概念:**
+
+- **Blockhashの有効期限**: トランザクションのblockhashは150 slot(slot時間200msで約30秒)の間有効です。実際の有効期限は、ブロック生成速度によって変わる場合があります。blockhashが期限切れかどうかは lastValidBlockHeight で判断してください。
+- **冪等性**: 同じ署名済みトランザクションは常に同じ署名を生成するため、再送信しても安全です
+- **指数バックオフ**: 短い間隔での再試行でネットワークに負荷をかけないようにします
+
+```typescript
+import {
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED
+} from "@solana/kit";
+
+const rpc = createSolanaRpc(process.env.RPC_URL!);
+const rpcSubscriptions = createSolanaRpcSubscriptions(process.env.RPC_WSS_URL!);
+
+const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
+  rpc,
+  rpcSubscriptions
+});
+
+// Send with automatic confirmation tracking and block height monitoring
+try {
+  await sendAndConfirmTransaction(signedTransaction, {
+    commitment: "confirmed",
+    // Optional: abort after 75 seconds
+    abortSignal: AbortSignal.timeout(75_000)
+  });
+} catch (e) {
+  if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
+    // Blockhash expired—rebuild transaction with fresh blockhash and retry
+    rebuildAndRetryTransaction(); // implement your own logic for rebuilding and retrying the transaction
+  }
+  throw e;
+}
+```
+
+`@solana/kit` の `sendAndConfirmTransactionFactory` は、確認のポーリングとブロック高の追跡を自動的に処理します。トランザクションのblockhashが期限切れになると `SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED` をスローします。これは、新しいblockhashでトランザクションを再構築する必要があることを示します。
+
+### その他のリソース
+
+- [Helius: Solanaでトランザクションをランディングさせる方法](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
+- [QuickNode: Solanaトランザクションを最適化するための戦略](https://www.quicknode.com/docs/solana/transactions)
+
+## エラー処理
+
+Solana Kitは、`isSolanaError()` によって型付きエラーを提供します。文字列マッチングではなく、特定のエラーコードを使用してください。
+
+```typescript
+import {
+  isSolanaError,
+  SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
+  SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
+  SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+} from "@solana/kit";
+
+function handlePaymentError(error: unknown): {
+  message: string;
+  retryable: boolean;
+} {
+  // Blockhash expired—rebuild and retry
+  if (
+    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+  ) {
+    return { message: "Transaction expired—rebuilding", retryable: true };
+  }
+
+  // Insufficient SOL for fees
+  if (
+    isSolanaError(
+      error,
+      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
+    )
+  ) {
+    return { message: "Not enough SOL for fees", retryable: false };
+  }
+
+  // Insufficient token balance
+  if (
+    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+  ) {
+    return { message: "Insufficient balance", retryable: false };
+  }
+
+  // Unknown error
+  console.error("Payment error:", error);
+  return { message: "Payment failed—please retry", retryable: true };
+}
+```
+
+**主なエラーコード:**
+
+| エラーコード                   | 原因                 | 対処方法                                                                                                 |
+| ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BLOCK_HEIGHT_EXCEEDED`      | Blockhashの期限切れ     | 新しいblockhashで再構築する                                                                             |
+| `BLOCKHASH_NOT_FOUND`        | Blockhashが見つからない   | 新しいblockhashで再構築する                                                                             |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | SOLが不足している        | 手数料支払者に資金を入れるか、[手数料抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)を使用する |
+| `INSUFFICIENT_FUNDS`         | トークンが不足している     | ユーザーの残高を増やす必要がある                                                                                  |
+| `ACCOUNT_NOT_FOUND`          | token accountが存在しない | トランザクション内でATAを作成する                                                                                |
+
+## ガスレストランザクション
+
+ユーザーは、ネットワーク手数料のためにSOLを入手するのではなく、ステーブルコインで支払うことを期待しています。ガスレストランザクションはこの問題を解決します。Venmoのユーザーが ACH手数料を意識しないのと同じです。完全な実装については、[手数料抽象化](/docs/payments/send-payments/payment-processing/fee-abstraction)をご覧ください。
