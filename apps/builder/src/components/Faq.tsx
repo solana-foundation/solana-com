@@ -1,4 +1,5 @@
 import { getTranslations } from "@workspace/i18n/server";
+import { links } from "@@/src/content/links";
 import { FaqList } from "./FaqList";
 import { container } from "./layout";
 import { TurnHeading } from "./motion";
@@ -7,8 +8,8 @@ export const FAQ_ITEMS = [
   "newToSolana",
   "crypto",
   "whenWhere",
-  "bring",
   "ticket",
+  "speak",
 ] as const;
 
 export async function Faq({ locale }: { locale: string }) {
@@ -29,7 +30,23 @@ export async function Faq({ locale }: { locale: string }) {
           items={FAQ_ITEMS.map((key) => ({
             id: key,
             question: t(`items.${key}.question`),
-            answer: t(`items.${key}.answer`),
+            // Answers may link to registration with <link>. Until that URL is
+            // set, the words stay as plain text.
+            answer: t.rich(`items.${key}.answer`, {
+              link: (chunks) =>
+                links.register ? (
+                  <a
+                    href={links.register}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline underline-offset-4 hover:text-bldr-purple"
+                  >
+                    {chunks}
+                  </a>
+                ) : (
+                  chunks
+                ),
+            }),
           }))}
         />
       </div>

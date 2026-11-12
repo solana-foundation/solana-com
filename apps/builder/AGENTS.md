@@ -23,7 +23,7 @@ apps/builder/
 │   ├── components/          # one file per page section, plus motion parts
 │   ├── content/links.ts     # Luma and sponsor URLs
 │   └── fonts/               # display and body font files
-└── public/images/           # logos and the About photo
+└── public/images/           # logos and the social card
 ```
 
 Copy lives in `packages/i18n/messages/builder/en/common.json`.

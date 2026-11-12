@@ -71,7 +71,10 @@ export async function buildBuilderJsonLd(locale: string): Promise<JsonLd> {
       name: t(`faq.items.${key}.question`),
       acceptedAnswer: {
         "@type": "Answer",
-        text: t(`faq.items.${key}.answer`),
+        // Plain text: the <link> tag some answers carry is dropped.
+        text: t.markup(`faq.items.${key}.answer`, {
+          link: (chunks) => chunks,
+        }),
       },
     })),
   };

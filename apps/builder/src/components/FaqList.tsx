@@ -1,13 +1,13 @@
 "use client";
 
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import FaqToggle from "@@/src/assets/faq-toggle.inline.svg";
 import { EASE_LAND, TURN } from "./motion";
 import { useReducedMotion } from "./useReducedMotion";
 
 const HIDDEN = "inset(0% 0% 100% 0%)";
 
-type Item = { id: string; question: string; answer: string };
+type Item = { id: string; question: string; answer: ReactNode };
 
 /**
  * Rows divided by rules only. Native <details> sharing a `name`, so it works

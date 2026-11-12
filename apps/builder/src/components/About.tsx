@@ -1,5 +1,4 @@
 import { getTranslations } from "@workspace/i18n/server";
-import { getImagePath } from "@@/src/config";
 import { links } from "@@/src/content/links";
 import { CtaLink } from "./CtaLink";
 import { container } from "./layout";
@@ -9,7 +8,7 @@ const STATS = [
   { key: "days", label: true },
   { key: "attendees", label: true },
   { key: "stages", label: false },
-  { key: "campus", label: false },
+  { key: "campus", label: true },
 ] as const;
 
 export async function About({ locale }: { locale: string }) {
@@ -45,30 +44,12 @@ export async function About({ locale }: { locale: string }) {
             fill="bg-bldr-purple"
             className="chamfer flex min-h-[180px] p-6 text-black [--chamfer:48px] md:min-h-[230px] md:p-8 md:[--chamfer:72px]"
           >
-            <p className="max-w-[540px] text-[20px] leading-[1.05] tracking-[-0.03em] md:text-[24px]">
-              {t("body")}
-            </p>
+            <div className="max-w-[540px] space-y-[1em] text-[20px] leading-[1.05] tracking-[-0.03em] md:text-[24px]">
+              <p>{t("body.one")}</p>
+              <p>{t("body.two")}</p>
+            </div>
           </Build>
         </div>
-
-        {/* Same crop as the Figma frame: the photo is 209.5% of the frame's
-            desktop height and starts 22.44% of its own height above it. */}
-        <Build
-          as="figure"
-          delay={0.06}
-          className="mt-3 aspect-[4/3] overflow-hidden md:aspect-[1342/447]"
-          fillContent={
-            <img
-              src={getImagePath("/images/about-campus.webp")}
-              alt={t("imageAlt")}
-              width={1600}
-              height={1277}
-              loading="lazy"
-              decoding="async"
-              className="absolute left-0 top-0 aspect-[1342/936.5] w-full max-w-none max-md:h-full max-md:object-cover max-md:[object-position:50%_34%] md:-translate-y-[22.44%]"
-            />
-          }
-        />
 
         <dl className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
           {STATS.map(({ key, label: hasLabel }, i) => (
