@@ -3,10 +3,13 @@ import type { Metadata } from "next";
 import { CookieConsentBanner } from "@solana-com/ui-chrome";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import HomePage from "./[locale]/page";
-import { getBaseMetadata } from "./metadata";
+import { getHomeMetadata } from "./metadata";
+import {
+  resolveConferenceState,
+  type SearchParams,
+} from "@/content/conference-state";
 import { FabMenu } from "@/components/FabMenu";
 import { loadBreakpointMessages } from "@/i18n/request";
-import type { SearchParams } from "@/content/next-edition";
 
 export const dynamic = "force-dynamic";
 
@@ -50,15 +53,20 @@ const monoFont = localFont({
   display: "swap",
 });
 
-export async function generateMetadata(): Promise<Metadata> {
-  return await getBaseMetadata("en");
+type RootPageProps = {
+  searchParams?: Promise<SearchParams>;
+};
+
+export async function generateMetadata({
+  searchParams,
+}: RootPageProps): Promise<Metadata> {
+  return await getHomeMetadata(
+    "en",
+    resolveConferenceState(await searchParams),
+  );
 }
 
-export default async function RootPage({
-  searchParams,
-}: {
-  searchParams?: Promise<SearchParams>;
-}) {
+export default async function RootPage({ searchParams }: RootPageProps) {
   const { messages } = await loadBreakpointMessages("en");
 
   return (

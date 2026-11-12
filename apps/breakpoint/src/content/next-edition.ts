@@ -9,9 +9,16 @@
  * field is unconfirmed and is simply not rendered; nothing below is a
  * placeholder. Flip `published` once every input has been confirmed. Until
  * then the section only renders on non-production deployments when the page
- * is opened with `?preview=bp27`.
+ * is opened with `?preview=bp27`. It shares the `preview` query with the
+ * conference-state switch, so `?preview=live&preview=bp27` shows the
+ * announcement on the live edition.
  */
 
+import {
+  isProductionDeployment,
+  PREVIEW_PARAM,
+  type SearchParams,
+} from "@/content/conference-state";
 import { BREAKPOINT_NEWSLETTER_FORM_ID } from "@/content/links";
 
 export type NextEditionAnnouncement = {
@@ -60,10 +67,7 @@ export const NEXT_EDITION: NextEditionAnnouncement = {
   signupFormId: BREAKPOINT_NEWSLETTER_FORM_ID,
 };
 
-export const NEXT_EDITION_PREVIEW_PARAM = "preview";
 export const NEXT_EDITION_PREVIEW_VALUE = "bp27";
-
-export type SearchParams = Record<string, string | string[] | undefined>;
 
 /**
  * Whether the announcement renders for this request. Published announcements
@@ -74,12 +78,12 @@ export type SearchParams = Record<string, string | string[] | undefined>;
 export function isNextEditionVisible(
   searchParams: SearchParams | undefined,
   announcement: NextEditionAnnouncement = NEXT_EDITION,
-  vercelEnv: string | undefined = process.env.VERCEL_ENV,
+  production: boolean = isProductionDeployment(),
 ) {
   if (announcement.published) return true;
-  if (vercelEnv === "production") return false;
+  if (production) return false;
 
-  const value = searchParams?.[NEXT_EDITION_PREVIEW_PARAM];
+  const value = searchParams?.[PREVIEW_PARAM];
   const values = Array.isArray(value) ? value : [value];
   return values.includes(NEXT_EDITION_PREVIEW_VALUE);
 }

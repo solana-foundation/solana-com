@@ -8,6 +8,7 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import NextEditionSection from "@/components/sections/NextEditionSection";
+import { resolveConferenceState } from "@/content/conference-state";
 import {
   isNextEditionVisible,
   NEXT_EDITION,
@@ -52,28 +53,34 @@ describe("isNextEditionVisible", () => {
       isNextEditionVisible(
         undefined,
         { ...unpublished, published: true },
-        "production",
+        true,
       ),
     ).toBe(true);
   });
 
   it("never previews an unpublished announcement in production", () => {
-    expect(
-      isNextEditionVisible({ preview: "bp27" }, unpublished, "production"),
-    ).toBe(false);
+    expect(isNextEditionVisible({ preview: "bp27" }, unpublished, true)).toBe(
+      false,
+    );
   });
 
   it("previews an unpublished announcement outside production on request", () => {
-    expect(isNextEditionVisible(undefined, unpublished, undefined)).toBe(false);
+    expect(isNextEditionVisible(undefined, unpublished, false)).toBe(false);
+    expect(isNextEditionVisible({ preview: "other" }, unpublished, false)).toBe(
+      false,
+    );
+    expect(isNextEditionVisible({ preview: "bp27" }, unpublished, false)).toBe(
+      true,
+    );
     expect(
-      isNextEditionVisible({ preview: "other" }, unpublished, undefined),
-    ).toBe(false);
-    expect(
-      isNextEditionVisible({ preview: "bp27" }, unpublished, undefined),
+      isNextEditionVisible({ preview: ["x", "bp27"] }, unpublished, false),
     ).toBe(true);
-    expect(
-      isNextEditionVisible({ preview: ["x", "bp27"] }, unpublished, "preview"),
-    ).toBe(true);
+  });
+
+  it("combines with the live-edition preview on the same query", () => {
+    const params = { preview: ["live", "bp27"] };
+    expect(isNextEditionVisible(params, unpublished, false)).toBe(true);
+    expect(resolveConferenceState(params, { production: false })).toBe("live");
   });
 });
 

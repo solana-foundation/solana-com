@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
 import HeroSection from "@/components/sections/HeroSection";
 import PageShell from "@/components/PageShell";
@@ -16,36 +17,68 @@ import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
 import NextEditionSection from "@/components/sections/NextEditionSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
+import LiveEventSection from "@/components/sections/live/LiveEventSection";
+import { LiveScheduleProvider } from "@/components/sections/live/LiveScheduleProvider";
+import { getLiveAgenda } from "@/content/live/agenda";
+import VenueMapSection from "@/components/sections/VenueMapSection";
 import {
-  isNextEditionVisible,
-  NEXT_EDITION,
+  isLiveConference,
+  isProductionDeployment,
+  resolveConferenceState,
   type SearchParams,
-} from "@/content/next-edition";
+} from "@/content/conference-state";
+import { GENERAL_ADMISSION_HREF } from "@/content/links";
+import { isNextEditionVisible, NEXT_EDITION } from "@/content/next-edition";
+import { getHomeMetadata } from "@/app/metadata";
 import { buildBreakpointJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
 export const dynamic = "force-dynamic";
 
+type HomePageProps = {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<SearchParams>;
+};
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: HomePageProps): Promise<Metadata> {
+  const { locale } = await params;
+  const state = resolveConferenceState(await searchParams);
+  return getHomeMetadata(locale, state);
+}
+
 export default async function HomePage({
   params,
   searchParams,
-}: {
-  params: Promise<{ locale: string }>;
-  searchParams?: Promise<SearchParams>;
-}) {
+}: HomePageProps) {
   const { locale } = await params;
-  const showNextEdition = isNextEditionVisible(await searchParams);
   const t = await getTranslations({ locale, namespace: "breakpoint" });
   const initialNow = Date.now();
   const jsonLd = await buildBreakpointJsonLd(locale);
+  const requestSearchParams = await searchParams;
+  const live = isLiveConference(resolveConferenceState(requestSearchParams));
+  const nextEdition = isNextEditionVisible(requestSearchParams) ? (
+    <NextEditionSection announcement={NEXT_EDITION} />
+  ) : null;
+  // One agenda load feeds the stream hero, today's sessions and the map.
+  const liveAgenda = live ? await getLiveAgenda() : [];
 
   return (
     <PageShell
       contentId="breakpoint-content"
-      navigation={{
-        ctaHref: GENERAL_ADMISSION_HREF,
-        ctaLabel: t("menu.items.register"),
-      }}
+      navigation={
+        live
+          ? {
+              ctaAlwaysVisible: true,
+              ctaHref: "/schedule",
+              ctaLabel: t("navigation.agenda"),
+            }
+          : {
+              ctaHref: GENERAL_ADMISSION_HREF,
+              ctaLabel: t("menu.items.register"),
+            }
+      }
       beforeNavigation={
         <script
           type="application/ld+json"
@@ -53,22 +86,44 @@ export default async function HomePage({
         />
       }
     >
-      <HeroSection />
-      {showNextEdition && <NextEditionSection announcement={NEXT_EDITION} />}
-      <NarrativeSection />
-      <Marquee />
-      <TicketsSection initialNow={initialNow} />
-      <ParticipateSection />
-      <WhyAttendSection />
-      <SponsorsSection />
-      <SpeakersSection />
-      <GallerySection />
-      <StatsSection />
-      <Marquee />
-      <EventsSection />
-      <HighlightsSection />
-      <AnnouncementsSection />
-      <FAQSection />
+      {live ? (
+        <>
+          <LiveScheduleProvider
+            allowClockPreview={!isProductionDeployment()}
+            initialItems={liveAgenda}
+            initialNow={initialNow}
+          >
+            <LiveEventSection />
+            {nextEdition}
+            <VenueMapSection />
+          </LiveScheduleProvider>
+          <Marquee />
+          <SponsorsSection />
+          <SpeakersSection />
+          <EventsSection />
+          <FAQSection />
+        </>
+      ) : (
+        <>
+          <HeroSection />
+          {nextEdition}
+          <NarrativeSection />
+          <Marquee />
+          <TicketsSection initialNow={initialNow} />
+          <ParticipateSection />
+          <WhyAttendSection />
+          <SponsorsSection />
+          <SpeakersSection />
+          <GallerySection />
+          <StatsSection />
+          <Marquee />
+          <EventsSection />
+          <HighlightsSection />
+          <AnnouncementsSection />
+          <VenueMapSection />
+          <FAQSection />
+        </>
+      )}
       <Footer />
     </PageShell>
   );
