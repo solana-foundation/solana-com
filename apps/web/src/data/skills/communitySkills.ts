@@ -194,7 +194,7 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     title: "Solana NFT Creation",
     description:
       "AI coding skill for professional Solana NFT collections covering Metaplex metadata, Arweave storage, verification, royalties and launch checks.",
-    url: "https://github.com/devcodex2025/Creation-of-NFT-Solana/tree/v2.2.0/skills/solana-nft-creation",
+    url: "https://github.com/devcodex2025/Creation-of-NFT-Solana/tree/v2.3.0/skills/solana-nft-creation",
     category: INFRASTRUCTURE,
   },
   {
