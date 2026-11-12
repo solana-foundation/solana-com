@@ -131,7 +131,6 @@ CURATED_SECTIONS = {
         ("LiteSVM", "docs/tools/litesvm", "Test Solana programs with an in-process virtual machine"),
         ("Surfpool", "docs/tools/surfpool", "Simulate Solana programs locally with mainnet accounts"),
         ("Surfpool Kit Plugin", "docs/tools/surfpool/sdk/kit-plugin", "Run a local Surfnet behind a Solana Kit client"),
-        ("Actions and Blinks", "docs/tools/actions", "Build Solana Actions APIs and shareable blinks"),
         ("AI Tools and Agents", "docs/tools/ai", "Use AI tools and agents when building on Solana"),
     ],
 }
