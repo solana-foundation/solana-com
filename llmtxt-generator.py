@@ -170,7 +170,6 @@ ENGLISH_EXTRAS = {
         ("AI Tools on Solana", "developers/guides/getstarted/intro-to-ai", "Overview of AI tools and workflows on Solana"),
         ("Introduction to x402", "developers/guides/getstarted/intro-to-x402", "Build a simple HTTP 402 payment flow"),
         ("Build an x402 Facilitator", "developers/guides/getstarted/build-a-x402-facilitator", "End-to-end x402 facilitator demo"),
-        ("Actions and Blinks", "developers/guides/advanced/actions", "Build Solana Actions APIs and shareable blinks"),
         ("Game Development Quickstart", "developers/guides/games/getting-started-with-game-development", "Get started building games on Solana"),
         ("DePIN Getting Started", "developers/guides/depin/getting-started", "Build decentralized physical infrastructure on Solana"),
         ("Durable Nonces", "developers/guides/advanced/introduction-to-durable-nonces", "Use durable nonces for offline signing"),
