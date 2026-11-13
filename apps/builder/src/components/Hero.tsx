@@ -14,9 +14,10 @@ export async function Hero({ locale }: { locale: string }) {
         <HeroIntro
           registerHref={links.register}
           labels={{
-            edition: [t("hero.edition.line1"), t("hero.edition.line2")],
-            where: t("hero.where"),
-            when: t("hero.when"),
+            place: t("hero.place"),
+            country: t("hero.country"),
+            dateRange: t("hero.dateRange"),
+            year: t("hero.year"),
             tagline: t("hero.tagline"),
             dates: t("hero.dates"),
             register: t("cta.register"),

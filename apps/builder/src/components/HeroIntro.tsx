@@ -198,9 +198,10 @@ function flash(el: Element, ms: number) {
 }
 
 type Labels = {
-  edition: [string, string];
-  where: string;
-  when: string;
+  place: string;
+  country: string;
+  dateRange: string;
+  year: string;
   tagline: string;
   dates: string;
   register: string;
@@ -233,7 +234,7 @@ function PrismFaces({
           <svg
             viewBox={`0 0 ${ZERO.w} ${ZERO.h}`}
             preserveAspectRatio="none"
-            className={`block size-full overflow-visible ${glyphClassName}`}
+            className={`relative block size-full overflow-visible ${glyphClassName}`}
           >
             <path
               d={GLYPHS[glyph].d}
@@ -663,7 +664,10 @@ export function HeroIntro({
                 />
                 <PrismFaces
                   glyph={LETTER_KEYS[j]!}
-                  faceClassName="bg-ink group-data-[dropped]/slot:bg-transparent"
+                  // The face's ground stops one unit short of the block's
+                  // edge, under the letter. Flush with it, the ground showed
+                  // as a hairline around the letter while the block turned.
+                  faceClassName="before:absolute before:inset-[calc(var(--u)*1)] before:rounded-[calc(var(--u)*4)] before:bg-ink before:content-[''] group-data-[dropped]/slot:before:hidden"
                   glyphClassName="fill-surface group-data-[dropped]/slot:fill-ink"
                 />
               </span>
@@ -743,22 +747,23 @@ export function HeroIntro({
           </span>
         </div>
 
-        {/* The caption sits in the lock-up's lower-right notch from md up and
-            scales with it (container units). */}
+        {/* The caption fills the lock-up's lower-right notch from md up and
+            scales with it (container units): its cap height starts at the top
+            of the //01 row and its last baseline sits on the lock-up's foot. */}
         <div
-          className={`bldr-anim mt-8 flex flex-wrap gap-x-10 gap-y-4 text-[20px] leading-none tracking-[-0.03em] transition-opacity duration-[400ms] ease-linear md:absolute md:bottom-0 md:left-[66.9%] md:mt-0 md:block md:translate-y-[0.19cqw] md:whitespace-nowrap md:text-[2.385cqw] md:leading-[0.875] motion-reduce:!opacity-100 ${
+          className={`bldr-anim mt-8 flex flex-wrap gap-x-10 gap-y-4 text-[20px] leading-none tracking-[-0.022em] transition-opacity duration-[400ms] ease-linear [text-box-edge:cap_alphabetic] md:absolute md:bottom-[0.03cqw] md:left-[66.1%] md:mt-0 md:block md:whitespace-nowrap md:text-[4.234cqw] md:leading-[0.875] motion-reduce:!opacity-100 ${
             ready ? "opacity-100" : "opacity-0"
           }`}
         >
-          <p>
-            {labels.edition[0]}
+          <p className="md:[text-box-trim:trim-start]">
+            {labels.place}
             <br />
-            {labels.edition[1]}
+            {labels.country}
           </p>
-          <p className="md:mt-[0.67cqw]">
-            {labels.where}
+          <p className="md:[text-box-trim:trim-end]">
+            {labels.dateRange}
             <br />
-            {labels.when}
+            {labels.year}
           </p>
         </div>
       </div>
