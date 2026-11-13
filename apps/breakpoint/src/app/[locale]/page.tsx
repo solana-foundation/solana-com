@@ -4,7 +4,6 @@ import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
 import NarrativeSection from "@/components/sections/NarrativeSection";
 import TicketsSection from "@/components/sections/TicketsSection";
-import ParticipateSection from "@/components/sections/ParticipateSection";
 import SpeakersSection from "@/components/sections/SpeakersSection";
 import WhyAttendSection from "@/components/sections/WhyAttendSection";
 import GallerySection from "@/components/sections/GallerySection";
@@ -48,9 +47,7 @@ export default async function HomePage({
       <HeroSection />
       <NarrativeSection />
       <Marquee />
-      <VenueMapSection />
       <TicketsSection initialNow={initialNow} />
-      <ParticipateSection />
       <WhyAttendSection />
       <SponsorsSection />
       <SpeakersSection />
@@ -60,6 +57,7 @@ export default async function HomePage({
       <EventsSection />
       <HighlightsSection />
       <AnnouncementsSection />
+      <VenueMapSection />
       <FAQSection />
       <Footer />
     </PageShell>
