@@ -148,7 +148,7 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
     >
       <div
         ref={frameRef}
-        className="h-full w-full origin-center will-change-transform [mask-image:radial-gradient(farthest-corner,#000_calc(100%-var(--s10-p,0)*62%),transparent_calc(101%-var(--s10-p,0)*1%))]"
+        className="relative h-full w-full origin-center pt-[var(--s10-heading-space)] will-change-transform [mask-image:radial-gradient(farthest-corner,#000_calc(100%-var(--s10-p,0)*62%),transparent_calc(101%-var(--s10-p,0)*1%))]"
       >
         <canvas
           ref={canvasRef}
@@ -188,7 +188,7 @@ function StaticPlate({ source, gains }: Pick<Props, "source" | "gains">) {
 
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center gap-[2vh] pb-[22svh] text-center font-brand font-bold leading-none"
+      className="absolute inset-x-0 bottom-0 top-[var(--s10-heading-space)] flex flex-col items-center justify-center gap-[2vh] pb-[22svh] text-center font-brand font-bold leading-none"
       style={{ color, textShadow: shadow }}
     >
       <div className="text-[clamp(2.5rem,11vw,13rem)] tracking-[0.06em] [font-variant-numeric:tabular-nums]">
@@ -196,9 +196,6 @@ function StaticPlate({ source, gains }: Pick<Props, "source" | "gains">) {
       </div>
       <div className="text-[clamp(1.25rem,5vw,6rem)] tracking-[0.06em]">
         {source.finalityMs ? `${source.finalityMs} MS` : " "}
-      </div>
-      <div className="font-brand-mono text-[clamp(0.7rem,1vw,1rem)] font-light tracking-[0.5em]">
-        SOLANA 1.0
       </div>
     </div>
   );

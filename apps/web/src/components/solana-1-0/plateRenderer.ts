@@ -3,7 +3,6 @@ import {
   CLIENTS,
   CLIENT_INDEX,
   FONT_DISPLAY,
-  FONT_MONO,
   NEUTRAL_RGB,
   groupSlot,
   type ClientId,
@@ -27,7 +26,6 @@ const MAX_ROWS = 4;
 const LOCK_FLASH_MS = 140;
 const CLEAR_MS = 320;
 const POP_OUT_MS = 300;
-const STRAP = "SOLANA 1.0";
 
 export interface PlateRenderer {
   /** A block landed. `family` null renders neutral grey. */
@@ -53,20 +51,19 @@ interface Layout {
   rows: number[];
   msSize: number;
   msY: number;
-  strapSize: number;
-  strapY: number;
 }
 
 /**
  * Type is placed on the slice grid. The slot digits sit on a seam so every
  * glyph is cut once, the way the reference poster cuts its numerals; the
- * finality line and strap sit inside a slice, clear of the seams where the
+ * finality line sits inside a slice, clear of the seams where the
  * lens warp would smear small type.
  */
-function computeLayout(w: number, h: number): Layout {
+function computeLayout(w: number, h: number, rail = 1): Layout {
   const compact = w / h < 0.85;
   if (compact) {
-    const band = h / 9;
+    // Fit the stacked digits and their labels between the heading and controls.
+    const band = Math.min(h / 9, (h * rail * 0.9) / 5.2);
     const size = Math.min(w * 0.3, band * 1.15);
     return {
       compact,
@@ -74,8 +71,6 @@ function computeLayout(w: number, h: number): Layout {
       rows: [band, band * 2, band * 3],
       msSize: Math.min(size * 0.4, band * 0.42),
       msY: band * 4.38,
-      strapSize: Math.max(w * 0.034, 10),
-      strapY: band * 4.78,
     };
   }
   const band = h / 7;
@@ -86,8 +81,6 @@ function computeLayout(w: number, h: number): Layout {
     rows: [band * 2],
     msSize: Math.min(size * 0.46, band * 0.62),
     msY: band * 3.5,
-    strapSize: Math.max(size * 0.1, 12),
-    strapY: band * 4.3,
   };
 }
 
@@ -318,12 +311,11 @@ export function createPlateRenderer(
     const h = textCanvas.height;
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, w, h);
-    // red channel: the refracted type; green channel: the strap, which the
-    // shader reads without aberration so thin strokes stay legible
+    // Red channel: the refracted type.
     ctx.fillStyle = "#f00";
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
-    const { size, rows, msSize, msY, strapSize, strapY, compact } = layout;
+    const { size, rows, msSize, msY, compact } = layout;
     // roll no longer than the slot gap so digits settle between blocks
     const slotRoll = Math.min(ROLL_MS, Math.max(120, slotMs * 0.9));
 
@@ -390,15 +382,6 @@ export function createPlateRenderer(
       ctx.textAlign = "center";
     }
 
-    ctx.fillStyle = "#0f0";
-    ctx.font = `400 ${strapSize}px ${FONT_MONO}`;
-    const step = strapSize * 1.5;
-    let x = w / 2 - ((STRAP.length - 1) * step) / 2;
-    for (const ch of STRAP) {
-      ctx.fillText(ch, x, strapY + strapSize * 0.36);
-      x += step;
-    }
-
     textTexture.needsUpdate = true;
   }
 
@@ -428,7 +411,7 @@ export function createPlateRenderer(
     textCanvas.width = textW;
     textCanvas.height = Math.max(1, Math.round((textW * h) / w));
     textTexture.dispose();
-    layout = computeLayout(textCanvas.width, textCanvas.height);
+    layout = computeLayout(textCanvas.width, textCanvas.height, rail);
     uniforms.uBands.value = layout.compact ? 9 : 7;
 
     streamCamera.right = w;
@@ -584,10 +567,7 @@ export function createPlateRenderer(
   }
 
   // Canvas text can only use a face that has loaded.
-  void Promise.all([
-    document.fonts.load(`700 64px ${FONT_DISPLAY}`),
-    document.fonts.load(`400 16px ${FONT_MONO}`),
-  ])
+  void Promise.all([document.fonts.load(`700 64px ${FONT_DISPLAY}`)])
     .catch(() => {})
     .then(() => {
       textDirty = true;

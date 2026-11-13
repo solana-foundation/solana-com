@@ -86,7 +86,7 @@ export default function Solana10Experience({
   };
 
   return (
-    <div className="relative isolate bg-[#040408] font-brand text-[#ece7df] [--s10-dim:#8a857f] [--s10-faint:#3f3b3a] [--s10-rule:#2a2727]">
+    <div className="relative isolate bg-[#040408] font-brand text-[#ece7df] [--s10-dim:#8a857f] [--s10-faint:#3f3b3a] [--s10-heading-space:5rem] [--s10-rule:#2a2727]">
       {demo === null ? null : demo ? (
         <DemoDriver onChange={setSource} />
       ) : (
@@ -98,7 +98,10 @@ export default function Solana10Experience({
         aria-labelledby="s10-title"
         className="relative z-10 -mt-[calc(100svh-var(--s10-top,0px))] flex h-[calc(100svh-var(--s10-top,0px))] flex-col justify-end"
       >
-        <h1 id="s10-title" className="sr-only">
+        <h1
+          id="s10-title"
+          className="absolute inset-x-0 top-0 m-0 flex h-[var(--s10-heading-space)] items-center justify-center px-5 text-center font-brand-mono text-[clamp(0.8125rem,1.3vw,1.25rem)] font-normal uppercase leading-none tracking-[0.9em] indent-[0.9em] md:px-8"
+        >
           {t("title")}
         </h1>
         <p
@@ -121,7 +124,7 @@ export default function Solana10Experience({
             </p>
           </div>
 
-          <ul className="m-0 grid list-none grid-cols-2 gap-x-6 gap-y-3 p-0">
+          <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0">
             {CLIENTS.map((client) => {
               const on = gains[client.id] > 0;
               const state = !client.live
@@ -164,12 +167,22 @@ export default function Solana10Experience({
                       aria-pressed={on}
                       aria-label={t("toggleLabel", { client: client.name })}
                       onClick={() => toggle(client.id)}
-                      className="-m-1.5 flex w-[calc(100%+0.75rem)] cursor-pointer items-start gap-2.5 rounded-sm border-0 !bg-transparent p-1.5 text-left font-brand text-[0.9375rem] font-normal normal-case tracking-normal hover:!bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ece7df]"
+                      className={`flex min-h-16 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-solid p-3 text-left font-brand text-[0.9375rem] font-normal normal-case tracking-normal transition-colors duration-200 hover:border-white/50 hover:!bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ece7df] motion-reduce:transition-none ${on ? "border-white/30 !bg-white/[0.06]" : "border-white/15 !bg-transparent"}`}
                     >
                       {label}
+                      <span
+                        aria-hidden="true"
+                        className={`ml-auto flex h-5 w-8 shrink-0 items-center rounded-full border border-solid p-0.5 transition-colors motion-reduce:transition-none ${on ? "border-[#ece7df] bg-[#ece7df]" : "border-white/30 bg-white/10"}`}
+                      >
+                        <span
+                          className={`h-3 w-3 rounded-full transition-transform motion-reduce:transition-none ${on ? "translate-x-3 bg-[#040408]" : "translate-x-0 bg-[#8a857f]"}`}
+                        />
+                      </span>
                     </button>
                   ) : (
-                    <div className="flex items-start gap-2.5">{label}</div>
+                    <div className="flex min-h-16 items-center gap-2.5 p-3">
+                      {label}
+                    </div>
                   )}
                 </li>
               );
