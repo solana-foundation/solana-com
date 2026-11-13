@@ -27,6 +27,7 @@ export interface NetworkSource {
 
 const FINALITY_POLL_MS = 5_000;
 const FINALITY_WINDOW = 20;
+const FINALITY_STALE_MS = 15_000;
 const DEFAULT_SLOT_MS = 200;
 
 type Listener = (_ev: BlockEvent) => void;
@@ -82,6 +83,7 @@ export function useLiveSource(): NetworkSource {
 
   useEffect(() => {
     let alive = true;
+    let staleTimer: ReturnType<typeof setTimeout> | undefined;
     const samples: number[] = [];
     const poll = async () => {
       if (!alive || document.hidden) return;
@@ -99,10 +101,16 @@ export function useLiveSource(): NetworkSource {
         if (lag < 0 || lag > 64) return;
         samples.push(lag);
         if (samples.length > FINALITY_WINDOW) samples.shift();
-        if (alive)
+        if (alive) {
           setLagSlots(samples.reduce((a, b) => a + b, 0) / samples.length);
+          clearTimeout(staleTimer);
+          staleTimer = setTimeout(() => {
+            samples.length = 0;
+            setLagSlots(null);
+          }, FINALITY_STALE_MS);
+        }
       } catch {
-        // keep the last estimate
+        // The last estimate expires even if requests fail or hang.
       }
     };
     void poll();
@@ -110,6 +118,7 @@ export function useLiveSource(): NetworkSource {
     return () => {
       alive = false;
       clearInterval(timer);
+      clearTimeout(staleTimer);
     };
   }, []);
 

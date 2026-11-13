@@ -24,6 +24,7 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<PlateRenderer | null>(null);
+  const progressRef = useRef(0);
   const gainsRef = useRef(gains);
   const sourceRef = useRef(source);
   const [mode, setMode] = useState<Mode>("pending");
@@ -60,6 +61,7 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
             .matches,
         });
         rendererRef.current = renderer;
+        renderer.setAmbient(progressRef.current);
         renderer.setGains(gainsRef.current);
         renderer.setFinality(sourceRef.current.finalityMs);
         renderer.setSlotMs(sourceRef.current.slotMs);
@@ -112,6 +114,7 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
       const offset = Math.max(0, Math.round(top + window.scrollY));
       page.style.setProperty("--s10-top", `${offset}px`);
       const p = Math.min(1, Math.max(0, (offset - top) / (vh * 0.85)));
+      progressRef.current = p;
       const e = p * p * (3 - 2 * p);
       const wide = window.innerWidth >= 1024;
       const scale = 1 - e * (wide ? 0.56 : 0.3);

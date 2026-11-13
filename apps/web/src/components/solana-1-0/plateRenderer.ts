@@ -387,6 +387,7 @@ export function createPlateRenderer(
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
+    const previousRail = rail;
     // Match the DOM border even when copy, fonts, or viewport height change.
     rail = Math.min(
       1,
@@ -399,7 +400,13 @@ export function createPlateRenderer(
     uniforms.uRailY.value = 1 - rail;
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
-    if (w === cssW && h === cssH) return;
+    if (w === cssW && h === cssH) {
+      if (rail !== previousRail) {
+        layout = computeLayout(textCanvas.width, textCanvas.height, rail);
+        textDirty = true;
+      }
+      return;
+    }
     cssW = w;
     cssH = h;
     const ratio = Math.min(window.devicePixelRatio || 1, MAX_PIXEL_RATIO);
@@ -617,8 +624,13 @@ export function createPlateRenderer(
       blocks.push(block);
     },
     setFinality(ms) {
-      if (ms === null) return;
-      msField.set(String(Math.round(ms)), performance.now());
+      if (
+        msField.set(
+          ms === null ? "" : String(Math.round(ms)),
+          performance.now(),
+        )
+      )
+        textDirty = true;
     },
     setSlotMs(ms) {
       if (ms > 50 && ms < 2000) slotMs = ms;

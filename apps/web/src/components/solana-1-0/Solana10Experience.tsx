@@ -190,6 +190,11 @@ export default function Solana10Experience({
           </ul>
 
           <div className="min-w-0 font-brand-mono text-[0.75rem] font-light leading-snug tracking-[0.04em] text-[var(--s10-dim)] md:pr-28">
+            <p className="sr-only">
+              {source.finalityMs === null
+                ? t("finalityUnavailable")
+                : t("finality", { milliseconds: source.finalityMs })}
+            </p>
             <LatestBuilder
               source={source}
               gains={gains}
