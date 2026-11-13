@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import type { InkeepEmbeddedSearchAndChatFunctions } from "@inkeep/cxkit-react";
 import { useSiteInkeepConfig } from "./inkeep-site-config";
 
@@ -28,9 +29,8 @@ const Modal = dynamic(
 );
 
 function InkeepWidget() {
-  const { isOpen, view, open, setIsOpen } = useInkeep();
-  const openSearch = useCallback(() => open("search"), [open]);
-  const config = useSiteInkeepConfig(isOpen, openSearch);
+  const { isOpen, view, setIsOpen } = useInkeep();
+  const config = useSiteInkeepConfig(isOpen);
   const functions = useRef<InkeepEmbeddedSearchAndChatFunctions>({
     setView: () => {},
   });
@@ -47,6 +47,16 @@ function InkeepWidget() {
       modalSettings={{ isOpen, onOpenChange: setIsOpen }}
     />
   );
+}
+
+// Search links remain an opening intent without loading the SDK on ordinary visits.
+function SearchLinkIntent({ open }: { open: InkeepContextValue["open"] }) {
+  const searchParams = useSearchParams();
+  const query = searchParams.get("search")?.trim().slice(0, 500) ?? "";
+  useEffect(() => {
+    if (query) open("search");
+  }, [query, open]);
+  return null;
 }
 
 export function InkeepProvider({ children }: { children: React.ReactNode }) {
@@ -81,6 +91,9 @@ export function InkeepProvider({ children }: { children: React.ReactNode }) {
   return (
     <InkeepContext.Provider value={value}>
       {children}
+      <Suspense fallback={null}>
+        <SearchLinkIntent open={open} />
+      </Suspense>
       {hasOpened && (
         <Suspense fallback={null}>
           <InkeepWidget />
