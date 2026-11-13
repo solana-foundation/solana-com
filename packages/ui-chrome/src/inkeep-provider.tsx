@@ -50,12 +50,20 @@ function InkeepWidget() {
 }
 
 export function InkeepProvider({ children }: { children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpenState] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
   const [view, setView] = useState<View>("search");
-  const open = useCallback((next: View) => {
-    setView(next);
-    setIsOpen(true);
+  const setIsOpen = useCallback((next: boolean) => {
+    if (next) setHasOpened(true);
+    setIsOpenState(next);
   }, []);
+  const open = useCallback(
+    (next: View) => {
+      setView(next);
+      setIsOpen(true);
+    },
+    [setIsOpen],
+  );
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -68,14 +76,16 @@ export function InkeepProvider({ children }: { children: React.ReactNode }) {
   }, [open]);
   const value = useMemo(
     () => ({ isOpen, view, open, setIsOpen }),
-    [isOpen, view, open],
+    [isOpen, view, open, setIsOpen],
   );
   return (
     <InkeepContext.Provider value={value}>
       {children}
-      <Suspense fallback={null}>
-        <InkeepWidget />
-      </Suspense>
+      {hasOpened && (
+        <Suspense fallback={null}>
+          <InkeepWidget />
+        </Suspense>
+      )}
     </InkeepContext.Provider>
   );
 }
