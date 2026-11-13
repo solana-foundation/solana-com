@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { INTRO_DONE_EVENT } from "./HeroIntro";
 import { useReducedMotion } from "./useReducedMotion";
 
 /** How long the page must be left alone before Forge looks in. */
-const IDLE_MS = 12_000;
+const IDLE_MS = 5000;
+/** Longest he waits for the hero intro before starting the clock anyway. */
+const INTRO_WAIT_MS = 6000;
 /** The same wait with `?peek=true` in the address, for testing. */
 const PEEK_IDLE_MS = 1000;
 /** One floss swing there and back: the page's quarter-turn time. */
@@ -186,6 +189,8 @@ export function Forge() {
     const testing =
       new URLSearchParams(window.location.search).get("peek") === "true";
     const idleFor = testing ? PEEK_IDLE_MS : IDLE_MS;
+    // The idle clock starts once the hero intro has played.
+    let ready = !document.querySelector("[data-bldr-intro]");
     let danced = false;
     let startedAt = 0;
     let leaving = false;
@@ -343,7 +348,7 @@ export function Forge() {
 
     function arm() {
       window.clearTimeout(idleTimer);
-      if (danced || document.hidden) return;
+      if (!ready || danced || document.hidden) return;
       idleTimer = window.setTimeout(start, idleFor);
     }
 
@@ -376,12 +381,20 @@ export function Forge() {
     }
     window.addEventListener("pointermove", onPointerMove, options);
     document.addEventListener("visibilitychange", onVisibility);
+    const begin = () => {
+      ready = true;
+      if (!startedAt) arm();
+    };
+    const introTimer = window.setTimeout(begin, INTRO_WAIT_MS);
+    window.addEventListener(INTRO_DONE_EVENT, begin, { once: true });
     arm();
 
     return () => {
       danced = true;
       window.clearTimeout(idleTimer);
       window.clearTimeout(leaveTimer);
+      window.clearTimeout(introTimer);
+      window.removeEventListener(INTRO_DONE_EVENT, begin);
       for (const animation of running) animation.cancel();
       root.style.display = "";
       for (const name of INPUT_EVENTS) {
