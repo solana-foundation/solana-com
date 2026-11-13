@@ -63,20 +63,11 @@ export default function Solana10Experience({
   const [caption, setCaption] = useState(false);
   const captionShown = useRef(false);
   const infoPanelRef = useRef<HTMLDivElement>(null);
-  const heroRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState(true);
 
   useEffect(() => {
-    if (!heroRef.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setActive(entry.isIntersecting);
-      },
-      { rootMargin: "200px" },
-    );
-    observer.observe(heroRef.current);
-    return () => observer.disconnect();
-  }, []);
+    if (!active) setSource(IDLE_SOURCE);
+  }, [active]);
 
   useEffect(() => {
     setDemo(new URLSearchParams(window.location.search).get("demo") === "1");
@@ -106,10 +97,14 @@ export default function Solana10Experience({
       ) : (
         <LiveDriver onChange={setSource} />
       )}
-      <PlateStage source={source} gains={gains} infoPanelRef={infoPanelRef} />
+      <PlateStage
+        source={source}
+        gains={gains}
+        infoPanelRef={infoPanelRef}
+        onActivityChange={setActive}
+      />
 
       <section
-        ref={heroRef}
         aria-labelledby="s10-title"
         className="relative z-10 -mt-[calc(100svh-var(--s10-top,0px))] flex h-[calc(100svh-var(--s10-top,0px))] flex-col justify-end"
       >
@@ -246,6 +241,8 @@ function LatestBuilder({
   const dark = CLIENTS.every((c) => !c.live || gains[c.id] <= 0);
 
   useEffect(() => {
+    setFamily(null);
+    setClient(null);
     let last = 0;
     return subscribe((ev) => {
       // a cut client's blocks are not on the stage, so not in the readout

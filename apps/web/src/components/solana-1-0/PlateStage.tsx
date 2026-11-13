@@ -11,6 +11,7 @@ interface Props {
   source: NetworkSource;
   gains: Record<ClientId, number>;
   infoPanelRef: RefObject<HTMLDivElement | null>;
+  onActivityChange?: (_active: boolean) => void;
 }
 
 /**
@@ -19,7 +20,12 @@ interface Props {
  * block stream) as the content scrolls in. Three.js loads after first paint;
  * without WebGL the plate renders as static HTML type.
  */
-export function PlateStage({ source, gains, infoPanelRef }: Props) {
+export function PlateStage({
+  source,
+  gains,
+  infoPanelRef,
+  onActivityChange,
+}: Props) {
   const stickyRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -147,6 +153,7 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
       const content = page.querySelector("[data-s10-opaque-content]");
       coveredRef.current =
         !!content && content.getBoundingClientRect().top <= offset;
+      onActivityChange?.(!coveredRef.current);
       syncRunningRef.current();
     };
     const onScroll = () => {
@@ -165,7 +172,7 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
     };
-  }, []);
+  }, [onActivityChange]);
 
   return (
     <div

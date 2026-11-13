@@ -51,12 +51,13 @@ beforeEach(() => {
   );
 });
 
-function renderStage() {
+function renderStage(onActivityChange?: (_active: boolean) => void) {
   const infoPanelRef = createRef<HTMLDivElement>();
   return render(
     <div>
       <PlateStage
         infoPanelRef={infoPanelRef}
+        onActivityChange={onActivityChange}
         gains={{ agave: 1, firedancer: 1, mithril: 0, sig: 0 }}
         source={{
           status: "live",
@@ -91,7 +92,8 @@ it("skips the graphics renderer when reduced motion is requested", async () => {
   vi.useRealTimers();
 });
 
-it("pauses graphics behind opaque content and resumes on return", async () => {
+it("pauses graphics and data only when opaque content covers the plate", async () => {
+  const onActivityChange = vi.fn();
   const rect = vi
     .spyOn(HTMLElement.prototype, "getBoundingClientRect")
     .mockImplementation(function (this: HTMLElement) {
@@ -99,11 +101,13 @@ it("pauses graphics behind opaque content and resumes on return", async () => {
         top: this.hasAttribute("data-s10-opaque-content") ? 2000 : 0,
       } as DOMRect;
     });
-  renderStage();
+  renderStage(onActivityChange);
   await waitFor(() => expect(setRunning).toHaveBeenLastCalledWith(true));
+  expect(onActivityChange).toHaveBeenLastCalledWith(true);
   rect.mockReturnValue({ top: 0 } as DOMRect);
   act(() => window.dispatchEvent(new Event("scroll")));
   await waitFor(() => expect(setRunning).toHaveBeenLastCalledWith(false));
+  expect(onActivityChange).toHaveBeenLastCalledWith(false);
   rect.mockImplementation(function (this: HTMLElement) {
     return {
       top: this.hasAttribute("data-s10-opaque-content") ? 2000 : 0,
