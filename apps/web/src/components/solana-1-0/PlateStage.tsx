@@ -25,6 +25,8 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<PlateRenderer | null>(null);
   const progressRef = useRef(0);
+  const coveredRef = useRef(false);
+  const syncRunningRef = useRef(() => {});
   const gainsRef = useRef(gains);
   const sourceRef = useRef(source);
   const [mode, setMode] = useState<Mode>("pending");
@@ -40,7 +42,9 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
     let renderer: PlateRenderer | null = null;
     let visible = true;
 
-    const sync = () => renderer?.setRunning(visible && !document.hidden);
+    const sync = () =>
+      renderer?.setRunning(visible && !document.hidden && !coveredRef.current);
+    syncRunningRef.current = sync;
     const observer = new IntersectionObserver(([entry]) => {
       visible = entry?.isIntersecting ?? true;
       sync();
@@ -48,14 +52,21 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
     observer.observe(sticky);
     document.addEventListener("visibilitychange", sync);
 
-    void (async () => {
+    const init = async () => {
       try {
-        const [THREE, { createPlateRenderer }] = await Promise.all([
-          import("three"),
-          import("./plateRenderer"),
-        ]);
+        const device = navigator as Navigator & {
+          connection?: { saveData?: boolean };
+        };
+        if (
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+          device.connection?.saveData
+        ) {
+          if (!cancelled) setMode("static");
+          return;
+        }
+        const { createPlateRenderer } = await import("./plateRenderer");
         if (cancelled) return;
-        renderer = createPlateRenderer(THREE, canvas, {
+        renderer = createPlateRenderer(canvas, {
           railElement: infoPanel,
           reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)")
             .matches,
@@ -70,13 +81,21 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
       } catch {
         if (!cancelled) setMode("static");
       }
-    })();
+    };
+    // Let the server-rendered heading and controls paint before loading WebGL.
+    const idle = typeof window.requestIdleCallback === "function";
+    const start = idle
+      ? window.requestIdleCallback(() => void init(), { timeout: 1000 })
+      : window.setTimeout(() => void init(), 32);
 
     return () => {
       cancelled = true;
+      if (idle) window.cancelIdleCallback(start);
+      else window.clearTimeout(start);
       observer.disconnect();
       document.removeEventListener("visibilitychange", sync);
       rendererRef.current = null;
+      syncRunningRef.current = () => {};
       renderer?.dispose();
     };
   }, [infoPanelRef]);
@@ -124,6 +143,11 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
       frame.style.opacity = String(1 - e * (wide ? 0.15 : 0.82));
       frame.style.setProperty("--s10-p", e.toFixed(3));
       rendererRef.current?.setAmbient(p);
+      // The opaque sections cover the plate after the introduction.
+      const content = page.querySelector("[data-s10-opaque-content]");
+      coveredRef.current =
+        !!content && content.getBoundingClientRect().top <= offset;
+      syncRunningRef.current();
     };
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(update);
@@ -157,9 +181,7 @@ export function PlateStage({ source, gains, infoPanelRef }: Props) {
           ref={canvasRef}
           className={`block h-full w-full transition-opacity duration-700 ${mode === "gl" ? "opacity-100" : "opacity-0"}`}
         />
-        {mode === "static" ? (
-          <StaticPlate source={source} gains={gains} />
-        ) : null}
+        {mode !== "gl" ? <StaticPlate source={source} gains={gains} /> : null}
       </div>
     </div>
   );

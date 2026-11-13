@@ -63,6 +63,20 @@ export default function Solana10Experience({
   const [caption, setCaption] = useState(false);
   const captionShown = useRef(false);
   const infoPanelRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const [active, setActive] = useState(true);
+
+  useEffect(() => {
+    if (!heroRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setActive(entry.isIntersecting);
+      },
+      { rootMargin: "200px" },
+    );
+    observer.observe(heroRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     setDemo(new URLSearchParams(window.location.search).get("demo") === "1");
@@ -86,8 +100,8 @@ export default function Solana10Experience({
   };
 
   return (
-    <div className="relative isolate bg-[#040408] font-brand text-[#ece7df] [--s10-dim:#8a857f] [--s10-faint:#3f3b3a] [--s10-heading-space:5rem] [--s10-rule:#2a2727]">
-      {demo === null ? null : demo ? (
+    <main className="relative isolate bg-[#040408] font-brand text-[#ece7df] [--s10-dim:#8a857f] [--s10-faint:#3f3b3a] [--s10-heading-space:5rem] [--s10-rule:#2a2727]">
+      {!active || demo === null ? null : demo ? (
         <DemoDriver onChange={setSource} />
       ) : (
         <LiveDriver onChange={setSource} />
@@ -95,6 +109,7 @@ export default function Solana10Experience({
       <PlateStage source={source} gains={gains} infoPanelRef={infoPanelRef} />
 
       <section
+        ref={heroRef}
         aria-labelledby="s10-title"
         className="relative z-10 -mt-[calc(100svh-var(--s10-top,0px))] flex h-[calc(100svh-var(--s10-top,0px))] flex-col justify-end"
       >
@@ -209,7 +224,7 @@ export default function Solana10Experience({
       </section>
 
       <div className="relative z-10">{children}</div>
-    </div>
+    </main>
   );
 }
 

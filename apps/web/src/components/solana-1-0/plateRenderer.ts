@@ -1,4 +1,26 @@
-import type * as THREE_NS from "three";
+import {
+  AddEquation,
+  AdditiveBlending,
+  CanvasTexture,
+  CustomBlending,
+  DynamicDrawUsage,
+  InstancedBufferAttribute,
+  InstancedMesh,
+  LinearFilter,
+  Mesh,
+  NoColorSpace,
+  Object3D,
+  OneFactor,
+  OneMinusSrcAlphaFactor,
+  OrthographicCamera,
+  PlaneGeometry,
+  Scene,
+  ShaderMaterial,
+  Vector2,
+  Vector3,
+  Vector4,
+  WebGLRenderer,
+} from "three";
 import {
   CLIENTS,
   CLIENT_INDEX,
@@ -13,8 +35,6 @@ import {
   PLATE_FRAGMENT,
   PLATE_VERTEX,
 } from "./plateShaders";
-
-type Three = typeof THREE_NS;
 
 const MAX_PIXEL_RATIO = 1.5;
 const MAX_TEXT_WIDTH = 1800;
@@ -184,7 +204,6 @@ function nameHash(name: string): number {
  * fragment shader) composited over it.
  */
 export function createPlateRenderer(
-  THREE: Three,
   canvas: HTMLCanvasElement,
   options: { reducedMotion: boolean; railElement: HTMLElement },
 ): PlateRenderer {
@@ -192,7 +211,7 @@ export function createPlateRenderer(
     ? { time: 1 / 3, flicker: 0.25, stream: 0.4 }
     : { time: 1, flicker: 1, stream: 1 };
 
-  const renderer = new THREE.WebGLRenderer({
+  const renderer = new WebGLRenderer({
     canvas,
     antialias: false,
     alpha: false,
@@ -204,20 +223,20 @@ export function createPlateRenderer(
   // ── text plate ──
   const textCanvas = document.createElement("canvas");
   const ctx = textCanvas.getContext("2d")!;
-  const textTexture = new THREE.CanvasTexture(textCanvas);
+  const textTexture = new CanvasTexture(textCanvas);
   textTexture.generateMipmaps = false;
-  textTexture.minFilter = THREE.LinearFilter;
-  textTexture.magFilter = THREE.LinearFilter;
-  textTexture.colorSpace = THREE.NoColorSpace;
+  textTexture.minFilter = LinearFilter;
+  textTexture.magFilter = LinearFilter;
+  textTexture.colorSpace = NoColorSpace;
 
   const uniforms = {
     uText: { value: textTexture },
-    uRes: { value: new THREE.Vector2(1, 1) },
+    uRes: { value: new Vector2(1, 1) },
     uTime: { value: 0 },
     uBands: { value: 7 },
-    uGain: { value: new THREE.Vector4(0, 0, 0, 0) },
+    uGain: { value: new Vector4(0, 0, 0, 0) },
     uStaged: {
-      value: new THREE.Vector4(
+      value: new Vector4(
         ...(CLIENTS.map((c) => (c.live ? 0 : 1)) as [
           number,
           number,
@@ -226,15 +245,15 @@ export function createPlateRenderer(
         ]),
       ),
     },
-    uCol: { value: CLIENTS.map((c) => new THREE.Vector3(...c.rgb)) },
+    uCol: { value: CLIENTS.map((c) => new Vector3(...c.rgb)) },
     uFlicker: { value: 0 },
     uRailY: { value: 0.3 },
     uStream: { value: 1 },
   };
 
-  const plateScene = new THREE.Scene();
-  const plateCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
-  const plateMaterial = new THREE.ShaderMaterial({
+  const plateScene = new Scene();
+  const plateCamera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const plateMaterial = new ShaderMaterial({
     uniforms,
     vertexShader: PLATE_VERTEX,
     fragmentShader: PLATE_FRAGMENT,
@@ -242,44 +261,40 @@ export function createPlateRenderer(
     depthWrite: false,
     // premultiplied "over": the plate is drawn on top of the block stream
     transparent: true,
-    blending: THREE.CustomBlending,
-    blendEquation: THREE.AddEquation,
-    blendSrc: THREE.OneFactor,
-    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blending: CustomBlending,
+    blendEquation: AddEquation,
+    blendSrc: OneFactor,
+    blendDst: OneMinusSrcAlphaFactor,
   });
-  const plateGeometry = new THREE.PlaneGeometry(2, 2);
-  const plate = new THREE.Mesh(plateGeometry, plateMaterial);
+  const plateGeometry = new PlaneGeometry(2, 2);
+  const plate = new Mesh(plateGeometry, plateMaterial);
   plate.frustumCulled = false;
   plateScene.add(plate);
 
   // ── block stream: flat squares in CSS-pixel space, drawn behind the plate ──
-  const streamScene = new THREE.Scene();
-  const streamCamera = new THREE.OrthographicCamera(0, 1, 1, 0, -1, 1);
-  const blockGeometry = new THREE.PlaneGeometry(1, 1);
-  const blockTint = new THREE.InstancedBufferAttribute(
+  const streamScene = new Scene();
+  const streamCamera = new OrthographicCamera(0, 1, 1, 0, -1, 1);
+  const blockGeometry = new PlaneGeometry(1, 1);
+  const blockTint = new InstancedBufferAttribute(
     new Float32Array(MAX_BLOCKS * 4),
     4,
   );
-  blockTint.setUsage(THREE.DynamicDrawUsage);
+  blockTint.setUsage(DynamicDrawUsage);
   blockGeometry.setAttribute("aTint", blockTint);
-  const blockMaterial = new THREE.ShaderMaterial({
+  const blockMaterial = new ShaderMaterial({
     vertexShader: BLOCK_VERTEX,
     fragmentShader: BLOCK_FRAGMENT,
     transparent: true,
-    blending: THREE.AdditiveBlending,
+    blending: AdditiveBlending,
     depthTest: false,
     depthWrite: false,
   });
-  const squares = new THREE.InstancedMesh(
-    blockGeometry,
-    blockMaterial,
-    MAX_BLOCKS,
-  );
-  squares.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const squares = new InstancedMesh(blockGeometry, blockMaterial, MAX_BLOCKS);
+  squares.instanceMatrix.setUsage(DynamicDrawUsage);
   squares.frustumCulled = false;
   squares.count = 0;
   streamScene.add(squares);
-  const dummy = new THREE.Object3D();
+  const dummy = new Object3D();
 
   // ── state ──
   const slotField = new RollingField();
@@ -289,6 +304,7 @@ export function createPlateRenderer(
   let cssH = 1;
   let rail = 1;
   let textDirty = true;
+  let needsResize = true;
   let hasSlot = false;
   let slotMs = 200;
   let ambient = 0;
@@ -535,11 +551,17 @@ export function createPlateRenderer(
   function frame(now: number) {
     if (disposed || !running) return;
     raf = requestAnimationFrame(frame);
+    // Keep the mobile shader at 30fps and the ambient plate at 20fps.
+    const interval = 1000 / (ambient > 0 ? 20 : cssW < 768 ? 30 : 60);
+    if (lastFrame && now - lastFrame < interval - 0.5) return;
     const dt = Math.min(0.1, lastFrame ? (now - lastFrame) / 1000 : 0.016);
     lastFrame = now;
     time += dt * motion.time;
 
-    resize();
+    if (needsResize) {
+      needsResize = false;
+      resize();
+    }
 
     const ease = 1 - Math.exp((-dt * 1000 * 3) / GAIN_EASE_MS);
     for (let i = 0; i < 4; i++) {
@@ -565,13 +587,20 @@ export function createPlateRenderer(
 
     renderer.clear();
     syncWell();
-    if (uniforms.uStream.value > 0.001 || blocks.length) {
+    if (uniforms.uStream.value > 0.001) {
       updateStream(now, dt);
-      if (uniforms.uStream.value > 0.001 && squares.count > 0)
-        renderer.render(streamScene, streamCamera);
+      if (squares.count > 0) renderer.render(streamScene, streamCamera);
     }
     renderer.render(plateScene, plateCamera);
   }
+
+  const onResize = () => {
+    needsResize = true;
+  };
+  const resizeObserver = new ResizeObserver(onResize);
+  resizeObserver.observe(canvas);
+  resizeObserver.observe(options.railElement);
+  window.addEventListener("resize", onResize);
 
   // Canvas text can only use a face that has loaded.
   void Promise.all([document.fonts.load(`700 64px ${FONT_DISPLAY}`)])
@@ -650,6 +679,7 @@ export function createPlateRenderer(
     },
     setAmbient(progress) {
       ambient = progress;
+      needsResize = true;
     },
     setRunning(next) {
       if (disposed || next === running) return;
@@ -663,6 +693,8 @@ export function createPlateRenderer(
     },
     dispose() {
       disposed = true;
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", onResize);
       cancelAnimationFrame(raf);
       textTexture.dispose();
       plateGeometry.dispose();

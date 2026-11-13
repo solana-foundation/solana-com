@@ -84,11 +84,18 @@ export function useLiveSource(): NetworkSource {
   useEffect(() => {
     let alive = true;
     let staleTimer: ReturnType<typeof setTimeout> | undefined;
+    let controller: AbortController | null = null;
+    let requestTimer: ReturnType<typeof setTimeout> | undefined;
     const samples: number[] = [];
     const poll = async () => {
-      if (!alive || document.hidden) return;
+      if (!alive || document.hidden || controller) return;
+      const request = new AbortController();
+      controller = request;
+      requestTimer = setTimeout(() => request.abort(), FINALITY_POLL_MS);
       try {
-        const res = await fetch("/api/solana-1-0/finality");
+        const res = await fetch("/api/solana-1-0/finality", {
+          signal: request.signal,
+        });
         if (!res.ok) return;
         const d = (await res.json()) as {
           processed?: number;
@@ -101,7 +108,7 @@ export function useLiveSource(): NetworkSource {
         if (lag < 0 || lag > 64) return;
         samples.push(lag);
         if (samples.length > FINALITY_WINDOW) samples.shift();
-        if (alive) {
+        if (alive && !request.signal.aborted) {
           setLagSlots(samples.reduce((a, b) => a + b, 0) / samples.length);
           clearTimeout(staleTimer);
           staleTimer = setTimeout(() => {
@@ -111,6 +118,9 @@ export function useLiveSource(): NetworkSource {
         }
       } catch {
         // The last estimate expires even if requests fail or hang.
+      } finally {
+        clearTimeout(requestTimer);
+        controller = null;
       }
     };
     void poll();
@@ -119,6 +129,8 @@ export function useLiveSource(): NetworkSource {
       alive = false;
       clearInterval(timer);
       clearTimeout(staleTimer);
+      clearTimeout(requestTimer);
+      controller?.abort();
     };
   }, []);
 

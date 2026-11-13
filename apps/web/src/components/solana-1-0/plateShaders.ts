@@ -75,9 +75,6 @@ void main() {
   float exposure = 1.35 + uFlicker * 0.25;
 
   vec3 col = (leftCol * aL + rightCol * aR) * exposure;
-  // strap: drifts with its slice, one unsplit copy
-  col += coreCol * texture2D(uText, vec2(uv.x + drift * 0.5, uv.y)).g * exposure * 0.8;
-
   // ── staged clients: unlit stencil outlines, offset like a misregistered
   // print. The shape is there; the light has not arrived. ──
   vec2 px = 1.0 / uRes;
