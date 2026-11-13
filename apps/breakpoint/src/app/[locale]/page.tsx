@@ -4,7 +4,6 @@ import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
 import NarrativeSection from "@/components/sections/NarrativeSection";
 import TicketsSection from "@/components/sections/TicketsSection";
-import ParticipateSection from "@/components/sections/ParticipateSection";
 import SpeakersSection from "@/components/sections/SpeakersSection";
 import WhyAttendSection from "@/components/sections/WhyAttendSection";
 import GallerySection from "@/components/sections/GallerySection";
@@ -13,6 +12,7 @@ import SponsorsSection from "@/components/sections/SponsorsSection";
 import EventsSection from "@/components/sections/EventsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
+import VenueMapSection from "@/components/sections/VenueMapSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
@@ -48,7 +48,7 @@ export default async function HomePage({
       <NarrativeSection />
       <Marquee />
       <TicketsSection initialNow={initialNow} />
-      <ParticipateSection />
+      <VenueMapSection />
       <WhyAttendSection />
       <SponsorsSection />
       <SpeakersSection />

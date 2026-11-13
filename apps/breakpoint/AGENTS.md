@@ -121,6 +121,17 @@ authority for every visual update.
 Before adding a new component, check whether one of these can be reused or
 narrowly extended.
 
+## Venue Map
+
+The homepage includes `src/components/sections/VenueMapSection.tsx` in place of
+Get Involved, directly after tickets and before Why Attend. The map works
+independently of the live event homepage and schedule. The Get Involved section
+is omitted from the homepage. Edit locations, marker coordinates, and sponsor
+placements in `src/content/venue/map-data.ts`; positions use x 0–1000 and y
+0–floor height. Floor images, service icons, and sponsor logos live in
+`public/img/venue`. Shared links such as `#venue-map/royal-exchange` select a
+zone and its floor.
+
 ## Validation
 
 Prefer targeted validation from the repo root:
