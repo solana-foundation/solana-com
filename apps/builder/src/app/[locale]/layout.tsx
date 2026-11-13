@@ -8,7 +8,6 @@ import { loadMergedMessages } from "@workspace/i18n/messages";
 import { getTranslations } from "@workspace/i18n/server";
 import { CookieConsentBanner, GoogleAnalyticsTag } from "@solana-com/ui-chrome";
 import { DeferredFabMenu } from "@@/src/components/DeferredFabMenu";
-import { THEME_INIT_SCRIPT } from "@@/src/components/theme";
 import { getBaseMetadata } from "../metadata";
 import "../globals.css";
 
@@ -101,8 +100,6 @@ export default async function RootLayout({ children, params }: Props) {
       suppressHydrationWarning
     >
       <head>
-        {/* Apply a saved palette before first paint to avoid a flash. */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <noscript>
           <style>{NO_SCRIPT_CSS}</style>
         </noscript>

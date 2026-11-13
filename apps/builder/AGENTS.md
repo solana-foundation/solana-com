@@ -60,8 +60,10 @@ Copy lives in `packages/i18n/messages/builder/en/common.json`.
 The design has a Black and a White version. They are the same layout with
 surfaces A and B swapped, so sections pick a surface class (`surface-a`,
 `surface-b`, `surface-accent`, `surface-black`, `surface-white`) and children
-use the Tailwind colors `surface` and `ink`. The header toggle sets
-`data-bldr-theme` on `<html>` and stores the choice in `localStorage`.
+use the Tailwind colors `surface` and `ink`. The site ships in Black only:
+`data-bldr-theme="black"` is fixed on `<html>` and there is no palette control.
+The White tokens stay in `globals.css`; set the attribute to `white` to see
+them.
 
 ## Fonts
 

@@ -2,7 +2,6 @@ import { getTranslations } from "@workspace/i18n/server";
 import LogoHorizontal from "@@/src/assets/logo-horizontal.inline.svg";
 import { links } from "@@/src/content/links";
 import { CtaLink } from "./CtaLink";
-import { ThemeToggle } from "./ThemeToggle";
 import { container } from "./layout";
 import { HeaderBar } from "./motion";
 
@@ -44,12 +43,6 @@ export async function Header({ locale }: { locale: string }) {
             ))}
           </ul>
         </nav>
-        <ThemeToggle
-          labels={{
-            toWhite: t("theme.toWhite"),
-            toBlack: t("theme.toBlack"),
-          }}
-        />
         <CtaLink
           href={links.register}
           pendingLabel={t("cta.pending")}
