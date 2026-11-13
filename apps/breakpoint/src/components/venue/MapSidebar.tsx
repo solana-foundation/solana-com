@@ -16,12 +16,7 @@ import type {
   MapSponsor,
   VenueMapData,
 } from "@/content/venue/types";
-import {
-  findSelection,
-  isSameSelection,
-  searchVenue,
-  type SearchResult,
-} from "./map-utils";
+import { findSelection, searchVenue, type SearchResult } from "./map-utils";
 import {
   sponsorCompany,
   sponsorLogoSrc,
@@ -137,6 +132,7 @@ export default function MapSidebar({
   const tSponsors = useTranslations("breakpoint.pages.sponsors");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [activeResult, setActiveResult] = useState(-1);
   const inputId = useId();
   const listId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -156,6 +152,14 @@ export default function MapSidebar({
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
+
+  useEffect(() => {
+    if (open && activeResult >= 0) {
+      document
+        .getElementById(`${listId}-${activeResult}`)
+        ?.scrollIntoView?.({ block: "nearest" });
+    }
+  }, [activeResult, listId, open]);
 
   const pick = (result: SearchResult) => {
     if (result.floor !== activeFloor.id) onFloorChange(result.floor);
@@ -190,11 +194,23 @@ export default function MapSidebar({
 
   return (
     <aside className={`flex flex-col gap-xs ${className}`.trim()}>
-      <div ref={containerRef} className="relative">
+      <div
+        ref={containerRef}
+        className="relative"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget))
+            setOpen(false);
+        }}
+      >
         <label className="sr-only" htmlFor={inputId}>
           {t("search.label")}
         </label>
         <input
+          aria-activedescendant={
+            open && activeResult >= 0 && results[activeResult]
+              ? `${listId}-${activeResult}`
+              : undefined
+          }
           aria-autocomplete="list"
           aria-controls={listId}
           aria-expanded={open && query.trim().length > 0}
@@ -203,9 +219,37 @@ export default function MapSidebar({
           id={inputId}
           onChange={(event) => {
             setQuery(event.target.value);
+            setActiveResult(-1);
             setOpen(true);
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            setActiveResult(-1);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setOpen(false);
+              setActiveResult(-1);
+            } else if (
+              (event.key === "ArrowDown" || event.key === "ArrowUp") &&
+              results.length > 0
+            ) {
+              event.preventDefault();
+              const direction = event.key === "ArrowDown" ? 1 : -1;
+              setActiveResult((current) =>
+                !open || current < 0
+                  ? direction === 1
+                    ? 0
+                    : results.length - 1
+                  : (current + direction + results.length) % results.length,
+              );
+              setOpen(true);
+            } else if (event.key === "Enter" && open && results[activeResult]) {
+              event.preventDefault();
+              pick(results[activeResult]);
+            }
+          }}
           placeholder={t("search.placeholder")}
           role="combobox"
           type="search"
@@ -260,7 +304,7 @@ export default function MapSidebar({
                 {t("search.noResults", { query: query.trim() })}
               </p>
             ) : (
-              results.map((result) => {
+              results.map((result, index) => {
                 const zone =
                   result.selection.kind === "zone"
                     ? data.zones.find((z) => z.id === result.selection.id)
@@ -272,8 +316,11 @@ export default function MapSidebar({
                 return (
                   <button
                     key={`${result.selection.kind}:${result.selection.id}:${result.detail ?? ""}`}
-                    aria-selected={isSameSelection(selection, result.selection)}
-                    className="flex w-full items-start gap-2xs border-b border-stroke-primary px-xs py-2xs text-left normal-case transition-colors last:border-b-0 hover:bg-neutral-800"
+                    aria-selected={activeResult === index}
+                    id={`${listId}-${index}`}
+                    tabIndex={-1}
+                    className={`flex w-full items-start gap-2xs border-b border-stroke-primary px-xs py-2xs text-left normal-case transition-colors last:border-b-0 hover:bg-neutral-800 ${activeResult === index ? "bg-neutral-800" : ""}`}
+                    onMouseDown={(event) => event.preventDefault()}
                     onClick={() => pick(result)}
                     role="option"
                     type="button"

@@ -137,7 +137,10 @@ export function searchVenue(
 
     const detail =
       zone.items?.find((item) => includes(item, needle)) ??
-      (includes(zone.description, needle) ? zone.description : undefined);
+      (includes(zone.description, needle) ? zone.description : undefined) ??
+      zone.amenities
+        ?.map((type) => amenityLabels[type])
+        .find((label) => includes(label, needle));
     if (detail) {
       results.push({
         selection: { kind: "zone", id: zone.id },
