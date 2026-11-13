@@ -59,8 +59,8 @@ void main() {
 
   // ── anaglyph: each client lights its own copy of the type, split left
   // and right by one constant offset per slice. Agave (and Mithril) take the
-  // left copy, Firedancer (and Sig) the right. The two colours are
-  // complements, so the copies add to white where they overlap and leave a
+  // left copy, Firedancer (and Sig) the right. The green and purple
+  // copies combine where they overlap and leave a
   // saturated fringe of each on either side. Cut one client and only the
   // other copy, in its colour, remains. ──
   float split = 0.0045 + 0.0055 * seedB;
@@ -93,7 +93,7 @@ void main() {
   // ── glass body: faint sheen per slice, hairline seam with a lip ──
   float seamPx = (0.5 - abs(c)) / uBands * uRes.y;
   float sheen = (0.006 + 0.012 * seed) * (0.35 + 0.65 * smoothstep(-0.5, 0.5, c));
-  col += vec3(0.75, 0.8, 1.0) * sheen * (0.5 + 0.5 * min(gSum, 1.0));
+  col += mix(uCol[0], uCol[1], seed) * sheen * (0.5 + 0.5 * min(gSum, 1.0));
   float lipDark = smoothstep(5.0, 0.0, seamPx) * step(c, 0.0);
   float lipBright = smoothstep(2.5, 0.0, seamPx) * step(0.0, c);
   col *= 1.0 - 0.55 * lipDark;

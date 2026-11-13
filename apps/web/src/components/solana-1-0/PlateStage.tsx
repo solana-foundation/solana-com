@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { CLIENTS, groupSlot, lightCss, type ClientId } from "./config";
 import type { PlateRenderer } from "./plateRenderer";
 import type { NetworkSource } from "./useNetworkSource";
@@ -10,6 +10,7 @@ type Mode = "pending" | "gl" | "static";
 interface Props {
   source: NetworkSource;
   gains: Record<ClientId, number>;
+  infoPanelRef: RefObject<HTMLDivElement | null>;
 }
 
 /**
@@ -18,7 +19,7 @@ interface Props {
  * block stream) as the content scrolls in. Three.js loads after first paint;
  * without WebGL the plate renders as static HTML type.
  */
-export function PlateStage({ source, gains }: Props) {
+export function PlateStage({ source, gains, infoPanelRef }: Props) {
   const stickyRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,7 +33,8 @@ export function PlateStage({ source, gains }: Props) {
   useEffect(() => {
     const canvas = canvasRef.current;
     const sticky = stickyRef.current;
-    if (!canvas || !sticky) return;
+    const infoPanel = infoPanelRef.current;
+    if (!canvas || !sticky || !infoPanel) return;
     let cancelled = false;
     let renderer: PlateRenderer | null = null;
     let visible = true;
@@ -53,6 +55,7 @@ export function PlateStage({ source, gains }: Props) {
         ]);
         if (cancelled) return;
         renderer = createPlateRenderer(THREE, canvas, {
+          railElement: infoPanel,
           reducedMotion: window.matchMedia("(prefers-reduced-motion: reduce)")
             .matches,
         });
@@ -74,7 +77,7 @@ export function PlateStage({ source, gains }: Props) {
       rendererRef.current = null;
       renderer?.dispose();
     };
-  }, []);
+  }, [infoPanelRef]);
 
   const { subscribe, finalityMs, slotMs } = source;
   useEffect(
@@ -160,7 +163,7 @@ export function PlateStage({ source, gains }: Props) {
 }
 
 /** No-WebGL fallback: HTML type with CSS text-shadow fringes, no stream. */
-function StaticPlate({ source, gains }: Props) {
+function StaticPlate({ source, gains }: Pick<Props, "source" | "gains">) {
   const [slot, setSlot] = useState<number | null>(null);
   const { subscribe } = source;
   const lit = CLIENTS.filter((c) => c.live && gains[c.id] > 0);

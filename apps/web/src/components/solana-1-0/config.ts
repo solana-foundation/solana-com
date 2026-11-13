@@ -43,7 +43,7 @@ const CLIENT_DEFS: Omit<ClientConfig, "rgb">[] = [
     language: "Rust",
     team: "Anza",
     live: true,
-    hex: "#00f0f0",
+    hex: "#14f195",
   },
   {
     id: "firedancer",
@@ -51,7 +51,7 @@ const CLIENT_DEFS: Omit<ClientConfig, "rgb">[] = [
     language: "C",
     team: "Jump",
     live: true,
-    hex: "#ff1420",
+    hex: "#9945ff",
   },
   {
     id: "mithril",
@@ -59,7 +59,7 @@ const CLIENT_DEFS: Omit<ClientConfig, "rgb">[] = [
     language: "Go",
     team: "Overclock",
     live: false,
-    hex: "#9d6cff",
+    hex: "#9945ff",
   },
   {
     id: "sig",
@@ -67,7 +67,7 @@ const CLIENT_DEFS: Omit<ClientConfig, "rgb">[] = [
     language: "Zig",
     team: "Syndica",
     live: false,
-    hex: "#5ac8ffff",
+    hex: "#14f195",
   },
 ];
 

@@ -62,6 +62,7 @@ export default function Solana10Experience({
   const [gains, setGains] = useState(ALL_ON);
   const [caption, setCaption] = useState(false);
   const captionShown = useRef(false);
+  const infoPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setDemo(new URLSearchParams(window.location.search).get("demo") === "1");
@@ -91,7 +92,7 @@ export default function Solana10Experience({
       ) : (
         <LiveDriver onChange={setSource} />
       )}
-      <PlateStage source={source} gains={gains} />
+      <PlateStage source={source} gains={gains} infoPanelRef={infoPanelRef} />
 
       <section
         aria-labelledby="s10-title"
@@ -107,7 +108,10 @@ export default function Solana10Experience({
           {t("cutCaption")}
         </p>
 
-        <div className="grid gap-x-10 gap-y-4 border-t border-[var(--s10-rule)] bg-[#040408]/70 px-5 py-4 backdrop-blur-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)] md:items-start md:px-8 md:py-6 xl:px-10">
+        <div
+          ref={infoPanelRef}
+          className="grid gap-x-10 gap-y-4 border-t border-[var(--s10-rule)] bg-[#040408]/70 px-5 py-4 backdrop-blur-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)] md:items-start md:px-8 md:py-6 xl:px-10"
+        >
           <div>
             <p className="m-0 text-[0.9375rem] font-bold uppercase leading-tight tracking-[0.14em] md:text-[1.0625rem]">
               {t("retired")}
@@ -172,7 +176,7 @@ export default function Solana10Experience({
             })}
           </ul>
 
-          <div className="font-brand-mono text-[0.75rem] font-light leading-snug tracking-[0.04em] text-[var(--s10-dim)] md:pr-28">
+          <div className="min-w-0 font-brand-mono text-[0.75rem] font-light leading-snug tracking-[0.04em] text-[var(--s10-dim)] md:pr-28">
             <LatestBuilder
               source={source}
               gains={gains}
@@ -226,7 +230,7 @@ function LatestBuilder({
   const config = shown ? CLIENTS[CLIENT_INDEX[shown]] : null;
   return (
     <p
-      className="m-0 font-brand text-[0.9375rem] font-medium leading-tight tracking-[0.02em] text-[#ece7df]"
+      className="m-0 truncate font-brand text-[0.9375rem] font-medium leading-tight tracking-[0.02em] text-[#ece7df]"
       title={client ?? undefined}
     >
       {label}{" "}

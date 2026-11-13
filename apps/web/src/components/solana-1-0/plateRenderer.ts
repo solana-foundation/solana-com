@@ -55,8 +55,6 @@ interface Layout {
   msY: number;
   strapSize: number;
   strapY: number;
-  /** rail position as a fraction of height from the top */
-  rail: number;
 }
 
 /**
@@ -78,7 +76,6 @@ function computeLayout(w: number, h: number): Layout {
       msY: band * 4.38,
       strapSize: Math.max(w * 0.034, 10),
       strapY: band * 4.78,
-      rail: (band * 5.95) / h,
     };
   }
   const band = h / 7;
@@ -91,7 +88,6 @@ function computeLayout(w: number, h: number): Layout {
     msY: band * 3.5,
     strapSize: Math.max(size * 0.1, 12),
     strapY: band * 4.3,
-    rail: (band * 5.82) / h,
   };
 }
 
@@ -197,7 +193,7 @@ function nameHash(name: string): number {
 export function createPlateRenderer(
   THREE: Three,
   canvas: HTMLCanvasElement,
-  options: { reducedMotion: boolean },
+  options: { reducedMotion: boolean; railElement: HTMLElement },
 ): PlateRenderer {
   const motion = options.reducedMotion
     ? { time: 1 / 3, flicker: 0.25, stream: 0.4 }
@@ -298,6 +294,7 @@ export function createPlateRenderer(
   let layout = computeLayout(1, 1);
   let cssW = 1;
   let cssH = 1;
+  let rail = 1;
   let textDirty = true;
   let hasSlot = false;
   let slotMs = 200;
@@ -407,6 +404,16 @@ export function createPlateRenderer(
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
+    // Match the DOM border even when copy, fonts, or viewport height change.
+    rail = Math.min(
+      1,
+      Math.max(
+        0,
+        (options.railElement.getBoundingClientRect().top - rect.top) /
+          Math.max(1, rect.height),
+      ),
+    );
+    uniforms.uRailY.value = 1 - rail;
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
     if (w === cssW && h === cssH) return;
@@ -423,7 +430,6 @@ export function createPlateRenderer(
     textTexture.dispose();
     layout = computeLayout(textCanvas.width, textCanvas.height);
     uniforms.uBands.value = layout.compact ? 9 : 7;
-    uniforms.uRailY.value = 1 - layout.rail;
 
     streamCamera.right = w;
     streamCamera.top = h;
@@ -436,7 +442,7 @@ export function createPlateRenderer(
   function wellGeometry() {
     const cols = Math.max(8, Math.round(cssW / (layout.compact ? 28 : 38)));
     const cell = cssW / cols;
-    const floor = cssH * (1 - layout.rail);
+    const floor = cssH * (1 - rail);
     const rows = Math.ceil((cssH - floor) / cell) + 1;
     return { cols, cell, floor, rows };
   }
@@ -514,7 +520,11 @@ export function createPlateRenderer(
         glow = 0.75 + 1.4 * Math.exp(-(now - b.lockedAt) / LOCK_FLASH_MS);
       }
 
-      dummy.position.set((b.col + 0.5) * cell, floor + (b.y + 0.5) * cell, 0);
+      dummy.position.set(
+        (b.col + 0.5) * cell,
+        floor + b.y * cell + size / 2,
+        0,
+      );
       dummy.scale.set(size * scale, size * scale, 1);
       dummy.updateMatrix();
       squares.setMatrixAt(n, dummy.matrix);
