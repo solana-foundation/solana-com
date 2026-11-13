@@ -13,6 +13,7 @@ import SponsorsSection from "@/components/sections/SponsorsSection";
 import EventsSection from "@/components/sections/EventsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
+import VenueMapSection from "@/components/sections/VenueMapSection";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
@@ -58,6 +59,7 @@ export default async function HomePage({
       <EventsSection />
       <HighlightsSection />
       <AnnouncementsSection />
+      <VenueMapSection />
       <FAQSection />
       <Footer />
     </PageShell>
