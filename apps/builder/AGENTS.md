@@ -113,15 +113,17 @@ uses the Web Animations API, and the hero is stepped by hand.
   black ground and stays violet on a white one (`--bldr-btn-hover`). The outline
   button (`btn-ghost`) closes its line around the cut.
 
-- `Forge`: the idle easter egg. After 5 seconds with no input (counted from the
-  end of the hero intro) the robot peeks over the top edge of the section
-  nearest the middle of the screen (or the bottom of the screen), lifts his
-  visor, blinks, climbs up and flosses; any input sends him down. He only takes
-  a place with a section's plain ground behind him and nothing drawn there, and
-  takes his body colour from that ground. He dances once per page load, and not
-  at all under reduced motion. It is one inline SVG moved in steps by the Web
-  Animations API. To test him, add `?peek=true`: he comes after one second of no
-  input and returns every time.
+- `Forge`: the easter egg at the end of the page. When the page comes to rest at
+  its bottom (after the hero intro has played) the robot peeks up from the
+  bottom of the screen in front of the footer, lifts his visor, blinks, climbs
+  up and flosses. A scroll, resize, click or key press sends him down; pointer
+  moves do not. He comes in one dress only, white on black with a violet head,
+  which is why he keeps to the footer's black ground, and he only takes a place
+  where nothing is drawn, so he stays away where the footer is full (phones) or
+  the cookie notice is in the way. He dances once per page load, and not at all
+  under reduced motion. It is one inline SVG moved in steps by the Web
+  Animations API. To test him, add `?peek=true`: he returns every time the page
+  reaches its bottom.
 
 Anything that starts hidden carries the `bldr-anim` class so the `<noscript>`
 rule in the layout can show it. Reduced-motion users get the end state at once.

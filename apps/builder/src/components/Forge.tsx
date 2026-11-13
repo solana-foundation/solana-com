@@ -4,12 +4,12 @@ import { useEffect, useRef } from "react";
 import { INTRO_DONE_EVENT } from "./HeroIntro";
 import { useReducedMotion } from "./useReducedMotion";
 
-/** How long the page must be left alone before Forge looks in. */
-const IDLE_MS = 5000;
-/** Longest he waits for the hero intro before starting the clock anyway. */
+/** How long the page rests at its bottom before Forge looks in. */
+const SETTLE_MS = 400;
+/** How close (px) to the end of the page counts as the bottom. */
+const BOTTOM_PX = 8;
+/** Longest he waits for the hero intro before he may come anyway. */
 const INTRO_WAIT_MS = 6000;
-/** The same wait with `?peek=true` in the address, for testing. */
-const PEEK_IDLE_MS = 1000;
 /** One floss swing there and back: the page's quarter-turn time. */
 const BEAT_MS = 560;
 const SWINGS = 8;
@@ -36,20 +36,18 @@ const PEEKING = "translateY(63%)";
 const SHY = "translateY(80%)";
 const STANDING = "translateY(0%)";
 
-const VIOLET = "119 69 255";
+/* Forge comes in one dress: white on black, violet head, cyan brow. */
+const WHITE = "#F5F4FA";
+const VIOLET = "#7745FF";
 const CYAN = "#2EC6F5";
+const BLACK = "#000";
 
 /* Artwork box: the robot is 494.69 wide; the margins hold the sparks. */
 const VIEW = { x: -50, y: 0, w: 595, h: 494 };
 
-const INPUT_EVENTS = [
-  "pointerdown",
-  "keydown",
-  "wheel",
-  "touchstart",
-  "scroll",
-  "resize",
-] as const;
+/* What sends him back down. Pointer moves and wheel turns do not: someone who
+ * has just scrolled to the bottom is still doing both. */
+const INPUT_EVENTS = ["pointerdown", "keydown", "scroll", "resize"] as const;
 
 const painted = (colour: string) => {
   const [r, g, b, a = 1] = (colour.match(/[\d.]+/g) ?? []).map(Number);
@@ -70,11 +68,10 @@ function isDrawn(el: Element) {
 }
 
 /**
- * Where Forge stands: on the top edge of the section nearest the middle of
- * the screen, or on the bottom of the screen, wherever he has a section's
- * plain ground behind him and covers nothing, at the largest size that fits.
- * Returns nothing when the screen has no such place; he waits for another
- * view.
+ * Where Forge stands: on the bottom of the screen, in front of the footer's
+ * black ground, wherever he covers nothing, at the largest size that fits.
+ * Returns nothing when the screen has no such place (the footer is out of
+ * view, or too full, as on phones); he waits for another view.
  */
 function pickSpot(fullWidth: number) {
   // He comes smaller where the full figure does not fit.
@@ -85,89 +82,75 @@ function pickSpot(fullWidth: number) {
       width,
       height: Math.round((width * VIEW.h) / VIEW.w),
     }));
-  const least = sizes[sizes.length - 1]!.height;
   const viewH = window.innerHeight;
   const viewW = document.documentElement.clientWidth;
-  const header = document.querySelector("header")?.getBoundingClientRect();
-  const ceiling = Math.max(0, header?.bottom ?? 0) + 8;
-
-  const grounds = [...document.querySelectorAll("main > *, footer")].map(
-    (el) => ({ el, box: el.getBoundingClientRect() }),
-  );
+  const footer = document.querySelector("footer");
+  const ground = footer?.getBoundingClientRect();
+  if (!footer || !ground) return null;
   const onScreen = (box: DOMRect) =>
-    box.width > 0 && box.height > 0 && box.bottom > ceiling && box.top < viewH;
+    box.width > 0 && box.height > 0 && box.bottom > 0 && box.top < viewH;
 
   // Everything drawn on screen, as boxes to keep clear of.
   const drawn: DOMRect[] = [];
-  for (const el of document.querySelectorAll("main > * *, footer *")) {
+  for (const el of footer.querySelectorAll("*")) {
     const box = el.getBoundingClientRect();
     if (onScreen(box) && isDrawn(el)) drawn.push(box);
   }
 
-  const edges = grounds
-    .map(({ box }) => Math.round(box.top))
-    .filter((top) => top - least >= ceiling && top <= viewH)
-    .sort((a, b) => Math.abs(a - viewH / 2) - Math.abs(b - viewH / 2));
-  edges.push(viewH);
-
-  // Right of centre first on wide screens, clear of the copy column.
+  // He rises from the bottom of the screen. Right of centre first on wide
+  // screens.
   const places =
     viewW < 768 ? [0.5, 0.74, 0.26] : [0.68, 0.5, 0.32, 0.84, 0.16, 0.92, 0.08];
 
-  for (const y of edges) {
-    for (const place of places) {
-      for (const { width, height } of sizes) {
-        if (y - height < ceiling) continue;
-        const left = Math.round(
-          Math.min(viewW - width - 8, Math.max(8, viewW * place - width / 2)),
-        );
-        const top = y - height;
-        const right = left + width;
+  const y = viewH;
+  for (const place of places) {
+    for (const { width, height } of sizes) {
+      const left = Math.round(
+        Math.min(viewW - width - 8, Math.max(8, viewW * place - width / 2)),
+      );
+      const top = y - height;
+      const right = left + width;
 
-        const ground = grounds.find(
-          ({ box }) => box.top <= top + 1 && box.bottom >= y - 1,
-        );
-        const colour =
-          ground && painted(getComputedStyle(ground.el).backgroundColor);
-        if (!colour) continue;
-        if (
-          drawn.some(
-            (box) =>
-              box.left < right &&
-              box.right > left &&
-              box.top < y &&
-              box.bottom > top,
-          )
-        ) {
-          continue;
-        }
-        // Anything laid over the page (the cookie notice, the menu button).
-        const across = [0, 1, 2, 3, 4, 5].map((n) => n / 5);
-        const covered = across.some((h) =>
-          across.some(
-            (v) =>
-              !document
-                .elementFromPoint(
-                  left + 2 + h * (width - 4),
-                  top + 2 + v * (height - 4),
-                )
-                ?.closest("main, footer"),
-          ),
-        );
-        if (!covered) return { left, top, width, height, colour };
+      // All of him in front of the footer.
+      if (ground.top > top || ground.bottom < y - 1) continue;
+      if (
+        drawn.some(
+          (box) =>
+            box.left < right &&
+            box.right > left &&
+            box.top < y &&
+            box.bottom > top,
+        )
+      ) {
+        continue;
       }
+      // Anything laid over the page (the cookie notice, the menu button).
+      const across = [0, 1, 2, 3, 4, 5].map((n) => n / 5);
+      const covered = across.some((h) =>
+        across.some(
+          (v) =>
+            !document
+              .elementFromPoint(
+                left + 2 + h * (width - 4),
+                top + 2 + v * (height - 4),
+              )
+              ?.closest("footer"),
+        ),
+      );
+      if (!covered) return { left, top, width, height };
     }
   }
   return null;
 }
 
 /**
- * Forge, the idle easter egg. Leave the page alone and he peeks over the
- * nearest section edge, lifts his visor, blinks, then climbs up and flosses.
+ * Forge, the easter egg at the end of the page. Scroll to the bottom and he
+ * peeks up from the bottom of the screen, lifts his visor, blinks, then climbs
+ * up and flosses.
  * Any input sends him back down. He dances once per page load.
  *
- * He is drawn for the ground he stands in front of (light body on black, dark
- * on white and violet), so he reads on every section.
+ * He is always white on black with a violet head, so he only stands in front
+ * of the footer's black ground.
  * Motion is the Web Animations API in hard steps, as elsewhere on the page.
  */
 export function Forge() {
@@ -184,18 +167,16 @@ export function Forge() {
 
     let idleTimer = 0;
     let leaveTimer = 0;
-    // `?peek=true` is for testing: he comes after a second and keeps coming
-    // back, instead of dancing once.
+    // `?peek=true` is for testing: he comes every time the page reaches its
+    // bottom, instead of dancing once.
     const testing =
       new URLSearchParams(window.location.search).get("peek") === "true";
-    const idleFor = testing ? PEEK_IDLE_MS : IDLE_MS;
-    // The idle clock starts once the hero intro has played.
+    // He waits for the hero intro to play.
     let ready = !document.querySelector("[data-bldr-intro]");
     let danced = false;
     let startedAt = 0;
     let leaving = false;
     let running: Animation[] = [];
-    let lastPointer = "";
 
     /** A move in hard steps that keeps its end state. */
     const step = (
@@ -241,7 +222,6 @@ export function Forge() {
       root.style.display = "";
       startedAt = 0;
       leaving = false;
-      arm();
     };
 
     /** Drop out of sight from wherever he is, then clear up. */
@@ -266,23 +246,7 @@ export function Forge() {
       const spot = pickSpot(
         Math.round(Math.min(220, Math.max(136, window.innerWidth * 0.14))),
       );
-      if (!spot) return arm();
-
-      // Dress for the ground behind him: body in its ink, mark in its colour,
-      // and a violet head unless the ground is violet too.
-      const [r = 0, g = 0, b = 0] = spot.colour;
-      const onViolet =
-        Math.abs(r - 119) + Math.abs(g - 69) + Math.abs(b - 255) < 60;
-      const light = 0.299 * r + 0.587 * g + 0.114 * b > 140;
-      const ink = light || onViolet ? "0 0 0" : "245 244 250";
-      root.style.setProperty("--forge-body", `rgb(${ink})`);
-      // His face is open to the ground, so the eyes must show against it.
-      root.style.setProperty("--forge-eyes", light ? "#000" : "#F5F4FA");
-      root.style.setProperty("--forge-mark", `rgb(${r} ${g} ${b})`);
-      root.style.setProperty(
-        "--forge-head",
-        onViolet ? `rgb(${ink})` : `rgb(${VIOLET})`,
-      );
+      if (!spot) return;
 
       root.style.left = `${spot.left}px`;
       root.style.top = `${spot.top}px`;
@@ -346,28 +310,24 @@ export function Forge() {
       leaveTimer = window.setTimeout(leave, LEAVE_AT);
     };
 
+    const atBottom = () =>
+      window.scrollY + window.innerHeight >=
+      document.documentElement.scrollHeight - BOTTOM_PX;
+
+    /** He comes once the page has come to rest at its bottom. */
     function arm() {
       window.clearTimeout(idleTimer);
-      if (!ready || danced || document.hidden) return;
-      idleTimer = window.setTimeout(start, idleFor);
+      if (!ready || danced || startedAt || document.hidden) return;
+      if (atBottom()) idleTimer = window.setTimeout(start, SETTLE_MS);
     }
 
-    const onInput = () => {
+    const onInput = (event: Event) => {
       if (startedAt) leave();
-      else arm();
-    };
-
-    // Browsers send pointer moves when the page shifts under a still pointer;
-    // only a pointer that has really moved counts.
-    const onPointerMove = (event: PointerEvent) => {
-      const here = `${event.clientX},${event.clientY}`;
-      if (here === lastPointer) return;
-      lastPointer = here;
-      onInput();
+      else if (event.type === "scroll" || event.type === "resize") arm();
     };
 
     const onVisibility = () => {
-      if (!document.hidden) return arm();
+      if (!document.hidden) return;
       window.clearTimeout(idleTimer);
       if (startedAt) {
         if (performance.now() - startedAt >= DANCE_AT) danced = !testing;
@@ -379,7 +339,6 @@ export function Forge() {
     for (const name of INPUT_EVENTS) {
       window.addEventListener(name, onInput, options);
     }
-    window.addEventListener("pointermove", onPointerMove, options);
     document.addEventListener("visibilitychange", onVisibility);
     const begin = () => {
       ready = true;
@@ -400,13 +359,10 @@ export function Forge() {
       for (const name of INPUT_EVENTS) {
         window.removeEventListener(name, onInput, options);
       }
-      window.removeEventListener("pointermove", onPointerMove, options);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [reduced]);
 
-  const body = "fill-[var(--forge-body)]";
-  const head = "fill-[var(--forge-head)]";
   const boxed = "[transform-box:fill-box]";
   const spark = (
     <>
@@ -427,40 +383,37 @@ export function Forge() {
         viewBox={`${VIEW.x} ${VIEW.y} ${VIEW.w} ${VIEW.h}`}
         className="block h-full w-full translate-y-full"
       >
-        <g data-p="legs" className={body}>
+        <g data-p="legs" fill={WHITE}>
           <rect x="109.93" y="425.29" width="109.93" height="68.7" />
           <rect x="274.83" y="425.29" width="109.93" height="68.7" />
         </g>
         <rect
           data-p="hips"
-          className={body}
+          fill={WHITE}
           x="117.49"
           y="341.47"
           width="259.71"
           height="68.7"
         />
-        <g data-p="arms" className={body}>
+        <g data-p="arms" fill={WHITE}>
           <rect x="54.97" y="341.47" width="47.4" height="68.7" />
           <rect x="392.31" y="341.47" width="47.41" height="68.7" />
         </g>
         <g data-p="shoulders">
-          <path className={body} d="M403.14 257.64H91.55L0 326.35H494.69Z" />
-          <g className="fill-[var(--forge-mark)]">
+          <path fill={WHITE} d="M403.14 257.64H91.55L0 326.35H494.69Z" />
+          <g fill={BLACK}>
             <path d="M232.6 270.7H271.1L261.9 281.25H223.5Z" />
             <path d="M223.5 286.71H261.9L271.1 297.28H232.6Z" />
             <path d="M232.6 302.73H271.1L261.9 313.3H223.5Z" />
           </g>
         </g>
         <g data-p="head" className={`${boxed} origin-bottom`}>
-          <g className={head}>
+          <g fill={VIOLET}>
             <path d="M439.72 173.81H54.97L146.52 242.53H348.17Z" />
             <rect x="54.97" y="90" width="47.4" height="68.7" />
             <rect x="392.31" y="90" width="47.41" height="68.7" />
           </g>
-          <g
-            data-p="eyes"
-            className={`${boxed} origin-center fill-[var(--forge-eyes)]`}
-          >
+          <g data-p="eyes" className={`${boxed} origin-center`} fill={WHITE}>
             <rect x="175.91" y="105.96" width="47.41" height="52.46" />
             <rect x="270.55" y="105.96" width="47.4" height="52.46" />
           </g>
@@ -471,7 +424,7 @@ export function Forge() {
           />
           <path
             data-p="cap"
-            className={head}
+            fill={VIOLET}
             d="M146.07 0H347.72L439.28 68.7H54.52Z"
           />
         </g>
