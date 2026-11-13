@@ -48,6 +48,7 @@ export default async function HomePage({
       <HeroSection />
       <NarrativeSection />
       <Marquee />
+      <VenueMapSection />
       <TicketsSection initialNow={initialNow} />
       <ParticipateSection />
       <WhyAttendSection />
@@ -59,7 +60,6 @@ export default async function HomePage({
       <EventsSection />
       <HighlightsSection />
       <AnnouncementsSection />
-      <VenueMapSection />
       <FAQSection />
       <Footer />
     </PageShell>
