@@ -4,12 +4,7 @@ import { CtaLink } from "./CtaLink";
 import { container } from "./layout";
 import { Build, TurnHeading } from "./motion";
 
-const STATS = [
-  { key: "days", label: true },
-  { key: "attendees", label: true },
-  { key: "stages", label: false },
-  { key: "campus", label: true },
-] as const;
+const STATS = ["days", "attendees", "campus", "stages"] as const;
 
 export async function About({ locale }: { locale: string }) {
   const t = await getTranslations({ locale, namespace: "builder.about" });
@@ -52,7 +47,7 @@ export async function About({ locale }: { locale: string }) {
         </div>
 
         <dl className="mt-3 grid grid-cols-2 gap-3 xl:grid-cols-4">
-          {STATS.map(({ key, label: hasLabel }, i) => (
+          {STATS.map((key, i) => (
             <Build
               key={key}
               delay={0.1 + i * 0.06}
@@ -60,11 +55,9 @@ export async function About({ locale }: { locale: string }) {
               className="chamfer flex min-h-[130px] p-4 text-surface [--chamfer:20px] sm:min-h-[150px] sm:p-6 sm:[--chamfer:32px] md:min-h-[190px] md:p-7"
               contentClassName="justify-end gap-[9px]"
             >
-              {hasLabel && (
-                <dt className="order-2 text-[12px] uppercase leading-none text-surface/65">
-                  {t(`stats.${key}.label`)}
-                </dt>
-              )}
+              <dt className="order-2 text-[12px] uppercase leading-none text-surface/65">
+                {t(`stats.${key}.label`)}
+              </dt>
               <dd className="order-1 text-[22px] font-bold leading-none tracking-[-0.03em] sm:text-[32px] md:text-[40px]">
                 {t(`stats.${key}.value`)}
               </dd>

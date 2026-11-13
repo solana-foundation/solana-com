@@ -18,7 +18,6 @@ export async function Hero({ locale }: { locale: string }) {
             country: t("hero.country"),
             dateRange: t("hero.dateRange"),
             year: t("hero.year"),
-            tagline: t("hero.tagline"),
             dates: t("hero.dates"),
             register: t("cta.register"),
             pending: t("cta.pending"),

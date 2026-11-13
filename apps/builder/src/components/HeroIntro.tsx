@@ -202,7 +202,6 @@ type Labels = {
   country: string;
   dateRange: string;
   year: string;
-  tagline: string;
   dates: string;
   register: string;
   pending: string;
@@ -768,7 +767,7 @@ export function HeroIntro({
         </div>
       </div>
 
-      {/* Phones: the line, the buttons and the date row. From md up the
+      {/* Phones: the buttons and the date row. From md up the
           lock-up and its caption are the whole first screen. */}
       <div className="md:hidden">
         <div
@@ -776,9 +775,6 @@ export function HeroIntro({
             ready ? "opacity-100" : "opacity-0"
           }`}
         >
-          <p className="mt-5 max-w-[34ch] text-[16px] leading-none tracking-[-0.03em] text-ink/65">
-            {labels.tagline}
-          </p>
           <div className="mt-6 flex flex-wrap gap-[10px]">
             <CtaLink
               href={registerHref}

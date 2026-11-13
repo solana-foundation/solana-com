@@ -98,9 +98,9 @@ uses the Web Animations API, and the hero is stepped by hand.
   API, as in the prototype: no WebGL. Geometry is in lock-up units (`--u`), so
   it scales without script. The server draws the intro's first frame (the symbol
   block, `data-bldr-poster`), so the first screen is not empty while the script
-  loads; the intro hides it as it starts. On phones it adds the tagline,
-  Register, "Rebuild the logo" (replays the intro) and the date row, whose cells
-  light as they are dealt and under the pointer.
+  loads; the intro hides it as it starts. On phones it adds Apply, "Rebuild the
+  logo" (replays the intro) and the date row, whose cells light as they are
+  dealt and under the pointer.
 - `SlashField`: the pattern is generated on a canvas, scrubbed in by scroll; a
   click deals a new one. It is generated only once it is within a screen of the
   viewport.
