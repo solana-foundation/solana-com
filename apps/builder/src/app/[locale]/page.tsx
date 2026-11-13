@@ -6,6 +6,7 @@ import { About } from "@@/src/components/About";
 import { ComeBuild } from "@@/src/components/ComeBuild";
 import { Faq } from "@@/src/components/Faq";
 import { Footer } from "@@/src/components/Footer";
+import { Forge } from "@@/src/components/Forge";
 import { GetInvolved } from "@@/src/components/GetInvolved";
 import { Header } from "@@/src/components/Header";
 import { Hero } from "@@/src/components/Hero";
@@ -38,6 +39,7 @@ export default async function BuilderPage({ params }: Props) {
         <ComeBuild locale={locale} />
       </main>
       <Footer locale={locale} />
+      <Forge />
     </>
   );
 }
