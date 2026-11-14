@@ -18,8 +18,8 @@
 ## Modern JS/TS SDK
 
 - [@solana/kit Repository](https://github.com/anza-xyz/kit)
-- [Solana Kit Docs](https://solana.com/docs/clients/kit) (installation, upgrade
-  guide)
+- [Solana Kit Docs](https://solana.com/docs/frontend/client) (installation,
+  upgrade guide)
 
 ## UI and Wallet Infrastructure
 
@@ -69,7 +69,7 @@
 ## IDLs and Codegen
 
 - [Codama Repository](https://github.com/codama-idl/codama)
-- [Codama Generating Clients](https://solana.com/docs/programs/codama-generating-clients)
+- [Codama Generating Clients](https://solana.com/docs/programs/codama/clients)
 - [Shank (Metaplex)](https://github.com/metaplex-foundation/shank)
 - [Kinobi (Metaplex)](https://github.com/metaplex-foundation/kinobi)
 
