@@ -150,7 +150,12 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/docs/payments/production-readiness",
-        destination: "/docs/tools/transaction-landing#transaction-landing",
+        destination:
+          "/docs/tools/interacting-with-mainnet#preparing-transactions",
+      },
+      {
+        source: "/docs/tools/transaction-landing",
+        destination: "/docs/tools/interacting-with-mainnet",
       },
     ];
 
