@@ -445,6 +445,9 @@ function StaticRow({ item }: { item: AgendaItem }) {
       <div className="flex min-w-0 flex-1 flex-col gap-2xs uppercase md:flex-row md:items-center md:gap-3xl">
         <div className="flex w-full flex-wrap items-baseline gap-x-3xs gap-y-3xs md:w-[140px] md:shrink-0 md:flex-col md:items-start md:justify-center md:gap-3xs">
           <p className={EYEBROW_TEXT_CLASS}>{item.time}</p>
+          {item.day === "Pre-Event" && item.location && (
+            <p className={EYEBROW_TEXT_CLASS}>{item.location}</p>
+          )}
           {item.duration && (
             <span className="inline-flex items-baseline gap-x-3xs whitespace-nowrap">
               <span aria-hidden="true" className="md:hidden">
@@ -519,6 +522,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   const allStages = useMemo(() => {
     const stages = new Set<string>();
     for (const item of items) {
+      if (item.day === "Pre-Event") continue;
       if (item.location && item.variant !== "static") stages.add(item.location);
     }
 
@@ -537,6 +541,8 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   );
   const [query, setQuery] = useState("");
   const [openItemId, setOpenItemId] = useState<string | null>(null);
+  // Registration and other pre-event activities are not scoped to a stage.
+  const stageFilter = activeDay === "Pre-Event" ? null : activeStage;
 
   // During the event, open on today's programme instead of Day 1.
   useEffect(() => {
@@ -614,10 +620,10 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     () =>
       items
         .filter(
-          (item) => item.day === activeDay && matchesStage(item, activeStage),
+          (item) => item.day === activeDay && matchesStage(item, stageFilter),
         )
         .sort(sortItems),
-    [activeDay, activeStage, items, matchesStage],
+    [activeDay, stageFilter, items, matchesStage],
   );
 
   const searchGroups = useMemo(() => {
@@ -649,8 +655,8 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
 
   const emptyMessage = searching
     ? t("noResults", { query: query.trim() })
-    : activeStage
-      ? t("comingSoon", { day: activeDay, stage: activeStage })
+    : stageFilter
+      ? t("comingSoon", { day: activeDay, stage: stageFilter })
       : t("comingSoonAnyStage", { day: activeDay });
 
   const renderItem = (item: AgendaItem) =>
@@ -747,7 +753,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
               {t("clear")}
             </button>
           </div>
-        ) : allStages.length > 1 ? (
+        ) : activeDay !== "Pre-Event" && allStages.length > 1 ? (
           <div
             role="tablist"
             aria-label={t("stageTabs")}

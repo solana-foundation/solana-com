@@ -112,6 +112,43 @@ function titles() {
 }
 
 describe("AgendaList", () => {
+  it.each(["session", "static"] as const)(
+    "shows pre-event registration as a %s regardless of the selected stage",
+    (variant) => {
+      renderList([
+        ...items,
+        {
+          day: "Pre-Event",
+          id: "registration",
+          location: "Registration Area",
+          sortOrder: 600,
+          speakers: [],
+          time: "10:00",
+          title: "Early Registration",
+          variant,
+        },
+      ]);
+
+      expect(
+        screen.queryByRole("tab", { name: "Registration Area" }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: /Royal Exchange/ }));
+      fireEvent.click(screen.getByRole("tab", { name: /Pre-Event/ }));
+
+      expect(titles()).toEqual(["Early Registration"]);
+      expect(screen.getByText("Registration Area")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("tab", { name: /Main Stage/ }),
+      ).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("tab", { name: /Day 1/ }));
+      expect(titles()).toEqual(["Collector Crypt"]);
+      expect(
+        screen.getByRole("tab", { name: /Royal Exchange/ }),
+      ).toHaveAttribute("aria-selected", "true");
+    },
+  );
+
   it("shows Day 1 Main Stage with speaker roles, asset pills and breaks", () => {
     renderList(items);
 
