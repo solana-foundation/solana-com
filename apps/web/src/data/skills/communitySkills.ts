@@ -277,6 +277,14 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/switchboard",
     category: INFRASTRUCTURE,
   },
+  {
+    slug: "escro-skill",
+    title: "Escro Skill",
+    description:
+      "AI agent skill for Escro, USDC escrow on Solana for agent-to-agent work: the buyer releases on delivery, refund by default.",
+    url: "https://github.com/escro-ai/escro.ai/tree/escro-skill-v1.0.0/packages/mcp/skill/agent-plugin/skills/escro",
+    category: INFRASTRUCTURE,
+  },
 
   // ── Developer Tools ─────────────────────────────────────────────────
   {
