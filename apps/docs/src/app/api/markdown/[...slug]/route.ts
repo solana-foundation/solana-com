@@ -1,48 +1,58 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { defaultLocale } from "@workspace/i18n/config";
-import { docsSource } from "@@/src/app/sources/docs";
-import { cookbookSource } from "@@/src/app/sources/cookbook";
-import { developersLearnSource } from "@@/src/app/sources/developers-learn";
+import { resolveDocsPage } from "@/lib/docs/page-data";
+import { pageMarkdown } from "@/lib/docs/llms";
+import { DOCS_LOCALES } from "@/lib/docs/locales.mjs";
+import { developersMarkdown } from "@/lib/docs/developers-markdown";
+import { canonicalPath } from "@/lib/docs/metadata";
+import {
+  markdownResponse,
+  notFoundMarkdown,
+  searchMarkdown,
+} from "@/lib/docs/markdown-response";
+
+/**
+ * Markdown twin of a docs page and of the /developers landing.
+ * src/middleware.ts rewrites `<page>.md` and requests whose Accept header
+ * prefers text/markdown here. The slug is the public path, locale
+ * included: /api/markdown/ar/developers/docs/payments. A missing page is a
+ * 404 in Markdown; the docs home with `?q=` answers search results.
+ */
+export const dynamicParams = true;
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string[] }> },
 ) {
   const { slug } = await params;
-  if (!slug || slug.length === 0) {
-    return new NextResponse("Not Found", { status: 404 });
+  const locale = DOCS_LOCALES.includes(slug[0] ?? "")
+    ? slug[0]!
+    : defaultLocale;
+  const rest = locale === defaultLocale ? slug : slug.slice(1);
+  const prefix = locale === defaultLocale ? "" : `/${locale}`;
+  const path = `${prefix}/${rest.join("/")}`;
+
+  if (rest.length === 1 && rest[0] === "developers") {
+    return markdownResponse(request, await developersMarkdown(locale), {
+      canonical: path,
+    });
   }
 
-  let page:
-    | ReturnType<typeof docsSource.getPage>
-    | ReturnType<typeof cookbookSource.getPage>
-    | ReturnType<typeof developersLearnSource.getPage>
-    | null = null;
-
-  if (slug[0] === "docs") {
-    const rest = slug.slice(1);
-    if (rest[0] === "payments") {
-      page = docsSource.getPage(["payments", ...rest.slice(1)], defaultLocale);
-    } else if (rest[0] === "rpc") {
-      page = docsSource.getPage(["rpc", ...rest.slice(1)], defaultLocale);
-    } else {
-      page = docsSource.getPage(rest, defaultLocale);
-    }
-  } else if (slug[0] === "developers" && slug[1] === "cookbook") {
-    page = cookbookSource.getPage(slug.slice(2), defaultLocale);
-  } else if (slug[0] === "developers" && slug[1] === "bootcamp") {
-    page = developersLearnSource.getPage(slug.slice(2), defaultLocale);
+  const resolved = resolveDocsPage(locale, rest);
+  if (!resolved) {
+    return markdownResponse(
+      request,
+      await notFoundMarkdown(path, rest, locale),
+      { status: 404 },
+    );
   }
 
-  if (!page) {
-    return new NextResponse("Not Found", { status: 404 });
+  const query = request.nextUrl.searchParams.get("q")?.trim().slice(0, 200);
+  if (query && resolved.page.url === `${prefix}/developers/docs`) {
+    return markdownResponse(request, await searchMarkdown(query, locale));
   }
 
-  const markdown = await page.data.getText("raw");
-  return new NextResponse(markdown, {
-    headers: {
-      "Content-Type": "text/markdown; charset=utf-8",
-      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-    },
+  return markdownResponse(request, await pageMarkdown(resolved.page), {
+    canonical: canonicalPath(resolved),
   });
 }

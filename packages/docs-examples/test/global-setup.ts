@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { generateKeyPairSync } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
   createConnection,
   createServer,
@@ -10,8 +11,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { Surfnet } from "@solana/surfpool";
 
-const RPC_PORT = 8899;
-const WS_PORT = 8900;
+// SURFPOOL_RPC_PORT / SURFPOOL_WS_PORT move the proxies off the defaults
+// (vitest.config.ts points RPC_URL at the same ports).
+const RPC_PORT = Number(process.env.SURFPOOL_RPC_PORT ?? 8899);
+const WS_PORT = Number(process.env.SURFPOOL_WS_PORT ?? 8900);
 
 let surfnet: Surfnet | null = null;
 let rpcProxy: Server | null = null;
@@ -39,6 +42,8 @@ export async function setup(): Promise<void> {
   // The SDK binds dynamic ports. Examples in the cookbook hardcode 8899/8900
   // because that is what a reader would type. Proxy the canonical ports onto
   // the SDK's actual ports so example code runs as-shipped.
+  installDevnetUsdcMint(surfnet);
+
   const { host: rpcHost, port: rpcPort } = parseUrl(surfnet.rpcUrl);
   const { host: wsHost, port: wsPort } = parseUrl(surfnet.wsUrl);
   rpcProxy = await startProxy(RPC_PORT, rpcHost, rpcPort);
@@ -53,6 +58,26 @@ export async function teardown(): Promise<void> {
   wsProxy = null;
   surfnet?.stop();
   surfnet = null;
+}
+
+/**
+ * Path examples (paths/**) show readers the devnet USDC mint. The surfnet uses
+ * a mainnet datasource, so install the real devnet mint account from a
+ * committed fixture: the code that runs is the code on the page.
+ */
+function installDevnetUsdcMint(net: Surfnet): void {
+  const fixture = JSON.parse(
+    readFileSync(
+      new URL("./fixtures/devnet-usdc-mint.json", import.meta.url),
+      "utf8",
+    ),
+  ) as { address: string; owner: string; lamports: number; dataBase64: string };
+  net.setAccount(
+    fixture.address,
+    fixture.lamports,
+    new Uint8Array(Buffer.from(fixture.dataBase64, "base64")),
+    fixture.owner,
+  );
 }
 
 function startProxy(
@@ -107,9 +132,23 @@ function ensureCliKeypair(): void {
     ["new", "--no-bip39-passphrase", "--silent", "--outfile", path],
     { stdio: "ignore" },
   );
-  if (result.status !== 0) {
-    throw new Error(
-      `failed to generate fixture keypair at ${path}. Install the Solana CLI: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"`,
-    );
+  if (result.status === 0) return;
+  // No Solana CLI on PATH (e.g. a dev machine running only the TS suite):
+  // write the same file format solana-keygen produces, a JSON array of the
+  // 64-byte secret key (32-byte seed followed by the 32-byte public key).
+  if (
+    result.error &&
+    (result.error as NodeJS.ErrnoException).code === "ENOENT"
+  ) {
+    const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+    const seed = privateKey
+      .export({ format: "der", type: "pkcs8" })
+      .subarray(-32);
+    const pub = publicKey.export({ format: "der", type: "spki" }).subarray(-32);
+    writeFileSync(path, JSON.stringify([...seed, ...pub]), { mode: 0o600 });
+    return;
   }
+  throw new Error(
+    `failed to generate fixture keypair at ${path}. Install the Solana CLI: sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"`,
+  );
 }

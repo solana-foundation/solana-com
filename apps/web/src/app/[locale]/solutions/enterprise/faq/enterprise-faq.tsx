@@ -331,7 +331,7 @@ export function EnterpriseFaqPage() {
                             {item.refs.map((ref) => {
                               const external = ref.href.startsWith("http");
                               // References point at several apps served behind
-                              // rewrites (/docs, /news, /upgrades), so these stay
+                              // rewrites (/developers/docs, /news, /upgrades), so these stay
                               // full navigations rather than client transitions —
                               // with the active locale kept so readers land on the
                               // translated page.

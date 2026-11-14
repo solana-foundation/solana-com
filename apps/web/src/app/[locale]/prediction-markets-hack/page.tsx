@@ -73,7 +73,7 @@ export default async function Page(_props: Props) {
           "predictionMarketsHack.resources.items.docs.description",
         ),
         category: t("predictionMarketsHack.resources.items.docs.category"),
-        url: "https://solana.com/docs",
+        url: "https://solana.com/developers/docs",
       },
       {
         title: t("predictionMarketsHack.resources.items.templates.title"),

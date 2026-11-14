@@ -3,17 +3,122 @@ title: Cross-Program Invocation
 description: How to test programs calling other programs
 ---
 
+## Programs Under Test
+
+The test below loads two programs: a callee that logs a message, and a caller
+that invokes the callee, whose program ID it receives as an account. Put both
+in one Cargo workspace, so `cargo build-sbf` writes `caller.so` and
+`callee.so` to the shared `target/deploy/` folder:
+
+```
+cpi-example/
+├── Cargo.toml
+├── callee/
+│   ├── Cargo.toml
+│   └── src/lib.rs
+└── caller/
+    ├── Cargo.toml
+    ├── src/lib.rs
+    └── tests/cpi_test.rs
+```
+
+The workspace `Cargo.toml` sets `resolver = "2"`. Without it, Cargo applies the
+test dependencies' features to the program build, and `cargo build-sbf` fails
+once LiteSVM is a dev-dependency:
+
+```toml Cargo.toml
+[workspace]
+members = ["callee", "caller"]
+resolver = "2"
+```
+
+Both programs have the same `Cargo.toml`, apart from the package name:
+
+```toml caller/Cargo.toml
+[package]
+name = "caller"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+
+[dependencies]
+solana-program = "2.2.0"
+```
+
+```rust callee/src/lib.rs
+use solana_program::{
+    account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, msg, pubkey::Pubkey,
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    _accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> ProgramResult {
+    msg!("Callee invoked");
+    Ok(())
+}
+```
+
+```rust caller/src/lib.rs
+use solana_program::{
+    account_info::{next_account_info, AccountInfo},
+    entrypoint,
+    entrypoint::ProgramResult,
+    instruction::Instruction,
+    msg,
+    program::invoke,
+    pubkey::Pubkey,
+};
+
+entrypoint!(process_instruction);
+
+pub fn process_instruction(
+    _program_id: &Pubkey,
+    accounts: &[AccountInfo],
+    _instruction_data: &[u8],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let _payer = next_account_info(accounts_iter)?;
+    let callee_program = next_account_info(accounts_iter)?;
+
+    msg!("Caller invoking callee");
+    // Invoke the callee program, whose ID arrives as the second account
+    invoke(
+        &Instruction::new_with_bytes(*callee_program.key, &[], vec![]),
+        &[callee_program.clone()],
+    )?;
+    Ok(())
+}
+```
+
+Add the test dependencies to the caller, then build both programs from the
+workspace root. Adding them before the first build lets Cargo resolve the
+program and test dependencies together:
+
+```bash
+cd caller
+cargo add --dev litesvm solana-sdk@4
+cargo add --dev solana-system-interface --features bincode
+cd ..
+cargo build-sbf
+```
+
 ## Complete Test
 
-```rust title="tests/cpi_test.rs"
+```rust caller/tests/cpi_test.rs
 use litesvm::LiteSVM;
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::{Keypair, Signer},
     transaction::Transaction,
-    system_program,
 };
+use solana_system_interface::program as system_program;
 
 #[test]
 fn test_cross_program_invocation() {
@@ -25,12 +130,12 @@ fn test_cross_program_invocation() {
 
     svm.add_program(
         caller_program,
-        include_bytes!("../target/deploy/caller.so")
+        include_bytes!("../../target/deploy/caller.so")
     ).unwrap();
 
     svm.add_program(
         callee_program,
-        include_bytes!("../target/deploy/callee.so")
+        include_bytes!("../../target/deploy/callee.so")
     ).unwrap();
 
     // Setup accounts
@@ -45,7 +150,7 @@ fn test_cross_program_invocation() {
             AccountMeta::new_readonly(callee_program, false),
             AccountMeta::new_readonly(system_program::id(), false),
         ],
-        data: vec![1], // Instruction to trigger CPI
+        data: vec![], // The caller ignores instruction data
     };
 
     let tx = Transaction::new_signed_with_payer(
@@ -85,7 +190,7 @@ fn test_cross_program_invocation() {
    executed
 
 For more detailed deployment information, read
-[this section](/docs/tools/litesvm/testing-your-program/deploy).
+[this section](/developers/docs/tools/litesvm/testing-your-program/deploy).
 
 ## Understanding CPI Logs
 

@@ -68,9 +68,10 @@ Returns `{ "token": "<jwt>" }`. Both wrong username and wrong password return
 ### `POST /auth/challenge-wallet`
 
 Request a signing challenge to prove ownership of a Solana wallet. Requires a
-valid JWT.
+valid JWT; the request has no body.
 
-Returns a message, nonce, and expiry. The challenge expires in 10 minutes.
+Returns a message, nonce, and expiry. The challenge expires in 10 minutes. Sign
+the `message` exactly as returned; it names the user id and the nonce:
 
 ```json
 {
@@ -95,7 +96,7 @@ JWT.
 
 The service reconstructs the challenge message, verifies the Ed25519 signature,
 and stores the wallet. Each nonce can only be consumed once; replays are
-rejected.
+rejected with `400 invalid or expired challenge`.
 
 Returns `{ "pubkey": "<base58>", "created_at": "<iso8601>" }`.
 
@@ -106,11 +107,12 @@ List all verified wallets for the authenticated user. Requires a valid JWT.
 ### `DELETE /auth/wallets/{pubkey}`
 
 Remove a verified wallet from the authenticated user's account. Requires a valid
-JWT.
+JWT. Returns `204` on success, or `400 wallet not associated with this user` if
+the wallet is not attached to the user.
 
 ### `GET /health`
 
-Liveness check. Returns `200 ok`. No authentication required.
+Liveness check. Returns `200` with an empty body. No authentication required.
 
 ## JWT Structure
 
@@ -150,28 +152,32 @@ Default role on registration.
 Elevated role. Must be provisioned directly; there is no self-service path to
 escalate from `user` to `operator`.
 
-**Grant the role**, either via the Admin CLI (`private-channel-auth-admin`):
+**Grant the role** with the Admin CLI (`auth-admin`, installed in the services'
+Docker image). It reads the auth database URL from `AUTH_DATABASE_URL` and
+identifies users by username:
 
 ```bash
-private-channel-auth-admin set-role --username alice --role operator
+export AUTH_DATABASE_URL=postgres://<user>:<password>@<host>/<db>
+
+auth-admin set-role --username alice --role operator
 ```
 
-or with direct SQL:
+Direct SQL also works:
 
-<Callout type="warning">
+<Warning>
   This is a privileged database operation. Restrict access to the Auth Service
   database accordingly and audit any role changes.
-</Callout>
+</Warning>
 
 ```sql
 UPDATE private_channel_auth.users SET role = 'operator' WHERE username = 'alice';
 ```
 
-**Register a wallet without the self-verify flow (Admin CLI,
-`private-channel-auth-admin`):**
+**Register a wallet without the self-verify flow (Admin CLI, `auth-admin`,
+same environment variables as above):**
 
 ```bash
-private-channel-auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
+auth-admin attach-wallet --username alice --pubkey <base58-pubkey>
 ```
 
 This inserts a verified wallet directly into the `verified_wallets` table,
@@ -186,7 +192,7 @@ interactive challenge/verify flow.
 - Bypasses all wallet ownership checks
 - Full access to all gateway RPC methods, including `getBlock`,
   `getTransaction`, `simulateTransaction`
-- Required for: `ReleaseFunds`, `ResetSmtRoot`
+- Required for: `ReleaseFunds`, `ResetSmtRoot` (`RotateBitmap` on upstream `main`)
 
 ## Full Authentication Flow
 
@@ -214,9 +220,35 @@ sequenceDiagram
     Note over Client: Wallet verified - gateway now allows access<br/>to accounts owned by this wallet
 ```
 
+<div className="sol-mermaid" data-fallback="mermaid" data-mermaid="a738ffd1c227">
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/a738ffd1c227-light.svg" alt="Full Authentication Flow diagram" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/a738ffd1c227.svg" alt="Full Authentication Flow diagram" />
+
+  <img className="block dark:hidden" src="/docs-assets/assets/docs/mermaid/a738ffd1c227-sm-light.svg" alt="Full Authentication Flow diagram" />
+
+  <img className="hidden dark:block" src="/docs-assets/assets/docs/mermaid/a738ffd1c227-sm.svg" alt="Full Authentication Flow diagram" />
+</div>
+
 ## Making Authenticated Requests
 
+Send the token with every gateway request. This example reads the balance of
+the user's channel token account, which the `user` role may query because the
+account's owner is one of the user's verified wallets:
+
 ```typescript
+import { address } from "@solana/kit";
+import {
+  findAssociatedTokenPda,
+  TOKEN_PROGRAM_ADDRESS
+} from "@solana-program/token";
+
+const [channelAta] = await findAssociatedTokenPda({
+  mint: address(mintAddress),
+  owner: address(walletAddress),
+  tokenProgram: TOKEN_PROGRAM_ADDRESS
+});
+
 const response = await fetch("http://localhost:8899/", {
   method: "POST",
   headers: {
@@ -226,12 +258,16 @@ const response = await fetch("http://localhost:8899/", {
   body: JSON.stringify({
     jsonrpc: "2.0",
     id: 1,
-    method: "getBalance",
-    params: [walletAddress]
+    method: "getTokenAccountBalance",
+    params: [channelAta]
   })
 });
 const data = await response.json();
 ```
+
+The channel's RPC serves only the methods in the
+[access matrix](#rpc-method-access-matrix) below. It has no `getBalance`, so
+read token balances with `getTokenAccountBalance`.
 
 ## Gateway Endpoints
 
@@ -243,7 +279,7 @@ These endpoints do not require authentication:
 | `/ready`  | GET    | Deep readiness; probes write + read nodes | `200 {"status":"ready"}` | `503 {"status":"degraded"}` |
 
 For the `JWT_SECRET` and gateway environment variable reference, see the
-[Configuration reference](/docs/tools/private-channels/operators/configuration).
+[Configuration reference](/developers/docs/tools/private-channels/operators/configuration).
 
 ## RPC Method Access Matrix
 
@@ -260,6 +296,8 @@ access depends on JWT role:
 | `getTransactionCount`         | Read node  | ✓      | ✓                | ✓          |
 | `getFirstAvailableBlock`      | Read node  | ✓      | ✓                | ✓          |
 | `getBlocks`                   | Read node  | ✓      | ✓                | ✓          |
+| `getBlocksWithLimit`²         | Read node  | ✓      | ✓                | ✓          |
+| `getBlockHeight`²             | Read node  | ✓      | ✓                | ✓          |
 | `getEpochInfo`                | Read node  | ✓      | ✓                | ✓          |
 | `getEpochSchedule`            | Read node  | ✓      | ✓                | ✓          |
 | `getRecentPerformanceSamples` | Read node  | ✓      | ✓                | ✓          |
@@ -282,3 +320,6 @@ wallets. For any other account type (a System Program wallet, or an unknown
 PDA), it instead checks whether the queried pubkey itself is one of the user's
 verified wallets, since such accounts have no owner/delegate field to inspect.
 Either check failing returns 403.
+
+² Not served at commit `c9e2240`, the version these docs target; upstream
+`main` adds it.
