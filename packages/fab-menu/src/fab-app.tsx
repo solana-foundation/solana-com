@@ -12,11 +12,23 @@ interface FabAppProps {
 
 export function FabApp({ config }: FabAppProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [menuData, setMenuData] = useState<MenuData>(DEFAULT_MENU_DATA);
+  const [menuData, setMenuData] = useState<MenuData>(
+    config.data ?? DEFAULT_MENU_DATA,
+  );
 
   useEffect(() => {
-    fetchMenuData(config.apiUrl).then(setMenuData);
-  }, [config.apiUrl]);
+    if (config.data) {
+      setMenuData(config.data);
+      return;
+    }
+    let cancelled = false;
+    fetchMenuData(config.apiUrl).then((data) => {
+      if (!cancelled) setMenuData(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [config.apiUrl, config.data]);
 
   const handleOpen = () => {
     setIsOpen(true);

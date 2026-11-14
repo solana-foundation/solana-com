@@ -2,6 +2,12 @@ export interface FabMenuConfig {
   /** API endpoint URL to fetch menu data */
   apiUrl?: string;
 
+  /**
+   * Menu data to render as given. When set, nothing is requested from
+   * `apiUrl`. Pass `DEFAULT_MENU_DATA` to show the data bundled in the package.
+   */
+  data?: MenuData;
+
   /** FAB screen position */
   position?:
     | "bottom-right"

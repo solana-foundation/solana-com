@@ -33,6 +33,10 @@ const appConfigs = {
     codeRoots: [path.join(repoRoot, "apps/breakpoint/src")],
     inherits: [],
   },
+  builder: {
+    codeRoots: [path.join(repoRoot, "apps/builder/src")],
+    inherits: [],
+  },
   templates: {
     codeRoots: [path.join(repoRoot, "apps/templates/src")],
     inherits: ["web"],

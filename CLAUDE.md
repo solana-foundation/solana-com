@@ -13,7 +13,8 @@ solana-com/
 │   ├── docs/         # Developer documentation - port 3003
 │   ├── media/        # Blog & news (Keystatic) - port 3002
 │   ├── templates/    # Code templates showcase - port 3001
-│   └── breakpoint/   # Breakpoint event microsite - port 3005
+│   ├── breakpoint/   # Breakpoint event microsite - port 3005
+│   └── builder/      # BLDR event site (solana.com/builder) - port 3007
 ├── packages/
 │   ├── config-oxlint/       # Shared oxlint configurations
 │   ├── config-typescript/   # Shared TypeScript configurations
@@ -59,6 +60,7 @@ pnpm dev --filter solana-com-media        # Blog/Media
 pnpm dev --filter solana-templates        # Templates
 pnpm dev --filter solana-com-accelerate   # Accelerate conference
 pnpm dev --filter solana-com-breakpoint   # Breakpoint conference
+pnpm dev --filter solana-com-builder      # BLDR (Builder) event
 
 # Build all apps
 pnpm build
@@ -162,3 +164,4 @@ Each app has its own CLAUDE.md with app-specific details:
 - `apps/media/CLAUDE.md` - Blog/Media site
 - `apps/templates/CLAUDE.md` - Templates showcase
 - `apps/breakpoint/CLAUDE.md` - Breakpoint event site
+- `apps/builder/AGENTS.md` - BLDR (Builder) event site

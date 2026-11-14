@@ -5,6 +5,7 @@ import {
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
   BREAKPOINT_BADGE_URL,
+  BUILDER_APP_URL,
 } from "./apps-urls";
 import { locales } from "@workspace/i18n/config";
 
@@ -656,6 +657,33 @@ export default {
       {
         source: "/accelerate-assets/:path+",
         destination: `${ACCELERATE_APP_URL}/accelerate-assets/:path+`,
+        locale: false,
+      },
+      // Builder (BLDR) app rewrites
+      {
+        source: "/builder",
+        destination: `${BUILDER_APP_URL}/builder`,
+        locale: false,
+      },
+      {
+        source: "/builder/:path*",
+        destination: `${BUILDER_APP_URL}/builder/:path*`,
+        locale: false,
+      },
+      {
+        source: "/:locale/builder",
+        destination: `${BUILDER_APP_URL}/:locale/builder`,
+        locale: false,
+      },
+      {
+        source: "/:locale/builder/:path*",
+        destination: `${BUILDER_APP_URL}/:locale/builder/:path*`,
+        locale: false,
+      },
+      // Builder app static files (assetPrefix: "/builder-assets")
+      {
+        source: "/builder-assets/:path+",
+        destination: `${BUILDER_APP_URL}/builder-assets/:path+`,
         locale: false,
       },
       // Templates app rewrites (must come before general /developers rewrites)

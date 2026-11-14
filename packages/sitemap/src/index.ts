@@ -1,6 +1,7 @@
 export * from "./redirects";
 export * from "./routes/accelerate";
 export * from "./routes/breakpoint";
+export * from "./routes/builder";
 export * from "./routes/docs";
 export * from "./routes/marketing";
 export * from "./routes/media";
