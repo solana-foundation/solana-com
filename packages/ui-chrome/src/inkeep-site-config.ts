@@ -16,10 +16,7 @@ import {
 } from "./inkeep-sources";
 import faviconPng from "./assets/favicon.png";
 
-export function useSiteInkeepConfig(
-  isOpen: boolean,
-  openSearch: () => void,
-): {
+export function useSiteInkeepConfig(isOpen: boolean): {
   baseSettings: InkeepBaseSettings;
   searchSettings: InkeepSearchSettings;
   aiChatSettings: InkeepAIChatSettings;
@@ -45,9 +42,6 @@ export function useSiteInkeepConfig(
   const apiBase = `${origin}/api/inkeep`;
 
   useEffect(() => setSyncTarget(document.documentElement), []);
-  useEffect(() => {
-    if (query) openSearch();
-  }, [query, openSearch]);
   useEffect(() => {
     if (!query || !isOpen) return;
     searchFunctionsRef.current?.updateQuery(query);
