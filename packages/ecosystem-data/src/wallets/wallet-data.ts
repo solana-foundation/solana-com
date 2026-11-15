@@ -1160,12 +1160,18 @@ const walletRecords = {
     name: "FxWallet",
     category: "consumer",
     platforms: ["ios", "android"],
-    features: ["non_custodial", "hold_nfts", "hardware", "multi_chain"],
+    features: [
+      "non_custodial",
+      "hold_nfts",
+      "hardware",
+      "multi_chain",
+      "staking",
+    ],
     description:
-      "Decentralized mobile wallet covering 80+ blockchains including Solana, with hardware wallet integration, an offline cold-wallet signing mode, curated dApps, and cross-chain swaps with MEV protection",
+      "Self-custody mobile wallet covering 70+ blockchains including Solana, with SOL staking, hardware wallet integration, an offline cold-wallet signing mode, a DApp browser and cross-chain swaps",
     website: "https://www.fxwallet.com/",
     icon: fxwalletIcon,
-    lastVerified: "2026-09-02",
+    lastVerified: "2026-11-11",
   },
   gate: {
     name: "Gate",
