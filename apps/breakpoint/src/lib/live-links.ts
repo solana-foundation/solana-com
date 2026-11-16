@@ -4,12 +4,12 @@ import type { MapZone, VenueMapData } from "@/content/venue/types";
  * Deep links between the live agenda and the venue map on the home page.
  *
  * Both sections sit on the same page, so links are hash fragments that no
- * element owns: `#venue-map/<zone id>` opens the map on that zone and
+ * element owns: `#map/<zone id>` opens the map on that zone and
  * `#today/<stage slug>` opens the agenda on that stage. Each section listens
  * for `hashchange`, selects its target and scrolls itself into view. The
- * same fragments work from other pages, e.g. `/#venue-map/royal-exchange`.
+ * same fragments work from other pages, e.g. `/#map/royal-exchange`.
  */
-export const VENUE_MAP_ANCHOR = "venue-map";
+export const VENUE_MAP_ANCHOR = "map";
 export const TODAY_ANCHOR = "today";
 
 /** Lower-case, hyphenated; "Royal Exchange Stage" and "Royal Exchange" agree. */
@@ -53,7 +53,7 @@ function parseHash(hash: string, anchor: string): string | null {
   }
 }
 
-/** Zone id from `#venue-map/<zone id>`, or null for any other hash. */
+/** Zone id from `#map/<zone id>`, or null for any other hash. */
 export function parseVenueMapHash(hash: string): string | null {
   return parseHash(hash, VENUE_MAP_ANCHOR);
 }
