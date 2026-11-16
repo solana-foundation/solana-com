@@ -99,7 +99,7 @@ function StreamPlayer({
 }) {
   if (stream.youtubeVideoId) {
     const params = new URLSearchParams({
-      autoplay: "1",
+      autoplay: "0",
       mute: "1",
       playsinline: "1",
       rel: "0",
