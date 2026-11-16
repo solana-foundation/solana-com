@@ -98,6 +98,7 @@ function StreamPlayer({
   title: string;
 }) {
   const [started, setStarted] = useState(false);
+  const [thumbnailFailed, setThumbnailFailed] = useState(false);
   if (stream.youtubeVideoId) {
     const params = new URLSearchParams({
       autoplay: "1",
@@ -122,9 +123,20 @@ function StreamPlayer({
             onClick={() => setStarted(true)}
             type="button"
           >
+            <img
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover"
+              onError={() => setThumbnailFailed(true)}
+              src={
+                thumbnailFailed
+                  ? publicAssetPath("/img/subpage-heroes/schedule-hero.webp")
+                  : `https://i.ytimg.com/vi/${stream.youtubeVideoId}/hqdefault.jpg`
+              }
+            />
+            <span aria-hidden="true" className="absolute inset-0 bg-black/30" />
             <svg
               aria-hidden="true"
-              className="h-20 w-20"
+              className="relative h-20 w-20"
               viewBox="0 0 80 80"
               fill="none"
             >

@@ -1,4 +1,4 @@
-import { cleanup, render, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import { afterEach, expect, it, vi } from "vitest";
 import LiveEventSections from "@/components/sections/live/LiveEventSections";
@@ -13,6 +13,35 @@ vi.mock("@/components/sections/live/LiveScheduleProvider", () => ({
 vi.mock("@/components/ImageTreatment", () => ({ default: () => null }));
 
 afterEach(cleanup);
+
+it("shows a poster with a local fallback and loads the stream on click", () => {
+  const now = Date.parse("2026-11-16T10:40:00Z");
+  vi.mocked(useRequiredLiveSchedule).mockReturnValue({
+    now,
+    schedule: calculateLiveSchedule([], now),
+    viewerTimeZone: null,
+  });
+  const { container } = render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <LiveEventSections stream={MAIN_STAGE_STREAM} />
+    </NextIntlClientProvider>,
+  );
+  const poster = container.querySelector("button img")!;
+  expect(poster).toHaveAttribute(
+    "src",
+    `https://i.ytimg.com/vi/${MAIN_STAGE_STREAM.youtubeVideoId}/hqdefault.jpg`,
+  );
+  expect(container.querySelector("iframe")).toBeNull();
+  fireEvent.error(poster);
+  expect(poster.getAttribute("src")).toContain(
+    "/img/subpage-heroes/schedule-hero.webp",
+  );
+  fireEvent.click(poster.closest("button")!);
+  expect(container.querySelector("iframe")).toHaveAttribute(
+    "src",
+    expect.stringContaining(`/embed/${MAIN_STAGE_STREAM.youtubeVideoId}?`),
+  );
+});
 
 it("keeps overrunning sessions visible without inferred live status", () => {
   const now = Date.parse("2026-11-16T10:40:00Z");
