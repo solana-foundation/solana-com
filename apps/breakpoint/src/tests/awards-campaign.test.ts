@@ -11,22 +11,29 @@ afterEach(() => {
 });
 
 describe("awards campaign", () => {
-  it("keeps nominations open until voting begins", () => {
+  it("preserves the nominations window while voting stays closed", () => {
     const opening = new Date(defaultVotingWindow.opensAt);
     const beforeOpening = new Date(opening.getTime() - 1);
 
     expect(getAwardsCampaignStatus(beforeOpening)).toBe("open");
-    expect(getAwardsVotingStatus(beforeOpening)).toBe("not_started");
+    expect(getAwardsVotingStatus(beforeOpening)).toBe("closed");
     expect(getAwardsCampaignStatus(opening)).toBe("closed");
-    expect(getAwardsVotingStatus(opening)).toBe("open");
+    expect(getAwardsVotingStatus(opening)).toBe("closed");
   });
 
-  it("closes voting at the configured end", () => {
+  it("keeps voting closed before and after the previous cutoff", () => {
     const closing = new Date(defaultVotingWindow.closesAt);
     const beforeClosing = new Date(closing.getTime() - 1);
 
-    expect(getAwardsVotingStatus(beforeClosing)).toBe("open");
+    expect(getAwardsVotingStatus(beforeClosing)).toBe("closed");
     expect(getAwardsVotingStatus(closing)).toBe("closed");
+  });
+
+  it("closes voting immediately, before the original deadline", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-09T00:00:00Z"));
+    expect(getAwardsVotingStatus()).toBe("closed");
+    vi.useRealTimers();
   });
 
   it("ignores legacy date environment variables", () => {
@@ -37,7 +44,7 @@ describe("awards campaign", () => {
 
     const opening = new Date(defaultVotingWindow.opensAt);
     expect(getAwardsCampaignStatus(opening)).toBe("closed");
-    expect(getAwardsVotingStatus(opening)).toBe("open");
+    expect(getAwardsVotingStatus(opening)).toBe("closed");
   });
 
   it("provides a clear closed message", () => {

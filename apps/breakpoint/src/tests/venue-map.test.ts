@@ -192,6 +192,27 @@ describe("searchVenue", () => {
     expect(restrooms.map((r) => r.floor)).toEqual(["ground", "first"]);
   });
 
+  it("finds services listed inside zones, including translated service labels", () => {
+    const food = searchVenue(VENUE_MAP, "food", amenityLabels);
+    expect(food.map((result) => result.selection)).toEqual(
+      expect.arrayContaining([
+        { kind: "zone", id: "builder-zone" },
+        { kind: "zone", id: "the-borough-block" },
+      ]),
+    );
+    expect(
+      searchVenue(VENUE_MAP, "merch", amenityLabels).map(
+        (result) => result.selection,
+      ),
+    ).toContainEqual({ kind: "zone", id: "icsm-store" });
+    expect(
+      searchVenue(VENUE_MAP, "Nourriture", {
+        ...amenityLabels,
+        food: "Nourriture",
+      }).map((result) => result.selection),
+    ).toContainEqual({ kind: "zone", id: "builder-zone" });
+  });
+
   it("returns nothing for an empty query", () => {
     expect(searchVenue(VENUE_MAP, "   ", amenityLabels)).toEqual([]);
   });

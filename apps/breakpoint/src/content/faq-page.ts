@@ -42,7 +42,7 @@ export const faqPageSections = [
         id: "general-press",
         question: "How can I apply for press or content creator access?",
         answer:
-          "Use the Press or Content Creator application in the Get Involved section on the homepage.",
+          "Email breakpoint@solana.org about press or content creator access.",
       },
       {
         id: "general-contact",

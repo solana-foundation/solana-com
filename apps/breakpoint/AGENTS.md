@@ -129,7 +129,8 @@ constant and merging is the release; there is no runtime toggle.
 
 - `live` renders `src/components/sections/live/LiveEventSection.tsx` (stream
   hero plus today's sessions), the venue map, sponsors, speakers, side events
-  and FAQ. `pre` renders the marketing page with the venue map before the FAQ.
+  and FAQ. `pre` renders the marketing page with the venue map after tickets and
+  before Why Attend, replacing Get Involved.
 - The home page loads the agenda once and wraps the live hero and the venue map
   in `LiveScheduleProvider`, so both read the same schedule and the map's stage
   zones (Main Stage, Royal Exchange) show what is on now and next.

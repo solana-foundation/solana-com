@@ -11,6 +11,7 @@ describe("getProviderLinks", () => {
     expect(getProviderLinks("network").map((link) => link.name)).toEqual([
       "Allium",
       "Blockworks",
+      "Token Terminal",
     ]);
     expect(getProviderLinks("stablecoins").map((link) => link.name)).toEqual([
       ...providerLinkNames,

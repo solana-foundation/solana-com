@@ -1,4 +1,5 @@
 import type { MapZone, VenueMapData } from "@/content/venue/types";
+import { VENUE_MAP_ANCHOR } from "@/lib/venue-map-links";
 
 /**
  * Deep links between the live agenda and the venue map on the home page.
@@ -9,7 +10,11 @@ import type { MapZone, VenueMapData } from "@/content/venue/types";
  * for `hashchange`, selects its target and scrolls itself into view. The
  * same fragments work from other pages, e.g. `/#map/royal-exchange`.
  */
-export const VENUE_MAP_ANCHOR = "map";
+export {
+  VENUE_MAP_ANCHOR,
+  parseVenueMapHash,
+  scrollToAnchor,
+} from "@/lib/venue-map-links";
 export const TODAY_ANCHOR = "today";
 
 /** Lower-case, hyphenated; "Royal Exchange Stage" and "Royal Exchange" agree. */
@@ -53,11 +58,6 @@ function parseHash(hash: string, anchor: string): string | null {
   }
 }
 
-/** Zone id from `#map/<zone id>`, or null for any other hash. */
-export function parseVenueMapHash(hash: string): string | null {
-  return parseHash(hash, VENUE_MAP_ANCHOR);
-}
-
 /** Stage slug from `#today/<stage slug>`, or null for any other hash. */
 export function parseTodayHash(hash: string): string | null {
   return parseHash(hash, TODAY_ANCHOR);
@@ -72,13 +72,4 @@ export function parseTodayHash(hash: string): string | null {
 export function followHashLink(href: string) {
   if (typeof window === "undefined" || window.location.hash !== href) return;
   window.dispatchEvent(new HashChangeEvent("hashchange"));
-}
-
-/** Scroll a section into view the way the browser would for an anchor. */
-export function scrollToAnchor(id: string) {
-  if (typeof document === "undefined") return;
-  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  document
-    .getElementById(id)
-    ?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
 }

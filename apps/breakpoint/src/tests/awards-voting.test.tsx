@@ -26,6 +26,40 @@ describe("awards voting", () => {
       </NextIntlClientProvider>,
     );
 
+  it("renders the closed view immediately without loading a ballot", () => {
+    const fetch = vi.spyOn(globalThis, "fetch");
+    render(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <AwardsVoting finalists={approvedFinalists} initialStatus="closed" />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getByRole("heading", { name: "Thank you for taking part" }),
+    ).toBeInTheDocument();
+    const closed = screen.getByRole("button", { name: "Voting is now closed" });
+    expect(closed).toBeDisabled();
+    expect(closed).toHaveAttribute("tabindex", "-1");
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit vote" })).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("replaces an older open ballot when the server reports closure", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue({
+      ok: true,
+      json: async () => ({ votes: [], votingStatus: "closed" }),
+    } as Response);
+    renderBallot();
+    expect(
+      await screen.findByRole("heading", { name: "Thank you for taking part" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Voting is now closed" }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("radio")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Submit vote" })).toBeNull();
+  });
+
   it("allows finalist selection when the vote session cannot load", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: false } as Response);
 

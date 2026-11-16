@@ -1,3 +1,4 @@
+import Button from "@/components/Button";
 import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
 import Footer from "@/components/sections/Footer";
@@ -26,12 +27,15 @@ export default async function AwardsPage({ locale }: { locale: string }) {
   const votingStatus = nominationsActive
     ? "not_started"
     : getAwardsVotingStatus();
+  const votingClosed = votingStatus === "closed";
   const finalists = getApprovedFinalists();
-  const heroCta = nominationsActive
-    ? t("awards.hero.cta")
-    : votingStatus === "open" && finalists
-      ? t("awards.voting.heroCta")
-      : t("awards.voting.viewAwards");
+  const heroCta = votingClosed
+    ? t("awards.closed.navigationCta")
+    : nominationsActive
+      ? t("awards.hero.cta")
+      : votingStatus === "open" && finalists
+        ? t("awards.voting.heroCta")
+        : t("awards.voting.viewAwards");
 
   return (
     <PageShell
@@ -44,22 +48,29 @@ export default async function AwardsPage({ locale }: { locale: string }) {
       }}
     >
       <SubpageHero
-        cta={{
-          arrowDirection: "down",
-          href: nominationsActive ? "#nominations" : "#voting",
-          label: heroCta,
-        }}
+        cta={
+          votingClosed
+            ? undefined
+            : {
+                arrowDirection: "down",
+                href: nominationsActive ? "#nominations" : "#voting",
+                label: heroCta,
+              }
+        }
         eyebrow={t("awards.hero.eyebrow")}
         heroImage="awards"
-        title={t("awards.hero.title")}
+        title={t(votingClosed ? "awards.closed.title" : "awards.hero.title")}
       >
         <p className="max-w-[620px] text-p-large text-white">
           {t(
-            nominationsActive
-              ? "awards.hero.description"
-              : "awards.voting.heroDescription",
+            votingClosed
+              ? "awards.closed.description"
+              : nominationsActive
+                ? "awards.hero.description"
+                : "awards.voting.heroDescription",
           )}
         </p>
+        {votingClosed && <Button disabled label={t("awards.closed.cta")} />}
       </SubpageHero>
       <Marquee
         highlightClassName="text-purple"

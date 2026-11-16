@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CheckCircle } from "@boxicons/react/CheckCircle";
 import { useTranslations } from "@workspace/i18n/client";
+import AwardsClosed from "./AwardsClosed";
 import Button from "@/components/Button";
 import { config, publicAssetPath } from "@/config";
 import { awardCategories, type AwardCategory } from "@/content/awards";
@@ -40,6 +41,7 @@ export default function AwardsVoting({
   const voteCount = Object.keys(votes).length;
 
   useEffect(() => {
+    if (initialStatus === "closed") return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -66,7 +68,7 @@ export default function AwardsVoting({
     return () => {
       cancelled = true;
     };
-  }, [t]);
+  }, [t, initialStatus]);
 
   useEffect(() => {
     setSelection("");
@@ -132,6 +134,8 @@ export default function AwardsVoting({
     );
   };
 
+  if (status === "closed") return <AwardsClosed />;
+
   return (
     <section
       aria-labelledby="voting-title"
@@ -175,13 +179,11 @@ export default function AwardsVoting({
               className="mt-s font-mono text-button-small text-core-purple"
               role="status"
             >
-              {status === "closed"
-                ? t("voting.status.closed")
-                : !finalists
-                  ? t("voting.status.finalistsPending")
-                  : status === "not_started"
-                    ? t("voting.status.notStarted")
-                    : t("voting.status.open")}
+              {!finalists
+                ? t("voting.status.finalistsPending")
+                : status === "not_started"
+                  ? t("voting.status.notStarted")
+                  : t("voting.status.open")}
             </p>
             {loadFailed && (
               <p className="mt-s text-sm text-core-pink" role="alert">

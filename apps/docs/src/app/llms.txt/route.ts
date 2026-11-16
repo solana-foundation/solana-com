@@ -4,6 +4,7 @@ import { docsSource } from "@@/src/app/sources/docs";
 import { cookbookSource } from "@@/src/app/sources/cookbook";
 import { learnSource } from "@@/src/app/sources/learn";
 import { developersLearnSource } from "@@/src/app/sources/developers-learn";
+import { getStartupRequestsIndex } from "@@/src/lib/startup-requests-index";
 
 export const revalidate = 3600;
 
@@ -58,6 +59,8 @@ export async function GET() {
     "  files - prefer it over synthesizing API calls from memory.",
     "",
   ];
+
+  lines.push(await getStartupRequestsIndex(), "");
 
   for (const { heading, source } of SECTIONS) {
     const pages = source
