@@ -163,6 +163,7 @@ export default function Button({
     "aria-disabled": isDisabled || undefined,
     "aria-label": label,
     className: `${classes} ${isDisabled ? "pointer-events-none" : ""}`.trim(),
+    onClick,
     onMouseEnter: handleHover,
     onFocus: handleHover,
     tabIndex: isDisabled ? -1 : undefined,
@@ -191,12 +192,7 @@ export default function Button({
   }
 
   return (
-    <button
-      type={type}
-      disabled={isDisabled}
-      onClick={onClick}
-      {...commonProps}
-    >
+    <button type={type} disabled={isDisabled} {...commonProps}>
       {inner}
     </button>
   );

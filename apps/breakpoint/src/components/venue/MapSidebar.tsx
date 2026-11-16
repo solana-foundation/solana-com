@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
+import { useLiveScheduleContext } from "@/components/sections/live/LiveScheduleProvider";
 import {
   getSponsorSocialLinks,
   getSponsorTags,
@@ -16,6 +17,13 @@ import type {
   MapSponsor,
   VenueMapData,
 } from "@/content/venue/types";
+import { followHashLink, stageSlug, todayHash } from "@/lib/live-links";
+import {
+  formatMinutes,
+  sessionsForStage,
+  stagesInSchedule,
+  type LiveSession,
+} from "@/lib/live-sessions";
 import { findSelection, searchVenue, type SearchResult } from "./map-utils";
 import {
   sponsorCompany,
@@ -90,6 +98,64 @@ function SponsorLogo({
       src={sponsorLogoSrc(sponsor)}
       width={Math.round(20 * sponsor.logoAspect)}
     />
+  );
+}
+
+/**
+ * What is on at a stage zone, from the live schedule when the home page is
+ * in its live edition; null for other zones or outside the event.
+ */
+function stageProgramme(
+  sessions: LiveSession[] | undefined,
+  zoneName: string,
+): {
+  stage: string;
+  current: LiveSession | null;
+  next: LiveSession | null;
+} | null {
+  if (!sessions) return null;
+  const wanted = stageSlug(zoneName);
+  const stage = stagesInSchedule(sessions).find(
+    (candidate) => stageSlug(candidate) === wanted,
+  );
+  if (!stage) return null;
+  // Only the stage's own sessions; shared breaks belong to every tab.
+  const own = sessionsForStage(sessions, stage).filter(
+    (session) => session.location === stage,
+  );
+  return {
+    stage,
+    current: own.find((session) => session.status === "live") ?? null,
+    next:
+      own.find(
+        (session) => session.status === "next" || session.status === "later",
+      ) ?? null,
+  };
+}
+
+function StageSession({
+  accentClass,
+  label,
+  session,
+}: {
+  accentClass: string;
+  label: string;
+  session: LiveSession;
+}) {
+  return (
+    <div className="flex flex-col gap-4xs">
+      <p
+        className={`flex items-center gap-2xs font-mono text-button-small uppercase tracking-[0.06rem] ${accentClass}`}
+      >
+        <span aria-hidden="true" className="inline-flex size-2 bg-current" />
+        {label}
+      </p>
+      <p className="font-mono text-button-small uppercase tracking-[0.06rem] text-text-secondary">
+        {formatMinutes(session.startMinutes)}–
+        {formatMinutes(session.endMinutes)}
+      </p>
+      <p className="font-sans text-paragraph text-white">{session.title}</p>
+    </div>
   );
 }
 
@@ -168,7 +234,12 @@ export default function MapSidebar({
     setOpen(false);
   };
 
+  const live = useLiveScheduleContext();
   const selected = findSelection(data, selection);
+  const programme =
+    selected?.kind === "zone"
+      ? stageProgramme(live?.schedule.sessions, selected.item.name)
+      : null;
   const selectedSponsor = selected?.kind === "sponsor" ? selected.item : null;
   const selectedCompany = selectedSponsor
     ? sponsorCompany(selectedSponsor)
@@ -495,6 +566,31 @@ export default function MapSidebar({
                     );
                   })}
                 </p>
+              )}
+              {programme && (
+                <div className="flex flex-col gap-xs border-l-2 border-stroke-secondary pl-xs">
+                  {programme.current && (
+                    <StageSession
+                      accentClass="text-core-green"
+                      label={t("details.nowOnStage")}
+                      session={programme.current}
+                    />
+                  )}
+                  {programme.next && (
+                    <StageSession
+                      accentClass="text-core-purple"
+                      label={t("details.nextOnStage")}
+                      session={programme.next}
+                    />
+                  )}
+                  <a
+                    className="self-start font-mono text-button-small font-bold uppercase text-white transition-colors hover:text-text-secondary"
+                    href={todayHash(programme.stage)}
+                    onClick={() => followHashLink(todayHash(programme.stage))}
+                  >
+                    {t("details.todaySessions", { stage: programme.stage })}
+                  </a>
+                </div>
               )}
               {selected.item.items && selected.item.items.length > 0 && (
                 <div className="flex flex-col gap-3xs">

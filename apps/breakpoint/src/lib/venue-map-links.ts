@@ -1,4 +1,4 @@
-export const VENUE_MAP_ANCHOR = "venue-map";
+export const VENUE_MAP_ANCHOR = "map";
 
 function parseHash(hash: string, anchor: string): string | null {
   const prefix = `#${anchor}/`;
@@ -12,7 +12,7 @@ function parseHash(hash: string, anchor: string): string | null {
   }
 }
 
-/** Zone id from `#venue-map/<zone id>`, or null for any other hash. */
+/** Zone id from `#map/<zone id>`, or null for any other hash. */
 export function parseVenueMapHash(hash: string): string | null {
   return parseHash(hash, VENUE_MAP_ANCHOR);
 }

@@ -253,7 +253,7 @@ export default function InteractiveMap({
     [focusSelection, resetView, selection, showMap],
   );
 
-  // `#venue-map/<zone id>` (from a shared link) opens the
+  // `#map/<zone id>` (from the live agenda or a shared link) opens the
   // map on that zone. The latest `focusSelection` is read through a ref so
   // the listener is not re-armed, and the hash re-applied, on every render.
   const focusRef = useRef(focusSelection);
