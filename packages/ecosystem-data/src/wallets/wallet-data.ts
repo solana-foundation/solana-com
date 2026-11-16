@@ -1168,7 +1168,7 @@ const walletRecords = {
       "staking",
     ],
     description:
-      "Self-custody mobile wallet covering 70+ blockchains including Solana, with SOL staking, hardware wallet integration, an offline cold-wallet signing mode, a DApp browser and cross-chain swaps",
+      "Self-custody mobile wallet covering 70+ blockchains including Solana, with SOL staking, hardware wallet integration, an offline cold-wallet signing mode, a DApp browser and cross-chain swaps with MEV protection",
     website: "https://www.fxwallet.com/",
     icon: fxwalletIcon,
     lastVerified: "2026-11-11",
