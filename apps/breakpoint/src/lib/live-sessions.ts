@@ -15,6 +15,7 @@ export const LIVE_AGENDA_DAYS: ReadonlyArray<{ date: string; key: string }> = [
 
 /** Session length assumed when Airtable gives neither a duration nor an end. */
 const DEFAULT_DURATION_MINUTES = 30;
+const SESSION_OVERRUN_MINUTES = 30;
 /** Fetch fresh data this long before a session boundary so the switch feels instant. */
 export const REFRESH_LEAD_MS = 5_000;
 
@@ -166,10 +167,14 @@ export function calculateLiveSchedule(
   const current = sessions.find((session) => session.status === "live") ?? null;
   const next = sessions.find((session) => session.status === "next") ?? null;
 
-  // The schedule changes at the next start or end boundary after now.
+  // Refresh at starts, ends, and expiry of the homepage overrun buffer.
   let boundary: number | null = null;
   for (const session of sessions) {
-    for (const candidate of [session.startMinutes, session.endMinutes]) {
+    for (const candidate of [
+      session.startMinutes,
+      session.endMinutes,
+      session.endMinutes + SESSION_OVERRUN_MINUTES,
+    ]) {
       if (candidate > minutes && (boundary === null || candidate < boundary)) {
         boundary = candidate;
       }
@@ -209,6 +214,17 @@ export function sessionsForStage(
       nextAssigned = true;
       return session.status === status ? session : { ...session, status };
     });
+}
+
+/** Keep scheduled sessions visible for 30 minutes of possible overrun. */
+export function sessionsAroundTime(
+  sessions: LiveSession[],
+  now: number,
+): LiveSession[] {
+  const { minutes } = londonNow(now);
+  return sessions.filter(
+    (session) => session.endMinutes + SESSION_OVERRUN_MINUTES > minutes,
+  );
 }
 
 /** Stage names present in a schedule, with the main stage first. */

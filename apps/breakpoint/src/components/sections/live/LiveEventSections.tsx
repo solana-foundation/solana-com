@@ -23,6 +23,7 @@ import {
   EVENT_TIME_ZONE,
   formatMinutes,
   sessionsForStage,
+  sessionsAroundTime,
   stagesInSchedule,
   type LiveSession,
 } from "@/lib/live-sessions";
@@ -32,6 +33,8 @@ import {
   type ViewerTimes,
 } from "@/lib/viewer-time";
 import { useRequiredLiveSchedule } from "./LiveScheduleProvider";
+
+const UPCOMING_ROW_LIMIT = 8;
 
 type LiveEventSectionsProps = {
   stream: LiveStream;
@@ -175,7 +178,7 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
   const tNav = useTranslations("breakpoint.navigation");
   const tFloors = useTranslations("breakpoint.pages.schedule.list.floors");
   const locale = useLocale();
-  const { schedule, viewerTimeZone } = useRequiredLiveSchedule();
+  const { schedule, now, viewerTimeZone } = useRequiredLiveSchedule();
 
   const viewer = useMemo(
     () => viewerTimes(schedule.date, viewerTimeZone, locale),
@@ -259,7 +262,10 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
     streamMessage = t("streamUnavailable", { stage: stream.stage });
   }
 
-  const stageSessions = sessionsForStage(schedule.sessions, activeStage);
+  const stageSessions = sessionsAroundTime(
+    sessionsForStage(schedule.sessions, activeStage),
+    now,
+  ).slice(0, UPCOMING_ROW_LIMIT);
 
   const streamZone = zoneForStage(VENUE_MAP, stream.stage);
   const streamMapHref = streamZone

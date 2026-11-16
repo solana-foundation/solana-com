@@ -14,8 +14,8 @@ vi.mock("@/components/ImageTreatment", () => ({ default: () => null }));
 
 afterEach(cleanup);
 
-it("keeps the full day's scheduled sessions visible without inferred live status", () => {
-  const now = Date.parse("2026-11-16T10:10:00Z");
+it("keeps overrunning sessions visible without inferred live status", () => {
+  const now = Date.parse("2026-11-16T10:40:00Z");
   const schedule = calculateLiveSchedule(
     Array.from({ length: 12 }, (_, index) => ({
       id: `session-${index}`,
@@ -41,12 +41,15 @@ it("keeps the full day's scheduled sessions visible without inferred live status
   );
 
   const agenda = within(document.getElementById("today")!);
-  expect(agenda.getAllByRole("article")).toHaveLength(12);
+  expect(agenda.getAllByRole("article")).toHaveLength(8);
   expect(
-    agenda.getByRole("heading", { name: "Session 0" }),
+    agenda.queryByRole("heading", { name: "Session 0" }),
+  ).not.toBeInTheDocument();
+  expect(
+    agenda.getByRole("heading", { name: "Session 1" }),
   ).toBeInTheDocument();
-  expect(agenda.getByText("09:00–09:20")).toBeInTheDocument();
-  expect(agenda.getAllByText("Scheduled")).toHaveLength(12);
+  expect(agenda.getByText("10:00–10:20")).toBeInTheDocument();
+  expect(agenda.getAllByText("Scheduled")).toHaveLength(8);
   expect(
     agenda.queryByText(/Live now|Next up|Later today|Finished/),
   ).not.toBeInTheDocument();
