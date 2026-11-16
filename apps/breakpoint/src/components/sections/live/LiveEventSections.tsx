@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import ImageTreatment from "@/components/ImageTreatment";
@@ -88,6 +88,66 @@ function SessionTimes({
   );
 }
 
+const YOUTUBE_ORIGIN = "https://www.youtube.com";
+const STREAM_STALL_TIMEOUT_MS = 10_000;
+/**
+ * YouTube's "playing" state. Buffering (3) is not proof of playback: a player
+ * stuck behind the bot check reports it once and never starts.
+ */
+const YOUTUBE_STATE_PLAYING = 1;
+
+/**
+ * True when the embedded player has not started playing shortly after it was
+ * opened. YouTube's "Sign in to confirm you're not a bot" check raises no
+ * player error; the player just stays unstarted, so this is the only signal.
+ */
+function useStreamStalled(active: boolean) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    let heard = false;
+    let playing = false;
+    // The player only reports state after it is told someone is listening.
+    const handshake = window.setInterval(() => {
+      if (heard) return window.clearInterval(handshake);
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: "listening", id: 1, channel: "widget" }),
+        YOUTUBE_ORIGIN,
+      );
+    }, 500);
+    const timer = window.setTimeout(() => {
+      if (!playing) setStalled(true);
+    }, STREAM_STALL_TIMEOUT_MS);
+    const onMessage = (event: MessageEvent) => {
+      if (
+        event.origin !== YOUTUBE_ORIGIN ||
+        event.source !== iframeRef.current?.contentWindow
+      ) {
+        return;
+      }
+      heard = true;
+      let state: unknown;
+      try {
+        state = JSON.parse(String(event.data))?.info?.playerState;
+      } catch {
+        return;
+      }
+      if (state === YOUTUBE_STATE_PLAYING) {
+        playing = true;
+        setStalled(false);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => {
+      window.clearInterval(handshake);
+      window.clearTimeout(timer);
+      window.removeEventListener("message", onMessage);
+    };
+  }, [active]);
+  return { iframeRef, stalled };
+}
+
 function StreamPlayer({
   message,
   stream,
@@ -99,59 +159,90 @@ function StreamPlayer({
 }) {
   const [started, setStarted] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
+  const t = useTranslations("breakpoint.live");
+  const { iframeRef, stalled } = useStreamStalled(started);
   if (stream.youtubeVideoId) {
     const params = new URLSearchParams({
       autoplay: "1",
+      enablejsapi: "1",
       mute: "1",
       playsinline: "1",
       rel: "0",
     });
+    // Only read once `started`, which is set by a click, so never on the server.
+    if (started) params.set("origin", window.location.origin);
     return (
-      <div className="relative aspect-video w-full overflow-hidden border border-stroke-primary bg-black">
-        {started ? (
-          <iframe
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            className="absolute inset-0 h-full w-full"
-            src={`https://www.youtube-nocookie.com/embed/${stream.youtubeVideoId}?${params.toString()}`}
-            title={title}
-          />
-        ) : (
-          <button
-            aria-label={title}
-            className="absolute inset-0 flex h-full w-full items-center justify-center text-white"
-            onClick={() => setStarted(true)}
-            type="button"
-          >
-            <img
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-              onError={() => setThumbnailFailed(true)}
-              src={
-                thumbnailFailed
-                  ? publicAssetPath("/img/subpage-heroes/schedule-hero.webp")
-                  : `https://i.ytimg.com/vi/${stream.youtubeVideoId}/hqdefault.jpg`
-              }
+      <>
+        <div className="relative aspect-video w-full overflow-hidden border border-stroke-primary bg-black">
+          {started ? (
+            <iframe
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              className="absolute inset-0 h-full w-full"
+              ref={iframeRef}
+              referrerPolicy="strict-origin-when-cross-origin"
+              // Not youtube-nocookie.com: that host never sees the viewer's
+              // YouTube session, so its "Sign in to confirm you're not a bot"
+              // check (common on shared venue networks) cannot be passed.
+              src={`https://www.youtube.com/embed/${stream.youtubeVideoId}?${params.toString()}`}
+              title={title}
             />
-            <span aria-hidden="true" className="absolute inset-0 bg-black/30" />
-            <svg
-              aria-hidden="true"
-              className="relative h-20 w-20"
-              viewBox="0 0 80 80"
-              fill="none"
+          ) : (
+            <button
+              aria-label={title}
+              className="absolute inset-0 flex h-full w-full items-center justify-center text-white"
+              onClick={() => setStarted(true)}
+              type="button"
             >
-              <circle
-                cx="40"
-                cy="40"
-                r="38"
-                stroke="currentColor"
-                strokeWidth="2"
+              <img
+                alt=""
+                className="absolute inset-0 h-full w-full object-cover"
+                onError={() => setThumbnailFailed(true)}
+                src={
+                  thumbnailFailed
+                    ? publicAssetPath("/img/subpage-heroes/schedule-hero.webp")
+                    : publicAssetPath(`/live/${stream.youtubeVideoId}.jpg`)
+                }
               />
-              <path d="M32 24L56 40L32 56V24Z" fill="currentColor" />
-            </svg>
-          </button>
-        )}
-      </div>
+              <span
+                aria-hidden="true"
+                className="absolute inset-0 bg-black/30"
+              />
+              <svg
+                aria-hidden="true"
+                className="relative h-20 w-20"
+                viewBox="0 0 80 80"
+                fill="none"
+              >
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="38"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+                <path d="M32 24L56 40L32 56V24Z" fill="currentColor" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {/* Kept below the player: YouTube's terms forbid covering any part of it. */}
+        <div className="mt-xs flex flex-wrap items-center justify-end gap-x-s gap-y-3xs">
+          {stalled && (
+            <p className="type-eyebrow text-text-secondary" role="status">
+              {t("streamStalled")}
+            </p>
+          )}
+          <Button
+            arrow
+            href={`https://www.youtube.com/watch?v=${stream.youtubeVideoId}`}
+            label={stalled ? t("streamStalledCta") : "YouTube"}
+            rel="noopener"
+            target="_blank"
+            variant={stalled ? "secondary" : "inline"}
+          />
+        </div>
+      </>
     );
   }
 
