@@ -44,7 +44,9 @@ it("shows a poster with a local fallback and loads the stream on click", () => {
   fireEvent.click(poster.closest("button")!);
   expect(container.querySelector("iframe")).toHaveAttribute(
     "src",
-    expect.stringContaining(`/embed/${MAIN_STAGE_STREAM.youtubeVideoId}?`),
+    expect.stringContaining(
+      `https://www.youtube.com/embed/${MAIN_STAGE_STREAM.youtubeVideoId}?`,
+    ),
   );
   expect(youtubeLink).toBeVisible();
 });

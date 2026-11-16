@@ -113,7 +113,11 @@ function StreamPlayer({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             className="absolute inset-0 h-full w-full"
-            src={`https://www.youtube-nocookie.com/embed/${stream.youtubeVideoId}?${params.toString()}`}
+            referrerPolicy="strict-origin-when-cross-origin"
+            // Not youtube-nocookie.com: that host never sees the viewer's
+            // YouTube session, so its "Sign in to confirm you're not a bot"
+            // check (common on shared venue networks) cannot be passed.
+            src={`https://www.youtube.com/embed/${stream.youtubeVideoId}?${params.toString()}`}
             title={title}
           />
         ) : (
