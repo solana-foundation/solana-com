@@ -1,4 +1,10 @@
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import { afterEach, expect, it, vi } from "vitest";
 import LiveEventSections from "@/components/sections/live/LiveEventSections";
@@ -49,6 +55,48 @@ it("shows a poster with a local fallback and loads the stream on click", () => {
     ),
   );
   expect(youtubeLink).toBeVisible();
+});
+
+it("offers YouTube when the embedded stream never starts playing", () => {
+  vi.useFakeTimers();
+  const now = Date.parse("2026-11-16T10:40:00Z");
+  vi.mocked(useRequiredLiveSchedule).mockReturnValue({
+    now,
+    schedule: calculateLiveSchedule([], now),
+    viewerTimeZone: null,
+  });
+  const { container, queryByRole } = render(
+    <NextIntlClientProvider locale="en" messages={messages}>
+      <LiveEventSections stream={MAIN_STAGE_STREAM} />
+    </NextIntlClientProvider>,
+  );
+  const fallback = () => queryByRole("link", { name: "Watch on YouTube" });
+  const playerSays = (playerState: number) =>
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: JSON.stringify({
+            event: "infoDelivery",
+            info: { playerState },
+          }),
+          origin: "https://www.youtube.com",
+          source: container.querySelector("iframe")!.contentWindow,
+        }),
+      );
+    });
+
+  fireEvent.click(container.querySelector("button img")!.closest("button")!);
+  // A bot-checked player reports buffering once, then never plays.
+  playerSays(3);
+  expect(fallback()).toBeNull();
+  act(() => void vi.advanceTimersByTime(10_000));
+  expect(fallback()).toHaveAttribute(
+    "href",
+    `https://www.youtube.com/watch?v=${MAIN_STAGE_STREAM.youtubeVideoId}`,
+  );
+  playerSays(1);
+  expect(fallback()).toBeNull();
+  vi.useRealTimers();
 });
 
 it("keeps overrunning sessions visible without inferred live status", () => {
