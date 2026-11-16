@@ -25,7 +25,6 @@ import {
   sessionsForStage,
   stagesInSchedule,
   type LiveSession,
-  type SessionStatus,
 } from "@/lib/live-sessions";
 import {
   formatOffsetDuration,
@@ -33,15 +32,6 @@ import {
   type ViewerTimes,
 } from "@/lib/viewer-time";
 import { useRequiredLiveSchedule } from "./LiveScheduleProvider";
-
-const UPCOMING_ROW_LIMIT = 8;
-
-const STATUS_CLASSES: Record<SessionStatus, string> = {
-  live: "text-core-green",
-  next: "text-core-purple",
-  later: "text-text-secondary",
-  ended: "text-neutral-500",
-};
 
 type LiveEventSectionsProps = {
   stream: LiveStream;
@@ -270,12 +260,6 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
   }
 
   const stageSessions = sessionsForStage(schedule.sessions, activeStage);
-  const endedCount = stageSessions.filter(
-    (session) => session.status === "ended",
-  ).length;
-  const upcoming = stageSessions
-    .filter((session) => session.status !== "ended")
-    .slice(0, UPCOMING_ROW_LIMIT);
 
   const streamZone = zoneForStage(VENUE_MAP, stream.stage);
   const streamMapHref = streamZone
@@ -428,33 +412,23 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
           </div>
 
           <div className="flex flex-col border-t border-neutral-700">
-            {endedCount > 0 && (
-              <p className="type-eyebrow border-b border-neutral-700 py-2xs text-neutral-500">
-                {t("endedCount", { count: endedCount, stage: activeStage })}
-              </p>
-            )}
-            {upcoming.length === 0 && (
+            {stageSessions.length === 0 && (
               <p className="type-paragraph border-b border-neutral-700 py-s text-text-secondary">
                 {schedule.day
                   ? t("agenda.empty", { stage: activeStage })
                   : t("noSessionsToday")}
               </p>
             )}
-            {upcoming.map((session) => {
+            {stageSessions.map((session) => {
               const names = speakerNames(session);
               return (
                 <article
                   key={session.id}
-                  className={`grid grid-cols-1 gap-xs border-b border-neutral-700 py-xs md:grid-cols-[180px_minmax(0,1fr)] md:gap-l md:py-s ${
-                    session.status === "live" ? "bg-neutral-800/60 md:px-s" : ""
-                  }`}
+                  className="grid grid-cols-1 gap-xs border-b border-neutral-700 py-xs md:grid-cols-[180px_minmax(0,1fr)] md:gap-l md:py-s"
                 >
                   <div className="flex flex-row flex-wrap items-center gap-2xs md:flex-col md:items-start md:gap-3xs">
-                    <p
-                      className={`type-eyebrow flex items-center gap-2xs ${STATUS_CLASSES[session.status]}`}
-                    >
-                      {session.status === "live" && <LiveDot />}
-                      {t(`status.${session.status}`)}
+                    <p className="type-eyebrow text-text-secondary">
+                      {t("agenda.scheduled")}
                     </p>
                     <SessionTimes
                       className="text-white"

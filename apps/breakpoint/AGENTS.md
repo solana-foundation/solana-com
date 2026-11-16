@@ -133,7 +133,9 @@ constant and merging is the release; there is no runtime toggle.
   before Why Attend, replacing Get Involved.
 - The home page loads the agenda once and wraps the live hero and the venue map
   in `LiveScheduleProvider`, so both read the same schedule and the map's stage
-  zones (Main Stage, Royal Exchange) show what is on now and next.
+  zones (Main Stage, Royal Exchange) show what is on now and next. The homepage
+  agenda shows every session for the selected stage with scheduled times,
+  without clock-based status labels, highlights, or hiding past slots.
 - The agenda and the map link to each other with hash fragments defined in
   `src/lib/live-links.ts`: `#map/<zone id>` opens the map on a zone and
   `#today/<stage slug>` opens today's sessions on a stage. Both work from other
