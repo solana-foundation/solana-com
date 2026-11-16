@@ -43,17 +43,6 @@ export function useLiveSchedule(
     setNow(previewNow ?? Date.now() + offsetRef.current);
   }, [previewNow]);
 
-  useEffect(() => {
-    const preview = allowClockPreview ? readPreviewNow() : null;
-    if (preview !== null) {
-      setPreviewNow(preview);
-      setNow(preview);
-      return;
-    }
-    offsetRef.current = initialNow - Date.now();
-    setNow(Date.now() + offsetRef.current);
-  }, [allowClockPreview, initialNow]);
-
   const refresh = useCallback(async () => {
     try {
       const response = await fetch(LIVE_SESSIONS_API, { cache: "no-store" });
@@ -69,6 +58,18 @@ export function useLiveSchedule(
       tick();
     }
   }, [tick]);
+
+  useEffect(() => {
+    const preview = allowClockPreview ? readPreviewNow() : null;
+    if (preview !== null) {
+      setPreviewNow(preview);
+      setNow(preview);
+      return;
+    }
+    offsetRef.current = initialNow - Date.now();
+    // The render timestamp can be stale after loading and hydration.
+    void refresh();
+  }, [allowClockPreview, initialNow, refresh]);
 
   const schedule = useMemo(
     () => calculateLiveSchedule(items, now),
