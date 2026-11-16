@@ -369,6 +369,18 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
               stream={stream}
               title={streamTitle}
             />
+            {stream.youtubeVideoId && (
+              <div className="mt-xs flex justify-end">
+                <Button
+                  arrow
+                  href={`https://www.youtube.com/watch?v=${stream.youtubeVideoId}`}
+                  label="YouTube"
+                  rel="noopener"
+                  target="_blank"
+                  variant="inline"
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-s md:col-span-6 md:col-start-1 md:row-start-2">

@@ -21,7 +21,7 @@ it("shows a poster with a local fallback and loads the stream on click", () => {
     schedule: calculateLiveSchedule([], now),
     viewerTimeZone: null,
   });
-  const { container } = render(
+  const { container, getByRole } = render(
     <NextIntlClientProvider locale="en" messages={messages}>
       <LiveEventSections stream={MAIN_STAGE_STREAM} />
     </NextIntlClientProvider>,
@@ -32,6 +32,12 @@ it("shows a poster with a local fallback and loads the stream on click", () => {
     `https://i.ytimg.com/vi/${MAIN_STAGE_STREAM.youtubeVideoId}/hqdefault.jpg`,
   );
   expect(container.querySelector("iframe")).toBeNull();
+  const youtubeLink = getByRole("link", { name: "YouTube" });
+  expect(youtubeLink).toHaveAttribute(
+    "href",
+    `https://www.youtube.com/watch?v=${MAIN_STAGE_STREAM.youtubeVideoId}`,
+  );
+  expect(youtubeLink).toHaveAttribute("target", "_blank");
   fireEvent.error(poster);
   expect(poster.getAttribute("src")).toContain(
     "/img/subpage-heroes/schedule-hero.webp",
@@ -41,6 +47,7 @@ it("shows a poster with a local fallback and loads the stream on click", () => {
     "src",
     expect.stringContaining(`/embed/${MAIN_STAGE_STREAM.youtubeVideoId}?`),
   );
+  expect(youtubeLink).toBeVisible();
 });
 
 it("keeps overrunning sessions visible without inferred live status", () => {
