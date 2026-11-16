@@ -27,9 +27,8 @@ it("shows a poster with a local fallback and loads the stream on click", () => {
     </NextIntlClientProvider>,
   );
   const poster = container.querySelector("button img")!;
-  expect(poster).toHaveAttribute(
-    "src",
-    `https://i.ytimg.com/vi/${MAIN_STAGE_STREAM.youtubeVideoId}/hqdefault.jpg`,
+  expect(poster.getAttribute("src")).toContain(
+    `/live/${MAIN_STAGE_STREAM.youtubeVideoId}.jpg`,
   );
   expect(container.querySelector("iframe")).toBeNull();
   const youtubeLink = getByRole("link", { name: "YouTube" });

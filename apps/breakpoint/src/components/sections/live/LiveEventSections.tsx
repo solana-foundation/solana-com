@@ -130,7 +130,7 @@ function StreamPlayer({
               src={
                 thumbnailFailed
                   ? publicAssetPath("/img/subpage-heroes/schedule-hero.webp")
-                  : `https://i.ytimg.com/vi/${stream.youtubeVideoId}/hqdefault.jpg`
+                  : publicAssetPath(`/live/${stream.youtubeVideoId}.jpg`)
               }
             />
             <span aria-hidden="true" className="absolute inset-0 bg-black/30" />
