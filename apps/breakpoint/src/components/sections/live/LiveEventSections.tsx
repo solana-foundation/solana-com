@@ -97,22 +97,48 @@ function StreamPlayer({
   stream: LiveStream;
   title: string;
 }) {
+  const [started, setStarted] = useState(false);
   if (stream.youtubeVideoId) {
     const params = new URLSearchParams({
-      autoplay: "0",
+      autoplay: "1",
       mute: "1",
       playsinline: "1",
       rel: "0",
     });
     return (
       <div className="relative aspect-video w-full overflow-hidden border border-stroke-primary bg-black">
-        <iframe
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          className="absolute inset-0 h-full w-full"
-          src={`https://www.youtube-nocookie.com/embed/${stream.youtubeVideoId}?${params.toString()}`}
-          title={title}
-        />
+        {started ? (
+          <iframe
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="absolute inset-0 h-full w-full"
+            src={`https://www.youtube-nocookie.com/embed/${stream.youtubeVideoId}?${params.toString()}`}
+            title={title}
+          />
+        ) : (
+          <button
+            aria-label={title}
+            className="absolute inset-0 flex h-full w-full items-center justify-center text-white"
+            onClick={() => setStarted(true)}
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              className="h-20 w-20"
+              viewBox="0 0 80 80"
+              fill="none"
+            >
+              <circle
+                cx="40"
+                cy="40"
+                r="38"
+                stroke="currentColor"
+                strokeWidth="2"
+              />
+              <path d="M32 24L56 40L32 56V24Z" fill="currentColor" />
+            </svg>
+          </button>
+        )}
       </div>
     );
   }
