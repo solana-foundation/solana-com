@@ -164,6 +164,12 @@ constant and merging is the release; there is no runtime toggle.
   the live layout can be checked on any date (London time unless the value names
   a zone). Production ignores both parameters. `?preview=pre` shows the
   marketing page once the constant has flipped.
+- The next-edition (BP27) announcement is a full-width bar under the hero on
+  both editions (`src/components/sections/NextEditionBar.tsx`). Its facts and
+  the `published` switch live in `src/content/next-edition.ts`; `null` facts are
+  not rendered. With `published: false` the bar shows only outside production
+  with `?preview=bp27`, which can be combined with an edition, e.g.
+  `?preview=pre&preview=bp27`.
 
 ## Venue Map
 

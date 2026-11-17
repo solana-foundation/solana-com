@@ -13,6 +13,7 @@ import SponsorsSection from "@/components/sections/SponsorsSection";
 import EventsSection from "@/components/sections/EventsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
+import NextEditionBar from "@/components/sections/NextEditionBar";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
 import LiveEventSection from "@/components/sections/live/LiveEventSection";
@@ -25,7 +26,7 @@ import {
   resolveConferenceState,
   type SearchParams,
 } from "@/content/conference-state";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
+import { isNextEditionVisible, NEXT_EDITION } from "@/content/next-edition";
 import { getHomeMetadata } from "@/app/metadata";
 import { buildBreakpointJsonLd, serializeJsonLd } from "@/lib/structured-data";
 
@@ -53,7 +54,11 @@ export default async function HomePage({
   const t = await getTranslations({ locale, namespace: "breakpoint" });
   const initialNow = Date.now();
   const jsonLd = await buildBreakpointJsonLd(locale);
-  const live = isLiveConference(resolveConferenceState(await searchParams));
+  const requestSearchParams = await searchParams;
+  const live = isLiveConference(resolveConferenceState(requestSearchParams));
+  const nextEdition = isNextEditionVisible(requestSearchParams) ? (
+    <NextEditionBar announcement={NEXT_EDITION} />
+  ) : null;
   // One agenda load feeds the stream hero, today's sessions and the map.
   const liveAgenda = live ? await getLiveAgenda() : [];
 
@@ -61,16 +66,15 @@ export default async function HomePage({
     <PageShell
       contentId="breakpoint-content"
       navigation={
-        live
-          ? {
-              ctaAlwaysVisible: true,
-              ctaHref: "/schedule",
-              ctaLabel: t("navigation.agenda"),
-            }
-          : {
-              ctaHref: GENERAL_ADMISSION_HREF,
-              ctaLabel: t("menu.items.register"),
-            }
+        // The main nav button goes to registration for the next edition.
+        {
+          ctaAlwaysVisible: live,
+          ctaHref: "/registration",
+          ctaLabel: t("nextEdition.navCta", {
+            shortName: NEXT_EDITION.shortName,
+          }),
+          ctaShortLabel: t("nextEdition.navCtaShort"),
+        }
       }
       beforeNavigation={
         <script
@@ -86,7 +90,7 @@ export default async function HomePage({
             initialItems={liveAgenda}
             initialNow={initialNow}
           >
-            <LiveEventSection />
+            <LiveEventSection belowHero={nextEdition} />
             <VenueMapSection />
           </LiveScheduleProvider>
           <Marquee />
@@ -97,7 +101,12 @@ export default async function HomePage({
         </>
       ) : (
         <>
-          <HeroSection />
+          <HeroSection roomBelow={Boolean(nextEdition)} />
+          {/* From md up the hero is a fixed height with its copy pinned to
+              the bottom edge, so the space above the bar is added here. */}
+          {nextEdition && (
+            <div className="bg-black md:pt-xl">{nextEdition}</div>
+          )}
           <NarrativeSection />
           <Marquee />
           <TicketsSection initialNow={initialNow} />

@@ -51,8 +51,10 @@ export function resolveConferenceState(
 ): ConferenceState {
   if (production) return shipped;
   const raw = searchParams?.[PREVIEW_PARAM];
-  const value = Array.isArray(raw) ? raw[0] : raw;
-  return isConferenceState(value) ? value : shipped;
+  // The query is shared with other previews (e.g. `preview=bp27`), so take
+  // the first value that names an edition rather than the first value.
+  const values = Array.isArray(raw) ? raw : [raw];
+  return values.find(isConferenceState) ?? shipped;
 }
 
 export function isLiveConference(state: ConferenceState = CONFERENCE_STATE) {

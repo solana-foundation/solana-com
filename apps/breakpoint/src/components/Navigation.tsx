@@ -37,6 +37,8 @@ type NavigationProps = {
   ctaAlwaysVisible?: boolean;
   ctaHref?: string;
   ctaLabel?: string;
+  /** Shorter label shown below `md`, where the bar has no room for more. */
+  ctaShortLabel?: string;
   showMenuButton?: boolean;
 };
 
@@ -125,6 +127,7 @@ export default function Navigation({
   ctaAlwaysVisible = false,
   ctaHref,
   ctaLabel,
+  ctaShortLabel,
   showMenuButton = true,
 }: NavigationProps = {}) {
   const t = useTranslations("breakpoint");
@@ -256,7 +259,16 @@ export default function Navigation({
 
   const ctaInner = (
     <>
-      <span className="whitespace-nowrap">{resolvedCtaLabel}</span>
+      {ctaShortLabel ? (
+        <>
+          <span className="whitespace-nowrap md:hidden">{ctaShortLabel}</span>
+          <span className="hidden whitespace-nowrap md:inline">
+            {resolvedCtaLabel}
+          </span>
+        </>
+      ) : (
+        <span className="whitespace-nowrap">{resolvedCtaLabel}</span>
+      )}
       <span
         aria-hidden="true"
         className="inline-flex size-3 items-center justify-center"

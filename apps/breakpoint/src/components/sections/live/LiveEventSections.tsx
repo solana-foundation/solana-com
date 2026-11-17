@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import ImageTreatment from "@/components/ImageTreatment";
@@ -37,6 +37,8 @@ import { useRequiredLiveSchedule } from "./LiveScheduleProvider";
 const UPCOMING_ROW_LIMIT = 8;
 
 type LiveEventSectionsProps = {
+  /** Rendered full width between the hero and today's sessions. */
+  belowHero?: ReactNode;
   stream: LiveStream;
 };
 
@@ -302,7 +304,10 @@ function ViewerNote({ viewer }: { viewer: ViewerTimes }) {
   );
 }
 
-export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
+export default function LiveEventSections({
+  belowHero,
+  stream,
+}: LiveEventSectionsProps) {
   const t = useTranslations("breakpoint.live");
   const tNav = useTranslations("breakpoint.navigation");
   const tFloors = useTranslations("breakpoint.pages.schedule.list.floors");
@@ -482,6 +487,8 @@ export default function LiveEventSections({ stream }: LiveEventSectionsProps) {
           </div>
         </div>
       </section>
+
+      {belowHero}
 
       <section id={TODAY_ANCHOR} className="pt-20 md:pt-[120px]">
         <div className="container flex flex-col gap-m md:gap-l">
