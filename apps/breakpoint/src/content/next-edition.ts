@@ -4,7 +4,7 @@
  * It renders as one full-width announcement bar (`NextEditionBar`) directly
  * under the hero on both the live edition and the marketing page. The
  * bar opens a dialog with the announcement video on top and the
- * register-interest email signup underneath.
+ * updates email signup underneath.
  *
  * Every event fact lives here so the events team can review one file. A `null`
  * field is unconfirmed and is simply not rendered. `published` shows the bar
@@ -55,11 +55,13 @@ export const NEXT_EDITION: NextEditionAnnouncement = {
   published: true,
   year: "2027",
   shortName: "BP27",
-  city: null,
-  venue: null,
-  region: null,
-  startDate: null,
-  endDate: null,
+  // Dates and location as listed on the Luma event (8–10 September 2027,
+  // Pacific time).
+  city: "San Francisco",
+  venue: "Pier 48",
+  region: "California",
+  startDate: "2027-09-08",
+  endDate: "2027-09-10",
   // https://youtu.be/jzxX5B_Ddiw
   videoId: "jzxX5B_Ddiw",
   signupFormId: BP27_UPDATES_FORM_ID,

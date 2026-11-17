@@ -6,9 +6,11 @@ import PageShell from "@/components/PageShell";
 import RegistrationTicketButton from "@/components/pages/registration/RegistrationTicketButton";
 import SubpageHero from "@/components/SubpageHero";
 import { NEXT_EDITION } from "@/content/next-edition";
+import { formatEventDateRange } from "@/lib/event-dates";
 
 const REGISTRATION_MARQUEE_HIGHLIGHTS = [
   NEXT_EDITION.shortName,
+  "SF",
   "FLASH SALE",
   "BUILD",
   "DEPLOY",
@@ -32,6 +34,13 @@ export default async function RegistrationPage({ locale }: { locale: string }) {
   const { flashSalePrice, registrationHref, shortName, signupFormId, videoId } =
     NEXT_EDITION;
   const year = NEXT_EDITION.year;
+  const details = [
+    formatEventDateRange(locale, NEXT_EDITION.startDate, NEXT_EDITION.endDate),
+    NEXT_EDITION.venue,
+    [NEXT_EDITION.city, NEXT_EDITION.region].filter(Boolean).join(", "),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const registerLabel = tSignup("registerCta", { shortName });
 
   return (
@@ -64,6 +73,9 @@ export default async function RegistrationPage({ locale }: { locale: string }) {
               <p className="type-paragraph text-black opacity-80">
                 {t("ticket.description", { year })}
               </p>
+              {details && (
+                <p className="type-eyebrow mt-2xs text-black">{details}</p>
+              )}
             </div>
             <div className="flex flex-col gap-2 md:gap-3">
               <p className="type-h2 text-black">{flashSalePrice}</p>
@@ -96,7 +108,9 @@ export default async function RegistrationPage({ locale }: { locale: string }) {
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-m px-xs md:flex-row md:items-end md:justify-between md:gap-l md:px-8">
             <div className="flex flex-col gap-2xs md:max-w-[582px]">
               <p className="type-eyebrow text-white">{t("updates.eyebrow")}</p>
-              <h2 className="type-h3 text-white">{t("updates.headline")}</h2>
+              <h2 className="type-h3 text-white">
+                {t("updates.headline", { year })}
+              </h2>
               <p className="type-p-large text-text-secondary">
                 {tSignup("signup.body", { year })}
               </p>

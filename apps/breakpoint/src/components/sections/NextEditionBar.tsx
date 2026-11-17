@@ -59,13 +59,15 @@ export default function NextEditionBar({
   const location = [announcement.city, announcement.region]
     .filter(Boolean)
     .join(", ");
-  const details = [
+  // The bar drops the city and region below `md`, where the headline already
+  // names the city and the full line would wrap.
+  const barDetails = [
     formatEventDateRange(locale, announcement.startDate, announcement.endDate),
     announcement.venue,
-    location,
   ]
     .filter(Boolean)
     .join(" · ");
+  const details = [barDetails, location].filter(Boolean).join(" · ");
 
   const { videoId, signupFormId } = announcement;
   const cta =
@@ -81,7 +83,17 @@ export default function NextEditionBar({
     <span className="flex min-w-0 flex-col gap-3xs">
       <span className="type-eyebrow text-black/70">{eyebrow}</span>
       <span className="type-h5 normal-case text-black">{headline}</span>
-      {details && <span className="type-eyebrow text-black">{details}</span>}
+      {details && (
+        <span className="type-eyebrow text-black">
+          {barDetails}
+          {location && (
+            <span className={barDetails ? "hidden md:inline" : undefined}>
+              {barDetails ? " · " : ""}
+              {location}
+            </span>
+          )}
+        </span>
+      )}
     </span>
   );
   // A full-bleed band; the content lines up with the page container.
