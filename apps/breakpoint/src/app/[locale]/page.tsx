@@ -73,6 +73,7 @@ export default async function HomePage({
           ctaLabel: t("nextEdition.navCta", {
             shortName: NEXT_EDITION.shortName,
           }),
+          ctaShortLabel: t("nextEdition.navCtaShort"),
         }
       }
       beforeNavigation={

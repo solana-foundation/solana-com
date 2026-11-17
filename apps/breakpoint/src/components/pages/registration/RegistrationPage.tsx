@@ -49,7 +49,8 @@ export default async function RegistrationPage({ locale }: { locale: string }) {
       navigation={{
         ctaAlwaysVisible: true,
         ctaHref: registrationHref,
-        ctaLabel: registerLabel,
+        ctaLabel: tSignup("navCta", { shortName }),
+        ctaShortLabel: tSignup("navCtaShort"),
         showMenuButton: true,
       }}
     >
