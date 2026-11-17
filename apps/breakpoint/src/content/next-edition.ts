@@ -1,18 +1,17 @@
 /**
  * Next-edition announcement for the Breakpoint home page.
  *
- * Mirrors the format of the archived BP26 announcement that followed BP25: a
- * header with eyebrow, headline, dates and venue; a media card that opens the
- * announcement video; and an updates / early-registration signup block.
+ * It renders as one full-width announcement bar (`NextEditionBar`) directly
+ * under the hero on both the live edition and the marketing page. The
+ * bar opens a dialog with the announcement video on top and the
+ * register-interest email signup underneath.
  *
  * Every event fact lives here so the events team can review one file. A `null`
- * field is unconfirmed and is simply not rendered. The only stand-in is the
- * video id, called out below. Flip `published` once every input has been
- * confirmed and the stand-in replaced. Until
- * then the section only renders on non-production deployments when the page
- * is opened with `?preview=bp27`. It shares the `preview` query with the
- * conference-state switch, so `?preview=live&preview=bp27` shows the
- * announcement on the live edition.
+ * field is unconfirmed and is simply not rendered. Flip `published` once the
+ * inputs have been confirmed. Until then the bar only renders on
+ * non-production deployments when the page is opened with `?preview=bp27`. It
+ * shares the `preview` query with the conference-state switch, so
+ * `?preview=live&preview=bp27` shows the announcement on the live edition.
  */
 
 import {
@@ -23,7 +22,7 @@ import {
 import { BP27_UPDATES_FORM_ID } from "@/content/links";
 
 export type NextEditionAnnouncement = {
-  /** Render the section for every visitor. */
+  /** Render the bar for every visitor. */
   published: boolean;
   /** Four-digit edition year, used in copy such as "Breakpoint 2027". */
   year: string;
@@ -39,14 +38,10 @@ export type NextEditionAnnouncement = {
   startDate: string | null;
   /** Last day, ISO date (YYYY-MM-DD). */
   endDate: string | null;
-  /** YouTube id of the announcement (sizzle) video. The media card needs it. */
+  /** YouTube id of the announcement (sizzle) video, played in the dialog. */
   videoId: string | null;
-  /** Thumbnail under `public/img`; falls back to the YouTube poster frame. */
-  thumbnail: string | null;
-  /** Optional artwork under `public/img` for the signup block. */
-  signupArtwork: string | null;
   /**
-   * Iterable public form id the signup block posts to: the public subscriber
+   * Iterable public form id the dialog's signup posts to: the public subscriber
    * form of the Breakpoint 2027 updates list (`BP27_UPDATES_FORM_ID`).
    */
   signupFormId: string | null;
@@ -61,10 +56,8 @@ export const NEXT_EDITION: NextEditionAnnouncement = {
   region: null,
   startDate: null,
   endDate: null,
-  // STAND-IN: the BP26 sizzle, until the BP27 sizzle is live on YouTube.
-  videoId: "Mys5RoZPWMg",
-  thumbnail: null,
-  signupArtwork: null,
+  // https://youtu.be/jzxX5B_Ddiw
+  videoId: "jzxX5B_Ddiw",
   signupFormId: BP27_UPDATES_FORM_ID,
 };
 

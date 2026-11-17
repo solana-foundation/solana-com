@@ -139,7 +139,7 @@ export default function EmailSubscribeForm({
           }}
           placeholder={labels.emailPlaceholder}
           disabled={isSending}
-          className={`type-field h-[40px] min-w-0 flex-1 border bg-transparent px-3 focus:outline-none ${toneClasses.input}`}
+          className={`type-field h-[40px] min-w-0 shrink-0 border bg-transparent px-3 focus:outline-none ${layout === "inline" ? "md:flex-1" : ""} ${toneClasses.input}`}
         />
         <Button
           disabled={isSending}

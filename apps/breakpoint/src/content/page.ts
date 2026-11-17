@@ -24,18 +24,13 @@ export type BreakpointMessages = {
     eyebrow: string;
     headline: string;
     headlineNoCity: string;
-    datesLabel: string;
-    venueLabel: string;
-    media: {
-      eyebrow: string;
-      title: string;
-      body: string;
-      cta: string;
-      videoTitle: string;
+    videoTitle: string;
+    cta: {
+      watchAndRegister: string;
+      watch: string;
+      register: string;
     };
     signup: {
-      eyebrow: string;
-      headline: string;
       body: string;
       emailLabel: string;
       emailPlaceholder: string;

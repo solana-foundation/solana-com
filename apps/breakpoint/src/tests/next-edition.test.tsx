@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
-import NextEditionSection from "@/components/sections/NextEditionSection";
+import NextEditionBar from "@/components/sections/NextEditionBar";
 import { resolveConferenceState } from "@/content/conference-state";
 import { BP27_UPDATES_FORM_ID } from "@/content/links";
 import {
@@ -27,8 +27,6 @@ const unpublished: NextEditionAnnouncement = {
   startDate: null,
   endDate: null,
   videoId: null,
-  thumbnail: null,
-  signupArtwork: null,
   signupFormId: null,
 };
 
@@ -43,16 +41,10 @@ const confirmed: NextEditionAnnouncement = {
   signupFormId: "form-123",
 };
 
-function byRevealedText(tagName: string, pattern: RegExp) {
-  return (_: string, element: Element | null) =>
-    element?.tagName === tagName &&
-    pattern.test((element.textContent ?? "").replace(/\s+/g, " "));
-}
-
-function renderSection(announcement: NextEditionAnnouncement) {
+function renderBar(announcement: NextEditionAnnouncement) {
   return render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <NextEditionSection announcement={announcement} />
+      <NextEditionBar announcement={announcement} />
     </NextIntlClientProvider>,
   );
 }
@@ -110,65 +102,95 @@ describe("formatEventDateRange", () => {
   });
 });
 
-describe("NextEditionSection", () => {
+describe("NextEditionBar", () => {
   afterEach(() => {
     cleanup();
     vi.restoreAllMocks();
   });
 
   it("omits unconfirmed facts instead of showing placeholders", () => {
-    renderSection(unpublished);
+    renderBar(unpublished);
 
-    expect(
-      screen.getByRole("heading", { level: 2, name: "Solana BP27 is coming" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByText("Dates")).not.toBeInTheDocument();
-    expect(screen.queryByText("Venue")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Play video/)).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", {
-        level: 2,
-        name: "Sign up for updates and early registration for Breakpoint 2027",
-      }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("Solana BP27 is coming")).toBeInTheDocument();
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
   });
 
-  it("ships the stand-in sizzle and posts signups to the BP27 list form", () => {
-    renderSection(NEXT_EDITION);
+  it("plays the BP27 announcement video and posts signups to the BP27 list form", () => {
+    renderBar(NEXT_EDITION);
 
-    fireEvent.click(screen.getByRole("button", { name: /^Play video$/ }));
-    expect(screen.getByTitle(/Breakpoint 2027 announcement/)).toHaveAttribute(
+    fireEvent.click(
+      screen.getByRole("button", { name: /Watch and register interest/ }),
+    );
+    expect(screen.getByTitle("Breakpoint 2027 announcement")).toHaveAttribute(
       "src",
-      expect.stringContaining("youtube.com/embed/Mys5RoZPWMg"),
+      expect.stringContaining("youtube.com/embed/jzxX5B_Ddiw"),
     );
     expect(NEXT_EDITION.signupFormId).toBe(BP27_UPDATES_FORM_ID);
     expect(BP27_UPDATES_FORM_ID).toBe("a85fd8f3-c4f1-4771-ac3e-03851ac82add");
   });
 
-  it("renders confirmed details and the announcement video", () => {
-    renderSection(confirmed);
+  it("is one button that opens the video and signup dialog", () => {
+    renderBar(confirmed);
 
-    expect(
-      screen.getByRole("heading", {
-        level: 2,
-        name: "Solana BP27 is coming to Sample City",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(byRevealedText("DD", /15 ?– ?17 November 2027/)),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        byRevealedText("DD", /^Sample Venue ?Sample City, Sample Region$/),
-      ),
-    ).toBeInTheDocument();
+    const bar = screen.getByRole("button");
+    expect(bar).toHaveTextContent("Solana BP27 is coming to Sample City");
+    expect(bar.textContent?.replace(/\s+/g, " ")).toMatch(
+      /15 ?– ?17 November 2027 · Sample Venue · Sample City, Sample Region/,
+    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Play video" }));
-    expect(screen.getByTitle("Breakpoint 2027 announcement")).toHaveAttribute(
+    fireEvent.click(bar);
+
+    const dialog = screen.getByRole("dialog", {
+      name: "Solana BP27 is coming to Sample City",
+    });
+    const video = screen.getByTitle("Breakpoint 2027 announcement");
+    const email = screen.getByLabelText("Email");
+    expect(video).toHaveAttribute(
       "src",
       expect.stringContaining("youtube.com/embed/sample-video"),
     );
+    // The video sits above the signup.
+    expect(
+      video.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Register interest" }),
+    ).toHaveAttribute("type", "submit");
+    expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(dialog).not.toBeInTheDocument();
+    expect(bar).toHaveFocus();
+  });
+
+  it("closes on a backdrop click but not on a click inside the dialog", () => {
+    renderBar(confirmed);
+    fireEvent.click(screen.getByRole("button"));
+
+    fireEvent.click(screen.getByLabelText("Email"));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("dialog"));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("labels the bar for what the dialog holds", () => {
+    renderBar({ ...confirmed, signupFormId: null });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Watch the announcement/ }),
+    );
+    expect(screen.queryByLabelText("Email")).not.toBeInTheDocument();
+    cleanup();
+
+    renderBar({ ...confirmed, videoId: null });
+    fireEvent.click(screen.getByRole("button", { name: /Register interest/ }));
+    expect(
+      screen.queryByTitle("Breakpoint 2027 announcement"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 
   it("posts signups to the configured Iterable form", async () => {
@@ -176,7 +198,8 @@ describe("NextEditionSection", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue({ ok: true } as Response);
 
-    renderSection(confirmed);
+    renderBar(confirmed);
+    fireEvent.click(screen.getByRole("button"));
 
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "builder@example.com" },

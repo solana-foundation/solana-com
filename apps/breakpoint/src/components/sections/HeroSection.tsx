@@ -10,7 +10,17 @@ import WordReveal from "@/components/WordReveal";
 import { publicAssetPath } from "@/config";
 import { useVariant } from "@/lib/use-variant";
 
-export default function HeroSection() {
+interface HeroSectionProps {
+  /**
+   * Something sits directly under the hero (the next-edition bar). Below `md`
+   * the copy then flows and the hero grows with it, so a long headline cannot
+   * push the date and venue against whatever follows. The artwork stays at
+   * its 667px size; any extra height is plain black.
+   */
+  roomBelow?: boolean;
+}
+
+export default function HeroSection({ roomBelow = false }: HeroSectionProps) {
   const t = useTranslations("breakpoint");
   const variant = useVariant();
   const [interacting, setInteracting] = useState(false);
@@ -46,11 +56,19 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative h-[667px] w-full overflow-hidden bg-black md:h-[566px]">
+    <section
+      className={`relative w-full overflow-hidden bg-black md:h-[566px] ${
+        roomBelow ? "min-h-[667px] md:min-h-0" : "h-[667px]"
+      }`}
+    >
       <div
         ref={mediaRef}
         aria-hidden="true"
-        className="absolute inset-0"
+        className={
+          roomBelow
+            ? "absolute inset-x-0 top-0 h-[667px] md:h-full"
+            : "absolute inset-0"
+        }
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setInteracting(false)}
       >
@@ -101,10 +119,12 @@ export default function HeroSection() {
 
       <div className="container relative z-10 h-full">
         <div
-          className={`absolute left-4 right-4 md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] xl:w-[926px] ${
+          className={`md:absolute md:inset-x-auto md:left-8 md:right-auto md:top-60 md:h-[326px] md:w-[939px] md:pb-0 md:pt-0 xl:w-[926px] ${
             // Variant headlines run to four lines on mobile; start higher so
             // the date/venue block stays inside the fixed-height hero.
-            variant ? "top-[224px]" : "top-[283px]"
+            roomBelow
+              ? `relative pb-xl ${variant ? "pt-[224px]" : "pt-[283px]"}`
+              : `absolute left-4 right-4 ${variant ? "top-[224px]" : "top-[283px]"}`
           }`}
         >
           <TextScramble
@@ -156,7 +176,9 @@ export default function HeroSection() {
         aria-hidden="true"
         width={1440}
         height={146}
-        className="pointer-events-none absolute bottom-0 left-0 z-0 h-[146px] w-full object-cover"
+        className={`pointer-events-none absolute left-0 z-0 h-[146px] w-full object-cover ${
+          roomBelow ? "top-[521px] md:bottom-0 md:top-auto" : "bottom-0"
+        }`}
       />
     </section>
   );

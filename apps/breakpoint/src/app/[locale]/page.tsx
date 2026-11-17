@@ -14,7 +14,7 @@ import SponsorsSection from "@/components/sections/SponsorsSection";
 import EventsSection from "@/components/sections/EventsSection";
 import HighlightsSection from "@/components/sections/HighlightsSection";
 import AnnouncementsSection from "@/components/sections/AnnouncementsSection";
-import NextEditionSection from "@/components/sections/NextEditionSection";
+import NextEditionBar from "@/components/sections/NextEditionBar";
 import FAQSection from "@/components/sections/FAQSection";
 import Footer from "@/components/sections/Footer";
 import LiveEventSection from "@/components/sections/live/LiveEventSection";
@@ -59,7 +59,7 @@ export default async function HomePage({
   const requestSearchParams = await searchParams;
   const live = isLiveConference(resolveConferenceState(requestSearchParams));
   const nextEdition = isNextEditionVisible(requestSearchParams) ? (
-    <NextEditionSection announcement={NEXT_EDITION} />
+    <NextEditionBar announcement={NEXT_EDITION} />
   ) : null;
   // One agenda load feeds the stream hero, today's sessions and the map.
   const liveAgenda = live ? await getLiveAgenda() : [];
@@ -93,19 +93,23 @@ export default async function HomePage({
             initialItems={liveAgenda}
             initialNow={initialNow}
           >
-            <LiveEventSection />
+            <LiveEventSection belowHero={nextEdition} />
             <VenueMapSection />
           </LiveScheduleProvider>
           <Marquee />
           <SponsorsSection />
           <SpeakersSection />
-          {nextEdition}
           <EventsSection />
           <FAQSection />
         </>
       ) : (
         <>
-          <HeroSection />
+          <HeroSection roomBelow={Boolean(nextEdition)} />
+          {/* From md up the hero is a fixed height with its copy pinned to
+              the bottom edge, so the space above the bar is added here. */}
+          {nextEdition && (
+            <div className="bg-black md:pt-xl">{nextEdition}</div>
+          )}
           <NarrativeSection />
           <Marquee />
           <TicketsSection initialNow={initialNow} />
@@ -113,7 +117,6 @@ export default async function HomePage({
           <WhyAttendSection />
           <SponsorsSection />
           <SpeakersSection />
-          {nextEdition}
           <GallerySection />
           <StatsSection />
           <Marquee />
