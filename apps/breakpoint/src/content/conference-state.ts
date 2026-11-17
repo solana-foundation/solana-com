@@ -15,7 +15,7 @@
  */
 export type ConferenceState = "pre" | "live" | "post";
 
-export const CONFERENCE_STATE: ConferenceState = "pre";
+export const CONFERENCE_STATE: ConferenceState = "live";
 
 export const PREVIEW_PARAM = "preview";
 

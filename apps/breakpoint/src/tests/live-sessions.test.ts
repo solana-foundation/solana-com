@@ -10,6 +10,7 @@ import {
   parseClock,
   parseDurationMinutes,
   sessionsForStage,
+  sessionsAroundTime,
   stagesInSchedule,
   viewerTimeZoneDifference,
   zonedTimeToUtc,
@@ -261,5 +262,39 @@ describe("parseEventInstant", () => {
   it("is null for something that is not a date", () => {
     expect(parseEventInstant("tomorrow")).toBeNull();
     expect(parseEventInstant("2026-11-16T25:00")).toBeNull();
+  });
+});
+
+describe("sessionsAroundTime", () => {
+  it("schedules a refresh when the last session leaves the overrun buffer", () => {
+    const schedule = calculateLiveSchedule(
+      [session({ id: "last", time: "10:00", duration: "20" })],
+      DAY_ONE("10:40"),
+    );
+    expect(schedule.boundaryInMs).toBe(10 * 60_000);
+  });
+
+  it("keeps sessions during a 30-minute overrun, then removes them", () => {
+    const now = DAY_ONE("10:40");
+    const schedule = calculateLiveSchedule(
+      [
+        session({ id: "earlier", time: "09:30", duration: "20" }),
+        session({ id: "overrunning", time: "10:00", duration: "20" }),
+        session({ id: "scheduled", time: "10:30", duration: "20" }),
+        session({ id: "upcoming", time: "11:00", duration: "20" }),
+      ],
+      now,
+    );
+    expect(
+      sessionsAroundTime(schedule.sessions, now).map((item) => item.id),
+    ).toEqual(["overrunning", "scheduled", "upcoming"]);
+    expect(sessionsAroundTime(schedule.sessions, DAY_ONE("10:49"))[0]?.id).toBe(
+      "overrunning",
+    );
+    expect(
+      sessionsAroundTime(schedule.sessions, DAY_ONE("10:50")).map(
+        (item) => item.id,
+      ),
+    ).not.toContain("overrunning");
   });
 });

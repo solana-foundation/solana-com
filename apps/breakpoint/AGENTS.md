@@ -129,15 +129,19 @@ constant and merging is the release; there is no runtime toggle.
 
 - `live` renders `src/components/sections/live/LiveEventSection.tsx` (stream
   hero plus today's sessions), the venue map, sponsors, speakers, side events
-  and FAQ. `pre` renders the marketing page with the venue map before the FAQ.
+  and FAQ. `pre` renders the marketing page with the venue map after tickets and
+  before Why Attend, replacing Get Involved.
 - The home page loads the agenda once and wraps the live hero and the venue map
   in `LiveScheduleProvider`, so both read the same schedule and the map's stage
-  zones (Main Stage, Royal Exchange) show what is on now and next.
+  zones (Main Stage, Royal Exchange) show what is on now and next. The homepage
+  agenda shows up to eight recent and upcoming sessions for the selected stage,
+  keeping sessions for 30 minutes after their scheduled end to allow overruns.
+  Rows use scheduled times without live/next/finished claims or highlights.
 - The agenda and the map link to each other with hash fragments defined in
-  `src/lib/live-links.ts`: `#venue-map/<zone id>` opens the map on a zone and
+  `src/lib/live-links.ts`: `#map/<zone id>` opens the map on a zone and
   `#today/<stage slug>` opens today's sessions on a stage. Both work from other
-  pages too, e.g. `/#venue-map/royal-exchange`. A stage finds its zone by name,
-  so a new stage needs a zone with the same name in `map-data.ts`.
+  pages too, e.g. `/#map/royal-exchange`. A stage finds its zone by name, so a
+  new stage needs a zone with the same name in `map-data.ts`.
 - Visitors outside London see a note saying where they are viewing from and how
   far their clock is from London's, with each session's time repeated in their
   zone (`src/lib/viewer-time.ts`). The zone comes from the browser after mount,

@@ -15,8 +15,8 @@ import { isSameSelection } from "./map-utils";
 import { sponsorLogoSrc } from "./sponsor-logo";
 
 const ACCENT_VAR: Record<MapFloor["accent"], string> = {
-  blue: "var(--color-core-blue)",
-  pink: "var(--color-core-pink)",
+  blue: "fill-core-blue stroke-core-blue",
+  pink: "fill-core-pink stroke-core-pink",
 };
 
 type MapOverlayProps = {
@@ -94,12 +94,13 @@ export default function MapOverlay({
             tabIndex={0}
           >
             <rect
-              fill={
-                selected ? "var(--color-core-purple)" : "rgba(0, 0, 0, 0.85)"
+              className={
+                selected
+                  ? `fill-core-purple ${floor.accent === "blue" ? "stroke-core-blue" : "stroke-core-pink"}`
+                  : "fill-black/85 stroke-white/35"
               }
               height={pillHeight}
               rx={2 * u}
-              stroke={selected ? accent : "rgba(255, 255, 255, 0.35)"}
               strokeWidth={u}
               width={width}
               x={x}
@@ -109,17 +110,16 @@ export default function MapOverlay({
               height={logoHeight}
               href={sponsorLogoSrc(sponsor)}
               preserveAspectRatio="xMidYMid meet"
-              style={selected ? { filter: "invert(1)" } : undefined}
+              className={selected ? "invert" : undefined}
               width={logoWidth}
               x={x + 2 * pillPadding}
               y={y + pillPadding}
             />
             <rect
-              className={focusRingClass}
+              className={`${focusRingClass} stroke-white`}
               fill="none"
               height={pillHeight + 2 * focusRingGap}
               rx={3 * u}
-              stroke="#fff"
               strokeWidth={focusRingWidth}
               width={width + 2 * focusRingGap}
               x={x - focusRingGap}
@@ -157,14 +157,12 @@ export default function MapOverlay({
           >
             {selected && (
               <circle
-                className="event-map-callout-pulse"
+                className={`event-map-callout-pulse [transform-box:fill-box] origin-center ${floor.accent === "blue" ? "stroke-core-blue" : "stroke-core-pink"}`}
                 cx={amenity.position.x}
                 cy={amenity.position.y}
                 fill="none"
                 r={(pair ? iconSize : iconSize / 2) + 4 * u}
-                stroke={accent}
                 strokeWidth={1.5 * u}
-                style={{ transformBox: "fill-box", transformOrigin: "center" }}
               />
             )}
             <image
@@ -184,12 +182,11 @@ export default function MapOverlay({
               />
             )}
             <circle
-              className={focusRingClass}
+              className={`${focusRingClass} stroke-white`}
               cx={amenity.position.x}
               cy={amenity.position.y}
               fill="none"
               r={(pair ? iconSize : iconSize / 2) + focusRingGap}
-              stroke="#fff"
               strokeWidth={focusRingWidth}
             />
           </g>
@@ -210,12 +207,21 @@ export default function MapOverlay({
               <>
                 <path
                   d={`M ${marker.x} ${marker.y} L ${target.x} ${marker.y} L ${target.x} ${target.y}`}
+                  className={
+                    floor.accent === "blue"
+                      ? "stroke-core-blue"
+                      : "stroke-core-pink"
+                  }
                   fill="none"
-                  stroke={accent}
                   strokeOpacity={selected ? 1 : 0.7}
                   strokeWidth={leaderWidth}
                 />
-                <circle cx={target.x} cy={target.y} fill={accent} r={2.5 * u} />
+                <circle
+                  cx={target.x}
+                  cy={target.y}
+                  className={accent}
+                  r={2.5 * u}
+                />
               </>
             )}
             <g
@@ -229,24 +235,22 @@ export default function MapOverlay({
             >
               {selected && (
                 <rect
-                  className="event-map-callout-pulse"
+                  className={`event-map-callout-pulse [transform-box:fill-box] origin-center ${floor.accent === "blue" ? "stroke-core-blue" : "stroke-core-pink"}`}
                   fill="none"
                   height={markerRadius * 2 + 8 * u}
-                  stroke={accent}
                   strokeWidth={1.5 * u}
-                  style={{
-                    transformBox: "fill-box",
-                    transformOrigin: "center",
-                  }}
                   width={markerRadius * 2 + 8 * u}
                   x={marker.x - markerRadius - 4 * u}
                   y={marker.y - markerRadius - 4 * u}
                 />
               )}
               <rect
-                fill={selected ? "#fff" : accent}
+                className={
+                  selected
+                    ? `fill-white ${floor.accent === "blue" ? "stroke-core-blue" : "stroke-core-pink"}`
+                    : `${floor.accent === "blue" ? "fill-core-blue" : "fill-core-pink"} stroke-black`
+                }
                 height={markerRadius * 2}
-                stroke={selected ? accent : "#000"}
                 strokeWidth={u}
                 width={markerRadius * 2}
                 x={marker.x - markerRadius}
@@ -254,10 +258,8 @@ export default function MapOverlay({
               />
               <text
                 dominantBaseline="central"
-                fill="#000"
-                fontFamily="var(--font-abc-favorit-mono), monospace"
+                className="fill-black font-mono font-bold"
                 fontSize={markerFont}
-                fontWeight={700}
                 textAnchor="middle"
                 x={marker.x}
                 y={marker.y + 0.5 * u}
@@ -265,10 +267,9 @@ export default function MapOverlay({
                 {zone.number}
               </text>
               <rect
-                className={focusRingClass}
+                className={`${focusRingClass} stroke-white`}
                 fill="none"
                 height={markerRadius * 2 + 2 * focusRingGap}
-                stroke="#fff"
                 strokeWidth={focusRingWidth}
                 width={markerRadius * 2 + 2 * focusRingGap}
                 x={marker.x - markerRadius - focusRingGap}

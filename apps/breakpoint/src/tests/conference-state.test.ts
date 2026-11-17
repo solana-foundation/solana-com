@@ -7,9 +7,9 @@ import {
 } from "@/content/conference-state";
 
 describe("conference state", () => {
-  it("ships the marketing edition until the live flip is merged", () => {
-    expect(CONFERENCE_STATE).toBe("pre");
-    expect(isLiveConference()).toBe(false);
+  it("ships the live edition", () => {
+    expect(CONFERENCE_STATE).toBe("live");
+    expect(isLiveConference()).toBe(true);
   });
 
   it("treats only the live state as live", () => {

@@ -42,7 +42,7 @@ describe("zoneForStage", () => {
 describe("hash deep links", () => {
   it("round-trips a venue map zone", () => {
     const hash = venueMapHash("royal-exchange");
-    expect(hash).toBe("#venue-map/royal-exchange");
+    expect(hash).toBe("#map/royal-exchange");
     expect(parseVenueMapHash(hash)).toBe("royal-exchange");
   });
 
@@ -53,15 +53,13 @@ describe("hash deep links", () => {
   });
 
   it("ignores malformed percent escapes instead of throwing", () => {
-    expect(parseVenueMapHash("#venue-map/%")).toBeNull();
+    expect(parseVenueMapHash("#map/%")).toBeNull();
     expect(parseTodayHash("#today/%E0%A4")).toBeNull();
-    expect(parseVenueMapHash("#venue-map/royal%20exchange")).toBe(
-      "royal exchange",
-    );
+    expect(parseVenueMapHash("#map/royal%20exchange")).toBe("royal exchange");
   });
 
   it("ignores other hashes and the bare anchors", () => {
-    expect(parseVenueMapHash("#venue-map")).toBeNull();
+    expect(parseVenueMapHash("#map")).toBeNull();
     expect(parseVenueMapHash("#today/main")).toBeNull();
     expect(parseTodayHash("#today/")).toBeNull();
     expect(parseTodayHash("")).toBeNull();

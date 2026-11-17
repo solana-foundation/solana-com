@@ -1,6 +1,9 @@
 export type AwardsCampaignStatus = "open" | "not_started" | "closed";
 export type AwardsVotingStatus = "not_started" | "open" | "closed";
 
+// This campaign is closed on deployment, including requests from older ballots.
+const votingClosed = true;
+
 export const defaultVotingWindow = {
   opensAt: "2026-10-13T00:00:00Z",
   closesAt: "2026-11-10T00:00:00Z",
@@ -28,6 +31,8 @@ function nominationsCloseAt() {
 }
 
 export function getAwardsVotingStatus(now = new Date()): AwardsVotingStatus {
+  if (votingClosed) return "closed";
+
   const opensAt = parseDate(defaultVotingWindow.opensAt, "voting opens");
   const closesAt = parseDate(defaultVotingWindow.closesAt, "voting closes");
   const nominationsClose = nominationsCloseAt();

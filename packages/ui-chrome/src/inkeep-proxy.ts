@@ -3,6 +3,9 @@ import "server-only";
 import { checkRateLimit } from "@vercel/firewall";
 import { clientIpFromHeaders } from "./client-ip";
 import { RATE_LIMIT_IDS } from "./inkeep-rate-limits";
+import { getSiteChatPrompt } from "./inkeep-site-context";
+import { buildSiteSearchResponse } from "./inkeep-search";
+import { getSourceLocation } from "./inkeep-sources";
 
 export { RATE_LIMIT_IDS };
 
@@ -97,11 +100,12 @@ const SEARCH_QUERY = `query GetSearchResults($searchInput: SearchInput!) {
 
 type InkeepEndpoint = keyof typeof ENDPOINTS | "analytics";
 
-type ProxyOptions =
+type ProxyOptions = (
   | { endpoint: "chat" }
   | { endpoint: "challenge" }
   | { endpoint: "search" }
-  | { endpoint: "analytics"; path: string[] };
+  | { endpoint: "analytics"; path: string[] }
+) & { siteWide?: boolean };
 
 export async function proxyInkeepRequest(
   request: Request,
@@ -114,7 +118,7 @@ export async function proxyInkeepRequest(
 
   try {
     const apiKey = process.env.INKEEP_API_KEY?.trim();
-    if (!apiKey) {
+    if (!apiKey && !(endpoint === "search" && options.siteWide)) {
       status = 503;
       failureClass = "missing_configuration";
       return errorResponse(
@@ -162,6 +166,35 @@ export async function proxyInkeepRequest(
       return preparedRequest.response;
     }
 
+    const searchInput =
+      endpoint === "search" && options.siteWide
+        ? JSON.parse(preparedRequest.body!).variables.searchInput
+        : null;
+    const locale =
+      getSourceLocation(request.headers.get("referer") ?? "")?.locale ?? "en";
+    const searchResponse = (payload: unknown) =>
+      searchInput
+        ? buildSiteSearchResponse(
+            payload,
+            searchInput.searchQuery,
+            locale,
+            searchInput.filters?.limit,
+          )
+        : null;
+
+    if (!apiKey) {
+      failureClass = "missing_configuration";
+      const fallback = searchResponse(null);
+      status = fallback ? 200 : 503;
+      return fallback
+        ? Response.json(fallback, { headers: NO_STORE_HEADERS })
+        : errorResponse(
+            status,
+            "inkeep_not_configured",
+            "Search and chat are temporarily unavailable.",
+          );
+    }
+
     const abort = createUpstreamAbortSignal(request.signal);
     const siteOrigin = new URL(request.url).origin;
     const challengeSolution = request.headers.get(
@@ -195,7 +228,24 @@ export async function proxyInkeepRequest(
         failureClass = classifyUpstreamFailure(upstreamResponse.status);
         abort.cleanup();
         await upstreamResponse.body?.cancel().catch(() => undefined);
+        const fallback = searchResponse(null);
+        if (fallback) {
+          status = 200;
+          return Response.json(fallback, { headers: NO_STORE_HEADERS });
+        }
         return mapUpstreamError(upstreamResponse.status);
+      }
+
+      if (endpoint === "search" && options.siteWide) {
+        const payload = await upstreamResponse.json();
+        const result = searchResponse(payload);
+        abort.cleanup();
+        if (!result) {
+          status = 502;
+          failureClass = "invalid_upstream_response";
+          return mapUpstreamError(502);
+        }
+        return Response.json(result, { headers: NO_STORE_HEADERS });
       }
 
       abort.headersReceived();
@@ -205,6 +255,12 @@ export async function proxyInkeepRequest(
       abort.cleanup();
 
       if (abort.timedOut()) {
+        const fallback = !request.signal.aborted && searchResponse(null);
+        if (fallback) {
+          status = 200;
+          failureClass = "timeout";
+          return Response.json(fallback, { headers: NO_STORE_HEADERS });
+        }
         status = 504;
         failureClass = "timeout";
         return errorResponse(
@@ -218,6 +274,16 @@ export async function proxyInkeepRequest(
         status = 499;
         failureClass = "client_abort";
         return new Response(null, { status });
+      }
+
+      const fallback = searchResponse(null);
+      if (fallback) {
+        status = 200;
+        failureClass =
+          error instanceof SyntaxError
+            ? "invalid_upstream_response"
+            : "network";
+        return Response.json(fallback, { headers: NO_STORE_HEADERS });
       }
 
       status = 502;
@@ -266,7 +332,7 @@ async function prepareUpstreamRequest(
     if (!isValidChallengeSolution(request)) {
       return invalidRequest("The chat challenge solution is invalid.");
     }
-    const body = validateChatBody(parsedBody.value);
+    const body = validateChatBody(parsedBody.value, options.siteWide);
     return body
       ? {
           ok: true,
@@ -358,7 +424,10 @@ async function readJsonBody(
   }
 }
 
-function validateChatBody(value: unknown): Record<string, unknown> | null {
+function validateChatBody(
+  value: unknown,
+  siteWide = false,
+): Record<string, unknown> | null {
   if (!isRecord(value) || !Array.isArray(value.messages)) return null;
   if (value.messages.length < 1 || value.messages.length > MAX_MESSAGES) {
     return null;
@@ -384,7 +453,7 @@ function validateChatBody(value: unknown): Record<string, unknown> | null {
 
   if (totalContentLength > MAX_TOTAL_MESSAGE_CONTENT_LENGTH) return null;
 
-  return pickChatFields(value);
+  return pickChatFields(value, siteWide);
 }
 
 const MAX_CHAT_MAX_TOKENS = 4_096;
@@ -394,10 +463,17 @@ const MAX_CHAT_MAX_TOKENS = 4_096;
  * dropped rather than rejected so a widget upgrade degrades gracefully, and
  * the model and token budget are always set server-side.
  */
-function pickChatFields(value: Record<string, unknown>) {
+function pickChatFields(value: Record<string, unknown>, siteWide: boolean) {
   const body: Record<string, unknown> = {
-    messages: value.messages,
-    model: "inkeep-qa-expert",
+    messages: siteWide
+      ? [
+          { role: "system", content: getSiteChatPrompt() },
+          ...(value.messages as Record<string, unknown>[]).filter(
+            (message) => message.role !== "system",
+          ),
+        ]
+      : value.messages,
+    model: siteWide ? "inkeep-context-gpt-5.4-mini" : "inkeep-qa-expert",
   };
   if (typeof value.stream === "boolean") body.stream = value.stream;
   if (Array.isArray(value.tools)) body.tools = value.tools;

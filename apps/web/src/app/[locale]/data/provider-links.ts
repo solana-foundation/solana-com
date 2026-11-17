@@ -7,6 +7,7 @@ export const providerLinkNames = [
   "DeFiLlama",
   "Dune",
   "RWA",
+  "Token Terminal",
   "Top Ledger",
 ] as const;
 
@@ -19,6 +20,8 @@ const alliumSolanaDocs =
 const duneDocs = "https://docs.dune.com/data-catalog";
 const topLedgerResearch = "https://research.topledger.xyz";
 const blockworksSolana = "https://app.blockworks.com/projects/solana/analytics";
+const tokenTerminalSolana =
+  "https://tokenterminal.com/explorer/projects/solana";
 
 /**
  * Where each provider's Solana data for a tab lives: a public page for that
@@ -34,11 +37,13 @@ export const providerLinks: Record<
     Blockworks: `${blockworksSolana}/solana-overview`,
     DeFiLlama: "https://defillama.com/chain/solana",
     Dune: `${duneDocs}/solana/overview`,
+    "Token Terminal": tokenTerminalSolana,
     "Top Ledger": `${topLedgerResearch}/rev/cost_and_capacity`,
   },
   network: {
     Allium: `${alliumSolanaDocs}/staking`,
     Blockworks: `${blockworksSolana}/solana-supply-staking-and-validators`,
+    "Token Terminal": `${tokenTerminalSolana}/metrics/number-of-validators`,
   },
   stablecoins: {
     Allium: `${alliumSolanaDocs}/stablecoins`,
@@ -46,6 +51,8 @@ export const providerLinks: Record<
     DeFiLlama: "https://defillama.com/stablecoins/solana",
     Dune: `${duneDocs}/curated/stablecoins/activity-enriched/stablecoins-solana-activity-enriched`,
     RWA: "https://app.rwa.xyz/networks/solana",
+    "Token Terminal":
+      "https://tokenterminal.com/explorer/tokenized-assets/stablecoins?chains=solana&stablecoinsBridged=true",
     "Top Ledger": `${topLedgerResearch}/rwas/stablecoins`,
   },
   defi: {
@@ -53,12 +60,14 @@ export const providerLinks: Record<
     Blockworks: `${blockworksSolana}/solana-spot-dexs`,
     DeFiLlama: "https://defillama.com/chain/solana?dexsVolume=true&tvl=false",
     Dune: `${duneDocs}/curated/dex-trades/solana/overview`,
+    "Token Terminal": `${tokenTerminalSolana}/metrics/ecosystem-dex-trading-volume`,
     "Top Ledger": `${topLedgerResearch}/dex/volume`,
   },
   lending: {
     Allium: `${alliumSolanaDocs}/lending`,
     Blockworks: `${blockworksSolana}/solana-lending`,
     DeFiLlama: "https://defillama.com/protocols/lending/solana",
+    "Token Terminal": `${tokenTerminalSolana}/metrics/ecosystem-active-loans`,
   },
   perps: {
     Allium: `${alliumSolanaDocs}/perpetuals`,

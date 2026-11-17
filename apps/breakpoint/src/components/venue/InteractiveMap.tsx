@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CSSProperties,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -28,7 +29,7 @@ import {
   parseVenueMapHash,
   scrollToAnchor,
   VENUE_MAP_ANCHOR,
-} from "@/lib/live-links";
+} from "@/lib/venue-map-links";
 import MapOverlay from "./MapOverlay";
 import MapSidebar from "./MapSidebar";
 import {
@@ -72,11 +73,11 @@ const ACCENT_CLASSES: Record<
 > = {
   blue: {
     active: "border-core-blue bg-core-blue text-black",
-    shadow: "drop-shadow(0 0 2px var(--color-core-blue))",
+    shadow: "drop-shadow-[0_0_2px_var(--color-core-blue)]",
   },
   pink: {
     active: "border-core-pink bg-core-pink text-black",
-    shadow: "drop-shadow(0 0 2px var(--color-core-pink))",
+    shadow: "drop-shadow-[0_0_2px_var(--color-core-pink)]",
   },
 };
 
@@ -252,7 +253,7 @@ export default function InteractiveMap({
     [focusSelection, resetView, selection, showMap],
   );
 
-  // `#venue-map/<zone id>` (from the live agenda or a shared link) opens the
+  // `#map/<zone id>` (from the live agenda or a shared link) opens the
   // map on that zone. The latest `focusSelection` is read through a ref so
   // the listener is not re-armed, and the hash re-applied, on every render.
   const focusRef = useRef(focusSelection);
@@ -370,18 +371,20 @@ export default function InteractiveMap({
                 wrapperClass="!h-full !w-full"
               >
                 <div
-                  className="relative"
-                  style={{ width: box.width, height: box.height }}
+                  className="relative h-[var(--map-height)] w-[var(--map-width)]"
+                  style={
+                    {
+                      "--map-width": `${box.width}px`,
+                      "--map-height": `${box.height}px`,
+                    } as CSSProperties
+                  }
                 >
                   <img
                     alt={floorLabels[activeFloor.id]}
-                    className="absolute inset-0 h-full w-full select-none"
+                    className={`absolute inset-0 h-full w-full select-none ${ACCENT_CLASSES[activeFloor.accent].shadow}`}
                     draggable={false}
                     height={activeFloor.imageSize.height}
                     src={publicAssetPath(activeFloor.image)}
-                    style={{
-                      filter: ACCENT_CLASSES[activeFloor.accent].shadow,
-                    }}
                     width={activeFloor.imageSize.width}
                   />
                   <MapOverlay
