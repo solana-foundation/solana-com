@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useId, useRef, useState } from "react";
 import {
   getIterableActionUrl,
   sendIterableFormRequest,
@@ -27,7 +27,6 @@ interface Props {
   tone?: "dark" | "light";
   /** `stack` puts the button under the field; `inline` beside it on desktop. */
   layout?: "stack" | "inline";
-  autoFocus?: boolean;
   className?: string;
 }
 
@@ -52,7 +51,6 @@ export default function EmailSubscribeForm({
   labels,
   tone = "dark",
   layout = "stack",
-  autoFocus = false,
   className = "",
 }: Props) {
   const [email, setEmail] = useState("");
@@ -62,10 +60,6 @@ export default function EmailSubscribeForm({
   const inputRef = useRef<HTMLInputElement>(null);
   const inputId = useId();
   const toneClasses = TONE_CLASSES[tone];
-
-  useEffect(() => {
-    if (autoFocus) inputRef.current?.focus();
-  }, [autoFocus]);
 
   if (status === "done") {
     return (
@@ -82,7 +76,9 @@ export default function EmailSubscribeForm({
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+    // The form is `noValidate` so the error shows in the site's own style;
+    // the browser's email check still decides what counts as valid.
+    if (!trimmedEmail || !inputRef.current?.checkValidity()) {
       setStatus("error");
       return;
     }

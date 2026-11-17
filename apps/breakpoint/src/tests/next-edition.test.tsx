@@ -83,6 +83,10 @@ describe("isNextEditionVisible", () => {
     const params = { preview: ["live", "bp27"] };
     expect(isNextEditionVisible(params, unpublished, false)).toBe(true);
     expect(resolveConferenceState(params, { production: false })).toBe("live");
+
+    const reversed = { preview: ["bp27", "pre"] };
+    expect(isNextEditionVisible(reversed, unpublished, false)).toBe(true);
+    expect(resolveConferenceState(reversed, { production: false })).toBe("pre");
   });
 });
 

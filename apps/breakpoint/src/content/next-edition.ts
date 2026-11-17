@@ -7,10 +7,10 @@
  * register-interest email signup underneath.
  *
  * Every event fact lives here so the events team can review one file. A `null`
- * field is unconfirmed and is simply not rendered. Flip `published` once the
- * inputs have been confirmed. Until then the bar only renders on
- * non-production deployments when the page is opened with `?preview=bp27`. It
- * shares the `preview` query with the conference-state switch, so
+ * field is unconfirmed and is simply not rendered. `published` shows the bar
+ * to every visitor. While it is `false` the bar only renders on non-production
+ * deployments when the page is opened with `?preview=bp27`. It shares the
+ * `preview` query with the conference-state switch, so
  * `?preview=live&preview=bp27` shows the announcement on the live edition.
  */
 
@@ -48,7 +48,7 @@ export type NextEditionAnnouncement = {
 };
 
 export const NEXT_EDITION: NextEditionAnnouncement = {
-  published: false,
+  published: true,
   year: "2027",
   shortName: "BP27",
   city: null,

@@ -16,6 +16,12 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  // Held in a ref so a parent re-render with a new `onClose` does not re-run
+  // the effect below and move focus while the dialog is open.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -24,8 +30,11 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
     const focusableSelector =
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+    // Focus the field only after the opener is saved, so closing returns to it.
+    dialog?.querySelector<HTMLInputElement>("input")?.focus();
+
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
 
       if (e.key !== "Tab" || !dialog) return;
 
@@ -57,7 +66,7 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
         previousActiveElement.focus();
       }
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -105,7 +114,6 @@ export default function EmailSubscribeDialog({ open, onClose }: Props) {
         </p>
 
         <EmailSubscribeForm
-          autoFocus
           className="mt-6"
           formId={BREAKPOINT_NEWSLETTER_FORM_ID}
           placement="subscribe_dialog"

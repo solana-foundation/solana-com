@@ -84,7 +84,7 @@ export default function NextEditionBar({
     </span>
   );
   // A full-bleed band; the content lines up with the page container.
-  const barClasses = `block w-full bg-core-purple py-xs text-left text-black md:py-s ${className}`;
+  const barClasses = `block w-full bg-core-purple py-xs text-start text-black md:py-s ${className}`;
   const rowClasses = "container flex items-center gap-xs md:gap-s";
 
   if (!cta) {
