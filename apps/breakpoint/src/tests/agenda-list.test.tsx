@@ -14,17 +14,15 @@ function renderList(list: AgendaItem[]) {
   );
 }
 
-// The list opens on today's day during the conference. Pin the clock to a
-// date outside it so these tests open on Day 1 whenever they run.
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date("2026-11-01T12:00:00Z"));
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.unstubAllGlobals();
-  vi.useRealTimers();
 });
 
 const items: AgendaItem[] = [
@@ -120,6 +118,20 @@ function titles() {
 }
 
 describe("AgendaList", () => {
+  it.each(["2026-11-17T10:00:00Z", "2026-11-18T10:00:00Z"])(
+    "opens on Day 2 on and after November 17 (%s)",
+    (now) => {
+      vi.setSystemTime(new Date(now));
+      renderList(items);
+
+      expect(screen.getByRole("tab", { name: /Day 2/ })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      expect(titles()).toEqual(["The Machine Economy"]);
+    },
+  );
+
   it.each(["session", "static"] as const)(
     "shows pre-event registration as a %s regardless of the selected stage",
     (variant) => {

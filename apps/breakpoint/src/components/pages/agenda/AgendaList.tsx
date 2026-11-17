@@ -13,7 +13,7 @@ import {
   type AgendaSpeaker,
 } from "@/content/agenda/types";
 
-const DEFAULT_DAY = "Day 1";
+const DEFAULT_DAY = "Day 2";
 const LONDON_TIME_ZONE = "Europe/London";
 const EYEBROW_TEXT_CLASS = "type-eyebrow uppercase";
 /** Duration and stage drop to button size on phones so the title leads. */
@@ -544,7 +544,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   // Registration and other pre-event activities are not scoped to a stage.
   const stageFilter = activeDay === "Pre-Event" ? null : activeStage;
 
-  // During the event, open on today's programme instead of Day 1.
+  // During the event, open on today's programme.
   useEffect(() => {
     const today = todayAgendaDay();
     if (!today || userPickedDayRef.current || !allDays.includes(today)) return;
