@@ -13,7 +13,7 @@ export type LiveStream = {
 
 export const MAIN_STAGE_STREAM: LiveStream = {
   stage: "Main Stage",
-  youtubeVideoId: "l8Sk-jInOHo",
+  youtubeVideoId: "0ySKm0h0ZFc",
 };
 
 export const LIVE_SESSIONS_API = "/breakpoint/api/live-sessions";
