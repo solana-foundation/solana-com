@@ -30,6 +30,8 @@ export const BREAKPOINT_NEWSLETTER_FORM_ID =
 // https://app.iterable.com/segmentation?emailListId=11699158
 // The site posts to the list's public subscriber form (its `publicIdString`),
 // not the list id.
+// Breakpoint 2027 registration on Luma.
+export const BP27_REGISTRATION_HREF = "https://luma.com/solana-breakpoint-2027";
 export const BP27_UPDATES_FORM_ID = "a85fd8f3-c4f1-4771-ac3e-03851ac82add";
 export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
 export const LOCUS_HREF = "https://breakpoint.golocus.xyz/uk-entry";

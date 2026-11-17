@@ -26,7 +26,6 @@ import {
   resolveConferenceState,
   type SearchParams,
 } from "@/content/conference-state";
-import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { isNextEditionVisible, NEXT_EDITION } from "@/content/next-edition";
 import { getHomeMetadata } from "@/app/metadata";
 import { buildBreakpointJsonLd, serializeJsonLd } from "@/lib/structured-data";
@@ -67,16 +66,14 @@ export default async function HomePage({
     <PageShell
       contentId="breakpoint-content"
       navigation={
-        live
-          ? {
-              ctaAlwaysVisible: true,
-              ctaHref: "/schedule",
-              ctaLabel: t("navigation.agenda"),
-            }
-          : {
-              ctaHref: GENERAL_ADMISSION_HREF,
-              ctaLabel: t("menu.items.register"),
-            }
+        // The main nav button goes to registration for the next edition.
+        {
+          ctaAlwaysVisible: live,
+          ctaHref: "/registration",
+          ctaLabel: t("nextEdition.navCta", {
+            shortName: NEXT_EDITION.shortName,
+          }),
+        }
       }
       beforeNavigation={
         <script

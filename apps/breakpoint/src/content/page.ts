@@ -25,6 +25,8 @@ export type BreakpointMessages = {
     headline: string;
     headlineNoCity: string;
     videoTitle: string;
+    navCta: string;
+    registerCta: string;
     cta: {
       watchAndRegister: string;
       watch: string;

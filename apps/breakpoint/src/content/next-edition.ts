@@ -19,7 +19,7 @@ import {
   PREVIEW_PARAM,
   type SearchParams,
 } from "@/content/conference-state";
-import { BP27_UPDATES_FORM_ID } from "@/content/links";
+import { BP27_UPDATES_FORM_ID, BP27_REGISTRATION_HREF } from "@/content/links";
 
 export type NextEditionAnnouncement = {
   /** Render the bar for every visitor. */
@@ -45,6 +45,10 @@ export type NextEditionAnnouncement = {
    * form of the Breakpoint 2027 updates list (`BP27_UPDATES_FORM_ID`).
    */
   signupFormId: string | null;
+  /** Where "Register" goes: the Luma registration page. */
+  registrationHref: string;
+  /** Ticket price shown on the registration page, e.g. "$75". */
+  flashSalePrice: string;
 };
 
 export const NEXT_EDITION: NextEditionAnnouncement = {
@@ -59,6 +63,8 @@ export const NEXT_EDITION: NextEditionAnnouncement = {
   // https://youtu.be/jzxX5B_Ddiw
   videoId: "jzxX5B_Ddiw",
   signupFormId: BP27_UPDATES_FORM_ID,
+  registrationHref: BP27_REGISTRATION_HREF,
+  flashSalePrice: "$75",
 };
 
 export const NEXT_EDITION_PREVIEW_VALUE = "bp27";

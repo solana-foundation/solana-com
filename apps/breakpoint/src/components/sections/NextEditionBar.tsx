@@ -2,6 +2,7 @@
 
 import React, { useCallback, useId, useRef, useState } from "react";
 import { useLocale, useTranslations } from "@workspace/i18n/client";
+import Button from "@/components/Button";
 import EmailSubscribeForm from "@/components/EmailSubscribeForm";
 import type { NextEditionAnnouncement } from "@/content/next-edition";
 import { formatEventDateRange } from "@/lib/event-dates";
@@ -29,7 +30,7 @@ interface Props {
 
 /**
  * Next-edition announcement as one bar. The whole bar is the click target and
- * opens a dialog with the announcement video on top and the register-interest
+ * opens a dialog with the announcement video on top and the updates
  * email signup underneath. Unconfirmed (`null`) facts are left out; with
  * neither a video nor a signup form the bar is plain text.
  */
@@ -182,13 +183,24 @@ export default function NextEditionBar({
             )}
 
             <div className="flex flex-col gap-xs p-xs md:p-s">
-              <div className="flex flex-col gap-3xs">
-                <h2 id={titleId} className="type-h5 text-white">
-                  {headline}
-                </h2>
-                {details && (
-                  <p className="type-eyebrow text-text-secondary">{details}</p>
-                )}
+              <div className="flex flex-col gap-xs sm:flex-row sm:items-center sm:justify-between sm:gap-s">
+                <div className="flex flex-col gap-3xs">
+                  <h2 id={titleId} className="type-h5 text-white">
+                    {headline}
+                  </h2>
+                  {details && (
+                    <p className="type-eyebrow text-text-secondary">
+                      {details}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  arrow
+                  className="shrink-0"
+                  href={announcement.registrationHref}
+                  label={t("registerCta", copyValues)}
+                  variant="primary"
+                />
               </div>
               {signupFormId && (
                 <>

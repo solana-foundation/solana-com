@@ -125,7 +125,7 @@ describe("NextEditionBar", () => {
     renderBar(NEXT_EDITION);
 
     fireEvent.click(
-      screen.getByRole("button", { name: /Watch and register interest/ }),
+      screen.getByRole("button", { name: /Watch and get updates/ }),
     );
     expect(screen.getByTitle("Breakpoint 2027 announcement")).toHaveAttribute(
       "src",
@@ -160,9 +160,13 @@ describe("NextEditionBar", () => {
     expect(
       video.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Get updates" })).toHaveAttribute(
+      "type",
+      "submit",
+    );
     expect(
-      screen.getByRole("button", { name: "Register interest" }),
-    ).toHaveAttribute("type", "submit");
+      screen.getByRole("link", { name: /Register for BP27/ }),
+    ).toHaveAttribute("href", "https://luma.com/solana-breakpoint-2027");
     expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
 
     fireEvent.keyDown(window, { key: "Escape" });
@@ -190,7 +194,7 @@ describe("NextEditionBar", () => {
     cleanup();
 
     renderBar({ ...confirmed, videoId: null });
-    fireEvent.click(screen.getByRole("button", { name: /Register interest/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Get updates/ }));
     expect(
       screen.queryByTitle("Breakpoint 2027 announcement"),
     ).not.toBeInTheDocument();
