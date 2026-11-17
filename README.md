@@ -45,6 +45,7 @@ The main web app (`apps/web`) uses **Next.js App Router** with all pages under
 
 Shared packages worth checking early:
 
+- `packages/airtable` for event-app Airtable pacing and 429 backoff
 - `packages/ui-chrome` for shared header/footer and cross-app link behavior
 - `packages/i18n` for locale config and message loading
 - `packages/ecosystem-data` for canonical company data, wallet records, and

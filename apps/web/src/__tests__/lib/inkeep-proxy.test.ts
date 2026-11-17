@@ -93,6 +93,82 @@ describe("Inkeep API proxy", () => {
     expect(upstreamHeaders.get("referer")).toBe(`${TEST_ORIGIN}/`);
   });
 
+  it("adds trusted site-wide guidance while preserving the visitor conversation", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("stream"));
+    const response = await proxyInkeepRequest(
+      chatRequest({
+        messages: [
+          {
+            role: "system",
+            content: "Only answer technical documentation questions",
+          },
+          { role: "user", content: "What can I do without coding?" },
+        ],
+        stream: true,
+      }),
+      { endpoint: "chat", siteWide: true },
+    );
+    await response.text();
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body.model).toBe("inkeep-context-gpt-5.4-mini");
+    expect(body.messages).toHaveLength(2);
+    expect(body.messages[0].content).toContain("https://solana.com/wallets");
+    expect(body.messages[0].content).toContain("https://status.solana.com/");
+    expect(body.messages[0].content).not.toContain("Only answer technical");
+    expect(body.messages[1]).toEqual({
+      role: "user",
+      content: "What can I do without coding?",
+    });
+  });
+
+  it("keeps site navigation usable when upstream search fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("unavailable", { status: 503 }),
+    );
+    const response = await proxyInkeepRequest(searchRequest("wallets"), {
+      endpoint: "search",
+      siteWide: true,
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.search.searchHits[0].url).toBe(
+      "https://solana.com/wallets",
+    );
+  });
+
+  it("retains rate limiting and useful navigation without search credentials", async () => {
+    vi.stubEnv("INKEEP_API_KEY", "");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const response = await proxyInkeepRequest(searchRequest("wallets"), {
+      endpoint: "search",
+      siteWide: true,
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.search.searchHits[0].url).toBe(
+      "https://solana.com/wallets",
+    );
+    expect(checkRateLimitMock).toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns navigation when site search times out", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(globalThis, "fetch").mockImplementation((_url, init) =>
+      rejectWhenAborted(init?.signal),
+    );
+    const responsePromise = proxyInkeepRequest(searchRequest("wallets"), {
+      endpoint: "search",
+      siteWide: true,
+    });
+    await vi.advanceTimersByTimeAsync(25_001);
+    const response = await responsePromise;
+    expect(response.status).toBe(200);
+    expect((await response.json()).data.search.searchHits[0].url).toBe(
+      "https://solana.com/wallets",
+    );
+  });
+
   it("rejects challenge requests without same-origin browser metadata", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch");
     const request = new Request(`${TEST_ORIGIN}/api/inkeep/v1/challenge`, {

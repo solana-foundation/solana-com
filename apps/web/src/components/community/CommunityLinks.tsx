@@ -37,6 +37,17 @@ const CommunityLinks = () => {
           </RoundedDepthCard>
         </div>
       </div>
+      <div className="flex flex-col gap-6 rounded-2xl border border-white/15 p-6 md:flex-row md:items-center md:justify-between md:p-8">
+        <div>
+          <h2 className="h3">{t("community.superteam.title")}</h2>
+          <p className="mt-3 max-w-2xl text-white/70">
+            {t("community.superteam.description")}
+          </p>
+        </div>
+        <Button to="https://superteam.fun/" arrow noBorder newTab>
+          {t("community.superteam.cta")}
+        </Button>
+      </div>
     </section>
   );
 };

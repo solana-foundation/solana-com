@@ -4,6 +4,8 @@ import { isPublishedPost } from "./post-status";
 import { formatPublishedAt, parsePublishedAt } from "./publishing";
 
 export interface LatestPostsParams {
+  /** Propagate read failures so cached API feeds never store partial results. */
+  throwOnError?: boolean;
   limit?: number;
   cursor?: string;
   category?: string;
@@ -274,6 +276,7 @@ export const fetchLatestPosts = async (
       } catch (error) {
         // Log error but continue processing other posts
         console.error(`Failed to read post "${slug}":`, error);
+        if (params.throwOnError) throw error;
         // Skip this post and continue with others
       }
     }
@@ -358,6 +361,7 @@ export const fetchLatestPosts = async (
     };
   } catch (error) {
     console.error("Failed to fetch latest posts from Keystatic:", error);
+    if (params.throwOnError) throw error;
     return { posts: [] };
   }
 };
