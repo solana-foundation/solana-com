@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { selectRecapSessions } from "@/content/post-conference";
+import {
+  FEATURED_RECAP_SESSION_IDS,
+  selectRecapSessions,
+} from "@/content/post-conference";
 import type { AgendaItem } from "@/content/agenda/types";
 
 const session = (
@@ -42,6 +45,16 @@ describe("recap sessions", () => {
       ]),
     ).toEqual([]);
     expect(selectRecapSessions([])).toEqual([]);
+  });
+  it("leads with the featured sessions and fills the rest from the program", () => {
+    const [first, second] = FEATURED_RECAP_SESSION_IDS;
+    const picked = selectRecapSessions([
+      session("opening"),
+      session(second!),
+      session("panel", { format: "Panel" }),
+      session(first!),
+    ]).map((item) => item.id);
+    expect(picked).toEqual([first, second, "opening", "panel"]);
   });
   it("caps the selection at six sessions", () => {
     expect(

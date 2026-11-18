@@ -4,6 +4,7 @@ import NextEditionBar from "@/components/sections/NextEditionBar";
 import RecordingButton from "./RecordingButton";
 import { BREAKPOINT_RECAP_PLAYLIST_HREF } from "@/content/links";
 import { NEXT_EDITION } from "@/content/next-edition";
+import { youTubeWatchUrl } from "@/content/agenda/session-videos";
 import { getLiveAgenda } from "@/content/live/agenda";
 import {
   POST_CONFERENCE_RECORDING,
@@ -20,6 +21,10 @@ export default async function PostConferenceSection({
   showNextEdition: boolean;
 }) {
   const t = await getTranslations({ locale, namespace: "breakpoint.post" });
+  const tList = await getTranslations({
+    locale,
+    namespace: "breakpoint.pages.schedule.list",
+  });
   const sessions = selectRecapSessions(await getLiveAgenda());
   const edition = NEXT_EDITION;
   const dates = formatEventDateRange(
@@ -109,7 +114,7 @@ export default async function PostConferenceSection({
               <p className="type-eyebrow text-core-purple">
                 {t("recapEyebrow")}
               </p>
-              <h2 id="recap-title" className="type-h2">
+              <h2 id="recap-title" className="type-h3">
                 {t("recapHeadline")}
               </h2>
             </div>
@@ -209,6 +214,21 @@ export default async function PostConferenceSection({
                           .filter(Boolean)
                           .join(" · ")}
                       </p>
+                      {session.youtubeVideoId && (
+                        <a
+                          href={youTubeWatchUrl(session.youtubeVideoId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={tList("watchSessionLabel", {
+                            title: session.title,
+                          })}
+                          className="type-eyebrow inline-flex items-center gap-3xs self-start text-core-purple underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                          data-agenda-video
+                        >
+                          <span aria-hidden="true">▶</span>
+                          {tList("watchSession")}
+                        </a>
+                      )}
                     </div>
                   </details>
                 ))}
