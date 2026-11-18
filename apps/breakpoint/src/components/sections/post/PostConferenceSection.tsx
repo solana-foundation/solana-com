@@ -84,7 +84,7 @@ export default async function PostConferenceSection({
               />
               <p className="type-eyebrow relative">{t("recapEyebrow")}</p>
               <div className="relative mt-3xl flex flex-col items-start gap-s">
-                <h2 className="type-h2">{t("thanks")}</h2>
+                <h2 className="type-h2 max-md:text-h3!">{t("thanks")}</h2>
                 <Button
                   arrow
                   arrowDirection="down"
