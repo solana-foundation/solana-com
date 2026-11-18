@@ -4,6 +4,10 @@ import {
   type AgendaSpeaker,
 } from "@/content/agenda/types";
 import {
+  parseYouTubeVideoId,
+  SESSION_VIDEO_IDS,
+} from "@/content/agenda/session-videos";
+import {
   asNumber,
   asString,
   getAirtableRecords,
@@ -75,6 +79,7 @@ const AGENDA_FIELDS = [
   "Confirmed Moderator Full Name",
   "Web Publishing Status",
   "Event",
+  "Full Session - YouTube",
 ] as const;
 
 /** Internal scheduling tags that are not asset classes attendees care about. */
@@ -630,6 +635,9 @@ export function normalizeAgendaRecord(
     title,
     track,
     variant: normalizeVariant(fields, title, format),
+    youtubeVideoId:
+      getField(fields, ["Full Session - YouTube"], parseYouTubeVideoId) ??
+      SESSION_VIDEO_IDS[record.id],
   };
 }
 

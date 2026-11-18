@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { accordionButtonClassName } from "@/components/AccordionButton";
 import DisclosureIcon from "@/components/DisclosureIcon";
+import { youTubeWatchUrl } from "@/content/agenda/session-videos";
 import {
   AGENDA_DAYS,
   MAIN_STAGE,
@@ -358,6 +359,21 @@ function SessionRow({
                   />
                 ))}
               </div>
+            )}
+
+            {item.youtubeVideoId && (
+              <a
+                href={youTubeWatchUrl(item.youtubeVideoId)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={t("watchSessionLabel", { title: item.title })}
+                className={`${EYEBROW_TEXT_CLASS} inline-flex items-center gap-3xs justify-self-start text-core-purple underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:col-start-1 md:row-start-3`}
+                onClick={(event) => event.stopPropagation()}
+                data-agenda-video
+              >
+                <span aria-hidden="true">▶</span>
+                {t("watchSession")}
+              </a>
             )}
 
             {(trackLabel || assetClasses.length > 0) && (
