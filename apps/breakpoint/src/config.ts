@@ -100,7 +100,7 @@ export const config = {
       "Web3 event",
     ],
     author: "Solana Foundation",
-    socialShare: `${PUBLIC_SITE_ORIGIN}${routePath("/social-card.jpg")}`,
+    socialShare: `${PUBLIC_SITE_ORIGIN}${routePath("/social-card-post-conference.jpg")}`,
     googleAnalytics: {
       trackingId: "G-94WS0LRZRS",
       adWordsId: "AW-302884864",

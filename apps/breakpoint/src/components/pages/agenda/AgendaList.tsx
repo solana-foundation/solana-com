@@ -13,7 +13,7 @@ import {
   type AgendaSpeaker,
 } from "@/content/agenda/types";
 
-const DEFAULT_DAY = "Day 2";
+const DEFAULT_DAY = "Day 1";
 const LONDON_TIME_ZONE = "Europe/London";
 const EYEBROW_TEXT_CLASS = "type-eyebrow uppercase";
 /** Duration and stage drop to button size on phones so the title leads. */
@@ -75,17 +75,6 @@ function dayDateLabel(day: string) {
     timeZone: LONDON_TIME_ZONE,
     weekday: "short",
   }).format(new Date(`${date}T12:00:00Z`));
-}
-
-function todayAgendaDay() {
-  const today = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: LONDON_TIME_ZONE,
-    year: "numeric",
-  }).format(new Date());
-
-  return AGENDA_DAYS.find((candidate) => candidate.date === today)?.key;
 }
 
 function dayHeading(day: string) {
@@ -501,7 +490,6 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   const listRef = useRef<HTMLDivElement>(null);
   const pendingDayScrollRef = useRef(false);
   const tabsRef = useRef<HTMLDivElement>(null);
-  const userPickedDayRef = useRef(false);
 
   const allDays = useMemo(() => {
     const days = new Set<string>();
@@ -544,13 +532,6 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   // Registration and other pre-event activities are not scoped to a stage.
   const stageFilter = activeDay === "Pre-Event" ? null : activeStage;
 
-  // During the event, open on today's programme.
-  useEffect(() => {
-    const today = todayAgendaDay();
-    if (!today || userPickedDayRef.current || !allDays.includes(today)) return;
-    setActiveDay(today);
-  }, [allDays]);
-
   const scrollToScheduleTop = useCallback(() => {
     window.requestAnimationFrame(() => {
       const list = listRef.current;
@@ -569,7 +550,6 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   }, []);
 
   const selectDay = (day: string) => {
-    userPickedDayRef.current = true;
     if (day !== activeDay) pendingDayScrollRef.current = true;
     setActiveDay(day);
     setOpenItemId(null);

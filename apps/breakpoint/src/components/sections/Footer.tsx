@@ -6,6 +6,9 @@ import { useTranslations } from "@workspace/i18n/client";
 import { Link } from "@workspace/i18n/routing";
 import ArrowUpRightIcon from "@/components/ArrowUpRightIcon";
 import { publicAssetPath } from "@/config";
+import { CONFERENCE_STATE } from "@/content/conference-state";
+import type { NextEditionAnnouncement } from "@/content/next-edition";
+import Button from "@/components/Button";
 import { CODE_OF_CONDUCT_HREF } from "@/content/links";
 import {
   breakpointHref,
@@ -114,6 +117,8 @@ type FooterBackgroundColor = "purple" | "green" | "blue" | "yellow" | "pink";
 
 type FooterProps = {
   backgroundColor?: FooterBackgroundColor;
+  nextEdition?: NextEditionAnnouncement;
+  hideCountdown?: boolean;
 };
 
 const FOOTER_BACKGROUND_COLORS: Record<FooterBackgroundColor, string> = {
@@ -220,8 +225,11 @@ function FooterPixelEdge() {
 
 export default function Footer({
   backgroundColor = "purple",
+  nextEdition,
+  hideCountdown = CONFERENCE_STATE === "post",
 }: FooterProps = {}) {
   const t = useTranslations("breakpoint.footer");
+  const tPost = useTranslations("breakpoint.post");
   const tAccessibility = useTranslations("breakpoint.accessibility");
   const { days, hours, minutes, seconds } = useCountdown(EVENT_START);
   const footerStyle: FooterStyle = {
@@ -283,30 +291,53 @@ export default function Footer({
         </div>
       </div>
 
-      <div className="w-full bg-[var(--footer-background-color)] px-[16px] pt-l md:px-[32px] md:py-l">
-        <div className="grid grid-cols-2 gap-x-[24px] gap-y-[24px] md:flex md:items-center md:justify-between md:gap-0">
-          <CounterCell value={pad(days)} label={t("countdown.days")} />
-          <CounterCell value={pad(hours)} label={t("countdown.hours")} />
-          <CounterCell value={pad(minutes)} label={t("countdown.minutes")} />
-          <CounterCell value={pad(seconds)} label={t("countdown.seconds")} />
+      {nextEdition && (
+        <div className="w-full bg-[var(--footer-background-color)]">
+          <div className="container flex flex-col items-start gap-m py-xl text-black">
+            <p className="type-eyebrow">
+              {nextEdition.shortName} · {nextEdition.city}
+            </p>
+            <h2 className="type-h2">{tPost("closingHeadline")}</h2>
+            <p className="type-p-large">{tPost("closingBody")}</p>
+            <Button
+              href={nextEdition.registrationHref}
+              label={tPost("register", { shortName: nextEdition.shortName })}
+              arrow
+            />
+          </div>
         </div>
-      </div>
-
+      )}
+      {!hideCountdown && (
+        <div className="w-full bg-[var(--footer-background-color)] px-[16px] pt-l md:px-[32px] md:py-l">
+          <div className="grid grid-cols-2 gap-x-[24px] gap-y-[24px] md:flex md:items-center md:justify-between md:gap-0">
+            <CounterCell value={pad(days)} label={t("countdown.days")} />
+            <CounterCell value={pad(hours)} label={t("countdown.hours")} />
+            <CounterCell value={pad(minutes)} label={t("countdown.minutes")} />
+            <CounterCell value={pad(seconds)} label={t("countdown.seconds")} />
+          </div>
+        </div>
+      )}
       <div className="w-full bg-[var(--footer-background-color)] px-[16px] pb-[32px] pt-l md:px-[32px] md:py-l">
         <div className="flex w-full items-center justify-center">
-          <img
-            src={publicAssetPath("/assets/bp26-footer-logo-mobile.svg")}
-            alt="BP26"
-            width={343}
-            height={50.0022}
-            className="block h-auto w-full md:hidden"
-          />
+          {!hideCountdown && (
+            <img
+              src={publicAssetPath("/assets/bp26-footer-logo-mobile.svg")}
+              alt="BP26"
+              width={343}
+              height={50.0022}
+              className="block h-auto w-full md:hidden"
+            />
+          )}
           <img
             src={publicAssetPath("/assets/breakpoint-footer-logo-desktop.svg")}
             alt="Breakpoint"
             width={1376.996}
             height={100.876}
-            className="hidden h-auto w-full md:block"
+            className={
+              hideCountdown
+                ? "block h-auto w-full"
+                : "hidden h-auto w-full md:block"
+            }
           />
         </div>
       </div>
