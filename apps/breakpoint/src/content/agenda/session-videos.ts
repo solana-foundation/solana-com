@@ -7,6 +7,7 @@
  * without a deploy. This map covers sessions whose column is still empty.
  */
 export const SESSION_VIDEO_IDS: Record<string, string> = {
+  // Day 1, Main Stage
   // Welcome to Breakpoint 2026
   rec9W1l5bhcmxpus5: "Hi41dED39O0",
   // Stablecoins Have an Alignment Problem
@@ -83,6 +84,82 @@ export const SESSION_VIDEO_IDS: Record<string, string> = {
   recJKIQVFYYiceaOS: "goZFF02boc0",
   // The Former White House Crypto Chief on the Future of Digital Assets
   recmx45FQn4Lrq2WW: "y3Egxejl5XQ",
+
+  // Day 2, Main Stage
+  // Welcome to Breakpoint Day 2
+  recI8BOkMqfeN1khm: "_QHTuFIEEEE",
+  // Fireside: Martin Gilbert, Chair, Revolut
+  rec78R47StUmzMpMz: "aLwQqydThzg",
+  // AI and Raising Capital
+  recqCqPGTAizmoc8r: "CBXwtxATcEE",
+  // An Onchain Compute Order Book
+  recZrfepre55vEnR5: "vg_mCTYVfq0",
+  // Compute Capital Markets
+  recu9Kej3ULad9TSx: "tBS9OjUVl8o",
+  // The Machine Economy: How Digital Assets Could Help Fund Computing Power, Energy, and Data Centres
+  recn9G9GV7vv8AJPG: "Md28FRWZsTQ",
+  // The TAM of Crypto Is Now Infinite
+  recEB3o8OalkHM0j2: "q95JXNX5HVg",
+  // The Next 12 Months of AI on Solana
+  recauldVNKRgb8qww: "5i5YSxjSCSI",
+  // BitRobot: The World Is the Dataset
+  reclajDIW5bTxb3MT: "9MIRcWzkTHM",
+  // Humans Welcome: Investing in Physical AI
+  rectoMtsy5d4Yh5h0: "AFswPZ7lY2Y",
+  // Think Inside the PayBox: Agents on Solana
+  recSmHj1BnBuBhpaE: "RBWa-3WT3HU",
+  // Why a Top Trading House Is Bringing Commodities to Solana
+  recyoKyyHBvrZXras: "wcUPJmbLCdk",
+  // Your Money. Your Business.
+  recOLiiJjF9kKH2pk: "u5mJqwI--O0",
+  // Leap: The High Performance Trading App
+  recI7AQcnXVaTxhxz: "AnZ4YVtZlis",
+  // Fireside: CoinGecko
+  rechhpH0cbG9NNwsF: "nMCcwleDNjw",
+  // Breakpoint 2027 Announcement
+  recuqGFUpuCIgEDHS: "qBJlnly_j2s",
+  // Debate: SOL Is Money
+  rec16aI7gzUMan8SN: "GHW-IYgxbcs",
+  // Debate: DATs Are Just ETFs With Twitter Accounts and CEOs
+  rec3JrpDNyievRGj9: "Bw5elB8jd6E",
+  // Tokenisation: Britain's Opportunity to Lead
+  rechiGSVxAzBQCPSs: "tcVvh8ooA-Y",
+  // What Would It Take for the UK to Win in Tech
+  recOKKQh5rvmhu6cj: "SUl6PNyf9k0",
+  // Champions in Conversation: Sol Campbell and Tristan Thompson on What It Takes to Win
+  recYDybUWIpWJ1NAe: "dpfY0ToBNeU",
+  // Solana as a Decentralized Silicon Valley
+  recVzYbrNZOl1Hwcw: "WVkYuNxF1e0",
+  // The Internet Will Put VCs Out of a Job
+  recENuOYWhfk79TNs: "8RCdw4L_kNk",
+  // Playing for Millions: Inside the Mind of Poker's 22-Year-Old Champion
+  recziKalyoK3TswR0: "WWJ8-ZiIhL4",
+  // Cashtags on X
+  recmZrVT0skbvfNjz: "NXOhVrI2sV0",
+  // Explore the Frontier
+  recrPOlQyFEHfpGzO: "Pvc46flcl3I",
+  // Scaling Perps on Solana
+  recqPQ1IyPg1KXZzg: "k_8KMLxXtUY",
+  // The Future of Investing Is Narratives
+  reci4aeWhZm4Nm65j: "faIe4iL_Xc0",
+  // The Data Comes Last
+  recy6t7Z1agZCVmJe: "78M7rcWatjg",
+  // $2M Pokemon Cards: Tokenisation Is Making Collectibles Cool Again
+  recSwSBarNb76Ih1K: "zFAPERiR4RU",
+  // Beyond Collectibles
+  recOBmdvb5KTud1kD: "IiZ30n1G-KA",
+  // From Auction House to Onchain With Candy Digital
+  recgLVRcJz6Ee8j59: "KNzbhqMqrwE",
+  // The Lifetime Value of a Fan
+  recQIFTLNgTE8cDsu: "iKFddU-21Js",
+  // SOL, ZEC and Privacy
+  recUrTdUtX7tLYvgu: "NWMwDX_Nz1A",
+  // State of the Solana Network
+  reca3F1qrh0ZA0OUn: "e62GaLn2GNA",
+  // Inside the Bunker: Are We in Cryptography's End Days?
+  recNdBeM3jqTUhfiD: "r698xebVflw",
+  // See You at Breakpoint 2027!
+  recnzPw2AZQr9AAxz: "9urafau18Ds",
 };
 
 const YOUTUBE_ID = /^[\w-]{11}$/;
