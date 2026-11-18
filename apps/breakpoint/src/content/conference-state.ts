@@ -3,7 +3,7 @@
  *
  * - `pre`: the marketing page (tickets, why attend, announcements).
  * - `live`: the event-day page (livestream, today's agenda, venue map).
- * - `post`: reserved for the recap edition after the conference.
+ * - `post`: the recap edition and next-year invitation after the conference.
  *
  * The switch is deliberately a constant rather than a date or an environment
  * variable: merging the change that flips it is the release, so the live
@@ -15,7 +15,7 @@
  */
 export type ConferenceState = "pre" | "live" | "post";
 
-export const CONFERENCE_STATE: ConferenceState = "live";
+export const CONFERENCE_STATE: ConferenceState = "post";
 
 export const PREVIEW_PARAM = "preview";
 

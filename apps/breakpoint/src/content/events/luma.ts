@@ -79,7 +79,9 @@ function normalizeLumaEvent(event: LumaEventData): HighlightedEvent | null {
   };
 }
 
-async function fetchCalendarEvents(): Promise<HighlightedEvent[]> {
+async function fetchCalendarEvents(
+  period: "future" | "past" = "future",
+): Promise<HighlightedEvent[]> {
   const events: HighlightedEvent[] = [];
   const seenCursors = new Set<string>();
   let cursor: string | null = null;
@@ -88,7 +90,7 @@ async function fetchCalendarEvents(): Promise<HighlightedEvent[]> {
     const url = new URL(`${LUMA_API_BASE}/calendar/get-items`);
     url.searchParams.set("calendar_api_id", BREAKPOINT_LUMA_CALENDAR_ID);
     url.searchParams.set("series_mode", "sessions");
-    url.searchParams.set("period", "future");
+    url.searchParams.set("period", period);
     url.searchParams.set("pagination_limit", String(LUMA_PAGE_SIZE));
     if (cursor) {
       url.searchParams.set("pagination_cursor", cursor);
@@ -145,3 +147,31 @@ export const getHighlightedEvents =
         tags: [EVENTS_CACHE_TAG],
       })
     : fetchHighlightedEvents;
+
+/** Archive the highlighted London calendar, excluding earlier editions. */
+async function fetchPastHighlightedEvents(): Promise<HighlightedEvent[]> {
+  const events = await fetchCalendarEvents("past");
+  return [
+    ...new Map(
+      events
+        .filter((event) => {
+          const date = Date.parse(event.startAt);
+          return (
+            event.id !== BREAKPOINT_LUMA_EVENT_ID &&
+            date >= Date.parse("2026-11-01") &&
+            date < Date.parse("2026-12-01")
+          );
+        })
+        .map((event) => [event.id, event]),
+    ).values(),
+  ].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt));
+}
+
+export const getPastHighlightedEvents =
+  process.env.NODE_ENV === "production"
+    ? unstable_cache(
+        fetchPastHighlightedEvents,
+        ["breakpoint-past-events-luma"],
+        { revalidate: EVENTS_CACHE_SECONDS, tags: [EVENTS_CACHE_TAG] },
+      )
+    : fetchPastHighlightedEvents;

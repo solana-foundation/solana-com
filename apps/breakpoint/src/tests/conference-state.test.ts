@@ -7,9 +7,9 @@ import {
 } from "@/content/conference-state";
 
 describe("conference state", () => {
-  it("ships the live edition", () => {
-    expect(CONFERENCE_STATE).toBe("live");
-    expect(isLiveConference()).toBe(true);
+  it("ships the post-conference edition", () => {
+    expect(CONFERENCE_STATE).toBe("post");
+    expect(isLiveConference()).toBe(false);
   });
 
   it("treats only the live state as live", () => {

@@ -37,3 +37,7 @@ export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
 export const LOCUS_HREF = "https://breakpoint.golocus.xyz/uk-entry";
 export const IAS_HREF =
   "https://iasservices.org.uk/breakpoint-priority-visa-application-centre/";
+
+// Playlist supplied for the post-conference experience.
+export const BREAKPOINT_RECAP_PLAYLIST_HREF =
+  "https://www.youtube.com/playlist?list=PLHlhC6wstB90";

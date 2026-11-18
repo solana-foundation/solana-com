@@ -151,11 +151,13 @@ export async function getHomeMetadata(
   state: ConferenceState = CONFERENCE_STATE,
 ): Promise<Metadata> {
   const base = await getBaseMetadata(locale, "/");
-  if (!isLiveConference(state)) return base;
+  if (state === "pre") return base;
 
   const t = await getTranslations({
     locale,
-    namespace: "breakpoint.metadata.live",
+    namespace: isLiveConference(state)
+      ? "breakpoint.metadata.live"
+      : "breakpoint.metadata.post",
   });
   const title = t("title");
   const description = t("description");
