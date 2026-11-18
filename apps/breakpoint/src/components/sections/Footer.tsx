@@ -297,9 +297,7 @@ export default function Footer({
             <p className="type-eyebrow">
               {nextEdition.shortName} · {nextEdition.city}
             </p>
-            <h2 className="type-h2 max-md:text-h3!">
-              {tPost("closingHeadline")}
-            </h2>
+            <h2 className="type-h3">{tPost("closingHeadline")}</h2>
             <p className="type-p-large">{tPost("closingBody")}</p>
             <Button
               href={nextEdition.registrationHref}

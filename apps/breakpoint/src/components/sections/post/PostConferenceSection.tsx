@@ -109,7 +109,7 @@ export default async function PostConferenceSection({
               <p className="type-eyebrow text-core-purple">
                 {t("recapEyebrow")}
               </p>
-              <h2 id="recap-title" className="type-h2">
+              <h2 id="recap-title" className="type-h3">
                 {t("recapHeadline")}
               </h2>
             </div>
