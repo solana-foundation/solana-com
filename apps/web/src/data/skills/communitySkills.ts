@@ -327,4 +327,12 @@ export const COMMUNITY_SKILLS: CommunitySkill[] = [
     url: "https://github.com/sendaifun/skills/tree/72ef2aa814cca4662341bfcdc01cdc288e9bb502/skills/surfpool",
     category: TOOLING,
   },
+  {
+    slug: "stalkchain-wallet-lookup",
+    title: "StalkChain Wallet Lookup",
+    description:
+      "Look up public Solana wallet holdings, profit and loss, and win rate. StalkChain sign-in is required, and live queries use account credits.",
+    url: "https://github.com/StalkC/stalkchain-plugin/tree/v1.3.6/skills/wallet-lookup",
+    category: TOOLING,
+  },
 ];
