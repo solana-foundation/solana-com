@@ -145,6 +145,7 @@ import unitywalletIcon from "../../assets/wallets/icons/unitywallet.webp";
 import unruggableIcon from "../../assets/wallets/icons/unruggable.webp";
 import utilaIcon from "../../assets/wallets/icons/utila.webp";
 import venlyIcon from "../../assets/wallets/icons/venly.webp";
+import vibeWalletIcon from "../../assets/wallets/icons/vibe-wallet.webp";
 import vultisigIcon from "../../assets/wallets/icons/vultisig.webp";
 import waiaasIcon from "../../assets/wallets/icons/waiaas.webp";
 import walletverseIcon from "../../assets/wallets/icons/walletverse.webp";
@@ -2731,6 +2732,26 @@ const walletRecords = {
     website: "https://www.venly.io/product/wallet-as-a-service",
     icon: venlyIcon,
     lastVerified: "2026-09-02",
+  },
+  "vibe-wallet": {
+    name: "VIBE Wallet",
+    tagline: "Native Solana wallet for Linux",
+    aliases: ["vibe", "vibewallet"],
+    category: "consumer",
+    platforms: ["desktop"],
+    features: [
+      "non_custodial",
+      "te",
+      "hold_nfts",
+      "staking",
+      "hardware",
+      "solana_native",
+    ],
+    description:
+      "Native GTK 4 Linux desktop wallet for Solana with keys kept in a local encrypted vault, Jupiter and Raydium swaps, SOL staking, NFTs, Token-2022 support, and Ledger and Trezor signing",
+    website: "https://vibewallet.net/",
+    icon: vibeWalletIcon,
+    lastVerified: "2026-11-16",
   },
   vultisig: {
     name: "Vultisig",
