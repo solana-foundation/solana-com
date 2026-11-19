@@ -58,6 +58,7 @@ export function applyQueryUpdates(
   if (updates.timeframe) {
     params.set("timeframe", updates.timeframe);
   }
+  if (updates.landingRegion) params.set("region", updates.landingRegion);
 }
 
 export function getDashboardUrl(pathname: string, params: URLSearchParams) {
