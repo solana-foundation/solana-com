@@ -4,6 +4,7 @@ import type { WalletCategory, WalletFeature, WalletPlatform } from "./taxonomy";
 import defaultWalletIcon from "../../assets/wallets/wallet-placeholder-icon.webp";
 import arculusIcon from "../../assets/wallets/icons/arculus.webp";
 import atomicwalletIcon from "../../assets/wallets/icons/atomicwallet.webp";
+import aurusIcon from "../../assets/wallets/icons/aurus.webp";
 import aviciIcon from "../../assets/wallets/icons/avici.webp";
 import backpackIcon from "../../assets/wallets/icons/backpack.webp";
 import bcVaultIcon from "../../assets/wallets/icons/bc-vault.webp";
@@ -219,6 +220,19 @@ const walletRecords = {
       "https://www.getarculus.com/products/arculus-cold-storage-wallet.html",
     icon: arculusIcon,
     lastVerified: "2026-09-02",
+  },
+  aurus: {
+    name: "Aurus",
+    tagline: "Self-custody Solana wallet for traders",
+    aliases: ["aurus-pro-wallet", "aurus-wallet"],
+    category: "consumer",
+    platforms: ["ios", "android"],
+    features: ["non_custodial", "staking", "hardware", "solana_native"],
+    description:
+      "Mobile Solana wallet for active traders that prices each swap across several DEX aggregators, with a feed of new Pump.fun tokens, SOL liquid staking and lending, and Ledger signing",
+    website: "https://aur.us/",
+    icon: aurusIcon,
+    lastVerified: "2026-11-16",
   },
   avici: {
     name: "Avici",
