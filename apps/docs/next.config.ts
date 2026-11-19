@@ -150,11 +150,16 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/docs/payments/production-readiness",
-        destination: "/docs/tools/transaction-landing#transaction-landing",
+        destination:
+          "/docs/tools/interacting-with-mainnet#preparing-transactions",
+      },
+      {
+        source: "/docs/tools/transaction-landing",
+        destination: "/docs/tools/interacting-with-mainnet",
       },
     ];
 
-    return movedRoutes.flatMap(({ source, destination }) => {
+    const redirects = movedRoutes.flatMap(({ source, destination }) => {
       const markdownDestination = destination.replace(/(#|$)/, ".md$1");
 
       return [
@@ -168,6 +173,29 @@ const nextConfig: NextConfig = {
         permanent: true,
       }));
     });
+
+    const source = "/docs/core/transactions/versioned-transactions";
+    const destination = "/docs/core/transactions/transaction-versions";
+
+    return [
+      ...redirects,
+      { source, destination, permanent: true },
+      {
+        source: `${source}.md`,
+        destination: `${destination}.md`,
+        permanent: true,
+      },
+      {
+        source: `/en${source}`,
+        destination: `/en${destination}`,
+        permanent: true,
+      },
+      {
+        source: `/en${source}.md`,
+        destination: `/en${destination}.md`,
+        permanent: true,
+      },
+    ];
   },
 
   async rewrites() {
