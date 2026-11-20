@@ -33,7 +33,7 @@ export function SolutionsSolanaPermissionedEnvironmentsPage() {
             label: t("buttons.readTheDocs"),
             hierarchy: "primary",
             size: "lg",
-            url: "https://solana.com/docs/tools/private-channels",
+            url: "https://solana.com/developers/docs/tools/private-channels",
           },
           {
             label: t("buttons.areSpesRightForYou"),
@@ -150,7 +150,7 @@ export function SolutionsSolanaPermissionedEnvironmentsPage() {
               src: DEVELOPER_CARD_IMAGES,
             },
             callToAction: {
-              url: "/docs/intro/quick-start",
+              url: "/developers/docs/quickstart",
               endIcon: "arrow-right",
               hierarchy: "outline",
             },

@@ -30,6 +30,7 @@ export function isProxiedPath(normalizedPathname: string) {
     normalizedPathname.startsWith("/developers/templates") ||
     normalizedPathname.startsWith("/developers/cookbook") ||
     normalizedPathname.startsWith("/developers/bootcamp") ||
+    normalizedPathname.startsWith("/developers/docs") ||
     normalizedPathname.startsWith("/docs") ||
     (normalizedPathname.startsWith("/news") &&
       !normalizedPathname.startsWith("/newsletter")) ||

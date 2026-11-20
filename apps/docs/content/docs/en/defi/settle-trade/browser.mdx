@@ -1,0 +1,86 @@
+---
+title: "Read the trade code"
+sidebarTitle: "Read the code"
+description: "Read the code that prices a trade from a Pyth feed, records it with the DvP program, and settles both legs in one transaction, then step through its output."
+---
+
+import Stepper from "/snippets/paths/en/settle-trade/stepper-2.mdx";
+import Price from "/snippets/examples/paths/defi/settle-trade/price.mdx";
+import Trade from "/snippets/examples/paths/defi/settle-trade/trade.mdx";
+import Program from "/snippets/concepts/en/program.mdx";
+import Cpi from "/snippets/concepts/en/cpi.mdx";
+
+<Stepper />
+
+This is the code behind the trade in the previous step, in two files:
+`price.ts` reads the price and converts the shares into USDC, and `trade.ts`
+records, funds, and settles the trade. Press **Run** under each block to step
+through its output on a local test network (Surfpool). Nothing is sent from
+your browser, and there's nothing to install.
+
+## 1. Price the trade
+
+<Price />
+
+A Pyth price feed account holds Pyth's latest price for one feed, and anyone
+can read it with an ordinary account lookup. The code reads the USDC/USD feed
+account
+<span className="sol-address" data-address="Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX"><Tooltip headline="Pyth USDC/USD price feed account" tip="Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX" cta="View on Solana Explorer" href="https://explorer.solana.com/address/Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX">`Dpw1…eFbX`</Tooltip><span className="nojs-only"> ([Pyth USDC/USD price feed account](https://explorer.solana.com/address/Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX))</span></span>
+and checks it before using the price:
+
+1. **The owner.** The account must belong to Pyth's receiver program
+   (`rec5EKMG…LtFJ`). Anyone can create an account with bytes that look like a
+   price, but only that program can write to accounts it owns.
+2. **The layout and feed.** The first 8 bytes identify a `PriceUpdateV2`
+   account, and the feed ID inside it must be USDC/USD.
+3. **Verification.** The update must be fully verified (byte 40 is `1`).
+4. **Age.** `publishTime` must be at most `MAX_PRICE_AGE_SECONDS` old, 120 by
+   default. Pyth updates this feed on mainnet every 55 seconds, or sooner when
+   the price moves by 0.5% ([sponsored feeds](https://docs.pyth.network/price-feeds/core/push-feeds/solana)).
+5. **Confidence.** Pyth publishes a confidence interval with each price. The
+   code refuses a price whose interval is wider than 0.5% of the price.
+
+`priceTrade` then converts the dollar amount into USDC at that price, rounding
+up to the next base unit. Pyth's values are integers with an exponent: a
+`price` of `99987452` with an exponent of `-8` is 0.99987452.
+
+The feed address and the receiver program address are the same on mainnet and
+devnet (see Pyth's [contract addresses](https://docs.pyth.network/price-feeds/core/contract-addresses/solana)).
+
+## 2. Record, fund, and settle
+
+<Trade />
+
+`trade.ts` uses the client generated from the DvP program's IDL (`./dvp`).
+
+- **`createTrade`** derives the trade record's address from the agent, the two
+  parties, the two mints, and a random nonce, and sends `CreateDvp` with both
+  amounts and an expiry one day ahead. The agent pays the deposits for the
+  record and both escrows, and gets them back when it settles. Then
+  `verifyTrade` reads the record back.
+- **`verifyTrade`** checks that the record is owned by the DvP program, is
+  exactly 458 bytes, sits at the address its terms derive, and holds the agreed
+  parties, mints, amounts, and payout addresses. Creating a record is open to
+  anyone, so every party checks it before acting on it (see
+  [verify the terms](/developers/docs/defi/dvp-program/fund-the-legs#verify-the-terms)).
+  `settle` runs the same check before the agent signs.
+- **`approveEscrow`** thaws the LSF escrow with the issuer's freeze authority.
+  Without it, the seller's transfer into a frozen account fails.
+- **`fundAssetLeg`** and **`fundCashLeg`** are plain `TransferChecked`
+  transfers into the escrows. LSF is a Token-2022 token and USDC an SPL Token
+  token; one trade can mix the two.
+- **`settle`** creates the four token accounts that settlement pays into, if
+  they don't exist, and sends `SettleDvp`, signed by the agent. The program
+  checks both escrows, moves 4 LSF to the buyer, and the USDC to the seller,
+  returns any surplus, and closes the record and both escrows.
+- **`settleUnfunded`** sends the same settle with `skipPreflight`, so the
+  failed attempt lands onchain and the code can read its error.
+
+<Program />
+
+<Cpi />
+
+The DvP program moves the tokens by calling the Token-2022 program for the LSF
+leg and the Token program for the USDC leg, inside the one settle transaction.
+
+To run this code yourself and change the trade, continue to the next step.

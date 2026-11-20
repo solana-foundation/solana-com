@@ -24,7 +24,7 @@ export const FOOTER_COLUMNS: FooterColumnConfig[] = [
     headingKey: "footer.build.heading",
     links: [
       { labelKey: "footer.build.developers", href: "/developers" },
-      { labelKey: "footer.build.docs", href: "/docs" },
+      { labelKey: "footer.build.docs", href: "/developers/docs" },
       { labelKey: "footer.build.templates", href: "/developers/templates" },
     ],
   },

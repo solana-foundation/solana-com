@@ -1,0 +1,71 @@
+---
+title: "Read the paywall server"
+sidebarTitle: "Read the code"
+description:
+  "Read the server that answers 402 with a price, checks the signed payment and
+  settles it, then step through its output to see what an unpaid request gets."
+---
+
+import Stepper from "/snippets/paths/en/paywall-api/stepper-2.mdx";
+import X402Types from "/snippets/examples/paths/payments/paywall-api/types.mdx";
+import PaywallServer from "/snippets/examples/paths/payments/paywall-api/server.mdx";
+import TokenAccount from "/snippets/concepts/en/token-account.mdx";
+
+<Stepper />
+
+Now the server side. The paywall is one function, `createPaywallServer`, that
+takes the wallet address to pay and a price, and returns a Node.js `node:http`
+server. Read the code, then press **Run** to step through its responses on a
+local test network (Surfpool). You run it yourself in the next step.
+
+## 1. The messages
+
+x402 messages are JSON objects, sent base64-encoded in HTTP headers. These are
+the types the server and client share:
+
+<X402Types />
+
+- `PaymentRequirements` is one way to pay. `maxAmountRequired` is the price in
+  the token's base units, `asset` is the token's mint address, and `payTo` is
+  the wallet that gets paid.
+- `PaymentPayload` is what the client sends back in the `X-PAYMENT` header: a
+  fully signed transaction, base64-encoded.
+- `SettlementResponse` is the receipt the server returns in the
+  `X-PAYMENT-RESPONSE` header. `transaction` is the transaction's signature.
+- `network` is a [CAIP-2](https://chainagnostic.org/CAIPs/caip-2) identifier.
+  `solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1` is Solana devnet.
+
+## 2. The server
+
+<PaywallServer />
+
+What the code does, in order:
+
+1. **No payment, no data.** A request without an `X-PAYMENT` header gets `402`
+   with `accepts: [requirements]`. That is the output above.
+2. **Decode, never trust.** The header is untrusted input. Any decoding
+   problem is a `402 malformed X-PAYMENT header`, not a crash. The server also
+   refuses transactions that use address lookup tables, because it only checks
+   accounts listed in the transaction itself.
+3. **Check that it pays the price.** The server looks for a USDC
+   `TransferChecked` instruction whose destination is the `payTo` wallet's USDC
+   <span className="sol-chip" data-concept="token-account"><Tooltip headline="Token accounts" tip="Wallets don't hold tokens directly. Each token (USDC, or your own asset) gets a small account owned by the wallet, and transfers move between these accounts." cta="Learn more" href="/developers/docs/tokens/basics/create-token-account">token account</Tooltip><span className="nojs-only"> ([Token accounts](/developers/docs/tokens/basics/create-token-account): Wallets don't hold tokens directly. Each token (USDC, or your own asset) gets a small account owned by the wallet, and transfers move between these accounts.)</span></span>
+   and whose amount is at least the price.
+4. **One payment, one response.** The transaction's
+   <span className="sol-chip" data-concept="signature"><Tooltip headline="Signatures" tip="Every transaction is signed by the wallets it spends from. The first signature doubles as the transaction's ID, which is what your code gets back and looks up later." cta="Learn more" href="/developers/docs/core/transactions#signatures">signature</Tooltip><span className="nojs-only"> ([Signatures](/developers/docs/core/transactions#signatures): Every transaction is signed by the wallets it spends from. The first signature doubles as the transaction's ID, which is what your code gets back and looks up later.)</span></span> is its
+   ID. The server remembers every signature it has accepted and refuses a
+   repeat with `payment already used`.
+5. **Settle.** The server sends the transaction to the network and waits until
+   it reaches `confirmed`.
+6. **Check again on the network.** `verifyPayment`, the same check as in the
+   [checkout tutorial](/developers/docs/payments/checkout/backend), reads the settled
+   transaction back and confirms that `payTo` received the amount. Only then
+   does the server return `200` with the data and an `X-PAYMENT-RESPONSE`
+   header.
+
+<TokenAccount />
+
+<Note>
+  The client pays the network fee here, because it signs as the fee payer. With
+  the x402 SDK, a facilitator can pay it instead (step 4).
+</Note>

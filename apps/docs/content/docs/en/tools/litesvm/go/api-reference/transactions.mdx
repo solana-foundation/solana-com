@@ -24,7 +24,6 @@ out, err := svm.SendLegacyTransaction(txBytes)
 if err != nil {
     t.Fatal(err)
 }
-defer out.Close()
 
 if !out.IsOk() {
     t.Fatalf("tx failed: %s\nlogs: %v", out.Error(), out.Logs())
@@ -35,12 +34,12 @@ t.Logf("compute:   %d CU", out.ComputeUnits())
 t.Logf("fee:       %d lamports", out.Fee())
 ```
 
-<Callout type="warn">
+<Warning>
   The returned error is non-nil only when the bytes could not be decoded or an
   internal failure occurred. A transaction that *executes and fails* still
   returns a non-nil `*TxOutcome`; always check `IsOk()` before consuming
   success-only state.
-</Callout>
+</Warning>
 
 ## SendVersionedTransaction
 
@@ -59,15 +58,14 @@ func (s *LiteSVM) SimulateVersionedTransaction(txBytes []byte) (*TxOutcome, erro
 ```
 
 Execute the transaction without committing state. The same `*TxOutcome` shape is
-returned, plus `PostAccounts()` is populated on success with the would-be
-post-execution account state.
+returned, plus `PostAccounts()` is populated with the would-be post-execution
+state of the writable accounts.
 
 ```go
 sim, err := svm.SimulateLegacyTransaction(txBytes)
 if err != nil {
     t.Fatal(err)
 }
-defer sim.Close()
 
 if !sim.IsOk() {
     t.Fatalf("sim failed: %s", sim.Error())
@@ -81,47 +79,42 @@ if err != nil {
     t.Fatal(err)
 }
 for _, p := range posts {
-    t.Logf("%s: %d lamports", p.Address, p.Account.Lamports())
-    p.Account.Close()
+    t.Logf("%s: %d lamports", p.Address, p.Account.Lamports)
 }
 ```
 
-<Callout type="info">
+<Info>
   Simulation does not change state. Use it to size compute budgets or assert on
   logs without polluting your ledger.
-</Callout>
+</Info>
 
 ## TxOutcome
 
 Every send / simulate call returns a `*TxOutcome` carrying the same metadata
-regardless of success or failure. Always `Close` it.
+regardless of success or failure. All accessors tolerate a `nil` receiver and
+return zero values.
 
 | Method                | Returns                            | Description                                               |
 | --------------------- | ---------------------------------- | --------------------------------------------------------- |
 | `IsOk()`              | `bool`                             | Transaction succeeded                                     |
-| `Error()`             | `string`                           | Failure description (empty on success)                    |
+| `Error()`             | `string`                           | Agave wire-format JSON failure, for example `"BlockhashNotFound"` (empty on success) |
 | `Signature()`         | `solana.Signature`                 | Transaction signature                                     |
 | `ComputeUnits()`      | `uint64`                           | Compute units consumed                                    |
 | `Fee()`               | `uint64`                           | Fee charged                                               |
 | `Logs()`              | `[]string`                         | Program logs                                              |
 | `ReturnData()`        | `(solana.PublicKey, []byte, bool)` | Return data set via `set_return_data`; `ok=false` if none |
-| `InnerInstructions()` | `[][]InnerInstruction`             | CPIs grouped by top-level instruction                     |
+| `InnerInstructions()` | `InnerInstructionsList`            | CPIs grouped by top-level instruction                     |
 | `PostAccounts()`      | `([]PostAccount, error)`           | Post-execution state - simulate only                      |
-| `Close()`             | -                                  | Release the underlying Rust handle                        |
 
 ### InnerInstruction
 
 ```go
-type CompiledInstruction struct {
-    ProgramIDIndex uint8
-    Accounts       []byte // indices into the transaction's account table
-    Data           []byte
+type InnerInstruction struct {
+    Instruction solana.CompiledInstruction // indices point into the transaction's account table
+    StackHeight uint16                     // 1 for top-level, higher for deeper CPIs
 }
 
-type InnerInstruction struct {
-    Instruction CompiledInstruction
-    StackHeight uint8 // 1 for top-level, higher for deeper CPIs
-}
+type InnerInstructionsList [][]InnerInstruction
 ```
 
 `InnerInstructions()` returns a slice indexed by the top-level instruction that
@@ -132,11 +125,11 @@ triggered each batch of CPIs.
 ```go
 type PostAccount struct {
     Address solana.PublicKey
-    Account *Account // close this when done
+    Account *solana.Account
 }
 ```
 
-Populated only for successful simulations.
+Returned by `PostAccounts()` for simulations.
 
 ## Blockhash Management
 
@@ -160,6 +153,7 @@ tx, _ := solana.NewTransaction(
     blockhash,
     solana.TransactionPayer(payer),
 )
+_ = tx // sign, marshal and send it
 ```
 
 ### ExpireBlockhash
@@ -169,7 +163,8 @@ func (s *LiteSVM) ExpireBlockhash() error
 ```
 
 Advance past the current blockhash so the next `LatestBlockhash` returns a new
-value. Useful for testing blockhash-expiry edge cases.
+value. Transactions signed with an older blockhash then fail with
+`"BlockhashNotFound"`, which is useful for testing blockhash-expiry edge cases.
 
 ```go
 bh1, err := svm.LatestBlockhash()
@@ -189,8 +184,10 @@ _, _ = bh1, bh2
 
 ## Transaction History
 
-Transaction history is on by default. Adjust the capacity (or disable dedup)
-with `SetTransactionHistory`:
+Transaction history is on by default, and it is what detects replays: sending
+the same signed transaction twice returns an outcome with error
+`AlreadyProcessed`. Adjust the capacity (or disable dedup) with
+`SetTransactionHistory`:
 
 ```go
 // Cap history at 100 entries.
@@ -204,12 +201,11 @@ if err := svm.SetTransactionHistory(0); err != nil {
 }
 ```
 
-Look up a prior transaction by signature:
+Look up a prior transaction by signature (the history keeps the 32 most recent transactions by default, including executed-but-failed ones):
 
 ```go
 prior := svm.GetTransaction(sig) // nil if unknown
 if prior != nil {
-    defer prior.Close()
     t.Logf("found: %s, fee=%d", prior.Signature(), prior.Fee())
 }
 ```
@@ -227,7 +223,9 @@ func BuildTransferTx(
 
 Produces a bincode-encoded, signed legacy `Transaction` transferring `lamports`
 from the keypair derived from `payerSeed` to `to`, using `blockhash`. The
-returned bytes are ready to hand to `SendLegacyTransaction`.
+returned bytes are ready to hand to `SendLegacyTransaction`. The payer is the
+keypair derived from the seed, so fund its address first (for example with
+`Airdrop`); otherwise the outcome fails with `"InsufficientFundsForFee"`.
 
 ```go
 var seed [32]byte
@@ -246,12 +244,13 @@ out, err := svm.SendLegacyTransaction(txBytes)
 if err != nil {
     t.Fatal(err)
 }
-defer out.Close()
+if !out.IsOk() {
+    t.Fatalf("tx failed: %s", out.Error())
+}
 ```
 
-<Callout type="info">
-  This exists to bootstrap tests and for callers who want to avoid pulling in
-  `solana-go`. Once you are building real transactions, prefer the `solana-go`
+<Info>
+  This exists to bootstrap tests. Once you are building real transactions, prefer the `solana-go`
   path shown above - it scales to multi-instruction transactions, v0 messages,
   and arbitrary programs.
-</Callout>
+</Info>

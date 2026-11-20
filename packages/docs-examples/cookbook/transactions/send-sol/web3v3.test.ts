@@ -1,8 +1,10 @@
 import { describe, it } from "vitest";
-import { expectExampleLogsSignature } from "../../../test/assert-signature";
+import { runExample } from "../../../test/record";
 
 describe("cookbook/transactions/send-sol/web3v3", () => {
   it("airdrops, builds, signs, and sends a transfer", async () => {
-    await expectExampleLogsSignature(() => import("./web3v3"));
+    await runExample(() => import("./web3v3"), {
+      output: new URL("./web3v3.output.txt", import.meta.url),
+    });
   });
 });
