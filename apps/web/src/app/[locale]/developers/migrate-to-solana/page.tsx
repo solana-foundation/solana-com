@@ -12,7 +12,7 @@ export default async function Page(_props: Props) {
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
-  const t = await getTranslations("developers-evm-to-svm");
+  const t = await getTranslations("developers-migrate-hub");
   return {
     title: t("meta.seoTitle"),
     description: t("meta.seoDescription"),
