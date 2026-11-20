@@ -50,6 +50,17 @@ export const MIGRATION_NAV = [
         url: `${MIGRATE}/cosmos/app-chain`,
         hasDescription: true,
       },
+      // Child guides follow their parent and name it in `parent`.
+      {
+        key: "halt-and-claim",
+        url: `${MIGRATE}/cosmos/app-chain/halt-and-claim`,
+        parent: "app-chain",
+      },
+      {
+        key: "ibc-bridge",
+        url: `${MIGRATE}/cosmos/app-chain/ibc-bridge`,
+        parent: "app-chain",
+      },
     ],
   },
 ] as const;
@@ -238,7 +249,7 @@ function LeftSidebar({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
                 </>
               );
               return (
-                <li key={guide.url}>
+                <li key={guide.url} className={"parent" in guide ? "pl-3" : ""}>
                   {guide.url === activeUrl ? (
                     <span
                       className={cn(linkClass, "block", activeClass)}
@@ -264,6 +275,10 @@ function LeftSidebar({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
 function Breadcrumbs({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
   const t = useTranslations("developers-evm-to-svm.docsLayout");
   const { group, guide } = findGuide(activeUrl);
+  const parentGuide =
+    "parent" in guide
+      ? group.guides.find((candidate) => candidate.key === guide.parent)
+      : undefined;
   const linkClass =
     "text-white/40 no-underline transition-colors hover:text-[#14f195]";
   const separator = (
@@ -294,6 +309,14 @@ function Breadcrumbs({ activeUrl }: { activeUrl: MigrationGuideUrl }) {
         </Link>
       )}
       {separator}
+      {parentGuide ? (
+        <>
+          <Link href={parentGuide.url} className={linkClass}>
+            {t(`guides.${parentGuide.key}`)}
+          </Link>
+          {separator}
+        </>
+      ) : null}
       <span className="text-white/80">{t(`guides.${guide.key}`)}</span>
     </nav>
   );

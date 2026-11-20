@@ -1,4 +1,9 @@
-import { DevelopersChainMigrationCosmosAppChainPage } from "./developers-chain-migration-cosmos-app-chain";
+import { AppChainGuide } from "./app-chain-guide";
+import {
+  NAV_BUTTON_URLS,
+  RESOURCE_CARD_URLS,
+  RUNBOOK_SECTIONS,
+} from "@/data/developers/evm-to-svm/cosmos-app-chain-overview";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 
@@ -7,13 +12,21 @@ type Props = { params: Promise<{ locale: string }> };
 export const revalidate = 60;
 
 export default async function Page() {
-  return <DevelopersChainMigrationCosmosAppChainPage />;
+  return (
+    <AppChainGuide
+      namespace="developers-chain-migration-cosmos-app-chain-overview"
+      activeUrl="/developers/migrate-to-solana/cosmos/app-chain"
+      navButtonUrls={NAV_BUTTON_URLS}
+      sections={RUNBOOK_SECTIONS}
+      resourceCardUrls={RESOURCE_CARD_URLS}
+    />
+  );
 }
 
 export async function generateMetadata({ params }: Props) {
   const { locale } = await params;
   const t = await getTranslations(
-    "developers-chain-migration-cosmos-app-chain",
+    "developers-chain-migration-cosmos-app-chain-overview",
   );
   return {
     title: t("meta.seoTitle"),
