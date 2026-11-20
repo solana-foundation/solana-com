@@ -2,25 +2,17 @@
 
 import React from "react";
 import { useTranslations } from "@workspace/i18n/client";
-import worldLand from "@/data/slot200/world-land.json";
-import validatorGeo from "@/data/slot200/validator-geo.json";
 import { Panel } from "./Panel";
+import {
+  leaderDetail,
+  MapBase,
+  STAKE_CENTROID as CENTROID,
+  toXY,
+} from "./mapBase";
 import type { LeaderEntry } from "./useLeaderSchedule";
 import type { SlotEvent } from "./useSlotFeed";
 
-// [lat, lon, validatorCount, stakePct] — bundled city-level snapshot of where
-// staked validators physically run (gossip IPs)
-const LOCS = (validatorGeo as { locs: [number, number, number, number][] })
-  .locs;
-
 const SVG_NS = "http://www.w3.org/2000/svg";
-
-function toXY(lat: number, lon: number): [number, number] {
-  return [
-    Math.round(((lon + 180) / 360) * 10000) / 10,
-    Math.round(((90 - lat) / 180) * 5000) / 10,
-  ];
-}
 
 interface WorldMapProps {
   subscribe: (_fn: (_ev: SlotEvent) => void) => () => void;
@@ -30,21 +22,6 @@ interface WorldMapProps {
 const BASE_DESK = [0, 50, 1000, 333] as const;
 const BASE_MOBILE = [70, 65, 840, 290] as const;
 const MAX_ZOOM = 5;
-
-// stake-weighted centroid — zoom dives into the network's mass, not mid-ocean
-const CENTROID = (() => {
-  let sx = 0;
-  let sy = 0;
-  let sw = 0;
-  for (const l of LOCS) {
-    const [x, y] = toXY(l[0], l[1]);
-    const w = l[3] || 0.01;
-    sx += x * w;
-    sy += y * w;
-    sw += w;
-  }
-  return [sx / sw, sy / sw] as const;
-})();
 
 function viewRect(
   zoom: number,
@@ -124,35 +101,6 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
     setPanning(false);
   };
 
-  // land + constellation never change — keep them out of the per-move render
-  const staticLayers = React.useMemo(
-    () => (
-      <>
-        <path
-          d={(worldLand as { d: string }).d}
-          fill="rgba(255,255,255,0.05)"
-          stroke="rgba(255,255,255,0.13)"
-          strokeWidth="0.6"
-        />
-        <g>
-          {LOCS.map((l, i) => {
-            const [x, y] = toXY(l[0], l[1]);
-            return (
-              <circle
-                key={i}
-                cx={x}
-                cy={y}
-                r={Math.min(7, 1 + 1.6 * Math.sqrt(l[3] || 0)).toFixed(1)}
-                fill="rgba(148,163,184,0.28)"
-              />
-            );
-          })}
-        </g>
-      </>
-    ),
-    [],
-  );
-
   React.useEffect(() => {
     setMobile(window.matchMedia("(max-width: 700px)").matches);
     const reduced = window.matchMedia(
@@ -168,12 +116,9 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
       if (capName.current)
         capName.current.textContent = leader.name || leader.id;
       if (capSub.current)
-        capSub.current.textContent = [
-          leader.city || null,
-          leader.stakePct > 0 ? t("capStake", { pct: leader.stakePct }) : null,
-        ]
-          .filter(Boolean)
-          .join(" · ");
+        capSub.current.textContent = leaderDetail(leader, (pct) =>
+          t("capStake", { pct }),
+        );
       if (capSlot.current)
         capSlot.current.textContent = `#${nf.format(ev.slot)}`;
       // next leader: first upcoming slot with a different producer
@@ -258,7 +203,7 @@ export const WorldMap: React.FC<WorldMapProps> = React.memo(function WorldMap({
           onPointerUp={endPan}
           onPointerCancel={endPan}
         >
-          {staticLayers}
+          <MapBase />
           <g ref={pulseGroup} />
         </svg>
       </div>
