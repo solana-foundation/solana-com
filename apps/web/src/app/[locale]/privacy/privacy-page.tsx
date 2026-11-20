@@ -641,8 +641,8 @@ function Rings() {
         <SolutionIntro
           namespace="privacy.rings"
           sectionId="solana-rings-title"
-          status="devnetBeta"
-          statusLabel={tStatus("devnetBeta")}
+          status="mainnet"
+          statusLabel={tStatus("mainnet")}
           tags={RINGS_TAGS}
         >
           <div className="rounded-2xl border border-nd-border-prominent bg-white/[0.03] p-6 md:p-8">
