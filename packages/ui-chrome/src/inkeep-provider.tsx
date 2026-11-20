@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import type { InkeepEmbeddedSearchAndChatFunctions } from "@inkeep/cxkit-react";
 import { useSiteInkeepConfig } from "./inkeep-site-config";
 
@@ -28,9 +29,8 @@ const Modal = dynamic(
 );
 
 function InkeepWidget() {
-  const { isOpen, view, open, setIsOpen } = useInkeep();
-  const openSearch = useCallback(() => open("search"), [open]);
-  const config = useSiteInkeepConfig(isOpen, openSearch);
+  const { isOpen, view, setIsOpen } = useInkeep();
+  const config = useSiteInkeepConfig(isOpen);
   const functions = useRef<InkeepEmbeddedSearchAndChatFunctions>({
     setView: () => {},
   });
@@ -49,13 +49,31 @@ function InkeepWidget() {
   );
 }
 
+// Search links remain an opening intent without loading the SDK on ordinary visits.
+function SearchLinkIntent({ open }: { open: InkeepContextValue["open"] }) {
+  const searchParams = useSearchParams();
+  const query = searchParams.get("search")?.trim().slice(0, 500) ?? "";
+  useEffect(() => {
+    if (query) open("search");
+  }, [query, open]);
+  return null;
+}
+
 export function InkeepProvider({ children }: { children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpenState] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
   const [view, setView] = useState<View>("search");
-  const open = useCallback((next: View) => {
-    setView(next);
-    setIsOpen(true);
+  const setIsOpen = useCallback((next: boolean) => {
+    if (next) setHasOpened(true);
+    setIsOpenState(next);
   }, []);
+  const open = useCallback(
+    (next: View) => {
+      setView(next);
+      setIsOpen(true);
+    },
+    [setIsOpen],
+  );
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -68,14 +86,19 @@ export function InkeepProvider({ children }: { children: React.ReactNode }) {
   }, [open]);
   const value = useMemo(
     () => ({ isOpen, view, open, setIsOpen }),
-    [isOpen, view, open],
+    [isOpen, view, open, setIsOpen],
   );
   return (
     <InkeepContext.Provider value={value}>
       {children}
       <Suspense fallback={null}>
-        <InkeepWidget />
+        <SearchLinkIntent open={open} />
       </Suspense>
+      {hasOpened && (
+        <Suspense fallback={null}>
+          <InkeepWidget />
+        </Suspense>
+      )}
     </InkeepContext.Provider>
   );
 }

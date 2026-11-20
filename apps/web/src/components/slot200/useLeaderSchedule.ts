@@ -48,6 +48,7 @@ export function useLeaderSchedule(): {
     let alive = true;
     let loading = false;
     let controller: AbortController | null = null;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     async function load() {
       if (!alive || document.hidden || loading) return;
       loading = true;
@@ -63,7 +64,12 @@ export function useLeaderSchedule(): {
           setNetwork(data.network ?? null);
         }
       } catch {
-        // keep the last schedule on failure
+        // keep the last schedule on failure; with none yet, retry soon
+        // rather than leaving every block unattributed until the refetch
+        if (alive && !dataRef.current && !document.hidden) {
+          clearTimeout(retry);
+          retry = setTimeout(() => void load(), 5_000);
+        }
       } finally {
         loading = false;
         controller = null;
@@ -82,6 +88,7 @@ export function useLeaderSchedule(): {
       alive = false;
       document.removeEventListener("visibilitychange", onVisibilityChange);
       clearInterval(refetch);
+      clearTimeout(retry);
       controller?.abort();
     };
   }, []);
