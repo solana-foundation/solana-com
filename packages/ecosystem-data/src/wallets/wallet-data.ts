@@ -105,6 +105,7 @@ import passkeysWalletIcon from "../../assets/wallets/icons/passkeys-wallet.webp"
 import paybisWalletIcon from "../../assets/wallets/icons/paybis-wallet.webp";
 import paypalCryptocurrencyServicesIcon from "../../assets/wallets/icons/paypal-cryptocurrency-services.webp";
 import phantomIcon from "../../assets/wallets/icons/phantom.webp";
+import plaxswapWalletIcon from "../../assets/wallets/icons/plaxswap-wallet.webp";
 import pontemIcon from "../../assets/wallets/icons/pontem.webp";
 import portalIcon from "../../assets/wallets/icons/portal.webp";
 import portoIcon from "../../assets/wallets/icons/porto.webp";
@@ -2015,6 +2016,18 @@ const walletRecords = {
     website: "https://docs.phantom.com/wallet-sdks-overview",
     icon: phantomIcon,
     lastVerified: "2026-09-02",
+  },
+  "plaxswap-wallet": {
+    name: "Plaxswap Wallet",
+    tagline: "Self-custody wallet for Android and the web",
+    category: "consumer",
+    platforms: ["android", "web"],
+    features: ["non_custodial", "multi_chain"],
+    description:
+      "Self-custody wallet for Android and the web with no account or email, a recovery phrase made on the device or imported from another wallet, sending on Solana and 11 other networks, and in-app swaps",
+    website: "https://plaxswap.com/crypto-wallet",
+    icon: plaxswapWalletIcon,
+    lastVerified: "2026-11-10",
   },
   pontem: {
     name: "Pontem",
