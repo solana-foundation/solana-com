@@ -81,6 +81,7 @@ All props are optional.
 | ------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------- | ---------------------------------------- |
 | `position`    | `"bottom-right"` \| `"bottom-left"` \| `"top-right"` \| `"top-left"` \| `{ top?, bottom?, left?, right? }` | `"bottom-right"`                    | Screen position of the FAB               |
 | `apiUrl`      | `string`                                                                                                   | `"https://solana.com/api/fab-menu"` | Endpoint to fetch menu data              |
+| `data`        | `MenuData`                                                                                                 | —                                   | Menu data to render; skips the request   |
 | `zIndex`      | `number`                                                                                                   | `999999`                            | Z-index for the FAB and overlay          |
 | `logoVariant` | `"dark-mono"` \| `"light-mono"` \| `"color"`                                                               | `"dark-mono"`                       | Solana logo treatment for the FAB button |
 | `theme`       | `object`                                                                                                   | Solana dark theme                   | CSS custom property overrides            |
@@ -120,6 +121,10 @@ You can also override the generated CSS custom properties from the host page:
 The component fetches menu data from `apiUrl`, defaulting to
 `https://solana.com/api/fab-menu`. If the request fails, it falls back to
 hardcoded English defaults bundled in the package.
+
+Pass `data` to render menu data without a request. A preview deployment can pass
+`DEFAULT_MENU_DATA` to show the menu its branch ships, since the live endpoint
+only changes once the web app is deployed to production.
 
 ## Development
 

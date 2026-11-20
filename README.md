@@ -42,6 +42,7 @@ The main web app (`apps/web`) uses **Next.js App Router** with all pages under
 | `apps/templates`  | `solana-templates`      | `3001` | Templates showcase, proxied behind `solana.com` |
 | `apps/accelerate` | `solana-com-accelerate` | `3004` | Event app with `/accelerate` rewrites           |
 | `apps/breakpoint` | `solana-com-breakpoint` | `3005` | Event app with `/breakpoint` rewrites           |
+| `apps/builder`    | `solana-com-builder`    | `3007` | BLDR event app with `/builder` rewrites         |
 
 Shared packages worth checking early:
 
@@ -81,6 +82,7 @@ use the pnpm version declared by the repository.
    pnpm dev --filter solana-templates          # Templates
    pnpm dev --filter solana-com-accelerate     # Accelerate
    pnpm dev --filter solana-com-breakpoint     # Breakpoint
+   pnpm dev --filter solana-com-builder        # BLDR (Builder)
 
    # Or from app directory
    cd apps/web && pnpm dev
@@ -132,6 +134,7 @@ The solana.com website is managed and maintained by the Solana Foundation. See
 - [`apps/templates/AGENTS.md`](./apps/templates/AGENTS.md) — Templates
 - [`apps/accelerate/AGENTS.md`](./apps/accelerate/AGENTS.md) — Accelerate
 - [`apps/breakpoint/AGENTS.md`](./apps/breakpoint/AGENTS.md) — Breakpoint
+- [`apps/builder/AGENTS.md`](./apps/builder/AGENTS.md) — BLDR (Builder)
 
 ## Using Just
 
