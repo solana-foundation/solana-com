@@ -74,6 +74,7 @@ import lazorkitIcon from "../../assets/wallets/icons/lazorkit.webp";
 import ledgerIcon from "../../assets/wallets/icons/ledger.webp";
 import lemonIcon from "../../assets/wallets/icons/lemon.webp";
 import liminalIcon from "../../assets/wallets/icons/liminal.webp";
+import lockerProtocolWalletIcon from "../../assets/wallets/icons/locker-protocol-wallet.webp";
 import loyalIcon from "../../assets/wallets/icons/loyal.webp";
 import magicIcon from "../../assets/wallets/icons/magic.webp";
 import mathwalletIcon from "../../assets/wallets/icons/mathwallet.webp";
@@ -1488,6 +1489,18 @@ const walletRecords = {
     website: "https://www.liminalcustody.com/",
     icon: liminalIcon,
     lastVerified: "2026-09-02",
+  },
+  "locker-protocol-wallet": {
+    name: "Locker Protocol Wallet",
+    aliases: ["locker-wallet"],
+    category: "consumer",
+    platforms: ["chrome", "firefox", "brave"],
+    features: ["non_custodial", "multi_chain"],
+    description:
+      "Self-custody browser extension that holds no wallet key: SOL, SPL, and Token-2022 transfers, swaps, and Wallet Standard dApp requests are decoded in the extension and signed by QR code on Locker Vault, a free app on an offline phone, alongside EVM networks, Bitcoin, Tron, Sui, and other chains",
+    website: "https://lockerprotocol.com/networks/solana/",
+    icon: lockerProtocolWalletIcon,
+    lastVerified: "2026-11-15",
   },
   loyal: {
     name: "Loyal",
