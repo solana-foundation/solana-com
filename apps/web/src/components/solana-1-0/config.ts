@@ -83,8 +83,6 @@ export const CLIENT_INDEX: Record<ClientId, number> = {
   sig: 3,
 };
 
-export const NEUTRAL_RGB: [number, number, number] = [0.42, 0.41, 0.4];
-
 /**
  * Sub-client names (as reported by the validator history program, see
  * `lib/slot200/validatorHistory.ts`, plus the gossip-version fallback
@@ -120,18 +118,6 @@ export function familyOf(client: string | null | undefined): ClientId | null {
   const family = FAMILY_BY_CLIENT[client];
   return family && LIVE.has(family) ? family : null;
 }
-
-export const TOKENS = {
-  bg: "#040408",
-  fg: "#ece7df",
-  fgDim: "#8a857f",
-  fgFaint: "#3f3b3a",
-  rule: "#2a2727",
-} as const;
-
-/** Site font stacks; canvas text needs literal family names. */
-export const FONT_DISPLAY = "Diatype, sans-serif";
-export const FONT_MONO = "DSemi, monospace";
 
 /** Group a slot number in threes: 461204117 -> "461 204 117". */
 export function groupSlot(slot: number): string {

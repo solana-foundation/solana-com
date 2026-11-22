@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { CLIENTS, CLIENT_INDEX, lightCss, type ClientId } from "./config";
-import { PlateStage } from "./PlateStage";
+import { FilmStage } from "./FilmStage";
+import { KeycapTitle } from "./KeycapTitle";
 import {
   useDemoSource,
   useLiveSource,
@@ -47,8 +48,9 @@ function DemoDriver({ onChange }: DriverProps) {
 }
 
 /**
- * The /solana-1-0 page shell: sticky plate stage, the poster footer with the
- * client toggles, then the server-rendered content passed as children.
+ * The /solana-1-0 page shell: the film stage pinned behind everything, the
+ * hero with the client toggles, then the server-rendered chapters passed as
+ * children.
  * `?demo=1` swaps the mainnet feed for a simulation (QA and screenshots).
  */
 export default function Solana10Experience({
@@ -62,12 +64,6 @@ export default function Solana10Experience({
   const [gains, setGains] = useState(ALL_ON);
   const [caption, setCaption] = useState(false);
   const captionShown = useRef(false);
-  const infoPanelRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(true);
-
-  useEffect(() => {
-    if (!active) setSource(IDLE_SOURCE);
-  }, [active]);
 
   useEffect(() => {
     setDemo(new URLSearchParams(window.location.search).get("demo") === "1");
@@ -91,40 +87,37 @@ export default function Solana10Experience({
   };
 
   return (
-    <main className="relative isolate bg-[#040408] font-brand text-[#ece7df] [--s10-dim:#8a857f] [--s10-faint:#3f3b3a] [--s10-heading-space:5rem] [--s10-rule:#2a2727]">
-      {!active || demo === null ? null : demo ? (
+    <main className="relative isolate bg-[#040408] font-brand text-[#ece7df] [--s10-dim:#a39e97] [--s10-faint:#3f3b3a] [--s10-rule:rgb(236_231_223/0.16)]">
+      {demo === null ? null : demo ? (
         <DemoDriver onChange={setSource} />
       ) : (
         <LiveDriver onChange={setSource} />
       )}
-      <PlateStage
-        source={source}
-        gains={gains}
-        infoPanelRef={infoPanelRef}
-        onActivityChange={setActive}
-      />
+      <FilmStage source={source} gains={gains} />
 
       <section
         aria-labelledby="s10-title"
-        className="relative z-10 -mt-[calc(100svh-var(--s10-top,0px))] flex h-[calc(100svh-var(--s10-top,0px))] flex-col justify-end"
+        className="relative z-10 -mt-[calc(100svh-var(--s10-top,0px))] flex h-[calc(100svh-var(--s10-top,0px))] flex-col"
       >
-        <h1
-          id="s10-title"
-          className="absolute inset-x-0 top-0 m-0 flex h-[var(--s10-heading-space)] items-center justify-center px-5 text-center font-brand-mono text-[clamp(0.8125rem,1.3vw,1.25rem)] font-normal uppercase leading-none tracking-[0.9em] indent-[0.9em] md:px-8"
-        >
-          {t("title")}
-        </h1>
-        <p
-          aria-hidden={!caption}
-          className={`pointer-events-none mb-5 text-center font-brand-mono text-[0.75rem] font-light uppercase tracking-[0.3em] text-[#ece7df] transition-opacity duration-300 motion-reduce:transition-none ${caption ? "opacity-100" : "opacity-0"}`}
-        >
-          {t("cutCaption")}
-        </p>
+        <div className="pt-14 md:pt-16">
+          <KeycapTitle label={t("rename")} />
+        </div>
+        <div className="mt-auto flex flex-col items-center gap-3 px-5 pb-6 text-center md:pb-8">
+          <h1
+            id="s10-title"
+            className="m-0 text-[clamp(3.25rem,8vw,7.5rem)] font-bold uppercase leading-[0.9] tracking-[-0.04em] [text-shadow:0_0_60px_rgb(4_4_8/0.9)]"
+          >
+            {t("title")}
+          </h1>
+          <p
+            aria-hidden={!caption}
+            className={`pointer-events-none m-0 font-brand-mono text-[0.75rem] font-light uppercase tracking-[0.3em] text-[#ece7df] transition-opacity duration-300 motion-reduce:transition-none ${caption ? "opacity-100" : "opacity-0"}`}
+          >
+            {t("cutCaption")}
+          </p>
+        </div>
 
-        <div
-          ref={infoPanelRef}
-          className="grid gap-x-10 gap-y-4 border-t border-[var(--s10-rule)] bg-[#040408]/70 px-5 py-4 backdrop-blur-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)] md:items-start md:px-8 md:py-6 xl:px-10"
-        >
+        <div className="grid gap-x-10 gap-y-4 border-t border-[var(--s10-rule)] bg-[#040408]/70 px-5 py-4 backdrop-blur-sm md:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)_minmax(0,1fr)] md:items-start md:px-10 md:py-6 xl:px-12">
           <div>
             <p className="m-0 text-[0.9375rem] font-bold uppercase leading-tight tracking-[0.14em] md:text-[1.0625rem]">
               {t("retired")}
