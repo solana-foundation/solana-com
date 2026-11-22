@@ -212,6 +212,8 @@ export function createFilmRenderer(canvas: HTMLCanvasElement): FilmRenderer {
   function frame(now: number) {
     if (disposed || !running) return;
     raf = requestAnimationFrame(frame);
+    // Phones draw at 30fps: half the particle and film-pass work per second.
+    if (cssW < 768 && lastFrame && now - lastFrame < 1000 / 30 - 0.5) return;
     const dt = Math.min(0.1, lastFrame ? (now - lastFrame) / 1000 : 0.016);
     lastFrame = now;
     time += dt;
