@@ -1,0 +1,192 @@
+---
+title: Pay.sh
+description:
+  Accept pay-per-use and subscription payments for APIs with the Pay.sh
+  command-line gateway.
+url: /docs/payments/pay-sh
+type: guide
+related:
+  - /docs/payments/accept-payments
+  - /docs/payments/subscriptions/overview
+---
+
+[Pay.sh](https://pay.sh/) is a command-line payment layer for HTTP APIs. A Pay
+gateway returns an HTTP `402 Payment Required` challenge, verifies the client's
+payment proof, and then serves or proxies the requested endpoint. It supports
+pay-per-use endpoints and recurring subscription plans.
+
+<Callout type="info">
+  Start with `--sandbox`. It uses an ephemeral, funded local account, so the
+  examples do not spend real funds or require mainnet wallet setup.
+</Callout>
+
+## Install Pay
+
+Install the CLI with Homebrew:
+
+```shell
+brew install pay
+pay --version
+```
+
+You can also install it with npm or run it once through `npx`:
+
+```shell
+npm install -g @solana/pay
+pay --version
+
+npx @solana/pay --sandbox curl https://debugger.pay.sh/mpp/quote/AAPL
+```
+
+See the [Pay installation guide](https://pay.sh/docs/get-started/install) for
+platform details, updates, and source installation.
+
+## Try the demo gateway
+
+Start the built-in gateway demo in sandbox mode:
+
+```shell
+pay --sandbox server demo
+```
+
+The command prints the local endpoints you can call from another terminal. Use
+`pay curl` as the client so it can handle the `402` challenge and retry with a
+payment proof.
+
+## Gate an API
+
+A paywall specification defines routing, allowed endpoints, pricing, currencies,
+and operator settings. Scaffold one with:
+
+```shell
+pay server scaffold paywall.yml
+```
+
+This minimal sandbox example serves a fixed response and charges one cent per
+request:
+
+```yaml title="paywall.yml"
+name: usage-api
+subdomain: usage-api
+title: "Usage API"
+description: "Metered usage reports"
+category: data
+version: v1
+routing:
+  type: respond
+operator:
+  currencies:
+    usd: ["USDC", "USDT"]
+  network: localnet
+  fee_payer: true
+endpoints:
+  - method: GET
+    path: "api/v1/reports/usage"
+    resource: "reports"
+    description: "Usage report"
+    metering:
+      dimensions:
+        - direction: usage
+          unit: requests
+          scale: 1
+          tiers:
+            - price_usd: 0.01
+```
+
+Run the gateway:
+
+```shell
+pay --sandbox gate api paywall.yml --bind 127.0.0.1:1402
+```
+
+Then compare the unpaid and paid requests from another terminal:
+
+```shell
+curl -i http://127.0.0.1:1402/api/v1/reports/usage
+pay --sandbox curl http://127.0.0.1:1402/api/v1/reports/usage
+```
+
+The plain request should receive a `402` response. The Pay client handles the
+challenge and returns the gateway response after the sandbox payment succeeds.
+For a real API, change `routing.type` to `proxy`, configure the upstream URL,
+and keep upstream credentials in environment variables.
+
+See [Write a paywall spec](https://pay.sh/docs/accept-payments/provider-spec)
+for the complete schema and production routing options.
+
+## Add a subscription
+
+Use a `subscription` block instead of `metering` when access should renew on a
+fixed period. This endpoint creates a 30-day, 9.99 USDC plan:
+
+```yaml title="monthly.yml"
+name: subscriptions-api
+subdomain: subscriptions-api
+title: "Subscriptions API"
+description: "Subscription-gated reports"
+category: data
+version: v1
+routing:
+  type: respond
+operator:
+  currencies:
+    usd: ["USDC"]
+  network: localnet
+  fee_payer: true
+endpoints:
+  - method: GET
+    path: "api/v1/pro/feed"
+    resource: "pro-feed"
+    description: "Subscriber feed"
+    subscription:
+      period: "30d"
+      price_usd: 9.99
+      currency: USDC
+```
+
+Start the gateway. On first launch, Pay prompts you to publish the subscription
+plan; sandbox mode covers the account funding.
+
+```shell
+pay --sandbox gate api monthly.yml
+```
+
+Call the endpoint twice from another terminal:
+
+```shell
+# First call activates the subscription.
+pay --sandbox curl http://127.0.0.1:1402/api/v1/pro/feed
+
+# Calls during the paid period reuse the active subscription.
+pay --sandbox curl http://127.0.0.1:1402/api/v1/pro/feed
+```
+
+Inspect subscriptions associated with the active Pay account:
+
+```shell
+pay subscriptions list
+pay subscriptions list --network mainnet
+pay subscriptions list --json
+```
+
+See the
+[subscription examples](https://pay.sh/docs/building-with-pay/subscriptions/examples)
+for weekly and annual periods, multiple tiers, expiry caps, revenue routing, and
+cancellation commands.
+
+## Prepare for production
+
+Sandbox and production use different accounts and networks. Before accepting
+real payments:
+
+1. Read the [provider deployment guide](https://pay.sh/docs/accept-payments).
+2. Configure a mainnet operator, recipient, signer, and fee payer explicitly.
+3. Use `routing.type: proxy` for the real upstream service and allow only the
+   endpoints you intend to expose.
+4. Keep signing material and upstream API credentials out of the YAML file and
+   source control.
+5. Test challenge handling, settlement, retries, and failure responses before
+   publishing the endpoint.
+
+Run `pay --help` and the relevant subcommand's `--help` output for the exact
+flags supported by your installed version.

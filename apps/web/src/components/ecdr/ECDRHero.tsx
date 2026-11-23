@@ -6,6 +6,7 @@ import TypeformModal from "../shared/TypeformModal";
 import styles from "./ECDRHero.module.scss";
 import IndexBtn from "../index/IndexBtn";
 import SolanaRing from "../../../public/src/img/ecdr/solana-ring.png";
+import { trackContentSelection } from "@solana-com/ui-chrome/analytics";
 
 const ECDRHero = () => {
   const t = useTranslations();
@@ -51,9 +52,11 @@ const ECDRHero = () => {
             size="large"
             onClick={() => {
               setShowTypeformModal(true);
-              gtag("event", "Button click", {
-                event_category: "Open modal",
-                event_label: "EC Developers Report - Get in touch modal ",
+              trackContentSelection({
+                appName: "web",
+                contentType: "contact_cta",
+                contentName: "EC Developers Report - Get in touch",
+                placement: "ecdr_hero",
               });
             }}
           >

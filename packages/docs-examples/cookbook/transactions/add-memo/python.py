@@ -1,66 +1,25 @@
 # #region memo
-#!/usr/bin/env python3
-"""
-Solana Cookbook - How to Add a Memo to a Transaction
-"""
-
-import asyncio
-from solana.rpc.async_api import AsyncClient
+from solana.rpc.api import Client
+from solana.rpc.commitment import Confirmed
+from solders.instruction import Instruction
 from solders.keypair import Keypair
-from solders.system_program import transfer, TransferParams
-from solders.transaction import VersionedTransaction
-from solders.message import MessageV0
-from spl.memo.instructions import create_memo, MemoParams
+from solders.message import Message
 from solders.pubkey import Pubkey
+from solders.transaction import Transaction
 
-async def main():
-    rpc = AsyncClient("http://localhost:8899")
+MEMO_PROGRAM_ID = Pubkey.from_string("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr")
 
-    sender = Keypair()
-    recipient = Keypair()
+client = Client("http://localhost:8899", commitment=Confirmed)
 
-    amount = 1_000_000_000  # 1 SOL
-    memo_text = "Hello, Solana! This is a memo."
+sender = Keypair()
+airdrop = client.request_airdrop(sender.pubkey(), 1_000_000_000)
+client.confirm_transaction(airdrop.value)
 
-    async with rpc:
-        # Get latest blockhash
-        latest_blockhash = await rpc.get_latest_blockhash()
+memo_instruction = Instruction(MEMO_PROGRAM_ID, b"Hello, world!", [])
 
-        # Create transfer instruction
-        transfer_instruction = transfer(
-            TransferParams(
-                from_pubkey=sender.pubkey(),
-                to_pubkey=recipient.pubkey(),
-                lamports=amount
-            )
-        )
+blockhash = client.get_latest_blockhash().value.blockhash
+transaction = Transaction([sender], Message([memo_instruction], sender.pubkey()), blockhash)
 
-        # Create memo instruction
-        memo_instruction = create_memo(
-            MemoParams(
-                program_id=Pubkey.from_string("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
-                signer=sender.pubkey(),
-                message=memo_text.encode('utf-8')
-            )
-        )
-
-        # Create message with both instructions
-        message = MessageV0.try_compile(
-            payer=sender.pubkey(),
-            instructions=[transfer_instruction, memo_instruction],
-            address_lookup_table_accounts=[],
-            recent_blockhash=latest_blockhash.value.blockhash
-        )
-
-        # Create transaction
-        transaction = VersionedTransaction(message, [sender])
-
-        print(f"Sender: {sender.pubkey()}")
-        print(f"Recipient: {recipient.pubkey()}")
-        print(f"Amount: {amount / 1_000_000_000} SOL")
-        print(f"Memo: {memo_text}")
-        print(f"Transaction with memo created successfully")
-
-if __name__ == "__main__":
-    asyncio.run(main())
+signature = client.send_transaction(transaction).value
+print("Transaction Signature:", signature)
 # #endregion memo

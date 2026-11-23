@@ -1,0 +1,93 @@
+---
+title: Architecture
+description:
+  How a request travels through a Kora node, and where in the crate each stage
+  lives. Start here before making your first change.
+---
+
+Kora is a Rust workspace with three crates:
+
+- `kora-lib` holds the core logic and the RPC server,
+- `kora-cli` builds the `kora` binary operators run, and
+- `kora-deploy` is a specialized program deployment tool, versioned separately.
+  Everything below lives in `crates/lib/src` unless noted.
+
+## The request lifecycle
+
+The diagram below identifies the general flow of a transaction through Kora.
+Understanding the call path is important to configuring a Kora node and adding
+new features.
+
+<DocsDiagram
+  src="/assets/docs/tools/kora/request-lifecycle.svg"
+  alt="A transaction travels from the client app through the gateway, validation, plugins, and signing, before Kora either returns it or broadcasts it. Each stage is governed by a matching section of kora.toml or signers.toml."
+/>
+
+## Where each stage lives
+
+| Stage in the diagram | Source                               | Entry point                           |
+| -------------------- | ------------------------------------ | ------------------------------------- |
+| Gateway              | `rpc_server/server.rs`               | `run_rpc_server`                      |
+| Dispatch             | `rpc_server/rpc.rs`                  | `KoraRpc`                             |
+| Per-method logic     | `rpc_server/method/`                 | one file per JSON-RPC method          |
+| Validation           | `validator/transaction_validator.rs` | `TransactionValidator`                |
+| Plugins              | `plugin/mod.rs`                      | `TransactionPluginRunner`             |
+| Signing              | `signer/`                            | backed by the `solana-keychain` crate |
+
+Two more files to know: `config.rs` defines the entire `kora.toml` schema, and
+`state.rs` holds the deserialized config in process-global state.
+
+### Reading the RPC server
+
+`rpc.rs` is a thin dispatch layer, one method per JSON-RPC endpoint, and the
+fastest way to see the whole API. Each method's logic sits in its own file under
+`rpc_server/method/`. Read `sign_transaction.rs` end to end; the other signing
+methods are variations on it.
+
+### Reading the validator
+
+`transaction_validator.rs` and `transaction/instruction_util.rs` hold logic for
+validating transactions and instructions. Additionally, the fee-payer-policy
+safety property tests, which live one file per gated program under
+`validator/transaction_validator/fee_payer_policy_props/`.
+
+## Conventions worth knowing
+
+**Default validation.** Every flag under `[validation.fee_payer_policy]`
+defaults to `false`, and the policy structs carry `#[serde(default)]`. That
+pairing is deliberate: adding a newly gated instruction must not break an
+existing operator's config, and it must land as a denial rather than an
+accidental allowance. Preserve both when you add a flag.
+
+**Validate the resolved transaction, never the raw one.** The raw
+`VersionedTransaction` exposes only static account keys, so validating or
+pricing a V0 transaction from it silently skips lookup-table accounts and
+under-charges. `VersionedTransactionResolved::from_transaction` resolves those
+addresses up front, which is why every downstream stage takes the resolved type.
+
+## Adding a transaction plugin
+
+Plugins implement the `TransactionPlugin` trait in `plugin/mod.rs`. It has two
+methods: `validate` runs per transaction during the signing flows, and
+`validate_config` runs once at startup and returns errors and warnings for the
+operator. A `PluginExecutionContext` tells the plugin which of the four signing
+methods invoked it.
+
+`TransactionPluginRunner::from_config` matches on `TransactionPluginType`,
+defined in `config.rs`. A new built-in plugin is a new variant there plus a new
+match arm in the runner. The two plugins that ship today are `gas_swap` and
+`deploy_authority`.
+
+## Testing
+
+Kora keeps configuration in process-global state, so `tests/` declares one
+`[[test]]` target per phase, and each target boots its own embedded surfnet plus
+Kora node, seeded from scratch. One config per binary: a new phase needs a new
+target, not a new module in an existing one.
+
+```bash
+cargo test -p tests --test <target>
+```
+
+Everything else is wired through the `justfile`. Read that rather than
+reconstructing commands by hand.

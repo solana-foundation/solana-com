@@ -1,5 +1,5 @@
 // #region from-bytes
-import { Keypair } from "@solana/web3.js";
+import { Keypair } from "@solana/web3.js-legacy";
 
 const keypairBytes = Uint8Array.from([
   174, 47, 154, 16, 202, 193, 206, 113, 199, 190, 53, 133, 169, 175, 31, 56,

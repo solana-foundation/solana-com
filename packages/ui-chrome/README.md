@@ -53,10 +53,22 @@ Announcement banner at the top of the page. Configurable via
 
 ### DocsSearchBar
 
-Search button that opens the docs search modal and displays its `⌘ K` keyboard
-shortcut on larger viewports. The optional `expanded` prop adds a visible label
-and full-width styling. Opens on `⌘/Ctrl-K` from anywhere, and a `?search=`
-query parameter opens it with the query seeded.
+Search button for `/docs` that opens the docs search modal and displays its
+`⌘ K` keyboard shortcut on larger viewports. The optional `expanded` prop adds a
+visible label and full-width styling. Opens on `⌘/Ctrl-K` from anywhere, and a
+`?search=` query parameter opens it with the query seeded. `Header` renders it
+on `/docs` routes only (`shouldUseDocsSearch`) and `InkeepSearchBar` elsewhere.
+
+### InkeepChatButton
+
+Floating or inline button that opens the Inkeep AI search + chat modal. Supports
+`variant`: `"fixed"` (default) or `"inline"`.
+
+### InkeepSearchBar
+
+Site-wide search button that opens the Inkeep modal (used outside `/docs`) and
+displays its `⌘ K` keyboard shortcut on larger viewports. The optional
+`expanded` prop adds a visible label and full-width styling.
 
 ### useDocsSearch
 
@@ -68,8 +80,10 @@ whatever is currently typed.
 
 ### NewsletterModal
 
-Modal for newsletter sign-up (e.g. Iterable). Props: `formId`, `children`
-(trigger).
+Modal for newsletter sign-up (e.g. Iterable). Props: `formId`,
+`analyticsAppName`, and `children` (trigger). `analyticsAppName` is required so
+a successful subscription can be attributed consistently; use one of `web`,
+`docs`, `media`, `templates`, `accelerate`, or `breakpoint`.
 
 ### DocsSidebarToggleIcon / DOCS_SIDEBAR_TOGGLE_SLOT_ID
 
@@ -117,6 +131,37 @@ headers, and the upstream credential is server-only.
   `/api/ask/*` to the web app; otherwise search 404s there.
 - **Components**: Use `DocsSearchBar`; no extra setup in app code beyond env and
   layout placement.
+
+## Inkeep (AI search & chat)
+
+Inkeep powers site-wide search and chat everywhere except `/docs`, which uses
+the docs search above.
+
+- **Env**: Set the server-only `INKEEP_API_KEY` on the web and docs deployments.
+  Never use a `NEXT_PUBLIC_` Inkeep credential.
+- **Internal APIs**: CXKit sends challenge, chat, search, and analytics requests
+  to `/api/inkeep/*`. Both apps expose the same-origin routes, validate
+  requests, and authenticate to Inkeep on the server. The current
+  domain-restricted web credential requires CXKit to solve Inkeep's challenge
+  before each chat request. Conversation analytics are write-only; the public
+  proxy does not expose conversation reads.
+- **Rate limits**: Configure Vercel WAF rate-limit rules named `inkeep-chat` (30
+  requests/minute/IP), `inkeep-search` (120 requests/minute/IP), and
+  `inkeep-analytics` (240 requests/minute/IP) on both deployments. Production
+  requests fail closed when a rule is missing or the rate-limit service fails.
+- **Components**: Use `InkeepChatButton` and/or `InkeepSearchBar`; no extra
+  setup in app code beyond layout placement.
+- **Web experience**: The web layout wraps its triggers in `InkeepProvider`,
+  which owns one modal and keyboard shortcut. The web chat route uses
+  `inkeep-context-gpt-5.4-mini` with server-owned site-wide guidance and
+  destinations derived from the maintained header/footer navigation. Search adds
+  matching destinations, consolidates locale variants, and groups sources by
+  content type. Matching navigation results remain available during upstream
+  search failures. The docs app does not opt into this provider or the
+  `siteWide` proxy option; its search and QA behavior are unchanged.
+- **Verification**: Confirm chat streams an answer with working citations,
+  search returns source links, `?search=<query>` opens the modal, and browser
+  network requests contain only the non-secret internal proxy identifier.
 
 ## Site-Wide Alerts
 
@@ -199,3 +244,5 @@ export default function RootLayout({ children }) {
 
 - **Peer**: `@workspace/i18n`, `next`, `next-intl`, `react`, `react-dom`
 - **Docs search**: no client SDK; calls `/api/ask/search` on the current origin
+- **Inkeep**: `@inkeep/cxkit-react`; the web and docs apps require server-only
+  `INKEEP_API_KEY` and the three Vercel WAF rules described above

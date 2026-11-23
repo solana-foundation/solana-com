@@ -1,0 +1,116 @@
+---
+title: 成为 x402 Facilitator
+seoTitle: 在 Solana 上验证并结算 x402 支付
+description:
+  选择、集成并运营 x402 Facilitator，用于 Solana 支付验证与结算。
+---
+
+x402 Facilitator 为一个或多个资源服务器执行支付验证与结算。它让 API 能够接受链上支付，而无需在每个应用进程中都实现 RPC、交易提交和手续费支付方的逻辑。
+
+Facilitator 是一种架构角色，并不一定要由第三方担任。你可以使用托管服务、运营独立的 Facilitator，或在资源服务器内部自行承担 Facilitator 的职责。
+
+## Facilitator 接口
+
+x402 V2 定义了三个 HTTP 操作：
+
+| 端点     | 用途                                                                       |
+| ------------ | ----------------------------------------------------------------------------- |
+| `/supported` | 列出支持的协议版本、方案、网络、扩展和签名方 |
+| `/verify`    | 对照支付要求检查支付载荷，但不进行结算         |
+| `/settle`    | 提交或完成支付，并返回结算结果            |
+
+资源服务器应在启动或部署期间检查 `/supported`。在所选 Facilitator 确认支持该确切的 x402 版本、方案和 Solana 网络之前，不要对外提供相应的支付选项。
+
+```bash
+curl https://facilitator.example/supported
+```
+
+## 履行前先验证
+
+安全的请求处理顺序如下：
+
+1. 使用协议库解析 `PAYMENT-SIGNATURE` 载荷。
+2. 将其与最初提供的确切 `PaymentRequirements` 进行匹配。
+3. 在本地或通过 `/verify` 验证载荷。
+4. 仅当所选支付流程允许履行后再结算时，才执行资源操作。
+5. 调用 `/settle`，并在 `PAYMENT-RESPONSE` 中返回结果。
+
+不同的方案可以定义不同的履行顺序。例如，授权型流程可能在资源操作之前验证、之后结算，而另一种方案可能要求在履行之前先完成结算。请遵循所选方案声明的流程，而不要对所有支付都假定同一种顺序。
+
+<Callout type="warn" title="将 Facilitator 的响应视为支付决策">
+  对 Facilitator 的流量进行身份验证，验证每一个响应，使用严格的超时设置，并在失败时默认拒绝（fail closed）。网络错误或格式错误的响应并不能证明已完成支付。
+</Callout>
+
+## 选择部署模式
+
+| 模式                   | 适用场景                                                        | 主要职责                                                    |
+| ----------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 托管 Facilitator     | 希望将运维范围降到最小                       | 审查支持的网络、信任模型、可用性和数据政策  |
+| 专用自托管   | 多个 API 共享签名和结算基础设施        | 保护密钥、RPC、存储，并负责扩容和升级                      |
+| 进程内 Facilitation | 单个服务需要完全掌控，并且能够运营链上组件 | 保持支付代码相互隔离，并防止请求负载将其耗尽 |
+
+不要仅仅因为某个 Facilitator 的 URL 能响应 `/supported` 就选择它。请审查它如何保护手续费支付方密钥、如何防止重放、如何确认交易、如何处理部分失败，以及如何通报事件。
+
+## 将 Kora 用作 Solana 签名基础设施
+
+[Kora](/docs/tools/kora) 是一个具备交易验证和手续费代付策略的 Solana 签名节点。x402 Facilitator 可以将 Kora 用作其签名与提交后端：
+
+```mermaid title="x402 with Kora"
+sequenceDiagram
+    participant Client
+    participant API as Resource server
+    participant Facilitator
+    participant Kora
+    participant Solana
+    Client->>API: Request + PAYMENT-SIGNATURE
+    API->>Facilitator: /verify
+    Facilitator->>Kora: Validate transaction policy
+    Kora-->>Facilitator: Verification result
+    API->>Facilitator: /settle
+    Facilitator->>Kora: Co-sign and submit
+    Kora->>Solana: Send transaction
+    Solana-->>Kora: Confirmation
+    Kora-->>Facilitator: Transaction signature
+    Facilitator-->>API: Settlement result
+    API-->>Client: Resource + PAYMENT-RESPONSE
+```
+
+Kora 并不会取代 x402。资源服务器和 Facilitator 仍需实现 x402 V2 的对象和端点；Kora 负责执行 Solana 交易策略，并保护其 RPC 接口背后的手续费支付方签名密钥。
+
+请参阅 [Kora x402 指南](/docs/tools/kora/guides/x402)，获取持续维护的演示和配置。
+
+## 生产环境检查清单
+
+### 密钥与交易策略
+
+- 将 Facilitator 密钥和手续费支付方密钥存储在硬件支持或远程的签名后端中。
+- 仅按所支持方案的需要，将 System、Compute Budget、Token、Token-2022 和 Associated Token 程序加入允许列表。
+- 在签名之前，拒绝意外的可写账户、转账授权方、收款方、mint、指令和计算价格。
+- 将收款账户与用于运营的手续费支付方账户分开。
+
+### 重放与幂等性
+
+- 将已消费的支付标识符和交易签名持久化到共享的持久存储中。
+- 使验证与消费操作具备原子性，确保两个服务器实例无法同时接受同一笔授权。
+- 对带有副作用的资源操作，要求提供幂等键。
+- 对于合法的重试，返回原始结果，而不是再次扣款。
+
+### 可用性与故障处理
+
+- 为 `/verify`、`/settle`、RPC 提交和确认设置有界的超时时间。
+- 区分已拒绝、已过期、待处理、已确认和已失败的结算。
+- blockhash 过期后，未经付款方授权新交易，不要重新构建或重新签名交易。
+- 使用多个 RPC 端点，并监控 blockhash 新鲜度、确认延迟和手续费支付方余额。
+
+### 可观测性
+
+记录资源、挑战 ID、所选方案和网络、金额、资产、收款方、付款方地址、交易签名、确认级别、延迟和最终状态。切勿记录编码后的支付凭证、bearer 令牌、私钥或原始签名方响应。
+
+对以下情况设置告警：结算失败、重放尝试、策略拒绝、意外的资产或收款方、手续费支付方余额耗尽，以及已验证支付与已履行资源之间的差异。
+
+## 相关资源
+
+- [x402 Facilitator 规范](https://github.com/x402-foundation/x402/blob/main/specs/x402-specification-v2.md#7-facilitator-interface)
+- [Solana 上的 x402](/docs/payments/agentic-payments/x402)
+- [Kora 运营者指南](/docs/tools/kora/operators)
+- [生产就绪度](/docs/tools/transaction-landing#rpc-infrastructure)

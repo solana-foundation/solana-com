@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
-import ComingSoonPage from "@/components/pages/ComingSoonPage";
+import AgendaPage from "@/components/pages/agenda/AgendaPage";
 import { getPageMetadata } from "@/app/metadata";
+
+// Next requires this export to be a literal; 1800 seconds = 30 minutes.
+export const revalidate = 1800;
 
 export async function generateMetadata({
   params,
@@ -28,5 +31,10 @@ export default async function LocaleSchedulePage({
     namespace: "breakpoint.pages.schedule",
   });
 
-  return <ComingSoonPage title={t("title")} description={t("description")} />;
+  return (
+    <AgendaPage
+      title={t("title")}
+      communityEventsLabel={t("communityEventsCta")}
+    />
+  );
 }

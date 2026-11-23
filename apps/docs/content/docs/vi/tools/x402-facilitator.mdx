@@ -1,0 +1,149 @@
+---
+title: Trở thành x402 Facilitator
+seoTitle: Xác minh và quyết toán thanh toán x402 trên Solana
+description:
+  Lựa chọn, tích hợp và vận hành x402 facilitator để xác minh và quyết toán thanh toán trên Solana.
+---
+
+x402 facilitator thực hiện việc xác minh và quyết toán thanh toán cho một hoặc nhiều
+máy chủ tài nguyên. Nhờ đó, API có thể chấp nhận thanh toán onchain mà không cần đưa logic RPC,
+gửi giao dịch và người trả phí vào từng tiến trình ứng dụng.
+
+Facilitator là một vai trò về mặt kiến trúc, không phải là bên thứ ba bắt buộc. Bạn có thể dùng
+dịch vụ được quản lý, vận hành một facilitator riêng biệt, hoặc tự đảm nhiệm vai trò facilitator
+ngay trong máy chủ tài nguyên của mình.
+
+## Giao diện của facilitator
+
+x402 V2 định nghĩa ba thao tác HTTP:
+
+| Endpoint     | Mục đích                                                                       |
+| ------------ | ----------------------------------------------------------------------------- |
+| `/supported` | Liệt kê các phiên bản giao thức, scheme, mạng, phần mở rộng và signer được hỗ trợ |
+| `/verify`    | Kiểm tra payload thanh toán so với các yêu cầu của nó mà không quyết toán         |
+| `/settle`    | Gửi hoặc hoàn tất khoản thanh toán và trả về kết quả quyết toán            |
+
+Máy chủ tài nguyên của bạn nên kiểm tra `/supported` khi khởi động hoặc triển khai. Đừng
+quảng bá một tùy chọn thanh toán cho đến khi facilitator được chọn xác nhận hỗ trợ
+chính xác phiên bản x402, scheme và mạng Solana đó.
+
+```bash
+curl https://facilitator.example/supported
+```
+
+## Xác minh trước khi thực hiện yêu cầu
+
+Thứ tự xử lý yêu cầu an toàn như sau:
+
+1. Phân tích payload `PAYMENT-SIGNATURE` bằng thư viện giao thức.
+2. Đối chiếu nó với đúng `PaymentRequirements` đã được đưa ra ban đầu.
+3. Xác minh payload cục bộ hoặc thông qua `/verify`.
+4. Chỉ thực hiện thao tác tài nguyên nếu luồng thanh toán đã chọn cho phép
+   quyết toán sau khi hoàn tất yêu cầu.
+5. Gọi `/settle` và trả về `PAYMENT-RESPONSE` cùng kết quả.
+
+Các scheme khác nhau có thể định nghĩa thứ tự thực hiện yêu cầu khác nhau. Ví dụ, một
+luồng ủy quyền có thể xác minh trước thao tác tài nguyên và quyết toán sau đó,
+trong khi một scheme khác có thể yêu cầu quyết toán trước khi thực hiện yêu cầu. Hãy làm theo luồng
+do scheme đã chọn quy định thay vì mặc định một thứ tự cho mọi
+khoản thanh toán.
+
+<Callout type="warn" title="Hãy coi phản hồi của facilitator như các quyết định thanh toán">
+  Hãy xác thực lưu lượng của facilitator, kiểm tra mọi phản hồi, đặt timeout
+  chặt chẽ và áp dụng nguyên tắc từ chối khi có lỗi (fail closed). Lỗi mạng hoặc phản hồi sai định dạng không phải là bằng chứng
+  của việc đã thanh toán.
+</Callout>
+
+## Chọn mô hình triển khai
+
+| Mô hình                   | Khi nào nên dùng                                                        | Trách nhiệm chính                                                    |
+| ----------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Facilitator được quản lý     | Bạn muốn phạm vi vận hành nhỏ nhất                       | Xem xét các mạng được hỗ trợ, mô hình tin cậy, tính sẵn sàng và chính sách dữ liệu  |
+| Tự lưu trữ chuyên dụng   | Nhiều API dùng chung hạ tầng ký và quyết toán        | Bảo mật khóa, RPC, lưu trữ, mở rộng quy mô và nâng cấp                      |
+| Facilitator trong cùng tiến trình | Một dịch vụ cần toàn quyền kiểm soát và có thể vận hành các thành phần chuỗi | Giữ mã thanh toán được cô lập và ngăn tải yêu cầu làm cạn kiệt tài nguyên của nó |
+
+Đừng chọn facilitator chỉ vì URL của nó phản hồi `/supported`.
+Hãy xem xét cách nó bảo vệ khóa của người trả phí, ngăn chặn replay, xác nhận giao dịch,
+xử lý lỗi một phần và báo cáo sự cố.
+
+## Kora làm hạ tầng ký giao dịch Solana
+
+[Kora](/docs/tools/kora) là một node ký giao dịch Solana với các chính sách xác thực giao dịch và
+tài trợ phí. Một x402 facilitator có thể dùng Kora làm backend ký và
+gửi giao dịch:
+
+```mermaid title="x402 with Kora"
+sequenceDiagram
+    participant Client
+    participant API as Resource server
+    participant Facilitator
+    participant Kora
+    participant Solana
+    Client->>API: Request + PAYMENT-SIGNATURE
+    API->>Facilitator: /verify
+    Facilitator->>Kora: Validate transaction policy
+    Kora-->>Facilitator: Verification result
+    API->>Facilitator: /settle
+    Facilitator->>Kora: Co-sign and submit
+    Kora->>Solana: Send transaction
+    Solana-->>Kora: Confirmation
+    Kora-->>Facilitator: Transaction signature
+    Facilitator-->>API: Settlement result
+    API-->>Client: Resource + PAYMENT-RESPONSE
+```
+
+Kora không thay thế x402. Máy chủ tài nguyên và facilitator vẫn triển khai
+các đối tượng và endpoint của x402 V2; Kora thực thi chính sách giao dịch Solana và
+bảo vệ signer của người trả phí phía sau giao diện RPC của nó.
+
+Hãy làm theo [hướng dẫn Kora x402](/docs/tools/kora/guides/x402) để xem
+bản demo và cấu hình được duy trì.
+
+## Danh sách kiểm tra cho môi trường production
+
+### Khóa và chính sách giao dịch
+
+- Lưu khóa của facilitator và người trả phí trong backend ký từ xa hoặc được hỗ trợ bởi
+  phần cứng.
+- Chỉ đưa vào danh sách cho phép các chương trình System, Compute Budget, Token, Token-2022 và Associated Token
+  khi scheme được hỗ trợ yêu cầu.
+- Từ chối các tài khoản có quyền ghi, thẩm quyền chuyển, người nhận, mint,
+  instruction và giá compute không mong đợi trước khi ký.
+- Tách riêng các tài khoản nhận thanh toán khỏi các tài khoản trả phí phục vụ vận hành.
+
+### Replay và tính idempotent
+
+- Lưu lại các mã định danh thanh toán đã sử dụng và chữ ký giao dịch trong một kho lưu trữ
+  dùng chung, bền vững.
+- Làm cho việc xác minh và đánh dấu đã sử dụng diễn ra nguyên tử để hai phiên bản máy chủ không thể chấp nhận
+  cùng một ủy quyền đồng thời.
+- Yêu cầu khóa idempotency cho các thao tác tài nguyên có tác dụng phụ.
+- Trả về kết quả ban đầu cho lần thử lại hợp lệ thay vì tính phí lần nữa.
+
+### Tính sẵn sàng và xử lý lỗi
+
+- Đặt timeout giới hạn cho `/verify`, `/settle`, việc gửi qua RPC và
+  xác nhận.
+- Phân biệt các quyết toán bị từ chối, hết hạn, đang chờ, đã xác nhận và thất bại.
+- Đừng dựng lại hoặc ký lại giao dịch sau khi blockhash hết hạn mà không yêu cầu
+  người thanh toán ủy quyền giao dịch mới.
+- Dùng nhiều hơn một RPC endpoint và theo dõi độ mới của blockhash, độ trễ
+  xác nhận và số dư của người trả phí.
+
+### Khả năng quan sát
+
+Ghi lại tài nguyên, challenge ID, scheme và mạng đã chọn, số tiền, tài sản,
+người nhận, địa chỉ người thanh toán, chữ ký giao dịch, mức xác nhận, độ trễ
+và trạng thái cuối cùng. Tuyệt đối không ghi log thông tin xác thực thanh toán đã mã hóa, bearer token, khóa
+riêng tư hoặc phản hồi thô của signer.
+
+Đặt cảnh báo cho các lỗi quyết toán, nỗ lực replay, các lần bị từ chối do chính sách, tài sản
+hoặc người nhận bất thường, cạn kiệt số dư người trả phí và sự chênh lệch giữa các khoản thanh toán
+đã xác minh và tài nguyên đã được cung cấp.
+
+## Tài nguyên liên quan
+
+- [Đặc tả x402 facilitator](https://github.com/x402-foundation/x402/blob/main/specs/x402-specification-v2.md#7-facilitator-interface)
+- [x402 trên Solana](/docs/payments/agentic-payments/x402)
+- [Hướng dẫn dành cho nhà vận hành Kora](/docs/tools/kora/operators)
+- [Mức độ sẵn sàng cho production](/docs/tools/transaction-landing#rpc-infrastructure)

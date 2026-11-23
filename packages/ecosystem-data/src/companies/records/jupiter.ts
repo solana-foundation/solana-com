@@ -1,4 +1,7 @@
 import type { CompanyRecord } from "../../types";
+import jupiterMarkColor from "../../../assets/companies/jupiter/mark-color.png";
+import jupiterLogoMonotone from "../../../assets/companies/jupiter/logo-monotone.svg";
+import jupiterBreakpoint2026White from "../../../assets/companies/jupiter/breakpoint-2026-white.svg";
 import jupiterLogoDark from "../../../assets/companies/jupiter/logo-dark.svg";
 
 export const jupiter = {
@@ -21,12 +24,35 @@ export const jupiter = {
       x: "https://x.com/JupiterExchange",
       discord: "https://discord.gg/jup",
       github: "https://github.com/jup-ag",
-      telegram: "https://t.me/jup_ag",
-      youtube: "https://www.youtube.com/@JupiterExchange",
+      telegram: "https://t.me/jup_dev",
+      youtube: "https://www.youtube.com/@JupiterOnchain",
     },
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "logo-monotone",
+      fileName: "logo-monotone.svg",
+      format: "svg",
+      source: jupiterLogoMonotone,
+      treatment: "monotone",
+      kind: "logo",
+    },
+    {
+      id: "mark-color",
+      fileName: "mark-color.png",
+      format: "png",
+      source: jupiterMarkColor,
+      kind: "mark",
+    },
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: jupiterBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-dark",
       fileName: "logo-dark.svg",

@@ -7,7 +7,7 @@ import {
   SwitchbackChain,
   CardDeck,
   ConversionPanel,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 
 import {

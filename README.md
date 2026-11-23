@@ -17,20 +17,22 @@ solana-com/
 │   ├── accelerate/   # Event microsite - port 3004
 │   └── breakpoint/   # Event microsite - port 3005
 ├── packages/
-│   ├── config-eslint/       # Shared ESLint configs
+│   ├── airtable/            # Shared server-side Airtable pacing and backoff
+│   ├── config-oxlint/       # Shared oxlint configs
 │   ├── config-typescript/   # Shared TypeScript configs
 │   ├── docs-examples/       # Tested cookbook source snippets
-│   ├── ecosystem-data/      # Shared company and logo registry
+│   ├── ecosystem-data/      # Shared company and wallet registry
 │   ├── fab-menu/            # Reusable Solana property menu
 │   ├── i18n/                # Shared i18n utilities (next-intl)
+│   ├── security-headers/    # Baseline HTTP headers for all apps
 │   ├── sentry/              # Shared Sentry helpers
 │   ├── sitemap/             # Shared sitemap generation helpers
 │   ├── ui/                  # Shared UI components (Radix-based)
 │   └── ui-chrome/           # Header, Footer, Theme components
 ```
 
-The main web app (`apps/web`) uses **Next.js App Router** with all pages under
-`src/app/[locale]/`.
+The main web app (`apps/web`) uses **Next.js App Router**, with localized pages
+under `src/app/[locale]/` and API routes under `src/app/api/`.
 
 ## Workspace Guide
 
@@ -45,9 +47,13 @@ The main web app (`apps/web`) uses **Next.js App Router** with all pages under
 
 Shared packages worth checking early:
 
+- `packages/airtable` for event-app Airtable pacing and 429 backoff
+- `packages/security-headers` for the HTTP header baseline in every app's
+  `next.config.ts`
 - `packages/ui-chrome` for shared header/footer and cross-app link behavior
 - `packages/i18n` for locale config and message loading
-- `packages/ecosystem-data` for canonical company data and logos
+- `packages/ecosystem-data` for canonical company data, wallet records, and
+  logos
 
 ## Setup
 
@@ -117,6 +123,8 @@ node skills/refresh-agent-context/scripts/workspace_inventory.mjs
 - Several apps use `assetPrefix` plus rewrites because they are deployed
   separately behind `solana.com`
 - Shared env pass-through is also declared in `turbo.json`
+- `/keystatic` stays on the Media host and is deliberately not proxied onto
+  `solana.com`
 
 ## Contributing
 
@@ -130,3 +138,20 @@ The solana.com website is managed and maintained by the Solana Foundation. See
 - [`apps/templates/AGENTS.md`](./apps/templates/AGENTS.md) — Templates
 - [`apps/accelerate/AGENTS.md`](./apps/accelerate/AGENTS.md) — Accelerate
 - [`apps/breakpoint/AGENTS.md`](./apps/breakpoint/AGENTS.md) — Breakpoint
+
+## Using Just
+
+[`just`](https://github.com/casey/just) wraps the common turbo and oxfmt
+commands (see the [`justfile`](./justfile)). Run `just` to list all recipes.
+Most take an optional target: an app or package name (`docs`, `web`, `media`,
+`ui`, ...), `acc`/`bp`, or a raw turbo filter.
+
+```bash
+just docs                      # dev server for apps/docs (also: web, media, templates, acc, bp)
+just build docs                # build one app (omit the target for everything)
+just lint web                  # lint, typecheck and test work the same way
+just typecheck docs
+just fmt apps/docs/foo.mdx     # oxfmt on files, folders or app names
+just fmt-changed               # format only files changed vs origin/main
+just check docs                # format check + lint + typecheck + test, as CI does
+```

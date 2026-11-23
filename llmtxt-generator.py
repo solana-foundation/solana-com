@@ -4,20 +4,26 @@ Script to generate LLMs.txt source files.
 Generates:
 - llms.txt (English, curated index)
 - llms-en.txt (source file for Lingo translations)
+Also aligns startup guide discovery in existing locale and full-text indexes.
 """
 
 import os
 import re
+import json
+from pathlib import Path
 
 # Configuration
 REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(REPO_ROOT, 'apps', 'web', 'public')
+STARTUP_GUIDE_URL = "https://solana.com/request-for-startups.md"
+STARTUP_GUIDE_DESCRIPTION = "Explore video-based startup requests with speaker briefs and Solana tooling paths"
 
 # AI agent resources section (English only, static URLs)
 AI_AGENT_RESOURCES = [
     ("SKILL.md", "SKILL.md", "Comprehensive guide for AI agents to understand and build on Solana"),
     ("Full Documentation", "llms-full.txt", "Complete inline documentation with code examples and API reference"),
     ("Coding with Agents", "docs/intro/coding-with-agents", "Use Solana MCP and Agent Skills in AI-assisted development workflows"),
+    ("Request for Startups", "request-for-startups.md", STARTUP_GUIDE_DESCRIPTION),
 ]
 
 # Curated sections for the English source file
@@ -53,7 +59,7 @@ CURATED_SECTIONS = {
         ("Asset Issuance & Tokenization", "docs/tokenization", "Issue and operate tokenized assets on Solana"),
         ("Tokenization Quickstart", "docs/tokenization/quickstart", "Launch a compliance-ready Token-2022 mint"),
         ("Token ACL", "docs/tokenization/token-acl", "Build permissioned tokens with allow and block lists"),
-        ("Delivery vs Payment", "docs/tokenization/dvp", "Settle tokenized assets and payments atomically"),
+        ("Delivery vs Payment using delegation", "docs/tokenization/dvp", "Settle tokenized assets and payments atomically through delegated authority"),
         ("NAV Strikes", "docs/tokenization/nav-strikes", "Implement subscriptions and redemptions for tokenized funds"),
     ],
     "Frontend": [
@@ -95,12 +101,19 @@ CURATED_SECTIONS = {
         ("Developer Tools", "docs/payments/developer-tools", "Libraries and services for building payment flows"),
         ("Production Readiness", "docs/payments/production-readiness", "Prepare payment systems for mainnet"),
         ("Agentic Payments", "docs/payments/agentic-payments", "Enable autonomous payments for AI agents with x402"),
+        ("Spend Permissions", "docs/payments/advanced-payments/spend-permissions", "Delegate token spending with a capped allowance"),
+        ("Deferred Execution", "docs/payments/advanced-payments/deferred-execution", "Sign transactions for later submission with durable nonces"),
     ],
     "DeFi": [
         ("Markets & Trading", "docs/defi", "Build trading systems and onchain financial applications"),
         ("Exchange Integration", "docs/defi/exchange", "Add Solana deposits and withdrawals to an exchange"),
         ("MEV Protection", "docs/defi/mev-protection", "Protect transactions from sandwich attacks with Jito DontFront"),
         ("Stake-weighted QoS", "docs/defi/stake-weighted-qos", "Prioritize transactions through staked validators"),
+        ("Delivery vs Payment (DvP) program", "docs/defi/dvp-program", "Escrowed atomic settlement of an asset leg against a cash leg"),
+        ("Create a Trade", "docs/defi/dvp-program/create-a-trade", "Set up the DvP clients and record a trade's terms"),
+        ("Fund the Legs", "docs/defi/dvp-program/fund-the-legs", "Verify the stored terms and fund a leg with a plain transfer"),
+        ("Settle the Trade", "docs/defi/dvp-program/settle-the-trade", "Settle a funded trade as the settlement authority"),
+        ("Unwind a Trade", "docs/defi/dvp-program/unwind-a-trade", "Reclaim, cancel, reject, and recover late deposits"),
     ],
     "Tools": [
         ("Tools", "docs/tools", "Developer tool documentation"),
@@ -111,10 +124,10 @@ CURATED_SECTIONS = {
         ("Kora", "docs/tools/kora", "Solana signing infrastructure"),
         ("Keychain", "docs/tools/keychain", "Unified Solana signing across key management backends"),
         ("Choosing a Signing Backend", "docs/tools/keychain/choosing-a-backend", "Compare custody models and pick a Keychain backend"),
-        ("Commerce Kit", "docs/tools/commerce-kit", "Commerce primitives for Solana payment experiences"),
         ("Solana Pay", "docs/tools/solana-pay", "Standard protocol for decentralized payments on Solana"),
         ("Attestations", "docs/tools/attestations", "Verifiable claims and credentials on Solana"),
         ("Private Channels", "docs/tools/private-channels", "Enterprise layer for internet capital markets"),
+        ("Rewards Program", "docs/tools/rewards", "Token distributions with vesting, merkle claims, and revocation"),
         ("LiteSVM", "docs/tools/litesvm", "Test Solana programs with an in-process virtual machine"),
         ("Surfpool", "docs/tools/surfpool", "Simulate Solana programs locally with mainnet accounts"),
         ("Surfpool Kit Plugin", "docs/tools/surfpool/sdk/kit-plugin", "Run a local Surfnet behind a Solana Kit client"),
@@ -128,8 +141,14 @@ ENGLISH_EXTRAS = {
     "Documentation": [
         ("Documentation Tags", "docs/tags", "Browse documentation pages grouped by topic tags"),
     ],
+    "Video Tutorials": [
+        ("Video Tutorials", "docs/video-guides", "Courses and hands-on Solana projects"),
+        ("Solana Crash Course", "docs/video-guides/solana-crash-course", "Build from environment setup through program deployment"),
+        ("2026 Developer Bootcamp", "docs/video-guides/2026-developer-bootcamp", "Build Solana projects in a long-form course"),
+    ],
     "Learn": [
         ("What is Solana", "learn/what-is-solana", "Introduction to Solana for beginners"),
+        ("A Poker Player's Guide to Crypto Trading on Solana", "poker-players-guide-to-crypto", "An introduction to crypto trading for poker players, built around skills you already have."),
         ("What is a Wallet", "learn/what-is-a-wallet", "Understanding crypto wallets"),
         ("Getting Started", "learn/getting-started", "First steps with Solana"),
         ("Introduction to DeFi", "learn/introduction-to-defi-on-solana", "Decentralized finance on Solana"),
@@ -166,6 +185,7 @@ ENGLISH_EXTRAS = {
         ("Rust Programs", "docs/programs/rust", "Build Solana programs in Rust"),
         ("Deploying Programs", "docs/programs/deploying", "Deploy Solana programs to a cluster"),
         ("IDLs", "docs/programs/idls", "Define interfaces for Solana programs"),
+        ("Generating Clients", "docs/programs/codama/clients", "Generate TypeScript and Rust clients from a program IDL"),
         ("Verifying Programs", "docs/programs/verified-builds", "Verify deployed Solana program builds"),
         ("Program Examples", "docs/programs/examples", "Examples for building Solana programs"),
         ("Program Limitations", "docs/programs/limitations", "Runtime and resource limits for Solana programs"),
@@ -199,7 +219,6 @@ ENGLISH_EXTRAS = {
         ("APAC Agenda", "accelerate/hong-kong/agenda", "Sessions and speakers for Accelerate APAC"),
         ("Accelerate Miami", "accelerate/miami", "Solana Accelerate USA in Miami"),
         ("Miami Agenda", "accelerate/miami/agenda", "Sessions and speakers for Accelerate Miami"),
-        ("Accelerate China", "accelerate/china", "Solana Accelerate roadshow across China"),
     ],
 }
 
@@ -222,6 +241,60 @@ def normalize_llms_urls(content: str) -> str:
     return content
 
 
+def generate_startup_requests() -> str:
+    """Read the same request titles, anchors, and theses used by the page."""
+    catalog_path = Path(REPO_ROOT) / "packages/i18n/messages/web/en/common.json"
+    catalog = json.loads(catalog_path.read_text(encoding="utf-8"))
+    requests = catalog["request-for-startups"]["requests"]["items"]
+    lines = [
+        "## Request for Startups",
+        "",
+        f"Use the [startup guide]({STARTUP_GUIDE_URL}) to choose a request and plan a first build. Each brief follows one video from the playlist and includes the speaker, opportunity, starting points, and tooling path.",
+        "",
+    ]
+    for slug, request in requests.items():
+        lines.append(
+            f"- [{request['title']}]({STARTUP_GUIDE_URL}#{slug}): {request['thesis']}"
+        )
+    return "\n".join(lines)
+
+
+def align_existing_agent_indexes(startup_requests: str):
+    """Add canonical guide discovery without rewriting translated or full docs."""
+    for path in sorted(Path(OUTPUT_DIR).glob("llms-*.txt")):
+        if path.name == "llms-en.txt":
+            continue
+        content = path.read_text(encoding="utf-8")
+        if path.name == "llms-full.txt":
+            heading = "## Request for Startups\n"
+            if heading in content:
+                start = content.index(heading)
+                end = content.find("\n## ", start + len(heading))
+                end = end if end >= 0 else len(content)
+                content = content[:start] + startup_requests + "\n\n---\n" + content[end:]
+            else:
+                marker = "## Core Concepts\n"
+                content = content.replace(marker, startup_requests + "\n\n---\n\n" + marker, 1)
+        else:
+            # The brief is English; preserve the locale's translated documentation.
+            link = f"- [Request for Startups (English)]({STARTUP_GUIDE_URL}): {STARTUP_GUIDE_DESCRIPTION}"
+            if STARTUP_GUIDE_URL in content:
+                content = re.sub(
+                    r"^- \[[^\n]+\]\(https://solana\.com/request-for-startups\.md\):[^\n]*$",
+                    lambda _: link,
+                    content,
+                    flags=re.MULTILINE,
+                )
+            else:
+                first_section = content.find("\n## ")
+                next_section = content.find("\n## ", first_section + 1)
+                if first_section < 0 or next_section < 0:
+                    raise ValueError(f"Cannot locate agent resource section in {path}")
+                content = content[:next_section].rstrip() + "\n" + link + "\n\n" + content[next_section + 1:]
+        path.write_text(content, encoding="utf-8")
+        print(f"Aligned: {path}")
+
+
 def generate_llms_txt() -> str:
     """Generate llms.txt content for the English source file."""
     base_url = "https://solana.com"
@@ -240,6 +313,7 @@ def generate_llms_txt() -> str:
         url = f"{base_url}/{path}"
         lines.append(f"- [{title}]({url}): {description}")
     lines.append("")
+    lines.extend([generate_startup_requests(), ""])
     
     # Add curated sections
     for section_name, links in CURATED_SECTIONS.items():
@@ -283,6 +357,8 @@ def main():
     for filename in ("llms-en.txt", "llms.txt"):
         output_path = write_output(filename, content)
         print(f"Generated: {output_path}")
+
+    align_existing_agent_indexes(generate_startup_requests())
 
     print("\nTranslations are handled by Lingo via .github/workflows/i18n.yml")
 

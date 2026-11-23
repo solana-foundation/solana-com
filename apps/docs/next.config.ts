@@ -3,32 +3,7 @@ import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { createMDX } from "fumadocs-mdx/next";
 import { withSentryConfig } from "@sentry/nextjs";
-
-const securityHeaders: Array<{ key: string; value: string }> = [
-  {
-    key: "X-Frame-Options",
-    value: "SAMEORIGIN",
-  },
-  {
-    key: "X-XSS-Protection",
-    value: "1; mode=block",
-  },
-  {
-    key: "X-Content-Type-Options",
-    value: "nosniff",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: `frame-ancestors 'self'`,
-  },
-];
-
-if (process.env.NEXT_PUBLIC_VERCEL_ENV === "preview") {
-  securityHeaders.push({
-    key: "X-Robots-Tag",
-    value: "noindex",
-  });
-}
+import { securityHeadersRoute } from "@workspace/security-headers";
 
 const prefix = "/docs-assets";
 const isVercelBuild = process.env.VERCEL === "1";
@@ -52,6 +27,7 @@ const askProxyRewrites = WEB_APP_URL
   : [];
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   reactStrictMode: true,
   productionBrowserSourceMaps: false,
   trailingSlash: false,
@@ -146,16 +122,12 @@ const nextConfig: NextConfig = {
         hostname: "res.cloudinary.com",
       },
       {
-        protocol: "https",
-        hostname: "**.cloudfront.net",
-      },
-      {
         protocol: "http",
         hostname: "localhost",
       },
       {
         protocol: "https",
-        hostname: "*.vercel.app",
+        hostname: "solana-com-media.vercel.app",
         port: "",
       },
       {
@@ -171,12 +143,50 @@ const nextConfig: NextConfig = {
   },
 
   async headers() {
-    return [
+    return [securityHeadersRoute()];
+  },
+
+  async redirects() {
+    // The web app forwards raw-markdown requests with `.md` intact (see
+    // `withMdVariants` in apps/web/rewrites-redirects.ts), so every moved route
+    // needs a `.md` twin here or those URLs 404 instead of redirecting.
+    const movedRoutes = [
       {
-        source: "/:path*",
-        headers: securityHeaders,
+        source: "/docs/payments/accept-payments/payment-button",
+        destination: "/docs/tools/solana-pay",
+      },
+      {
+        source: "/docs/payments/accept-payments/solana-pay",
+        destination: "/docs/tools/solana-pay",
+      },
+      {
+        source: "/docs/payments/accept-payments/pay-sh",
+        destination: "/docs/payments/pay-sh",
+      },
+      {
+        source: "/docs/payments/subscriptions/pay-sh",
+        destination: "/docs/payments/pay-sh",
+      },
+      {
+        source: "/docs/payments/production-readiness",
+        destination: "/docs/tools/transaction-landing#transaction-landing",
       },
     ];
+
+    return movedRoutes.flatMap(({ source, destination }) => {
+      const markdownDestination = destination.replace(/(#|$)/, ".md$1");
+
+      return [
+        [source, destination],
+        [`${source}.md`, markdownDestination],
+        [`/:locale${source}`, `/:locale${destination}`],
+        [`/:locale${source}.md`, `/:locale${markdownDestination}`],
+      ].map(([source, destination]) => ({
+        source,
+        destination,
+        permanent: true,
+      }));
+    });
   },
 
   async rewrites() {
@@ -219,6 +229,7 @@ const nextConfig: NextConfig = {
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
       "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.go",
       "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],
@@ -226,6 +237,7 @@ const nextConfig: NextConfig = {
       "../../packages/docs-examples/cookbook/**/*.ts",
       "../../packages/docs-examples/cookbook/**/*.rs",
       "../../packages/docs-examples/cookbook/**/*.py",
+      "../../packages/docs-examples/cookbook/**/*.go",
       "../../packages/docs-examples/cookbook/**/*.output.txt",
       "../../packages/docs-examples/cookbook/**/Cargo.toml",
     ],

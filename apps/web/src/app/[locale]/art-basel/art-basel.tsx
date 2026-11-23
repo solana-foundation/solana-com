@@ -10,7 +10,7 @@ import {
   RichTextQuote,
   Section,
   Switchback,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import Image from "next/image";
@@ -303,33 +303,29 @@ export function ArtBaselPage({ translations }: ArtBaselPageProps) {
         />
       </ResponsiveBox>
 
-      <ResponsiveBox
-        responsiveStyles={{
-          large: { paddingTop: "84px", marginBottom: "-72px" },
-        }}
-      >
-        <Heading
-          variant="centered"
-          eyebrow={translations.whySolanaEyebrow}
-          headline={translations.whySolanaHeadline}
-          body={translations.whySolanaBody}
-        />
-      </ResponsiveBox>
+      <div className="relative z-[1]">
+        <ResponsiveBox
+          responsiveStyles={{
+            large: { paddingTop: "84px", marginBottom: "-72px" },
+          }}
+        >
+          <Heading
+            variant="centered"
+            eyebrow={translations.whySolanaEyebrow}
+            headline={translations.whySolanaHeadline}
+            body={translations.whySolanaBody}
+          />
+        </ResponsiveBox>
+      </div>
 
-      <ResponsiveBox
-        responsiveStyles={{
-          large: { marginBottom: "-150px", zIndex: 2 },
-          medium: { marginBottom: "-100px" },
-          small: { marginBottom: "-83px" },
-        }}
-      >
+      <div className="relative z-[2] -mb-[50px] md:-mb-[100px] xl:-mb-[150px]">
         <CardDeck
           cards={
             cardDeckCards as React.ComponentProps<typeof CardDeck>["cards"]
           }
           numCols={CARD_DECK_COLUMNS}
         />
-      </ResponsiveBox>
+      </div>
 
       <ConversionPanel
         heading={translations.contactPanelHeading}

@@ -1,9 +1,8 @@
 import { useState } from "react";
 import Filters from "./Filters";
 import Ramps from "./Ramps";
-import styles from "./RampsLayout.module.scss";
 import RampsSearch from "./RampsSearch";
-import { Hero } from "@solana-foundation/solana-lib";
+import { Hero } from "@workspace/ui/landing";
 import onOffRampHeroImage from "../../../assets/onofframp/on-off-ramp-hero-img.png";
 import { useTranslations } from "next-intl";
 
@@ -230,7 +229,7 @@ const RampLayout = ({
 
   return (
     <>
-      <div className={styles["ramps-hero-container"]}>
+      <div className="lg:[&_section]:p-8">
         <Hero
           eyebrow={t("on-off-ramp.hero.eyebrow")}
           headline={t("on-off-ramp.hero.headline")}
@@ -240,15 +239,13 @@ const RampLayout = ({
           centered={false}
         />
       </div>
-      <div className={`relative ${styles["ramps-layout"]}`}>
+      <div className="relative overflow-hidden p-5">
         <RampsSearch
           mobileClickEvent={toggleFiltersActive}
           searchTerm={searchItems}
           handleInputChange={handleInputChange}
         />
-        <div
-          className={`flex items-start relative ${styles["ramps-layout__content"]}`}
-        >
+        <div className="relative mx-auto flex max-w-[1280px] items-start">
           <Filters
             placeholderRamps={placeholderRamps}
             setFilteredRamps={setFilteredRamps}

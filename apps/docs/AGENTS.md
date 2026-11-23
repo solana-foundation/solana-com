@@ -1,15 +1,15 @@
 # Docs App Agent Guide
 
-Use this app for developer docs, cookbook, learning content, bootcamp content,
-and docs-specific UI.
+Use this app for developer docs, cookbook, bootcamp content, and docs-specific
+UI. General `/learn` content is owned by `apps/web`.
 
 ## Identity
 
 - Workspace: `apps/docs`
 - Package: `solana-docs`
 - Default dev port: `3003`
-- Public route ownership: `/docs`, `/learn`, `/developers`,
-  `/developers/cookbook`, `/developers/bootcamp`
+- Public route ownership: `/docs`, `/developers`, `/developers/cookbook`,
+  `/developers/bootcamp`
 
 ## First Files To Open
 
@@ -32,8 +32,9 @@ and docs-specific UI.
 ## Content Ownership
 
 - `content/docs/*`: core docs by locale
+- `content/docs/*/video-guides/*`: video tutorials served from
+  `/docs/video-guides`
 - `content/cookbook/*`: recipe-style content
-- `content/learn/*`: general learning content
 - `content/developers-learn/*`: developer bootcamp and companion content
 - `packages/docs-examples/*`: runnable code embedded in cookbook pages
 - `src/components/*`: docs-only React UI
@@ -59,3 +60,5 @@ stale.
   `packages/ui-chrome` and `packages/i18n` too
 - Content-heavy changes may require checking both MDX sources and the Fumadocs
   source config
+- Moved docs routes need matching redirects for both the page and its `.md`
+  variant in `next.config.ts`

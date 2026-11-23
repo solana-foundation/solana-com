@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { getIterableActionUrl, sendIterableFormRequest } from "./iterable";
+import { trackLead, type AnalyticsAppName } from "./analytics";
 
 export interface IterableSchema {
   isValidSync: (values: unknown) => boolean;
@@ -39,12 +40,18 @@ export interface UseIterableSignUpOptions {
   formId: string;
   schema: IterableSchema;
   initialValues: Record<string, string>;
+  analytics?: {
+    appName: AnalyticsAppName;
+    leadType: "newsletter" | "contact" | "application" | "registration";
+    placement?: string;
+  };
 }
 
 export function useIterableSignUp({
   formId,
   schema,
   initialValues,
+  analytics,
 }: UseIterableSignUpOptions) {
   const [state, setState] = useState<Record<string, string>>(initialValues);
   const [isDirty, setIsDirty] = useState(false);
@@ -88,6 +95,14 @@ export function useIterableSignUp({
         setIsLoading(true);
         await sendIterableFormRequest(actionUrl, state);
         setIsSuccess(true);
+        if (analytics) {
+          trackLead({
+            appName: analytics.appName,
+            leadType: analytics.leadType,
+            formId,
+            placement: analytics.placement,
+          });
+        }
       } catch (submissionError) {
         setError(
           submissionError instanceof Error
@@ -98,7 +113,7 @@ export function useIterableSignUp({
         setIsLoading(false);
       }
     },
-    [actionUrl, schema, state],
+    [actionUrl, analytics, formId, schema, state],
   );
 
   return {

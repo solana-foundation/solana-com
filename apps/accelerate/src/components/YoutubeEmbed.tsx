@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { useTranslations } from "@workspace/i18n/client";
 
 const getYoutubeEmbedUrl = (id: string) => {
   const params = new URLSearchParams({
@@ -45,11 +46,12 @@ export function YoutubeEmbed({
   className,
 }: YoutubeEmbedProps) {
   const [playing, setPlaying] = useState(false);
+  const t = useTranslations("accelerate.videoEmbed");
   const isYoutube = platform === "youtube";
   const embedUrl = isYoutube
     ? getYoutubeEmbedUrl(id)
     : getVimeoEmbedUrl(id, vimeoHash);
-  const fallbackTitle = isYoutube ? "YouTube video" : "Vimeo video";
+  const fallbackTitle = t(isYoutube ? "youtubeVideo" : "vimeoVideo");
 
   return (
     <div className={`relative ${className ?? ""}`}>

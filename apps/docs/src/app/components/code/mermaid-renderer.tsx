@@ -107,7 +107,7 @@ export function MermaidRenderer({
 
       const mermaidConfig: MermaidConfig = {
         startOnLoad: false,
-        securityLevel: "loose",
+        securityLevel: "strict",
         fontFamily: "inherit",
         themeCSS: "margin: 0;",
         theme: isDarkTheme ? "dark" : "neutral",
@@ -151,8 +151,12 @@ export function MermaidRenderer({
         }
       } catch (error) {
         console.error("Error while rendering mermaid", error);
+        const escaped = content
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;");
         setSvg(`
-            <pre class="mt-2 p-2 bg-gray-100 text-xs overflow-auto">${content}</pre>
+            <pre class="mt-2 p-2 bg-gray-100 text-xs overflow-auto">${escaped}</pre>
         `);
         setIsLoading(false);
       }

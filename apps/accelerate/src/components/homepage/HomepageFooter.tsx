@@ -61,12 +61,6 @@ export function HomepageFooter() {
             {/* Event links */}
             <div className="flex flex-col items-center gap-8 md:flex-row">
               <Link
-                href="/accelerate/china"
-                className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
-              >
-                {t("nav.china")}
-              </Link>
-              <Link
                 href="/accelerate/hong-kong"
                 className="text-[20px] font-semibold uppercase leading-none tracking-[1px] text-white transition-colors hover:text-white/80"
               >
@@ -101,9 +95,9 @@ export function HomepageFooter() {
                 Solana
               </span>
             </a>
-            {/* X / Solana Conf */}
+            {/* X / Solana Events */}
             <a
-              href="https://x.com/SolanaConf"
+              href="https://x.com/SolanaEvents"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-[6px] pl-3 transition-colors hover:opacity-80"
@@ -116,7 +110,7 @@ export function HomepageFooter() {
                 className="h-[18px] w-[18px]"
               />
               <span className="font-diatype text-[15px] font-light leading-none tracking-[0.75px] text-accelerate-gray-200">
-                Solana Conf
+                Solana Events
               </span>
             </a>
           </div>

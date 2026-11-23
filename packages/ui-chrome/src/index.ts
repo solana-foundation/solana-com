@@ -20,8 +20,14 @@ export { ThemeProvider } from "./theme-provider";
 export { DocsSearchBar } from "./docs-search-bar";
 export { useDocsSearch } from "./use-docs-search";
 export type { DocsSearchResult, DocsSearchState } from "./use-docs-search";
+export { InkeepChatButton } from "./inkeep-chat-button";
+export { InkeepSearchBar } from "./inkeep-searchbar";
+export { InkeepProvider } from "./inkeep-provider";
 export { NewsletterModal } from "./newsletter-modal";
 export { CookieConsentBanner } from "./cookie-consent-banner";
+export { GoogleAnalyticsTag } from "./google-analytics-tag";
+export { GoogleTagManagerNoScript } from "./google-tag-manager-noscript";
+export { isProductionAnalyticsEnabled } from "./analytics";
 export {
   getBrowserStorage,
   safeStorageGetItem,

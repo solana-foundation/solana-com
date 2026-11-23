@@ -8,6 +8,8 @@ export const WALLET_VERIFICATION_DATES = {
   walletResearch20260806: "2026-08-06",
   openSourceAudit20260818: "2026-08-18",
   walletResearch20260902: "2026-09-02",
+  walletResearch20261105: "2026-11-05",
+  samsungWallet20261124: "2026-11-24",
 } as const satisfies Record<string, `${number}-${number}-${number}`>;
 
 export type WalletVerificationDate =

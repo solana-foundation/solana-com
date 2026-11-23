@@ -1,0 +1,139 @@
+---
+title: أصول النشر
+description: تجهيز بناء برنامجك للنشر على Mainnet
+---
+
+تأكد من توفر ما يلي قبل نشر تطبيقك على Mainnet:
+
+- ملف ELF الخاص بالبرنامج - وهو عادةً ناتج الأمر `anchor build` أو
+  `cargo-build-sbf` وينتهي بالامتداد `.so`
+- keypair الخاص بالبرنامج - ملف JSON يحتوي على مصفوفة من الأعداد الصحيحة
+
+سنوضح في هذا القسم أين يمكنك العثور على هذه الأصول وكيفية تجهيزها.
+
+## تجهيز ملف ELF [#preparing-your-elf-file]
+
+يحتوي ملف ELF على الشفرة البايتية المُجمَّعة ومعلومات تخطيط الذاكرة والبيانات الوصفية التي تحتاجها آلة سولانا الافتراضية (SVM) لفهم كيفية تحميل برنامجك وتشغيله. يُنشأ ملف ELF عند تجميع الشيفرة المصدرية.
+
+لإنشاء ملف ELF، يمكنك تشغيل الأمر التالي في Anchor:
+
+```bash
+anchor build
+```
+
+أو الأمر التالي للأطر الأخرى:
+
+```bash
+cargo build-sbf
+```
+
+يمكنك بعد ذلك العثور على ملف ELF في مجلد مثل
+`target/deploy/<PROGRAM_NAME>.so`.
+
+يكون برنامجك جاهزًا عندما يُجمَّع ملف ELF بصيغة
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3). للتحقق من برنامجك، يمكنك تشغيل الأمر التالي على Linux:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+والأوامر التالية على macOS:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+إذا ظهر لك ناتج مشابه لما يلي، فبرنامجك جاهز:
+
+```
+  Flags:                             0x3
+```
+
+وإلا، فاتبع دليل الترحيل المرتبط
+[هنا](https://solana.com/upgrades/sbpfv3-programs).
+
+## تجهيز عنوان برنامجك [#preparing-your-program-address]
+
+عنوان برنامجك هو معرّف البرنامج (program ID) الذي ستستخدمه لاستدعاء تعليمات برنامجك. يمكنك 1) استخدام keypair الخاص بالبرنامج الذي تم إنشاؤه أثناء البناء، أو 2) توليد keypair جديد عبر البحث المكثف يبدأ عنوانه ببادئة مخصصة، أو 3) اشتقاق عنوان حساب من عنوان أساسي و seed. يُنتج الخياران الأولان keypair يمكنه التوقيع عن program account. أما الحساب المنشأ باستخدام seed فلا يملك مفتاحًا خاصًا به؛ بل يتحكم فيه الحساب الأساسي.
+
+### استخدام keypair المُنشأ
+
+افتراضيًا، يضع `anchor build` و`cargo build-sbf` keypair الخاص بالبرنامج في:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+احتفظ بنسخة احتياطية من هذا الملف قبل تنظيف مجلد البناء. يمكن لأي شخص يملك حق الوصول إلى keypair التوقيع بصفته program account، لذا لا تضفه إلى نظام التحكم بالمصدر.
+
+### توليد keypair ببادئة مخصصة
+
+استخدم [`vanity`](https://github.com/cavemanloverboy/vanity) للبحث عن keypair من نوع Ed25519 يبدأ مفتاحه العام ببادئة base58 محددة. ثبّت نسخة CPU من crates.io:
+
+```bash
+cargo install vanity
+```
+
+يوفر المشروع أيضًا إصدارات CUDA وMetal وOpenCL لعمليات البحث المُسرَّعة بوحدة معالجة الرسومات (GPU). راجع تعليمات تثبيت `vanity` لمعرفة متطلبات كل واجهة خلفية.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+عند العثور على تطابق، يطبع `vanity` المفتاح العام، والبذرة الخاصة بصيغة hex، ومصفوفة JSON لـ keypair متوافقة مع سولانا. احفظ ملف JSON في مكان آمن، ثم تأكد من أنه يحتوي على المفتاح العام المتوقع:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+تعامل مع ناتج الأمر وملف JSON المحفوظ على أنهما مادة مفتاح خاص.
+
+### إنشاء حساب باستخدام seed
+
+للحصول على بحث أسرع، يبحث `vanity grind` في سلاسل seed الخاصة بـ `CreateAccountWithSeed` بدلًا من توليد keypair من نوع Ed25519. قدّم المفتاح العام للحساب الأساسي الذي سيصرّح بالإنشاء، ومالك الحساب، والبادئة المطلوب البحث عنها. بالنسبة إلى program account قابل للترقية، استخدم محمّل BPF القابل للترقية بصفته المالك:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+تتضمن النتيجة العنوان المشتق وسلسلة seed. تحقق منهما قبل إنشاء الحساب:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+استخدم العنوان الأساسي و seed والمالك نفسها لاشتقاق العنوان عبر `Pubkey::create_with_seed`، ثم أرسل تعليمة `create_account_with_seed` الخاصة بـ System Program. يجب أن يوقّع الحساب الأساسي وحساب التمويل على المعاملة. ولأن الحساب المشتق لا يملك keypair مستقلًا، يتطلب هذا الخيار مسار إنشاء حساب ونشر يعتمد على الحساب الأساسي بدلًا من ملف keypair للبرنامج.
+
+### تحديث عنوان البرنامج في الشيفرة المصدرية
+
+بعد اختيار keypair أو حساب مُنشأ باستخدام seed، استخدم عنوانه العام بصفته معرّف البرنامج في كل موضع يعلنه فيه المشروع. إذا ظلت الشيفرة المصدرية تحتوي على العنوان القديم، فقد ترسل العملاء التعليمات إلى برنامج خاطئ وقد تفشل عمليات التحقق من المعرّف في وقت التشغيل.
+
+في مساحة عمل Anchor، حدّث إدخال البرنامج في ملف `Anchor.toml` الجذري واستدعاء `declare_id!` في `programs/<PROGRAM_NAME>/src/lib.rs`. المفتاح الموجود ضمن `[programs.<CLUSTER>]` هو اسم البرنامج في مساحة العمل. حدّث جدول كل cluster تنوي استخدام العنوان الجديد فيه؛ يحدّث المثال أدناه Mainnet.
+
+في Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+في `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+لا يستخدم Pinocchio الملف `Anchor.toml`. حدّث استدعاء `declare_id!` في الملف `src/lib.rs` الخاص بحزمة البرنامج (crate). تستورد مشاريع Pinocchio الحالية الماكرو من `pinocchio::address`.
+
+يعلن Quasar العنوان أيضًا في `src/lib.rs` الخاص بحزمة البرنامج على السلسلة (onchain)، ولا يستخدم `Anchor.toml`. الماكرو `declare_id!` متاح عبر `quasar_lang::prelude::*`.
+
+أعد بناء البرنامج وأعد توليد أي ملفات IDL أو عميل بعد تغيير العنوان. ابحث أيضًا في سكربتات النشر والاختبارات وإعدادات التطبيق عن معرّف البرنامج القديم، واستبدل أي إشارات مكتوبة بشكل ثابت.

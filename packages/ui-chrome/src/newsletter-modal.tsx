@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { X } from "@boxicons/react/X";
 import { useTheme } from "./theme-provider";
 import { getIterableActionUrl, sendIterableFormRequest } from "./iterable";
+import { trackLead, type AnalyticsAppName } from "./analytics";
 
 const Status = {
   Idle: "idle",
@@ -19,10 +20,15 @@ type StatusType = (typeof Status)[keyof typeof Status];
 
 interface NewsletterModalProps {
   formId: string;
+  analyticsAppName: AnalyticsAppName;
   children: React.ReactNode;
 }
 
-export function NewsletterModal({ formId, children }: NewsletterModalProps) {
+export function NewsletterModal({
+  formId,
+  analyticsAppName,
+  children,
+}: NewsletterModalProps) {
   const t = useTranslations();
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -48,6 +54,12 @@ export function NewsletterModal({ formId, children }: NewsletterModalProps) {
 
       setStatus(Status.Success);
       setEmail("");
+      trackLead({
+        appName: analyticsAppName,
+        leadType: "newsletter",
+        formId,
+        placement: "newsletter_modal",
+      });
     } catch {
       setStatus(Status.Error);
     }

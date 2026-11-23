@@ -10,7 +10,7 @@ import {
   Accordion,
   YoutubeVideo,
   Button,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import { useTranslations } from "next-intl";

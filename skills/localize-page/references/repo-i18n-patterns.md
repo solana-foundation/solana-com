@@ -336,7 +336,7 @@ pluralization, punctuation, and markup placement differ across locales.
 The current `.lingo/config.json` translates:
 
 - `apps/docs/content/docs/en/**/*.mdx`, excluding RPC content
-- `apps/docs/content/learn/en/*.mdx`
+- `apps/web/content/learn/en/*.mdx`
 - `apps/docs/content/docs/en/**/meta.json`, excluding RPC metadata
 
 The config lists the frontmatter fields and MDX component props Lingo may

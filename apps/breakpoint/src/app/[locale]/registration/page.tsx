@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
 import RegistrationPage from "@/components/pages/registration/RegistrationPage";
 import { getPageMetadata } from "@/app/metadata";
+import { NEXT_EDITION } from "@/content/next-edition";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,10 @@ export async function generateMetadata({
   return getPageMetadata(locale, {
     path: "/registration",
     title: t("registration.title"),
-    description: t("registration.metadataDescription"),
+    description: t("registration.next.metadataDescription", {
+      year: NEXT_EDITION.year,
+      price: NEXT_EDITION.flashSalePrice,
+    }),
   });
 }
 

@@ -5,11 +5,7 @@ import Button from "@/components/Button";
 import PageShell from "@/components/PageShell";
 import Footer from "@/components/sections/Footer";
 import SubpageHero from "@/components/SubpageHero";
-import {
-  GENERAL_ADMISSION_HREF,
-  SIDE_EVENTS_HREF,
-  SPONSOR_FORM_HREF,
-} from "@/content/links";
+import { GENERAL_ADMISSION_HREF, SIDE_EVENTS_HREF } from "@/content/links";
 
 type ComingSoonPageProps = {
   cta?: {
@@ -28,7 +24,6 @@ export default function ComingSoonPage({
   const t = useTranslations("breakpoint.pages.comingSoon");
   const releaseLinks = [
     { href: "/travel", label: t("releaseLinks.travel") },
-    { href: SPONSOR_FORM_HREF, label: t("releaseLinks.sponsor") },
     { href: SIDE_EVENTS_HREF, label: t("releaseLinks.sideEvents") },
   ];
 
@@ -59,7 +54,7 @@ export default function ComingSoonPage({
       </SubpageHero>
 
       <section className="bg-black px-xs pt-xl md:px-m md:pt-2xl">
-        <div className="mx-auto grid max-w-[1376px] gap-s md:grid-cols-3">
+        <div className="mx-auto grid max-w-[1376px] gap-s md:grid-cols-2">
           {releaseLinks.map((link) => (
             <div
               key={link.href}

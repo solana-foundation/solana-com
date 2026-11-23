@@ -206,6 +206,9 @@ const navigationHubStaticConfigs = {
             href: "/solutions/enterprise",
           },
           {
+            href: "/solutions/enterprise/faq",
+          },
+          {
             href: "/solutions/institutional-payments",
           },
           {
@@ -368,9 +371,6 @@ const navigationHubStaticConfigs = {
       },
       {
         links: [
-          {
-            href: "/docs/tools/commerce-kit",
-          },
           {
             href: "/docs/tools/kora",
           },

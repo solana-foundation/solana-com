@@ -6,9 +6,11 @@ import { Twitter } from "@boxicons/react/Twitter";
 import { Facebook } from "@boxicons/react/Facebook";
 import { Linkedin } from "@boxicons/react/Linkedin";
 import { Send } from "@boxicons/react/Send";
+import { Link as LinkIcon } from "@boxicons/react/Link";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { remarkRejectMdxCode } from "@/lib/mdx-security";
 import rehypeSlug from "rehype-slug";
 import { reader } from "@/lib/reader";
 import { upgradeMdxComponents } from "@/components/upgrades/mdx-components";
@@ -163,6 +165,25 @@ export default async function Page({ params }: Props) {
               )}
             </div>
           )}
+          {entry.additionalResources &&
+            entry.additionalResources.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                {entry.additionalResources.map(
+                  (resource: { label: string; url: string }, i: number) => (
+                    <a
+                      key={`${resource.url}-${i}`}
+                      href={resource.url}
+                      className="group flex items-center gap-3 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-medium text-white transition-colors hover:border-[#14F195]/50 hover:bg-white/[0.05] hover:text-[#14F195]"
+                    >
+                      <LinkIcon className="size-4 shrink-0 text-[#14F195]" />
+                      <span className="underline-offset-4 group-hover:underline">
+                        {resource.label}
+                      </span>
+                    </a>
+                  ),
+                )}
+              </div>
+            )}
         </div>
       </section>
 
@@ -174,7 +195,7 @@ export default async function Page({ params }: Props) {
               components={upgradeMdxComponents}
               options={{
                 mdxOptions: {
-                  remarkPlugins: [remarkGfm],
+                  remarkPlugins: [remarkGfm, remarkRejectMdxCode],
                   rehypePlugins: [rehypeSlug],
                 },
               }}

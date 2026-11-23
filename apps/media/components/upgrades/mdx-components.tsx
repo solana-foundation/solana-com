@@ -1,6 +1,46 @@
 import React, { ComponentPropsWithoutRef } from "react";
-import { TxAccountBytes, TxSimulationTrace, TxWireLayout } from "./diagrams";
+import {
+  AgBankIdAcrossConnections,
+  AgBanksPerSlot,
+  AgBlockLifecycle,
+  AgCommitmentLevels,
+  AgVotorCertificates,
+  DmAccountAccess,
+  DmCopyPaths,
+  DnCallStacks,
+  DnSignerFlow,
+  TxAccountBytes,
+  TxSimulationTrace,
+  TxWireLayout,
+} from "./diagrams";
 import { FeatureActivationStatus } from "./feature-activation-status";
+import type { UpgradeDiagramId } from "@/lib/upgrade-diagrams";
+
+const diagramComponents = {
+  "ag-bank-id-across-connections": AgBankIdAcrossConnections,
+  "ag-banks-per-slot": AgBanksPerSlot,
+  "ag-block-lifecycle": AgBlockLifecycle,
+  "ag-commitment-levels": AgCommitmentLevels,
+  "ag-votor-certificates": AgVotorCertificates,
+  "dm-account-access": DmAccountAccess,
+  "dm-copy-paths": DmCopyPaths,
+  "dn-call-stacks": DnCallStacks,
+  "dn-signer-flow": DnSignerFlow,
+  "tx-account-bytes": TxAccountBytes,
+  "tx-simulation-trace": TxSimulationTrace,
+  "tx-wire-layout": TxWireLayout,
+} satisfies Record<UpgradeDiagramId, React.ComponentType>;
+
+export function UpgradeDiagram({ diagram }: { diagram: UpgradeDiagramId }) {
+  if (!diagram) {
+    throw new Error("An upgrade diagram must be selected");
+  }
+  if (!Object.hasOwn(diagramComponents, diagram)) {
+    throw new Error(`Unknown upgrade diagram: ${diagram}`);
+  }
+  const Diagram = diagramComponents[diagram];
+  return <Diagram />;
+}
 
 export function StatusBadge({
   children,
@@ -58,16 +98,31 @@ export function AudienceGroup({ children }: { children: React.ReactNode }) {
 }
 
 export function Audience({
+  id,
   title,
   summary,
   children,
 }: {
+  /**
+   * Anchor for in-page links. Goes on the hidden content, not the summary:
+   * browsers auto-open a <details> when the fragment target is inside it,
+   * but not when the target is the always-visible summary itself.
+   */
+  id?: string;
   title: string;
   summary?: string;
   children: React.ReactNode;
 }) {
   return (
-    <details className="group bg-white/[0.02] open:bg-white/[0.04]">
+    // Chrome auto-expands a <details> when the page is opened at a fragment
+    // inside it, which sets `open` on the DOM before React hydrates. The
+    // expansion is what we want — a "Learn more" link should land on an open
+    // section — but React sees an attribute the server never rendered and
+    // reports a mismatch. Nothing else here can diverge, so suppress it.
+    <details
+      suppressHydrationWarning
+      className="group bg-white/[0.02] open:bg-white/[0.04]"
+    >
       <summary className="flex cursor-pointer list-none items-baseline justify-between gap-4 px-6 py-5 [&::-webkit-details-marker]:hidden">
         <span>
           <span className="text-xl font-semibold text-white">{title}</span>
@@ -81,7 +136,9 @@ export function Audience({
           +
         </span>
       </summary>
-      <div className="px-6 pb-2 [&>*:last-child]:mb-6">{children}</div>
+      <div id={id} className="scroll-mt-24 px-6 pb-2 [&>*:last-child]:mb-6">
+        {children}
+      </div>
     </details>
   );
 }
@@ -90,9 +147,7 @@ export const upgradeMdxComponents = {
   Audience,
   AudienceGroup,
   FeatureActivationStatus,
-  TxAccountBytes,
-  TxSimulationTrace,
-  TxWireLayout,
+  UpgradeDiagram,
   StatusBadge,
   StatusBadgeGroup,
   MetricCard,

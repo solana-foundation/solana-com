@@ -12,6 +12,15 @@ import { PostItem } from "@/types/media";
 import uniqBy from "lodash/uniqBy";
 import { PROJECTS, LINKS, GET_STARTED_LINKS } from "@/data/index/data";
 import { getActiveCampaignId } from "@/components/index/campaigns/config";
+import { getDisplayMetrics } from "@/lib/metrics/present";
+import type { MetricKey } from "@/lib/metrics/registry";
+
+const PERFORMANCE_METRICS = [
+  "network.daily-active-signers",
+  "network.successful-transactions-30d",
+  "defi.dex-volume-12m",
+  "apps.revenue-12m",
+] as const;
 
 export const revalidate = 60;
 
@@ -61,6 +70,14 @@ export default async function Page(_props: Props) {
     console.error(error);
   }
 
+  const projectMetricKeys = PROJECTS.flatMap((item) =>
+    item.metric ? [item.metric] : [],
+  ) as MetricKey[];
+  const [performanceMetrics, projectMetrics] = await Promise.all([
+    getDisplayMetrics(PERFORMANCE_METRICS),
+    getDisplayMetrics(projectMetricKeys),
+  ]);
+
   // --- Translations ---
   const lightFormatter = {
     light: (chunks: React.ReactNode) => (
@@ -107,24 +124,11 @@ export default async function Page(_props: Props) {
       t("index.performance.counters.0.label"),
       t("index.performance.counters.1.label"),
     ],
-    performanceStats: [
-      {
-        value: t("index.performance.stats.0.value"),
-        label: t("index.performance.stats.0.label"),
-      },
-      {
-        value: t("index.performance.stats.1.value"),
-        label: t("index.performance.stats.1.label"),
-      },
-      {
-        value: t("index.performance.stats.2.value"),
-        label: t("index.performance.stats.2.label"),
-      },
-      {
-        value: t("index.performance.stats.3.value"),
-        label: t("index.performance.stats.3.label"),
-      },
-    ],
+    performanceStats: PERFORMANCE_METRICS.map((key, index) => ({
+      value: performanceMetrics[key].value,
+      label: t(`index.performance.stats.${index}.label`),
+      source: performanceMetrics[key].source,
+    })),
 
     // What's Up
     whatsUpTitle: t.rich("index.whats-up.title", lightFormatter),
@@ -140,11 +144,16 @@ export default async function Page(_props: Props) {
       ),
     }),
     projectsCta: t("index.projects.cta"),
-    projectsTranslations: PROJECTS.map((item) => ({
-      name: t(`index.projects.${item.key}.name`),
-      stat: t(`index.projects.${item.key}.stat`),
-      statLabel: t(`index.projects.${item.key}.statLabel`),
-    })),
+    projectsTranslations: PROJECTS.map((item) => {
+      const metric = item.metric ? projectMetrics[item.metric] : undefined;
+      return {
+        name: t(`index.projects.${item.key}.name`),
+        stat: metric ? metric.value : t(`index.projects.${item.key}.stat`),
+        statLabel: t(`index.projects.${item.key}.statLabel`),
+        source: metric?.source,
+        isMetric: Boolean(metric),
+      };
+    }),
 
     // News
     newsTitle: t.rich("index.news.title", lightFormatter),

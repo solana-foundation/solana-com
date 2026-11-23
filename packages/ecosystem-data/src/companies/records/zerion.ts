@@ -19,7 +19,7 @@ export const zerion = {
     },
     socials: {
       x: "https://x.com/zerion",
-      linkedin: "https://www.linkedin.com/company/zerion-io/",
+      linkedin: "https://www.linkedin.com/company/zerionteam",
       github: "https://github.com/zeriontech",
     },
   },

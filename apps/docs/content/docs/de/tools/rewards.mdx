@@ -1,0 +1,139 @@
+---
+title: Rewards-Programm
+seoTitle: Solana Rewards-Programm für Token-Vesting und Merkle-Verteilungen
+description:
+  Verteile SPL-Token- und Token-2022-Tokens mit Vesting-Zeitplänen, entweder über Konten pro Empfänger oder über eine Merkle-Root, mit optionalem Widerruf und Clawback.
+---
+
+Das Rewards-Programm verteilt Tokens aus einem programmeigenen Vault an eine
+Gruppe von Empfängern, jeweils nach einem Vesting-Zeitplan. Eine Authority
+finanziert den Vault und legt fest, wer was erhält. Empfänger beanspruchen ihre
+freigegebenen Tokens im Laufe der Zeit, und die Authority kann Empfänger
+widerrufen oder übrige Tokens zurückfordern, sofern die Verteilung dies
+zulässt. Das Programm ist mit Pinocchio entwickelt, wird von der Solana
+Foundation gepflegt und funktioniert sowohl mit SPL-Token- als auch mit
+Token-2022-Mints, mit Ausnahme von Token-2022-Mints mit der
+Transfer-Hook-Erweiterung.
+
+Programm-ID (Mainnet und Devnet):
+
+```text
+REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi
+```
+
+<Callout type="info">
+  Das Programm wurde von OtterSec auditiert. Den auditierten Commit findest du in
+  [AUDIT_STATUS.md](https://github.com/solana-foundation/rewards/blob/main/audits/AUDIT_STATUS.md).
+</Callout>
+
+## Den Verteilungstyp auswählen
+
+Das Programm unterstützt zwei Verteilungstypen. Beide verwenden dieselben
+Vesting-Zeitpläne und Widerrufsmodi.
+
+|                  | Direct                                       | Merkle                                                                   |
+| ---------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+| **Funktionsweise** | Erstellt Onchain-Konten pro Empfänger     | Speichert eine einzelne Merkle-Root onchain; Empfänger legen zum Beanspruchen Beweise (Proofs) vor  |
+| **Anfangskosten** | Der Zahler finanziert die rent für die Konten aller Empfänger | Keine Konten pro Empfänger, bis jemand einen Claim ausführt                           |
+| **Skalierung**        | Praktikabel bis zu niedrigen Tausenden von Empfängern  | Skaliert auf Millionen von Empfängern; der Speicherbedarf wächst nur mit den ausgeführten Claims |
+| **Veränderbarkeit**   | Empfänger können nach der Erstellung hinzugefügt werden       | Die Empfängergruppe wird bei der Erstellung festgelegt                                       |
+| **Geeignet für**   | Kleine Verteilungen, die sich im Laufe der Zeit ändern    | Große, feste Verteilungen wie Airdrops                              |
+
+## Vesting-Zeitpläne
+
+Jede Zuteilung folgt einem von vier Zeitplänen. Zeitstempel sind Unix-Sekunden.
+
+| Zeitplan      | Verhalten                                                                                                               |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Immediate`   | Alle Tokens können sofort beansprucht werden                                                                                    |
+| `Linear`      | Tokens werden anteilig zwischen `startTs` und `endTs` freigegeben                                                             |
+| `Cliff`       | Bis `cliffTs` wird nichts freigegeben, dann wird alles auf einmal freigegeben                                                       |
+| `CliffLinear` | Lineares Vesting von `startTs` bis `endTs`, wobei bis `cliffTs` nichts beansprucht werden kann; der bis dahin aufgelaufene Anteil wird beim Cliff freigegeben |
+
+## Konten
+
+| Konten              | PDA seeds                                        | Speichert                                       |
+| -------------------- | ------------------------------------------------ | -------------------------------------------- |
+| `DirectDistribution` | `["direct_distribution", mint, authority, seed]` | Authority, Mint und Gesamtsummen der Zuteilungen       |
+| `DirectRecipient`    | `["direct_recipient", distribution, recipient]`  | Zuteilung und Vesting eines einzelnen Empfängers       |
+| `MerkleDistribution` | `["merkle_distribution", mint, authority, seed]` | Authority, Mint, Gesamtsummen und die Merkle-Root |
+| `MerkleClaim`        | `["merkle_claim", distribution, claimant]`       | Bisher von einem Anspruchsberechtigten beanspruchter Betrag        |
+| `Revocation`         | `["revocation", distribution, user]`             | Markierung, die einen widerrufenen Merkle-Anspruchsberechtigten blockiert |
+
+Der `seed` ist die Adresse eines zusätzlichen Signer, der bei der Erstellung
+übergeben wird, sodass eine Authority mehrere Verteilungen für denselben Mint
+betreiben kann. Der Vault jeder Verteilung ist der associated token account der
+Distribution-PDA für den jeweiligen Mint.
+
+##  Anweisungen
+
+### Direkte Verteilung
+
+1. Die Authority ruft `CreateDirectDistribution` auf, um die Distribution-PDA
+   und den zugehörigen Vault zu erstellen.
+2. Die Authority ruft `AddDirectRecipient` einmal pro Empfänger mit einem Betrag
+   und einem Vesting-Zeitplan auf. Jeder Aufruf überträgt diesen Betrag vom
+   token account der Authority in den Vault.
+3. Empfänger rufen `ClaimDirect` auf, um freigegebene Tokens abzuheben. Mit
+   `amount: 0` wird alles beansprucht, was aktuell freigegeben ist.
+4. Sobald ein Empfänger alles beansprucht hat oder die Verteilung geschlossen
+   wurde, schließt `CloseDirectRecipient` die Konten der Empfänger und erstattet
+   die rent an die Konten, die dafür bezahlt haben.
+5. Die Authority ruft `CloseDirectDistribution` auf, um das verbleibende
+   Vault-Guthaben und die rent zurückzuholen. Ist `clawbackTs` gesetzt, ist das
+   Schließen erst nach diesem Zeitpunkt erlaubt.
+
+### Merkle-Verteilung
+
+1. Die Authority erstellt einen Merkle-Tree offchain. Jedes Blatt (Leaf) legt sich
+   auf einen Anspruchsberechtigten, dessen Gesamtbetrag und einen
+   Vesting-Zeitplan fest.
+2. Die Authority ruft `CreateMerkleDistribution` mit der Root, dem insgesamt
+   beanspruchbaren Betrag und einem `clawbackTs` auf und finanziert den Vault in
+   derselben Anweisung.
+3. Anspruchsberechtigte rufen `ClaimMerkle` mit ihren Leaf-Daten und dem Proof
+   auf. Der erste Claim erstellt die `MerkleClaim`-Konten der
+   Anspruchsberechtigten. Mit `amount: 0` wird alles beansprucht, was aktuell
+   freigegeben ist.
+4. Nach `clawbackTs` ruft die Authority `CloseMerkleDistribution` auf, um das
+   verbleibende Vault-Guthaben und die rent zurückzuholen.
+5. Nachdem die Verteilung geschlossen wurde, rufen Anspruchsberechtigte
+   `CloseMerkleClaim` auf, um die rent für ihre Claim-Konten zurückzuholen.
+
+Das Programm hasht Leaves mit Keccak-256 als
+`keccak256(0x00 || keccak256(claimant || totalAmount || schedule))`, wobei
+`totalAmount` ein Little-Endian-`u64` ist und `schedule` dieselbe Kodierung wie
+das `VestingSchedule`-Argument der Anweisung verwendet. Proof-Knoten werden als
+sortierte Paare gehasht, der kleinere Hash zuerst.
+
+### Widerruf
+
+Der Widerruf ist optional. Die bei der Erstellung gesetzte `revocable`-Bitmaske
+legt fest, welche Modi die Authority verwenden darf: Bit 0 aktiviert
+`NonVested`, Bit 1 aktiviert `Full`, und `0` deaktiviert den Widerruf.
+
+| Modus        | Anweisung                                    | Ergebnis                                                                           |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| `NonVested` | `RevokeDirectRecipient` oder `RevokeMerkleClaim` | Freigegebene, nicht beanspruchte Tokens gehen an den Nutzer; nicht freigegebene Tokens gehen an die Authority zurück |
+| `Full`      | `RevokeDirectRecipient` oder `RevokeMerkleClaim` | Alle nicht beanspruchten Tokens, ob freigegeben oder nicht, gehen an die Authority zurück               |
+
+Der Widerruf eines Merkle-Anspruchsberechtigten erstellt eine
+`Revocation`-Markierung, die künftige Claims blockiert, selbst wenn bisher nie
+ein Claim erfolgt ist. Der Widerruf eines direkten Empfängers schließt dessen
+`DirectRecipient`-Konten und erstattet die rent.
+
+## Clients
+
+Das Repository enthält [`@solana/kit`](/docs/clients/official/javascript)- und
+Rust-Clients, die mit Codama aus der Programm-IDL generiert wurden, in
+[`clients/`](https://github.com/solana-foundation/rewards/tree/main/clients).
+Der Client ist noch nicht auf npm veröffentlicht. Er lässt sich aus dem
+Quellcode mit `just generate-clients` bauen.
+
+## Ressourcen
+
+- [Quellcode](https://github.com/solana-foundation/rewards)
+- [OtterSec-Auditbericht](https://github.com/solana-foundation/rewards/blob/main/audits/2026-ottersec-solana-foundation-rewards-audit.pdf)
+- [Ein Problem melden](https://github.com/solana-foundation/rewards/issues/new)
+- [Solana StackExchange](https://solana.stackexchange.com/), Tag
+  `rewards-program`

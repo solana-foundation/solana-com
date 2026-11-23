@@ -8,9 +8,13 @@ import { Link } from "./link";
 import { HeaderList } from "./header-list";
 import { DevelopersNav } from "./developers-nav";
 import { DocsSearchBar } from "./docs-search-bar";
+import { InkeepSearchBar } from "./inkeep-searchbar";
 import { LanguageSelector } from "./language-selector";
 import { MobileMenu } from "./mobile-menu";
-import { shouldShowDevelopersNav } from "./developer-routes";
+import {
+  shouldShowDevelopersNav,
+  shouldUseDocsSearch,
+} from "./developer-routes";
 
 import SolanaLogo from "./assets/logotype.inline.svg";
 import Moon from "./assets/icons/moon.inline.svg";
@@ -27,6 +31,7 @@ function Header({
   const t = useTranslations();
   const [expanded, setExpanded] = useState(false);
   const showSecondaryDevelopersNav = shouldShowDevelopersNav(pathname);
+  const isDocsRoute = shouldUseDocsSearch(pathname);
 
   return (
     <>
@@ -60,7 +65,7 @@ function Header({
 
               {/* Desktop Search and Language */}
               <div className="flex items-center gap-3">
-                <DocsSearchBar />
+                {isDocsRoute ? <DocsSearchBar /> : <InkeepSearchBar />}
                 {showLanguage && (
                   <div className="relative items-center hidden xl:flex">
                     <LanguageSelector />

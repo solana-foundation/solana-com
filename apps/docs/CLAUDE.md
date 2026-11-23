@@ -5,7 +5,7 @@
 ## Overview
 
 The Solana developer documentation site, providing comprehensive guides, API
-references, cookbook recipes, and learning resources for building on Solana.
+references, cookbook recipes, and bootcamp resources for building on Solana.
 
 **Package name**: `solana-docs` **Default port**: 3003 **Asset prefix**:
 `/docs-assets`
@@ -30,10 +30,10 @@ apps/docs/
 │   │       ├── developers/
 │   │       │   ├── cookbook/     # Code recipes
 │   │       │   └── bootcamp/     # Developer learning tracks
-│   │       ├── learn/             # General learning content
 │   │       └── docs/
 │   │           ├── (main)/       # Core documentation
-│   │           └── rpc/          # RPC API reference
+│   │           ├── rpc/          # RPC API reference
+│   │           └── video-guides/ # Video tutorials
 │   ├── components/               # React components
 │   ├── constants/                # App constants
 │   ├── hooks/                    # Custom React hooks
@@ -53,7 +53,6 @@ apps/docs/
 │   ├── docs/                     # Main docs (localized)
 │   │   ├── en/                   # English docs
 │   │   ├── ar/, de/, es/...      # Translated docs
-│   ├── learn/                    # General learning content
 │   └── developers-learn/         # Bootcamp companion content
 ├── assets/                       # Static assets
 └── public/                       # Public files
@@ -96,6 +95,8 @@ Content is organized using Fumadocs conventions:
    - Client libraries (JavaScript, Rust, Python)
    - RPC API reference
    - Staking documentation
+   - Video tutorials (`/docs/video-guides/*`, from
+     `content/docs/{locale}/video-guides/`)
 
 2. **Cookbook** (`/developers/cookbook/*`) - Code recipes
    - Accounts management
@@ -103,9 +104,7 @@ Content is organized using Fumadocs conventions:
    - Transaction handling
    - Wallet integration
 
-3. **Learn** (`/learn/*`) - General Solana learning resources
-
-4. **Developer bootcamp** (`/developers/bootcamp/*`) - Structured learning
+3. **Developer bootcamp** (`/developers/bootcamp/*`) - Structured learning
    tracks and companion material
 
 ### Localization
@@ -158,6 +157,8 @@ documentation pages. Inkeep feedback uses a server action under
 - Memory allocation: 4096MB for builds
 - Sentry integration for error tracking
 - Fumadocs MDX processing runs on postinstall
+- Moved docs routes need redirects for both the page and its `.md` variant in
+  `next.config.ts` because the web app forwards raw Markdown requests.
 
 ## Content Conventions
 

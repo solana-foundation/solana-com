@@ -1,0 +1,149 @@
+---
+title: Menjadi Facilitator x402
+seoTitle: Verifikasi dan Selesaikan Pembayaran x402 di Solana
+description:
+  Pilih, integrasikan, dan operasikan facilitator x402 untuk verifikasi dan penyelesaian pembayaran di Solana.
+---
+
+Facilitator x402 melakukan verifikasi dan penyelesaian pembayaran untuk satu atau
+beberapa resource server. Facilitator memungkinkan API menerima pembayaran onchain tanpa
+harus menempatkan logika RPC, pengiriman transaksi, dan fee payer di setiap proses aplikasi.
+
+Facilitator adalah peran arsitektural, bukan pihak ketiga yang wajib ada. Anda dapat menggunakan
+layanan terkelola, mengoperasikan facilitator terpisah, atau melakukan self-facilitate di dalam
+resource server Anda.
+
+## Antarmuka facilitator
+
+x402 V2 mendefinisikan tiga operasi HTTP:
+
+| Endpoint     | Tujuan                                                                       |
+| ------------ | ----------------------------------------------------------------------------- |
+| `/supported` | Menampilkan daftar versi protokol, skema, jaringan, ekstensi, dan signer yang didukung |
+| `/verify`    | Memeriksa payload pembayaran terhadap persyaratannya tanpa menyelesaikannya         |
+| `/settle`    | Mengirimkan atau menuntaskan pembayaran dan mengembalikan hasil penyelesaiannya            |
+
+Resource server Anda sebaiknya memeriksa `/supported` saat startup atau deployment. Jangan
+menampilkan opsi pembayaran sebelum facilitator yang dipilih mengonfirmasi dukungan
+untuk versi x402, skema, dan jaringan Solana yang persis sama.
+
+```bash
+curl https://facilitator.example/supported
+```
+
+## Verifikasi sebelum pemenuhan
+
+Urutan permintaan yang aman adalah:
+
+1. Parse payload `PAYMENT-SIGNATURE` dengan library protokol.
+2. Cocokkan dengan `PaymentRequirements` yang persis sama dengan yang awalnya ditawarkan.
+3. Verifikasi payload secara lokal atau melalui `/verify`.
+4. Jalankan operasi resource hanya jika alur pembayaran yang dipilih mengizinkan
+   penyelesaian setelah pemenuhan.
+5. Panggil `/settle` dan kembalikan `PAYMENT-RESPONSE` beserta hasilnya.
+
+Skema yang berbeda dapat menentukan urutan pemenuhan yang berbeda. Misalnya, alur
+otorisasi dapat melakukan verifikasi sebelum operasi resource dan penyelesaian setelahnya,
+sedangkan skema lain mungkin mewajibkan penyelesaian sebelum pemenuhan. Ikuti alur
+yang dinyatakan oleh skema yang dipilih, jangan mengasumsikan satu urutan untuk setiap
+pembayaran.
+
+<Callout type="warn" title="Perlakukan respons facilitator sebagai keputusan pembayaran">
+  Autentikasi lalu lintas facilitator, validasi setiap respons, gunakan timeout
+  yang ketat, dan gagal secara tertutup (fail closed). Error jaringan atau respons yang tidak valid bukan bukti
+  pembayaran.
+</Callout>
+
+## Pilih model deployment
+
+| Model                   | Gunakan jika                                                        | Tanggung jawab utama                                                    |
+| ----------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Facilitator terkelola     | Anda menginginkan cakupan operasional sekecil mungkin                       | Tinjau jaringan yang didukung, model kepercayaan, ketersediaan, dan kebijakan data  |
+| Self-hosted khusus   | Beberapa API berbagi infrastruktur penandatanganan dan penyelesaian        | Amankan kunci, RPC, penyimpanan, penskalaan, dan upgrade                      |
+| Fasilitasi in-process | Satu layanan membutuhkan kendali penuh dan dapat mengoperasikan komponen chain | Pisahkan kode pembayaran dan cegah beban permintaan menghabiskan kapasitasnya |
+
+Jangan memilih facilitator hanya karena URL-nya merespons `/supported`.
+Tinjau bagaimana ia melindungi kunci fee payer, mencegah replay, mengonfirmasi transaksi,
+menangani kegagalan parsial, dan melaporkan insiden.
+
+## Kora sebagai infrastruktur penandatanganan Solana
+
+[Kora](/docs/tools/kora) adalah node signer Solana dengan kebijakan validasi transaksi dan
+sponsor biaya. Facilitator x402 dapat menggunakan Kora sebagai backend penandatanganan dan
+pengiriman:
+
+```mermaid title="x402 with Kora"
+sequenceDiagram
+    participant Client
+    participant API as Resource server
+    participant Facilitator
+    participant Kora
+    participant Solana
+    Client->>API: Request + PAYMENT-SIGNATURE
+    API->>Facilitator: /verify
+    Facilitator->>Kora: Validate transaction policy
+    Kora-->>Facilitator: Verification result
+    API->>Facilitator: /settle
+    Facilitator->>Kora: Co-sign and submit
+    Kora->>Solana: Send transaction
+    Solana-->>Kora: Confirmation
+    Kora-->>Facilitator: Transaction signature
+    Facilitator-->>API: Settlement result
+    API-->>Client: Resource + PAYMENT-RESPONSE
+```
+
+Kora tidak menggantikan x402. Resource server dan facilitator tetap mengimplementasikan
+objek dan endpoint x402 V2; Kora menegakkan kebijakan transaksi Solana dan
+melindungi signer fee payer di balik antarmuka RPC-nya.
+
+Ikuti [panduan Kora x402](/docs/tools/kora/guides/x402) untuk demo dan
+konfigurasi yang terus dipelihara.
+
+## Checklist produksi
+
+### Kunci dan kebijakan transaksi
+
+- Simpan kunci facilitator dan fee payer di backend penandatanganan berbasis perangkat keras atau
+  jarak jauh.
+- Masukkan program System, Compute Budget, Token, Token-2022, dan Associated Token
+  ke allowlist hanya sesuai kebutuhan skema yang didukung.
+- Tolak akun writable, otoritas transfer, penerima, mint, instruksi, dan harga komputasi
+  yang tidak terduga sebelum menandatangani.
+- Pisahkan akun penerima pembayaran dari akun fee payer operasional.
+
+### Replay dan idempotensi
+
+- Simpan pengenal pembayaran yang sudah digunakan dan signature transaksi di penyimpanan
+  bersama yang tahan lama.
+- Jadikan verifikasi dan konsumsi bersifat atomik agar dua instance server tidak dapat menerima
+  otorisasi yang sama secara bersamaan.
+- Wajibkan kunci idempotensi untuk operasi resource yang memiliki efek samping.
+- Kembalikan hasil asli untuk percobaan ulang yang sah alih-alih menagih lagi.
+
+### Ketersediaan dan penanganan kegagalan
+
+- Tetapkan timeout terbatas untuk `/verify`, `/settle`, pengiriman RPC, dan
+  konfirmasi.
+- Bedakan penyelesaian yang ditolak, kedaluwarsa, tertunda, terkonfirmasi, dan gagal.
+- Jangan membangun ulang atau menandatangani ulang transaksi setelah blockhash kedaluwarsa tanpa meminta
+  pembayar untuk mengotorisasi transaksi baru.
+- Gunakan lebih dari satu endpoint RPC dan pantau kesegaran blockhash, latensi
+  konfirmasi, dan saldo fee payer.
+
+### Observabilitas
+
+Catat resource, ID challenge, skema dan jaringan yang dipilih, jumlah, aset,
+penerima, alamat pembayar, signature transaksi, tingkat konfirmasi, latensi,
+dan status akhir. Jangan pernah mencatat kredensial pembayaran yang dienkode, bearer token, kunci
+privat, atau respons signer mentah.
+
+Buat peringatan untuk kegagalan penyelesaian, upaya replay, penolakan kebijakan, aset
+atau penerima yang tidak terduga, habisnya saldo fee payer, dan selisih antara pembayaran
+yang terverifikasi dan resource yang dipenuhi.
+
+## Sumber daya terkait
+
+- [Spesifikasi facilitator x402](https://github.com/x402-foundation/x402/blob/main/specs/x402-specification-v2.md#7-facilitator-interface)
+- [x402 di Solana](/docs/payments/agentic-payments/x402)
+- [Panduan operator Kora](/docs/tools/kora/operators)
+- [Kesiapan produksi](/docs/tools/transaction-landing#rpc-infrastructure)

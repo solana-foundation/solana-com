@@ -35,3 +35,9 @@ export function isThemeRoute(pathname: string | null | undefined) {
     matchesRouteSegment(pathname, "/developers/bootcamp")
   );
 }
+
+// The docs search agent only covers /docs; the rest of the site keeps the
+// site-wide Inkeep search.
+export function shouldUseDocsSearch(pathname: string | null | undefined) {
+  return matchesRouteSegment(pathname, "/docs");
+}

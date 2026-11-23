@@ -4,8 +4,7 @@ import type { CSSProperties } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import Button from "@/components/Button";
 import SectionHeadline from "@/components/SectionHeadline";
-import { publicAssetPath } from "@/config";
-import { SPONSOR_FORM_HREF } from "@/content/links";
+import SponsorArtwork from "@/components/SponsorArtwork";
 import { sponsorMarqueeRows, type SponsorMarqueeRow } from "@/content/sponsors";
 import { resolveSponsorLogo, type ResolvedSponsorLogo } from "@/lib/sponsors";
 
@@ -99,13 +98,7 @@ function SponsorLogoItem({
         className="block h-[min(var(--sponsor-logo-height-mobile),var(--sponsor-logo-max-height-mobile))] w-[min(var(--sponsor-logo-width-mobile),76%)] md:h-[min(var(--sponsor-logo-height),var(--sponsor-logo-max-height))] md:w-[min(var(--sponsor-logo-width),78%)]"
         style={logoStyle}
       >
-        <img
-          src={publicAssetPath(sponsor.src)}
-          alt=""
-          aria-hidden="true"
-          className="block h-full w-full object-contain brightness-0 invert"
-          loading="lazy"
-        />
+        <SponsorArtwork sponsor={sponsor} loading="lazy" />
       </span>
     </span>
   );
@@ -165,22 +158,13 @@ export default function SponsorsSection() {
             eyebrow={t("eyebrow")}
             headline={t("headline")}
           >
-            <div className="flex w-full flex-col items-center justify-center gap-xs md:w-auto md:flex-row">
-              <Button
-                arrow
-                className="w-full md:w-auto"
-                href={SPONSOR_FORM_HREF}
-                label={t("contactCta")}
-                variant="primary"
-              />
-              <Button
-                className="w-full md:w-auto"
-                href="/sponsors"
-                iconRight={<ArrowRightIcon />}
-                label={t("sponsorsCta")}
-                variant="secondary"
-              />
-            </div>
+            <Button
+              className="w-full md:w-auto"
+              href="/sponsors"
+              iconRight={<ArrowRightIcon />}
+              label={t("sponsorsCta")}
+              variant="primary"
+            />
           </SectionHeadline>
         </div>
 

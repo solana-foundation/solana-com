@@ -26,6 +26,8 @@ media-specific APIs.
 - Uses asset prefix `/media-assets`
 - Shared nav/header behavior depends on `NEXT_PUBLIC_APP_NAME="media"`
 - Tests exist in `__tests__/` and `e2e/`
+- `/keystatic` is available on the Media host only; the main site deliberately
+  does not proxy the CMS or its editor cookies.
 
 ## Content Ownership
 

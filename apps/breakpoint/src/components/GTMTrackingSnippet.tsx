@@ -4,15 +4,18 @@ import Script from "next/script";
 import {
   getCookieConsentBootstrapScript,
   getCookieConsentDefaultScript,
+  isProductionAnalyticsEnabled,
 } from "@solana-com/ui-chrome";
 import { config } from "@/config";
 
 export default function GTMTrackingSnippet() {
+  if (!isProductionAnalyticsEnabled()) return null;
+
   const id = config.siteMetadata.googleTagManagerID;
 
   return (
     <>
-      {/* eslint-disable-next-line @next/next/no-before-interactive-script-outside-document */}
+      {/* oxlint-disable-next-line next/no-before-interactive-script-outside-document -- consent script must execute before hydration to gate analytics */}
       <Script strategy="beforeInteractive" id="consent-default">
         {getCookieConsentDefaultScript()}
       </Script>

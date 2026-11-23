@@ -12,6 +12,8 @@ import {
 } from "@/lib/links";
 import GlitchOverlay from "@/components/GlitchOverlay";
 import { CODE_OF_CONDUCT_HREF } from "@/content/links";
+import { NEXT_EDITION } from "@/content/next-edition";
+import { CONFERENCE_STATE } from "@/content/conference-state";
 
 type MenuItem = {
   label: string;
@@ -152,6 +154,7 @@ function MenuItemRow({
 
 export default function MenuOverlay({ open, onClose }: Props) {
   const t = useTranslations("breakpoint.menu");
+  const tPost = useTranslations("breakpoint.post");
   const pathname = usePathname();
   const containerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -203,9 +206,17 @@ export default function MenuOverlay({ open, onClose }: Props) {
 
   const menuItems: MenuItem[] = [
     { label: t("items.home"), href: "/" },
-    { label: t("items.travel"), href: "/travel" },
-    { label: t("items.register"), href: "/registration" },
-    { label: t("items.faq"), href: "/faq" },
+    { label: t("items.schedule"), href: "/schedule" },
+    {
+      label:
+        CONFERENCE_STATE === "post"
+          ? tPost("navCta", { year: NEXT_EDITION.year })
+          : t("items.register"),
+      href:
+        CONFERENCE_STATE === "post"
+          ? NEXT_EDITION.registrationHref
+          : "/registration",
+    },
   ];
 
   return (

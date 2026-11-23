@@ -306,13 +306,13 @@ export function EnterpriseFaqPage() {
                       <div
                         aria-hidden="true"
                         className={cn(
-                          "row-span-2 self-center w-[25px] h-[25px] rounded-lg border flex items-center justify-center text-[13px] transition-transform",
+                          "row-span-2 self-center w-[25px] h-[25px] rounded-lg border flex items-center justify-center text-[13px] transition-colors",
                           isOpen
-                            ? "rotate-45 text-[#14F195] border-[#14F195]/40"
+                            ? "text-[#14F195] border-[#14F195]/40"
                             : "text-[#ABABBA] border-white/15",
                         )}
                       >
-                        +
+                        {isOpen ? "−" : "+"}
                       </div>
                       {!isOpen && (
                         <div className="text-[13px] text-[#ABABBA] leading-[1.55] mt-1">

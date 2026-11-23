@@ -1,0 +1,524 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import {
+  validateClaims,
+  validateFinancialProjectStats,
+  validateLinks,
+  readMetricRegistry,
+  validateMetricRegistry,
+  validatePageStats,
+  validateSource,
+  validateUrl,
+} from "./validate-content.mjs";
+
+test("rejects blank actionable URLs but permits cards without a link", () => {
+  assert.deepEqual(validateLinks({ heading: "Display only" }, "card"), []);
+  assert.match(
+    validateLinks({ button: { url: "" } }, "card").join("\n"),
+    /URL is empty/,
+  );
+  assert.match(
+    validateLinks({ callToAction: {} }, "card").join("\n"),
+    /requires a URL/,
+  );
+  assert.match(
+    validateLinks({ hierarchy: "primary" }, "heroButton").join("\n"),
+    /requires a URL/,
+  );
+  assert.match(
+    validateLinks({ statSource: "" }, "project").join("\n"),
+    /URL is empty/,
+  );
+});
+
+test("financial project cards display their audited figures and sources", () => {
+  const path = "financial-institutions-solution.projects.citi.stat";
+  const projects = [
+    {
+      key: "citi",
+      statValue: "~24/7",
+      statSource: "https://example.com/report",
+      statSourceNote: "2026-02-20",
+    },
+  ];
+  const claims = [
+    {
+      path,
+      claim: "~24/7",
+      sourceUrl: "https://example.com/report",
+      asOf: "2026-02-20",
+    },
+  ];
+  const messages = {
+    "financial-institutions-solution": {
+      projects: { citi: { stat: "~24/7" } },
+    },
+  };
+  const registry = { "institutions.example": {} };
+  assert.deepEqual(
+    validateFinancialProjectStats(projects, claims, messages, registry),
+    [],
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...projects[0], statValue: "24/7" }],
+      claims,
+      messages,
+      registry,
+    ).join("\n"),
+    /displayed stat must match/,
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...projects[0], statSource: "https://example.com/other" }],
+      claims,
+      messages,
+      registry,
+    ).join("\n"),
+    /displayed source must match/,
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...projects[0], statSourceNote: undefined }],
+      claims,
+      messages,
+      registry,
+    ).join("\n"),
+    /displayed date must match/,
+  );
+});
+
+test("financial project cards with a registry metric carry no audited copy", () => {
+  const metricCard = { key: "morganStanley", metric: "institutions.example" };
+  const registry = { "institutions.example": {} };
+  assert.deepEqual(
+    validateFinancialProjectStats([metricCard], [], {}, registry),
+    [],
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...metricCard, metric: "institutions.missing" }],
+      [],
+      {},
+      registry,
+    ).join("\n"),
+    /unknown registry metric/,
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [metricCard],
+      [],
+      {
+        "financial-institutions-solution": {
+          projects: { morganStanley: { stat: "$1.9T" } },
+        },
+      },
+      registry,
+    ).join("\n"),
+    /must not keep a message value/,
+  );
+  assert.match(
+    validateFinancialProjectStats(
+      [{ ...metricCard, statValue: "$1.9T" }],
+      [],
+      {},
+      registry,
+    ).join("\n"),
+    /must not hardcode/,
+  );
+});
+
+test("registry metrics need provenance, a dated fallback, and a live review deadline", () => {
+  const metric = {
+    unit: "usd",
+    definition: "Circulating stablecoin supply on Solana.",
+    period: { kind: "point" },
+    source: { name: "Solana Data", url: "https://solana.com/data" },
+    owner: "Ecosystem Engineering",
+    live: {
+      provider: "data-api",
+      metrics: ["Circulating Supply"],
+      rollup: "last",
+      days: 1,
+    },
+    snapshot: { value: 15e9, asOf: "2026-10-28" },
+    verifiedAt: "2026-10-30",
+    reviewBy: "2027-01-30",
+  };
+  const today = "2026-10-30";
+  assert.deepEqual(
+    validateMetricRegistry({ "stablecoins.supply": metric }, today),
+    [],
+  );
+  const errors = validateMetricRegistry(
+    {
+      "stablecoins.supply": {
+        ...metric,
+        owner: "",
+        source: { name: "Solana Data", url: "http://solana.com/data" },
+        snapshot: { value: "15B", asOf: "2026-10-28" },
+        reviewBy: "2026-10-01",
+      },
+      "network.window": {
+        ...metric,
+        period: { kind: "trailing", days: 30 },
+        live: { ...metric.live, rollup: "sum", days: 7 },
+      },
+    },
+    today,
+  ).join("\n");
+  assert.match(errors, /owner is required/);
+  assert.match(errors, /valid HTTPS source/);
+  assert.match(errors, /snapshot value must be a number/);
+  assert.match(errors, /review deadline has passed/);
+  assert.match(errors, /trailing period must match the live window/);
+});
+
+test("rejects impossible local destinations and accepts known cross-app content", () => {
+  assert.match(
+    validateUrl("/docs/does-not-exist", "card.url").join("\n"),
+    /no local destination/,
+  );
+  assert.deepEqual(validateUrl("/docs/intro/quick-start", "card.url"), []);
+  assert.deepEqual(validateUrl("/solutions/commerce-tooling", "card.url"), []);
+  assert.deepEqual(validateUrl("/install", "card.url"), []);
+  assert.deepEqual(
+    validateUrl("/developers/cookbook/transactions/retry", "card.url"),
+    [],
+  );
+  assert.match(
+    validateUrl("/developers/cookbook/does-not-exist", "card.url").join("\n"),
+    /no local destination/,
+  );
+  assert.deepEqual(validateUrl("/developers/bootcamp/", "card.url"), []);
+  assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations", "card.url"),
+    [],
+  );
+  assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations/", "card.url"),
+    [],
+  );
+  assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations/bootcamp-intro", "card.url"),
+    [],
+  );
+  assert.deepEqual(
+    validateUrl("/developers/bootcamp/foundations/bootcamp-intro/", "card.url"),
+    [],
+  );
+  assert.match(
+    validateUrl("/developers/bootcamp/does-not-exist", "card.url").join("\n"),
+    /no local destination/,
+  );
+  assert.match(
+    validateUrl(
+      "/developers/bootcamp/foundations/does-not-exist",
+      "card.url",
+    ).join("\n"),
+    /no local destination/,
+  );
+  // Rewrite patterns such as /developers/templates/:path* resolve, but a
+  // catch-all docs rewrite must not hide a missing docs page.
+  assert.deepEqual(
+    validateUrl("/developers/templates/nextjs-anchor", "card.url"),
+    [],
+  );
+  assert.deepEqual(
+    validateUrl("https://solana.com/upgrades/x", "card.url"),
+    [],
+  );
+  assert.match(
+    validateUrl("/not-a-route", "card.url").join("\n"),
+    /no local destination/,
+  );
+});
+
+test("page stats display their audited figures and sources", () => {
+  const path = "pyusd.stats.items.backing.value";
+  const stats = [
+    {
+      id: "backing",
+      statSource: "https://example.com/backing",
+      statAsOf: "2026-10-08",
+    },
+  ];
+  const claims = [
+    {
+      path,
+      claim: "1:1",
+      sourceUrl: "https://example.com/backing",
+      asOf: "2026-10-08",
+    },
+  ];
+  const messages = {
+    pyusd: {
+      stats: { items: { backing: { value: "1:1", label: "Backing" } } },
+    },
+  };
+  assert.deepEqual(validatePageStats("pyusd", stats, claims, messages, {}), []);
+  assert.match(
+    validatePageStats(
+      "pyusd",
+      stats,
+      claims,
+      {
+        pyusd: { stats: { items: { backing: { value: "2:1", label: "B" } } } },
+      },
+      {},
+    ).join("\n"),
+    /displayed stat must match/,
+  );
+  assert.match(
+    validatePageStats(
+      "pyusd",
+      [{ ...stats[0], statSource: "https://example.com/other" }],
+      claims,
+      messages,
+      {},
+    ).join("\n"),
+    /displayed source must match/,
+  );
+  assert.match(
+    validatePageStats(
+      "pyusd",
+      [{ ...stats[0], statAsOf: "2026-10-09" }],
+      claims,
+      messages,
+      {},
+    ).join("\n"),
+    /displayed date must match/,
+  );
+});
+
+test("registry page stats name a known metric and keep no message value", () => {
+  const stats = [{ id: "dexVolume", metric: "defi.dex-volume-30d" }];
+  const registry = { "defi.dex-volume-30d": {} };
+  const messages = {
+    "developers-defi": {
+      stats: { items: { dexVolume: { label: "DEX volume" } } },
+    },
+  };
+  assert.deepEqual(
+    validatePageStats("developers-defi", stats, [], messages, registry),
+    [],
+  );
+  assert.match(
+    validatePageStats("developers-defi", stats, [], messages, {}).join("\n"),
+    /unknown registry metric/,
+  );
+  assert.match(
+    validatePageStats(
+      "developers-defi",
+      stats,
+      [],
+      {
+        "developers-defi": {
+          stats: { items: { dexVolume: { label: "DEX", value: "$76B" } } },
+        },
+      },
+      registry,
+    ).join("\n"),
+    /must not keep a message value/,
+  );
+});
+
+test("audited source files cannot hide empty URLs behind satisfies or spreads", () => {
+  const source = `const base = { callToAction: { url: "" } };
+    export const cards = [{ ...base }] satisfies Array<object>;`;
+  assert.match(validateSource(source, "fixture.ts").join("\n"), /URL is empty/);
+  assert.match(
+    validateSource(
+      "export const cards = [{ ...unknownCard }];",
+      "fixture.ts",
+    ).join("\n"),
+    /Cannot resolve object spread/,
+  );
+  assert.match(
+    validateSource(
+      "export const cards = [{ callToAction: importedCta }];",
+      "fixture.ts",
+    ).join("\n"),
+    /Cannot resolve callToAction property/,
+  );
+});
+
+test("claim deadlines include their review day and reject stale or missing sources", () => {
+  // Morgan Stanley, JPMorgan and State Street stats render from the registry;
+  // only the qualitative card claims remain audited prose.
+  const statValues = {
+    citi: "~24/7",
+    societeGenerale: "1:1",
+  };
+  const defiStatValues = {
+    dexVolume: "$76B",
+    stablecoins: "$16B",
+    computeUnits: "100M",
+    txSize: "4,096 bytes",
+  };
+  const pyusdClaims = {
+    "stats.items.solanaSupply.value": "$702M",
+    "stats.items.reserves.value": "$2.89B",
+    "stats.items.solanaShare.value": "25.8%",
+    "stats.items.backing.value": "1:1",
+    "trust.items.issuer.body": "December 2025",
+    "mint.extensions.transferFee.body": "0 basis points",
+  };
+  const claims = [
+    ...Object.entries(statValues).map(([project, claim]) => ({
+      path: `financial-institutions-solution.projects.${project}.stat`,
+      claim,
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2025-12-31",
+      reviewBy: "2026-12-31",
+    })),
+    {
+      path: "financial-institutions-solution.projects.stateStreet.description",
+      claim: "$50 trillion",
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2025-12-31",
+      reviewBy: "2026-12-31",
+    },
+    {
+      path: "pyusd.hero.body",
+      claim: "backed 1:1",
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2026-10-08",
+      reviewBy: "2026-12-31",
+    },
+    ...Object.entries(defiStatValues).map(([id, claim]) => ({
+      path: `developers-defi.stats.items.${id}.value`,
+      claim,
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2026-10-08",
+      reviewBy: "2026-12-31",
+    })),
+    ...Object.entries(pyusdClaims).map(([key, claim]) => ({
+      path: `pyusd.${key}`,
+      claim,
+      owner: "Ecosystem Engineering",
+      sourceUrl: "https://example.com/report",
+      asOf: "2026-10-08",
+      reviewBy: "2026-12-31",
+    })),
+  ];
+  const messages = {
+    "financial-institutions-solution": {
+      projects: {
+        ...Object.fromEntries(
+          Object.entries(statValues).map(([project, stat]) => [
+            project,
+            { stat },
+          ]),
+        ),
+        stateStreet: {
+          description: "With $50 trillion in assets",
+        },
+      },
+    },
+    pyusd: {
+      hero: { body: "PYUSD is backed 1:1" },
+      stats: {
+        items: {
+          solanaSupply: { value: "$702M" },
+          reserves: { value: "$2.89B" },
+          solanaShare: { value: "25.8%" },
+          backing: { value: "1:1" },
+        },
+      },
+      trust: { items: { issuer: { body: "Chartered in December 2025" } } },
+      mint: {
+        extensions: { transferFee: { body: "The fee is 0 basis points" } },
+      },
+    },
+    "developers-defi": {
+      stats: {
+        items: Object.fromEntries(
+          Object.entries(defiStatValues).map(([id, value]) => [id, { value }]),
+        ),
+      },
+    },
+  };
+  assert.deepEqual(validateClaims(claims, messages, "2026-12-31"), []);
+  assert.match(
+    validateClaims(claims, messages, "2027-01-01").join("\n"),
+    /deadline has passed/,
+  );
+  assert.match(
+    validateClaims(claims.slice(1), messages, "2026-12-31").join("\n"),
+    /missing required claim/,
+  );
+  assert.match(
+    validateClaims(
+      [{ ...claims[0], sourceUrl: "https://" }, claims[1]],
+      messages,
+      "2026-12-31",
+    ).join("\n"),
+    /valid HTTPS source/,
+  );
+  assert.match(
+    validateClaims(
+      claims,
+      { ...messages, pyusd: { hero: { body: "No figure" } } },
+      "2026-12-31",
+    ).join("\n"),
+    /claim text is absent/,
+  );
+});
+
+test("each registry key lives in the file named for its prefix, once", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "metrics-registry-"));
+  writeFileSync(
+    path.join(directory, "defi.json"),
+    JSON.stringify({ "defi.tvl": {}, "network.slot-time": {} }),
+  );
+  writeFileSync(
+    path.join(directory, "network.json"),
+    JSON.stringify({ "network.slot-time": {} }),
+  );
+  const { registry, errors } = readMetricRegistry(directory);
+  assert.deepEqual(Object.keys(registry).sort(), [
+    "defi.tvl",
+    "network.slot-time",
+  ]);
+  assert.match(
+    errors.join("\n"),
+    /network\.slot-time: belongs in network\.json/,
+  );
+  assert.match(errors.join("\n"), /network\.slot-time: defined more than once/);
+});
+
+test("unverified figures publish without a source but need a note", () => {
+  const metric = {
+    unit: "count",
+    definition: "Accounts created on Solana.",
+    period: { kind: "point" },
+    owner: "Ecosystem Engineering",
+    verification: "unverified",
+    note: "No public source reports this total.",
+    snapshot: { value: 11.5e6, asOf: "2026-10-30" },
+    verifiedAt: "2026-10-30",
+    reviewBy: "2027-01-30",
+  };
+  const today = "2026-10-30";
+  assert.deepEqual(
+    validateMetricRegistry({ "possible.accounts": metric }, today),
+    [],
+  );
+  const errors = validateMetricRegistry(
+    {
+      "possible.accounts": { ...metric, note: "" },
+      "possible.nfts": { ...metric, verification: undefined },
+    },
+    today,
+  ).join("\n");
+  assert.match(errors, /possible\.accounts: unverified figures need a note/);
+  assert.match(errors, /possible\.nfts: source name is required/);
+});

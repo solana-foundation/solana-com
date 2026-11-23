@@ -2,16 +2,25 @@ import { SolutionsBtcfiPage } from "./solutions-btcfi";
 import { getAlternates } from "@workspace/i18n/routing";
 import { getTranslations } from "next-intl/server";
 import { fetchSolutionNews } from "@/lib/media/solution-news";
-import { LATEST_NEWS_QUERY } from "@/data/solutions/btcfi";
+import { getDisplayMetrics } from "@/lib/metrics/present";
+import { HERO_METRICS, LATEST_NEWS_QUERY } from "@/data/solutions/btcfi";
 
 type Props = { params: Promise<{ locale: string }> };
 
 export const revalidate = 60;
 
 export default async function Page(_props: Props) {
-  const news = await fetchSolutionNews(LATEST_NEWS_QUERY);
+  const [news, metrics] = await Promise.all([
+    fetchSolutionNews(LATEST_NEWS_QUERY),
+    getDisplayMetrics(HERO_METRICS),
+  ]);
 
-  return <SolutionsBtcfiPage news={news} />;
+  return (
+    <SolutionsBtcfiPage
+      news={news}
+      heroMetrics={HERO_METRICS.map((key) => metrics[key])}
+    />
+  );
 }
 
 export async function generateMetadata({ params }: Props) {

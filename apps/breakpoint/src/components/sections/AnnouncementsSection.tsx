@@ -3,9 +3,13 @@ import { getTranslations } from "@workspace/i18n/server";
 import AnnouncementsCarousel from "@/components/sections/AnnouncementsCarousel";
 import { fetchBreakpointAnnouncementLinks } from "@/lib/media-links";
 
-export default async function AnnouncementsSection() {
+export default async function AnnouncementsSection({
+  postConference = false,
+}: { postConference?: boolean } = {}) {
   const t = await getTranslations("breakpoint");
-  const items = await fetchBreakpointAnnouncementLinks();
+  const items = await fetchBreakpointAnnouncementLinks({
+    useFallback: !postConference,
+  });
 
   if (items.length === 0) {
     return null;

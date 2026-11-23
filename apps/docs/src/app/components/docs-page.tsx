@@ -93,7 +93,7 @@ function DocsLandingHeader({
   description?: string;
 }) {
   return (
-    <div className="mb-10 pt-2">
+    <div className="mb-4 pt-2">
       <h1 className="text-4xl font-bold tracking-tight text-[hsl(var(--fd-accent-foreground))] md:text-5xl">
         {title}
       </h1>

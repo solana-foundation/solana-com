@@ -1,0 +1,149 @@
+---
+title: Conviértete en facilitador de x402
+seoTitle: Verifica y liquida pagos x402 en Solana
+description:
+  Elige, integra y opera un facilitador de x402 para la verificación y liquidación de pagos en Solana.
+---
+
+Un facilitador de x402 realiza la verificación y la liquidación de pagos para uno o varios
+servidores de recursos. Permite que una API acepte pagos onchain sin tener que incluir en cada proceso de la aplicación la lógica de RPC,
+envío de transacciones y pagador de comisiones.
+
+Un facilitador es un rol de arquitectura, no un tercero obligatorio. Puedes usar
+un servicio gestionado, operar un facilitador independiente o autofacilitar dentro
+de tu servidor de recursos.
+
+## Interfaz del facilitador
+
+x402 V2 define tres operaciones HTTP:
+
+| Endpoint     | Finalidad                                                                       |
+| ------------ | ----------------------------------------------------------------------------- |
+| `/supported` | Enumera las versiones de protocolo, esquemas, redes, extensiones y firmantes compatibles |
+| `/verify`    | Comprueba un payload de pago frente a sus requisitos sin liquidarlo         |
+| `/settle`    | Envía o completa el pago y devuelve su resultado de liquidación            |
+
+Tu servidor de recursos debe consultar `/supported` durante el inicio o el despliegue. No
+publicites una opción de pago hasta que el facilitador seleccionado confirme que admite
+exactamente esa versión de x402, ese esquema y esa red de Solana.
+
+```bash
+curl https://facilitator.example/supported
+```
+
+## Verificación antes del cumplimiento
+
+El orden seguro de la solicitud es:
+
+1. Analiza el payload de `PAYMENT-SIGNATURE` con una biblioteca del protocolo.
+2. Compáralo con los `PaymentRequirements` exactos que se ofrecieron originalmente.
+3. Verifica el payload de forma local o mediante `/verify`.
+4. Realiza la operación del recurso solo si el flujo de pago elegido permite
+   la liquidación posterior al cumplimiento.
+5. Llama a `/settle` y devuelve `PAYMENT-RESPONSE` con el resultado.
+
+Los distintos esquemas pueden definir un orden de cumplimiento diferente. Por ejemplo, un
+flujo de autorización puede verificar antes de la operación del recurso y liquidar después,
+mientras que otro esquema puede exigir la liquidación antes del cumplimiento. Sigue el flujo
+declarado por el esquema seleccionado en lugar de asumir un único orden para todos
+los pagos.
+
+<Callout type="warn" title="Trata las respuestas del facilitador como decisiones de pago">
+  Autentica el tráfico del facilitador, valida cada respuesta, usa tiempos de espera
+  estrictos y falla de forma segura (denegando por defecto). Un error de red o una respuesta malformada no es una prueba
+  de pago.
+</Callout>
+
+## Elige un modelo de despliegue
+
+| Modelo                   | Úsalo cuando                                                        | Responsabilidad principal                                                    |
+| ----------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| Facilitador gestionado     | Quieres la menor superficie operativa posible                       | Revisar las redes compatibles, el modelo de confianza, la disponibilidad y la política de datos  |
+| Autoalojado dedicado   | Varias API comparten la infraestructura de firma y liquidación        | Proteger las claves, los RPC, el almacenamiento, el escalado y las actualizaciones                      |
+| Facilitación en el mismo proceso | Un servicio necesita control total y puede operar componentes de la cadena | Mantener el código de pagos aislado y evitar que la carga de solicitudes lo agote |
+
+No selecciones un facilitador solo porque su URL responda a `/supported`.
+Revisa cómo protege las claves del pagador de comisiones, evita la repetición de pagos (replay), confirma las transacciones,
+gestiona los fallos parciales e informa de los incidentes.
+
+## Kora como infraestructura de firma de Solana
+
+[Kora](/docs/tools/kora) es un nodo firmante de Solana con políticas de validación de transacciones y
+patrocinio de comisiones. Un facilitador de x402 puede usar Kora como su backend de firma y
+envío:
+
+```mermaid title="x402 with Kora"
+sequenceDiagram
+    participant Client
+    participant API as Resource server
+    participant Facilitator
+    participant Kora
+    participant Solana
+    Client->>API: Request + PAYMENT-SIGNATURE
+    API->>Facilitator: /verify
+    Facilitator->>Kora: Validate transaction policy
+    Kora-->>Facilitator: Verification result
+    API->>Facilitator: /settle
+    Facilitator->>Kora: Co-sign and submit
+    Kora->>Solana: Send transaction
+    Solana-->>Kora: Confirmation
+    Kora-->>Facilitator: Transaction signature
+    Facilitator-->>API: Settlement result
+    API-->>Client: Resource + PAYMENT-RESPONSE
+```
+
+Kora no sustituye a x402. El servidor de recursos y el facilitador siguen implementando
+los objetos y endpoints de x402 V2; Kora aplica la política de transacciones de Solana y
+protege al firmante pagador de comisiones detrás de su interfaz RPC.
+
+Sigue la [guía de Kora x402](/docs/tools/kora/guides/x402) para consultar la
+demo y la configuración mantenidas.
+
+## Lista de verificación para producción
+
+### Claves y política de transacciones
+
+- Almacena las claves del facilitador y del pagador de comisiones en un backend de firma
+  respaldado por hardware o remoto.
+- Incluye en la lista de permitidos únicamente los programas System, Compute Budget, Token, Token-2022 y Associated Token Program
+  según lo requiera el esquema compatible.
+- Rechaza cuentas escribibles, autoridades de transferencia, destinatarios, mints,
+  instrucciones y precios de cómputo inesperados antes de firmar.
+- Mantén las cuentas receptoras de pagos separadas de las cuentas operativas del pagador de comisiones.
+
+### Repetición e idempotencia
+
+- Persiste los identificadores de pago consumidos y las firmas de transacción en un almacén
+  compartido y duradero.
+- Haz que la verificación y el consumo sean atómicos para que dos instancias del servidor no puedan aceptar la
+  misma autorización de forma simultánea.
+- Exige una clave de idempotencia para las operaciones de recursos con efectos secundarios.
+- Devuelve el resultado original ante un reintento legítimo en lugar de cobrar de nuevo.
+
+### Disponibilidad y gestión de fallos
+
+- Establece tiempos de espera acotados para `/verify`, `/settle`, el envío por RPC y la
+  confirmación.
+- Distingue entre liquidaciones rechazadas, caducadas, pendientes, confirmadas y fallidas.
+- No reconstruyas ni vuelvas a firmar una transacción tras la caducidad del blockhash sin pedir
+  al pagador que autorice la nueva transacción.
+- Usa más de un endpoint RPC y supervisa la vigencia del blockhash, la latencia de
+  confirmación y el saldo del pagador de comisiones.
+
+### Observabilidad
+
+Registra el recurso, el ID del desafío, el esquema y la red seleccionados, el importe, el activo,
+el destinatario, la dirección del pagador, la firma de la transacción, el nivel de confirmación, la latencia
+y el estado final. Nunca registres credenciales de pago codificadas, bearer tokens, claves
+privadas ni respuestas sin procesar del firmante.
+
+Configura alertas para fallos de liquidación, intentos de repetición, rechazos de políticas, activos
+o destinatarios inesperados, agotamiento del pagador de comisiones y diferencias entre los pagos
+verificados y los recursos entregados.
+
+## Recursos relacionados
+
+- [Especificación del facilitador de x402](https://github.com/x402-foundation/x402/blob/main/specs/x402-specification-v2.md#7-facilitator-interface)
+- [x402 en Solana](/docs/payments/agentic-payments/x402)
+- [Guía de operadores de Kora](/docs/tools/kora/operators)
+- [Preparación para producción](/docs/tools/transaction-landing#rpc-infrastructure)

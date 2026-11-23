@@ -1,0 +1,173 @@
+import type { CompanyRecord } from "../../types";
+import solblazeLogoDark from "../../../assets/companies/solblaze/logo-dark.svg";
+import solblazeLogoGradient from "../../../assets/companies/solblaze/logo-gradient.svg";
+import solblazeLogoPrimary from "../../../assets/companies/solblaze/logo-primary.svg";
+import solblazeLogoWhite from "../../../assets/companies/solblaze/logo-white.svg";
+import solblazeMarkDark from "../../../assets/companies/solblaze/mark-dark.svg";
+import solblazeMarkGradient from "../../../assets/companies/solblaze/mark-gradient.svg";
+import solblazeMarkPrimary from "../../../assets/companies/solblaze/mark-primary.svg";
+import solblazeMarkWhite from "../../../assets/companies/solblaze/mark-white.svg";
+import solblazeWordmarkDark from "../../../assets/companies/solblaze/wordmark-dark.svg";
+import solblazeWordmarkPrimary from "../../../assets/companies/solblaze/wordmark-primary.svg";
+import solblazeWordmarkWhite from "../../../assets/companies/solblaze/wordmark-white.svg";
+
+export const solblaze = {
+  id: "solblaze",
+  slug: "solblaze",
+  name: "SolBlaze",
+  profile: {
+    tagline: "Liquid staking and developer tools for Solana.",
+    summary:
+      "SolBlaze builds Solana products including the BlazeStake liquid staking pool, BlazeRewards, and the Bliq liquid staking token creator.",
+    description:
+      "SolBlaze develops staking products and tools for the Solana ecosystem. BlazeStake lets users stake SOL in exchange for bSOL while spreading stake across validators. Its other products include a rewards program, a custom liquid staking token creator, a token minter, and a non-custodial payments SDK.",
+    sector: "Staking",
+    type: "Platform",
+    links: {
+      website: "https://solblaze.org/",
+      app: "https://stake.solblaze.org/app/",
+      docs: "https://stake-docs.solblaze.org/",
+    },
+    socials: {
+      x: "https://x.com/solblaze_org",
+      telegram: "https://t.me/solblazetg",
+      github: "https://github.com/SolBlazeOrg",
+    },
+  },
+  defaultLogoId: "logo-primary",
+  logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "logo-white.svg",
+      format: "svg",
+      source: solblazeLogoWhite,
+      theme: "dark",
+      kind: "logo",
+      background: "transparent",
+      treatment: "monotone",
+      width: 794,
+      height: 200,
+    },
+    {
+      id: "logo-dark",
+      fileName: "logo-dark.svg",
+      format: "svg",
+      source: solblazeLogoDark,
+      theme: "light",
+      kind: "logo",
+      background: "transparent",
+      width: 794,
+      height: 200,
+    },
+    {
+      id: "logo-gradient",
+      fileName: "logo-gradient.svg",
+      format: "svg",
+      source: solblazeLogoGradient,
+      theme: "light",
+      kind: "logo",
+      background: "transparent",
+      width: 794,
+      height: 200,
+    },
+    {
+      id: "logo-primary",
+      fileName: "logo-primary.svg",
+      format: "svg",
+      source: solblazeLogoPrimary,
+      theme: "light",
+      kind: "logo",
+      background: "transparent",
+      width: 794,
+      height: 200,
+    },
+    {
+      id: "logo-white",
+      fileName: "logo-white.svg",
+      format: "svg",
+      source: solblazeLogoWhite,
+      theme: "dark",
+      kind: "logo",
+      background: "transparent",
+      width: 794,
+      height: 200,
+    },
+    {
+      id: "mark-dark",
+      fileName: "mark-dark.svg",
+      format: "svg",
+      source: solblazeMarkDark,
+      theme: "light",
+      kind: "mark",
+      background: "transparent",
+      width: 259,
+      height: 459,
+    },
+    {
+      id: "mark-gradient",
+      fileName: "mark-gradient.svg",
+      format: "svg",
+      source: solblazeMarkGradient,
+      theme: "light",
+      kind: "mark",
+      background: "transparent",
+      width: 259,
+      height: 459,
+    },
+    {
+      id: "mark-primary",
+      fileName: "mark-primary.svg",
+      format: "svg",
+      source: solblazeMarkPrimary,
+      theme: "light",
+      kind: "mark",
+      background: "transparent",
+      width: 259,
+      height: 459,
+    },
+    {
+      id: "mark-white",
+      fileName: "mark-white.svg",
+      format: "svg",
+      source: solblazeMarkWhite,
+      theme: "dark",
+      kind: "mark",
+      background: "transparent",
+      width: 259,
+      height: 459,
+    },
+    {
+      id: "wordmark-dark",
+      fileName: "wordmark-dark.svg",
+      format: "svg",
+      source: solblazeWordmarkDark,
+      theme: "light",
+      kind: "wordmark",
+      background: "transparent",
+      width: 649,
+      height: 200,
+    },
+    {
+      id: "wordmark-primary",
+      fileName: "wordmark-primary.svg",
+      format: "svg",
+      source: solblazeWordmarkPrimary,
+      theme: "light",
+      kind: "wordmark",
+      background: "transparent",
+      width: 649,
+      height: 200,
+    },
+    {
+      id: "wordmark-white",
+      fileName: "wordmark-white.svg",
+      format: "svg",
+      source: solblazeWordmarkWhite,
+      theme: "dark",
+      kind: "wordmark",
+      background: "transparent",
+      width: 649,
+      height: 200,
+    },
+  ],
+} satisfies CompanyRecord;

@@ -15,12 +15,14 @@ solana-com/
 │   ├── templates/    # Code templates showcase - port 3001
 │   └── breakpoint/   # Breakpoint event microsite - port 3005
 ├── packages/
-│   ├── config-eslint/       # Shared ESLint configurations
+│   ├── airtable/            # Shared server-side Airtable pacing and backoff
+│   ├── config-oxlint/       # Shared oxlint configurations
 │   ├── config-typescript/   # Shared TypeScript configurations
 │   ├── docs-examples/       # Tested cookbook source snippets
-│   ├── ecosystem-data/      # Shared company and logo registry
+│   ├── ecosystem-data/      # Shared company and wallet registry
 │   ├── fab-menu/            # Reusable Solana property menu
 │   ├── i18n/                # Shared i18n utilities (next-intl)
+│   ├── security-headers/    # Baseline HTTP headers for all apps
 │   ├── sentry/              # Shared Sentry helpers
 │   ├── sitemap/             # Shared sitemap generation helpers
 │   ├── ui/                  # Shared UI components (Radix-based)
@@ -32,10 +34,11 @@ solana-com/
 ## Tech Stack
 
 - **Runtime**: Node.js 24 with pnpm 11.13.1 (workspace protocol)
-- **Framework**: Next.js 15.5.21 with App Router
+- **Framework**: Next.js 15.5.24 with App Router
 - **Language**: TypeScript 5.8.3
 - **UI Library**: React 19.2.6
-- **Styling**: Tailwind CSS 3.4+ / SCSS
+- **Styling**: Tailwind CSS 3.4+; use utilities for styling changes on this
+  branch
 - **i18n**: next-intl (19 supported languages)
 - **Build System**: Turborepo for monorepo orchestration
 - **Deployment**: Vercel (multi-project setup with rewrites)
@@ -82,11 +85,16 @@ their source files during the build:
 
 - `@workspace/i18n` - i18n configuration and utilities
 - `@workspace/ui` - Shared UI components (Button, Dialog, Accordion, etc.)
-- `@solana-com/ui-chrome` - Header, Footer, ThemeProvider, InkeepSearchBar
-- `@workspace/ecosystem-data` - Canonical company metadata and logos
+- `@solana-com/ui-chrome` - Header, Footer, ThemeProvider, InkeepChatButton,
+  DocsSearchBar
+- `@workspace/ecosystem-data` - Canonical company metadata, wallet records, and
+  logos
 - `@workspace/sentry` - Shared Sentry configuration helpers
+- `@workspace/airtable` - Server-only Airtable pacing and backoff for event apps
+- `@workspace/security-headers` - Baseline HTTP headers applied by every app's
+  `next.config.ts`
 - `@workspace/docs-examples` - Tested code embedded in cookbook pages
-- `@workspace/config-eslint` - ESLint configurations
+- `@workspace/config-oxlint` - oxlint configurations
 - `@workspace/config-typescript` - TypeScript configurations
 
 ## Internationalization
@@ -116,19 +124,31 @@ Key environment variables (defined in `turbo.json`):
 
 ## Git Hooks (Husky)
 
-The pre-commit hook runs `lint-staged`, which applies ESLint and Prettier to
-staged files and checks staged media images. It also runs `gitleaks` when that
-binary is installed; CI performs the authoritative secrets scan.
+The pre-commit hook runs `lint-staged`, which applies oxlint and oxfmt to staged
+files and checks staged media images. It also runs `gitleaks` when that binary
+is installed; CI performs the authoritative secrets scan. The pre-push hook runs
+`pnpm lint` across the workspaces.
 
 ## Code Conventions
 
 - Use TypeScript strict mode
 - Prefer functional React components with hooks
 - Use Radix UI primitives for accessible components
-- CSS: Prefer Tailwind utilities, use SCSS for complex styles
+- Use Tailwind utility classes for styling changes on this branch. When touching
+  a surface with CSS Modules, migrate its module styles; do not add or modify
+  `*.module.css` files.
 - Import shared components from workspace packages, not relative paths
 - SVG handling: Use `.inline.svg` suffix for React components, regular `.svg`
   for assets
+
+## Public Content Authoring
+
+Before generating or materially rewriting reader-facing English copy, read and
+follow
+[`skills/solana-tone-of-voice/SKILL.md`](./skills/solana-tone-of-voice/SKILL.md).
+It covers UI strings, landing-page and documentation prose, Media content,
+metadata, CTAs, and social copy. Also follow the owning app's instructions,
+which may set stricter format or sourcing rules.
 
 ## PR Guidelines
 

@@ -25,7 +25,7 @@ export const alchemy = {
     socials: {
       x: "https://x.com/Alchemy",
       linkedin: "https://www.linkedin.com/company/alchemyinc/",
-      discord: "https://discord.gg/9GnAcXQYZ6",
+      discord: "https://discord.com/invite/alchemyplatform",
       github: "https://github.com/alchemyplatform",
     },
   },

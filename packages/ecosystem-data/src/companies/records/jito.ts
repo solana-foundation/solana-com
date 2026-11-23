@@ -1,4 +1,6 @@
 import type { CompanyRecord } from "../../types";
+import jitoBreakpoint2026JtxBlack from "../../../assets/companies/jito/breakpoint-2026-jtx-black.svg";
+import jitoBreakpoint2026JtxWhite from "../../../assets/companies/jito/breakpoint-2026-jtx-white.svg";
 import jitoBreakpoint2026White from "../../../assets/companies/jito/breakpoint-2026-white.svg";
 import jitoLogo from "../../../assets/companies/jito/logo.svg";
 import jitoLogoBlack from "../../../assets/companies/jito/logo-black.svg";
@@ -31,7 +33,7 @@ export const jito = {
       website: "https://www.jito.network/",
     },
     socials: {
-      x: "https://x.com/jito_sol",
+      x: "https://x.com/jito",
       linkedin: "https://www.linkedin.com/company/jito-labs",
       discord: "https://discord.gg/jito",
       github: "https://github.com/jito-foundation",
@@ -39,6 +41,24 @@ export const jito = {
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-jtx-white",
+      fileName: "breakpoint-2026-jtx-white.svg",
+      format: "svg",
+      source: jitoBreakpoint2026JtxWhite,
+      theme: "dark",
+      kind: "logo",
+      treatment: "monotone",
+    },
+    {
+      id: "breakpoint-2026-jtx-black",
+      fileName: "breakpoint-2026-jtx-black.svg",
+      format: "svg",
+      source: jitoBreakpoint2026JtxBlack,
+      theme: "light",
+      kind: "logo",
+      treatment: "monotone",
+    },
     {
       id: "breakpoint-2026-white",
       fileName: "breakpoint-2026-white.svg",

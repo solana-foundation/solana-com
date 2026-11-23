@@ -1,3 +1,4 @@
+import "@workspace/ui/scrollbar.css";
 import "@/app/globals.css";
 import "@/scss/index.scss";
 
@@ -15,7 +16,10 @@ import { notFound } from "next/navigation";
 import {
   ThemeProvider,
   SitewideTopAlert,
+  InkeepChatButton,
+  InkeepProvider,
   PersistentPodcastPlayer,
+  GoogleTagManagerNoScript,
 } from "@solana-com/ui-chrome";
 import { ChromeWrapper } from "@/components/ChromeWrapper";
 import Script from "next/script";
@@ -39,35 +43,28 @@ export default async function RootLayout({ children, params }: Props) {
   return (
     <html lang={locale} dir={direction} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        {/* Google Tag Manager (noscript) */}
-        <noscript>
-          <iframe
-            src={`https://www.googletagmanager.com/ns.html?id=${googleTagManagerID}`}
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          ></iframe>
-        </noscript>
-        {/* End Google Tag Manager (noscript) */}
+        <GoogleTagManagerNoScript containerId={googleTagManagerID} />
         <NextIntlClientProvider messages={messages} locale={locale}>
           <PostHogProvider>
             <ThemeProvider>
-              <GTMTrackingSnippet />
-              <SitewideTopAlert />
-              <CookieConsent />
-              <ChromeWrapper>
-                <Header />
-              </ChromeWrapper>
-              {children}
-              <ChromeWrapper>
-                <Footer />
-              </ChromeWrapper>
-              <PersistentPodcastPlayer />
-              <Script
-                id="signals-script"
-                strategy="afterInteractive"
-                dangerouslySetInnerHTML={{
-                  __html: `
+              <InkeepProvider>
+                <GTMTrackingSnippet />
+                <SitewideTopAlert />
+                <CookieConsent />
+                <ChromeWrapper>
+                  <Header />
+                </ChromeWrapper>
+                {children}
+                <ChromeWrapper>
+                  <Footer />
+                </ChromeWrapper>
+                <PersistentPodcastPlayer />
+                <InkeepChatButton />
+                <Script
+                  id="signals-script"
+                  strategy="afterInteractive"
+                  dangerouslySetInnerHTML={{
+                    __html: `
                     (function() {
                       if (typeof window === 'undefined') return;
                       if (typeof window.signals !== 'undefined') return;
@@ -87,8 +84,9 @@ export default async function RootLayout({ children, params }: Props) {
                       document.head.appendChild(script);
                     })();
                   `,
-                }}
-              />
+                  }}
+                />
+              </InkeepProvider>
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>

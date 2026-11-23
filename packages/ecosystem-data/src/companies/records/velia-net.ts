@@ -17,8 +17,9 @@ export const veliaNet = {
       website: "https://www.velia.net/",
     },
     socials: {
-      x: "https://x.com/velianet",
-      linkedin: "https://www.linkedin.com/company/velia-net",
+      x: "https://x.com/velia_net",
+      linkedin:
+        "https://www.linkedin.com/company/velia.net-internetdienste-gmbh",
     },
   },
   defaultLogoId: "logo",
