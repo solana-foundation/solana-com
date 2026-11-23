@@ -3,24 +3,42 @@ import {
   type DataApiResponse,
 } from "./data-config";
 import type { DataFetchErrorMessages } from "./dashboard-types";
+import { isStablecoinCoverageResponse } from "./stablecoin-coverage-data";
 
 type DataErrorPayload = {
   detail?: string;
   error?: string;
 };
 
-export async function fetchData(
+export function fetchData(url: string, errorMessages: DataFetchErrorMessages) {
+  return fetchValidated(url, errorMessages, isDataApiResponse);
+}
+
+export function fetchStablecoinCoverage(
   url: string,
   errorMessages: DataFetchErrorMessages,
 ) {
+  return fetchValidated(url, errorMessages, isStablecoinCoverageResponse);
+}
+
+async function fetchValidated<T>(
+  url: string,
+  errorMessages: DataFetchErrorMessages,
+  isValid: (value: unknown) => value is T,
+) {
   const response = await fetch(url);
-  const payload = await readDataPayload(response, errorMessages);
+  const payload: unknown = await readDataPayload(response, errorMessages);
 
   if (!response.ok) {
-    throw new Error(getDataFetchErrorMessage(payload, errorMessages));
+    throw new Error(
+      getDataFetchErrorMessage(
+        payload as DataErrorPayload | DataApiResponse | null,
+        errorMessages,
+      ),
+    );
   }
 
-  if (!isDataApiResponse(payload)) {
+  if (!isValid(payload)) {
     throw new Error(errorMessages.invalidResponse);
   }
 

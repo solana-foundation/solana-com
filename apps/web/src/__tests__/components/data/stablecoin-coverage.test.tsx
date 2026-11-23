@@ -11,11 +11,7 @@ import {
   shortenAddress,
   StablecoinCoverageTable,
 } from "@/app/[locale]/data/stablecoin-coverage";
-import {
-  stablecoinCoverageProviders,
-  stablecoinCoverageRows,
-  type StablecoinCoverageRow,
-} from "@/app/[locale]/data/stablecoin-coverage-data";
+import type { StablecoinCoverageRow } from "@/app/[locale]/data/stablecoin-coverage-data";
 
 let messages: AbstractIntlMessages;
 
@@ -32,8 +28,7 @@ const rows: StablecoinCoverageRow[] = Array.from(
     coverage: {
       Allium: true,
       DeFiLlama: index < 5,
-      Dune: false,
-      RWA: index % 5 === 0,
+      Dune: index % 5 === 0,
       "Top Ledger": false,
     },
     mintAddress: `Mint${String(index).padStart(2, "0")}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`,
@@ -41,10 +36,13 @@ const rows: StablecoinCoverageRow[] = Array.from(
   }),
 );
 
-function renderTable(tableRows = rows) {
+function renderTable(
+  tableRows = rows,
+  props: { error?: Error; isLoading?: boolean } = {},
+) {
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
-      <StablecoinCoverageTable rows={tableRows} />
+      <StablecoinCoverageTable rows={tableRows} {...props} />
     </NextIntlClientProvider>,
   );
 }
@@ -118,7 +116,36 @@ describe("StablecoinCoverageTable", () => {
     const table = screen.getByRole("table", { name: tableName });
     const firstRow = within(table).getByRole("row", { name: /TOKEN0 / });
     expect(within(firstRow).getAllByText("Covered")).toHaveLength(3);
-    expect(within(firstRow).getAllByText("Not covered")).toHaveLength(2);
+    expect(within(firstRow).getAllByText("Not covered")).toHaveLength(1);
+  });
+
+  it("shows the shortened mint when a stablecoin has no token name", () => {
+    const unnamed: StablecoinCoverageRow = {
+      ...rows[0],
+      mintAddress: "52GzcLDMfBveMRnWXKX7U3Pa5Lf7QLkWWvsJRDjWDBSk",
+      token: null,
+    };
+    renderTable([unnamed]);
+
+    const table = screen.getByRole("table", { name: tableName });
+    const header = within(table).getByRole("rowheader");
+    expect(header).toHaveTextContent("52Gz…DBSk");
+  });
+
+  it("shows a loading state before the first rows arrive", () => {
+    renderTable([], { isLoading: true });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading stablecoin coverage",
+    );
+  });
+
+  it("shows the fetch error when coverage can't be loaded", () => {
+    renderTable([], { error: new Error("Coverage is unavailable") });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Coverage is unavailable",
+    );
   });
 
   it("filters by token or mint address and shows an empty state", () => {
@@ -165,6 +192,12 @@ describe("stablecoin coverage helpers", () => {
     expect(filterRows(rows, "")).toHaveLength(25);
   });
 
+  it("matches unnamed stablecoins by mint address only", () => {
+    const unnamed = [{ ...rows[0], token: null }];
+    expect(filterRows(unnamed, "token")).toHaveLength(0);
+    expect(filterRows(unnamed, "mint00")).toHaveLength(1);
+  });
+
   it("numbers rows by their position in the full list", () => {
     const numbers = getRowNumbers(rows);
     expect(numbers.get(rows[0].mintAddress)).toBe(1);
@@ -172,17 +205,5 @@ describe("stablecoin coverage helpers", () => {
     expect(formatRowNumber(1)).toBe("01");
     expect(formatRowNumber(101)).toBe("101");
     expect(formatRowNumber(undefined)).toBe("");
-  });
-});
-
-describe("stablecoin coverage snapshot", () => {
-  it("has one row per mint with a flag for every provider", () => {
-    const mints = stablecoinCoverageRows.map((row) => row.mintAddress);
-    expect(new Set(mints).size).toBe(mints.length);
-    for (const row of stablecoinCoverageRows) {
-      expect(Object.keys(row.coverage).sort()).toEqual(
-        [...stablecoinCoverageProviders].sort(),
-      );
-    }
   });
 });

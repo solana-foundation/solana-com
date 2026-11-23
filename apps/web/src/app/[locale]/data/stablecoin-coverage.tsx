@@ -15,7 +15,6 @@ import { useTranslations } from "@workspace/i18n/client";
 
 import {
   stablecoinCoverageProviders,
-  stablecoinCoverageRows,
   type StablecoinCoverageRow,
 } from "./stablecoin-coverage-data";
 
@@ -23,11 +22,15 @@ import {
 const visibleTokenCount = 6;
 
 type StablecoinCoverageTableProps = {
-  rows?: StablecoinCoverageRow[];
+  error?: Error;
+  isLoading?: boolean;
+  rows: StablecoinCoverageRow[];
 };
 
 export function StablecoinCoverageTable({
-  rows = stablecoinCoverageRows,
+  error,
+  isLoading = false,
+  rows,
 }: StablecoinCoverageTableProps) {
   const t = useTranslations("dataDashboard");
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -146,7 +149,7 @@ export function StablecoinCoverageTable({
                   className="sticky left-14 z-10 border-r border-t border-nd-border-light bg-nd-inverse px-4 py-3 text-left uppercase"
                   scope="row"
                 >
-                  {row.token}
+                  <TokenLabel row={row} />
                 </th>
                 <td className="border-t border-nd-border-light px-4 py-3">
                   <MintAddressLink mintAddress={row.mintAddress} />
@@ -179,7 +182,7 @@ export function StablecoinCoverageTable({
               <span className="text-[10px] text-nd-mid-em-text/60 tabular-nums">
                 {formatRowNumber(rowNumbers.get(row.mintAddress))}
               </span>
-              {row.token}
+              <TokenLabel row={row} />
             </h3>
             <div className="mt-1">
               <MintAddressLink mintAddress={row.mintAddress} />
@@ -201,8 +204,11 @@ export function StablecoinCoverageTable({
       </div>
 
       {filteredRows.length === 0 ? (
-        <div className="border-t border-nd-border-light px-6 py-12 text-center font-brand-mono text-[12px] uppercase text-nd-mid-em-text">
-          {t("stablecoinCoverage.noSearchResults")}
+        <div
+          className="border-t border-nd-border-light px-6 py-12 text-center font-brand-mono text-[12px] uppercase text-nd-mid-em-text"
+          role={error ? "alert" : "status"}
+        >
+          {getEmptyMessage(t, rows.length, isLoading, error)}
         </div>
       ) : null}
     </section>
@@ -275,6 +281,34 @@ function CoverageMark({ value }: { value: boolean }) {
   );
 }
 
+function getEmptyMessage(
+  t: ReturnType<typeof useTranslations>,
+  rowCount: number,
+  isLoading: boolean,
+  error: Error | undefined,
+) {
+  if (rowCount > 0) {
+    return t("stablecoinCoverage.noSearchResults");
+  }
+  if (error) {
+    return error.message;
+  }
+  return isLoading
+    ? t("stablecoinCoverage.loading")
+    : t("stablecoinCoverage.noData");
+}
+
+// Mints with no known symbol show their shortened address instead.
+function TokenLabel({ row }: { row: StablecoinCoverageRow }) {
+  return (
+    row.token ?? (
+      <span className="normal-case text-nd-mid-em-text" title={row.mintAddress}>
+        {shortenAddress(row.mintAddress)}
+      </span>
+    )
+  );
+}
+
 function MintAddressLink({ mintAddress }: { mintAddress: string }) {
   return (
     <a
@@ -303,7 +337,7 @@ export function filterRows(rows: StablecoinCoverageRow[], query: string) {
   }
   return rows.filter(
     (row) =>
-      row.token.toLowerCase().includes(normalized) ||
+      row.token?.toLowerCase().includes(normalized) ||
       row.mintAddress.toLowerCase().includes(normalized),
   );
 }

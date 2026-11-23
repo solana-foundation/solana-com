@@ -39,7 +39,11 @@ import {
 } from "./dashboard-copy";
 import { DashboardControls } from "./dashboard-controls";
 import { ChartGrid, DataError, KpiGrid } from "./dashboard-charts";
-import { fetchData, fetchRpcFilters } from "./dashboard-fetch";
+import {
+  fetchData,
+  fetchRpcFilters,
+  fetchStablecoinCoverage,
+} from "./dashboard-fetch";
 import {
   filterRowsForCharts,
   getChartsForTab,
@@ -65,6 +69,10 @@ import { DataResourceCarousel } from "./dashboard-resources";
 import { ProviderLinkTable } from "./provider-link-table";
 import { SenderProviderExperience } from "./sender-provider-experience";
 import { StablecoinCoverageTable } from "./stablecoin-coverage";
+import type {
+  StablecoinCoverageResponse,
+  StablecoinCoverageRow,
+} from "./stablecoin-coverage-data";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
 export { applyQueryUpdates } from "./dashboard-query";
@@ -78,6 +86,7 @@ export {
 export type { KpiAggregation } from "./dashboard-types";
 
 const emptyRows: MetricRow[] = [];
+const emptyCoverageRows: StablecoinCoverageRow[] = [];
 
 export function SolanaDataDashboard() {
   const locale = useLocale();
@@ -133,6 +142,19 @@ export function SolanaDataDashboard() {
     dataUrl,
     fetchDashboardData,
     isLiveInfrastructureTab ? rpcDataSWRConfig : dataSWRConfig,
+  );
+  const fetchCoverage = useCallback(
+    (url: string) => fetchStablecoinCoverage(url, errorMessages),
+    [errorMessages],
+  );
+  const {
+    data: stablecoinCoverage,
+    error: stablecoinCoverageError,
+    isLoading: isStablecoinCoverageLoading,
+  } = useSWR<StablecoinCoverageResponse>(
+    isStablecoinsTab ? "/api/databricks/stablecoin-coverage" : null,
+    fetchCoverage,
+    dataSWRConfig,
   );
   const rows = useMemo(
     () =>
@@ -358,7 +380,13 @@ export function SolanaDataDashboard() {
                 />
               ) : null}
 
-              {isStablecoinsTab ? <StablecoinCoverageTable /> : null}
+              {isStablecoinsTab ? (
+                <StablecoinCoverageTable
+                  error={stablecoinCoverageError}
+                  isLoading={isStablecoinCoverageLoading}
+                  rows={stablecoinCoverage?.rows ?? emptyCoverageRows}
+                />
+              ) : null}
 
               <ChartGrid
                 activeCharts={activeCharts}
