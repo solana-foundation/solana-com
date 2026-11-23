@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export type DocsSearchResult = {
   title: string | null;
@@ -23,11 +23,15 @@ export function useDocsSearch(query: string) {
   // rather than against whatever is currently typed.
   const [resultsQuery, setResultsQuery] = useState("");
   const [state, setState] = useState<DocsSearchState>("idle");
+  // Mirrors whether any results are on screen, so the 429 branch can tell if
+  // there is something to fall back to without re-running the effect.
+  const hasResultsRef = useRef(false);
 
   useEffect(() => {
     const q = query.trim();
 
     if (!q) {
+      hasResultsRef.current = false;
       setResults([]);
       setResultsQuery("");
       setState("idle");
@@ -48,14 +52,17 @@ export function useDocsSearch(query: string) {
         // so the last good results stay on screen and no error flashes. They
         // keep their original resultsQuery, which is what stops them being
         // silently relabelled as results for the query that was throttled.
+        // With nothing cached there is nothing to fall back to, so settle on
+        // the quiet unavailable state instead of leaving "Searching…" up.
         if (res.status === 429) {
-          setState("idle");
+          setState(hasResultsRef.current ? "idle" : "error");
           return;
         }
 
         // Other failures (403 misconfig, 503 kill switch) fall through to the
         // quiet unavailable state; never surface a status code to the visitor.
         if (!res.ok) {
+          hasResultsRef.current = false;
           setResults([]);
           setResultsQuery("");
           setState("error");
@@ -63,7 +70,9 @@ export function useDocsSearch(query: string) {
         }
 
         const data = await res.json();
-        setResults(data.results ?? []);
+        const next: DocsSearchResult[] = data.results ?? [];
+        hasResultsRef.current = next.length > 0;
+        setResults(next);
         setResultsQuery(q);
         setState("idle");
       } catch (err) {

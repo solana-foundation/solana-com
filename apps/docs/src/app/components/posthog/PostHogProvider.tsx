@@ -30,6 +30,13 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
             api_host: "https://us.i.posthog.com",
             capture_pageview: false,
             capture_pageleave: true,
+            // The shared DocsSearchBar in @solana-com/ui-chrome reads the
+            // client off window (it can't import posthog-js: apps/templates
+            // has none), and the module build doesn't set the global itself.
+            // Opt-out still makes capture() a no-op, so this stays consent-safe.
+            loaded: (client) => {
+              (window as unknown as { posthog?: unknown }).posthog = client;
+            },
           });
           hasInitialized.current = true;
         }
