@@ -78,7 +78,7 @@ describe("publicAssetPath", () => {
 describe("site metadata", () => {
   it("uses an absolute Breakpoint social card URL", () => {
     expect(config.siteMetadata.socialShare).toMatch(
-      /^https?:\/\/.+\/breakpoint\/social-card\.jpg$/,
+      /^https?:\/\/.+\/breakpoint\/social-card-post-conference\.jpg$/,
     );
     expect(config.siteMetadata.socialShare).not.toContain(
       "/breakpoint/breakpoint/",

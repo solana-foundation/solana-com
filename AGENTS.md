@@ -47,6 +47,9 @@ Pick the app first. That usually cuts exploration time in half.
 
 ### Shared packages
 
+- `packages/airtable`: server-only Airtable fetch pacing and 429 backoff, shared
+  across event apps and build workers on the same host
+
 - `packages/i18n`: locale list, routing helpers, shared message loading
 - `packages/ui`: reusable UI primitives
 - `packages/ui-chrome`: shared nav/footer/theme/cross-app link behavior

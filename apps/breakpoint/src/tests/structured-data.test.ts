@@ -36,10 +36,19 @@ describe("serializeJsonLd", () => {
 });
 
 describe("buildBreakpointJsonLd", () => {
+  it("does not advertise expired offers or a missing FAQ in the post edition", async () => {
+    const data = await buildBreakpointJsonLd("en", "post");
+    const graph = data["@graph"] as Array<{
+      "@type": string;
+      offers?: unknown[];
+    }>;
+    expect(graph.find((node) => node["@type"] === "Event")?.offers).toEqual([]);
+    expect(graph.some((node) => node["@type"] === "FAQPage")).toBe(false);
+  });
   it("includes only the visible homepage FAQ questions", async () => {
     const { default: messages } =
       await import("../../../../packages/i18n/messages/breakpoint/en/breakpoint.json");
-    const data = await buildBreakpointJsonLd("en");
+    const data = await buildBreakpointJsonLd("en", "pre");
     const graph = data["@graph"] as Array<{
       "@type": string;
       mainEntity?: Array<{ name: string; acceptedAnswer: { text: string } }>;

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "@workspace/i18n/client";
 import { accordionButtonClassName } from "@/components/AccordionButton";
 import DisclosureIcon from "@/components/DisclosureIcon";
+import { youTubeWatchUrl } from "@/content/agenda/session-videos";
 import {
   AGENDA_DAYS,
   MAIN_STAGE,
@@ -75,17 +76,6 @@ function dayDateLabel(day: string) {
     timeZone: LONDON_TIME_ZONE,
     weekday: "short",
   }).format(new Date(`${date}T12:00:00Z`));
-}
-
-function todayAgendaDay() {
-  const today = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: LONDON_TIME_ZONE,
-    year: "numeric",
-  }).format(new Date());
-
-  return AGENDA_DAYS.find((candidate) => candidate.date === today)?.key;
 }
 
 function dayHeading(day: string) {
@@ -371,6 +361,21 @@ function SessionRow({
               </div>
             )}
 
+            {item.youtubeVideoId && (
+              <a
+                href={youTubeWatchUrl(item.youtubeVideoId)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={t("watchSessionLabel", { title: item.title })}
+                className={`${EYEBROW_TEXT_CLASS} inline-flex items-center gap-3xs justify-self-start text-core-purple underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white md:col-start-1 md:row-start-3`}
+                onClick={(event) => event.stopPropagation()}
+                data-agenda-video
+              >
+                <span aria-hidden="true">▶</span>
+                {t("watchSession")}
+              </a>
+            )}
+
             {(trackLabel || assetClasses.length > 0) && (
               <div className="flex flex-wrap items-start gap-3xs md:col-start-2 md:row-start-1 md:justify-end md:self-start">
                 {trackLabel && (
@@ -445,6 +450,9 @@ function StaticRow({ item }: { item: AgendaItem }) {
       <div className="flex min-w-0 flex-1 flex-col gap-2xs uppercase md:flex-row md:items-center md:gap-3xl">
         <div className="flex w-full flex-wrap items-baseline gap-x-3xs gap-y-3xs md:w-[140px] md:shrink-0 md:flex-col md:items-start md:justify-center md:gap-3xs">
           <p className={EYEBROW_TEXT_CLASS}>{item.time}</p>
+          {item.day === "Pre-Event" && item.location && (
+            <p className={EYEBROW_TEXT_CLASS}>{item.location}</p>
+          )}
           {item.duration && (
             <span className="inline-flex items-baseline gap-x-3xs whitespace-nowrap">
               <span aria-hidden="true" className="md:hidden">
@@ -498,7 +506,6 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   const listRef = useRef<HTMLDivElement>(null);
   const pendingDayScrollRef = useRef(false);
   const tabsRef = useRef<HTMLDivElement>(null);
-  const userPickedDayRef = useRef(false);
 
   const allDays = useMemo(() => {
     const days = new Set<string>();
@@ -519,6 +526,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   const allStages = useMemo(() => {
     const stages = new Set<string>();
     for (const item of items) {
+      if (item.day === "Pre-Event") continue;
       if (item.location && item.variant !== "static") stages.add(item.location);
     }
 
@@ -537,13 +545,8 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   );
   const [query, setQuery] = useState("");
   const [openItemId, setOpenItemId] = useState<string | null>(null);
-
-  // During the event, open on today's programme instead of Day 1.
-  useEffect(() => {
-    const today = todayAgendaDay();
-    if (!today || userPickedDayRef.current || !allDays.includes(today)) return;
-    setActiveDay(today);
-  }, [allDays]);
+  // Registration and other pre-event activities are not scoped to a stage.
+  const stageFilter = activeDay === "Pre-Event" ? null : activeStage;
 
   const scrollToScheduleTop = useCallback(() => {
     window.requestAnimationFrame(() => {
@@ -563,7 +566,6 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
   }, []);
 
   const selectDay = (day: string) => {
-    userPickedDayRef.current = true;
     if (day !== activeDay) pendingDayScrollRef.current = true;
     setActiveDay(day);
     setOpenItemId(null);
@@ -614,10 +616,10 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
     () =>
       items
         .filter(
-          (item) => item.day === activeDay && matchesStage(item, activeStage),
+          (item) => item.day === activeDay && matchesStage(item, stageFilter),
         )
         .sort(sortItems),
-    [activeDay, activeStage, items, matchesStage],
+    [activeDay, stageFilter, items, matchesStage],
   );
 
   const searchGroups = useMemo(() => {
@@ -649,8 +651,8 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
 
   const emptyMessage = searching
     ? t("noResults", { query: query.trim() })
-    : activeStage
-      ? t("comingSoon", { day: activeDay, stage: activeStage })
+    : stageFilter
+      ? t("comingSoon", { day: activeDay, stage: stageFilter })
       : t("comingSoonAnyStage", { day: activeDay });
 
   const renderItem = (item: AgendaItem) =>
@@ -747,7 +749,7 @@ export default function AgendaList({ items }: { items: AgendaItem[] }) {
               {t("clear")}
             </button>
           </div>
-        ) : allStages.length > 1 ? (
+        ) : activeDay !== "Pre-Event" && allStages.length > 1 ? (
           <div
             role="tablist"
             aria-label={t("stageTabs")}

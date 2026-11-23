@@ -73,7 +73,7 @@ export const FEATURED_SOLUTIONS: readonly FeaturedSolution[] = [
   },
   {
     key: "rings",
-    status: "devnetBeta",
+    status: "mainnet",
     sectionId: "solana-rings",
     href: PRIVACY_LINKS.rings,
   },

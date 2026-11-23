@@ -80,9 +80,9 @@ function isBreakpointAnnouncementLink(
   );
 }
 
-export async function fetchBreakpointAnnouncementLinks(): Promise<
-  BreakpointAnnouncementLink[]
-> {
+export async function fetchBreakpointAnnouncementLinks({
+  useFallback = true,
+}: { useFallback?: boolean } = {}): Promise<BreakpointAnnouncementLink[]> {
   try {
     const fetchOptions =
       process.env.NODE_ENV === "development"
@@ -106,9 +106,11 @@ export async function fetchBreakpointAnnouncementLinks(): Promise<
     const links = data.filter(isBreakpointAnnouncementLink).slice(0, 10);
     return links.length > 0
       ? links.map(normalizeBreakpointAnnouncementLink)
-      : getFallbackBreakpointAnnouncementLinks();
+      : useFallback
+        ? getFallbackBreakpointAnnouncementLinks()
+        : [];
   } catch (error) {
     console.error("Failed to fetch Breakpoint announcement links:", error);
-    return getFallbackBreakpointAnnouncementLinks();
+    return useFallback ? getFallbackBreakpointAnnouncementLinks() : [];
   }
 }

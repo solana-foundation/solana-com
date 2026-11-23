@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import AgendaList from "@/components/pages/agenda/AgendaList";
 import { attachSpeakerProfiles } from "@/content/agenda/speaker-links";
@@ -14,7 +14,13 @@ function renderList(list: AgendaItem[]) {
   );
 }
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-16T10:00:00Z"));
+});
+
 afterEach(() => {
+  vi.useRealTimers();
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -112,6 +118,62 @@ function titles() {
 }
 
 describe("AgendaList", () => {
+  it.each([
+    "2026-11-15T10:00:00Z",
+    "2026-11-17T10:00:00Z",
+    "2026-11-18T10:00:00Z",
+  ])("opens on Day 1 regardless of the current date (%s)", (now) => {
+    vi.setSystemTime(new Date(now));
+    renderList(items);
+
+    expect(screen.getByRole("tab", { name: /Day 1/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(titles()).toEqual([
+      "MoneyGram Ramps",
+      "Unlocking Private Markets",
+      "Lunch",
+    ]);
+  });
+
+  it.each(["session", "static"] as const)(
+    "shows pre-event registration as a %s regardless of the selected stage",
+    (variant) => {
+      renderList([
+        ...items,
+        {
+          day: "Pre-Event",
+          id: "registration",
+          location: "Registration Area",
+          sortOrder: 600,
+          speakers: [],
+          time: "10:00",
+          title: "Early Registration",
+          variant,
+        },
+      ]);
+
+      expect(
+        screen.queryByRole("tab", { name: "Registration Area" }),
+      ).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: /Royal Exchange/ }));
+      fireEvent.click(screen.getByRole("tab", { name: /Pre-Event/ }));
+
+      expect(titles()).toEqual(["Early Registration"]);
+      expect(screen.getByText("Registration Area")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("tab", { name: /Main Stage/ }),
+      ).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("tab", { name: /Day 1/ }));
+      expect(titles()).toEqual(["Collector Crypt"]);
+      expect(
+        screen.getByRole("tab", { name: /Royal Exchange/ }),
+      ).toHaveAttribute("aria-selected", "true");
+    },
+  );
+
   it("shows Day 1 Main Stage with speaker roles, asset pills and breaks", () => {
     renderList(items);
 

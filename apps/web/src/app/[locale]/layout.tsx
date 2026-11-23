@@ -17,6 +17,7 @@ import {
   ThemeProvider,
   SitewideTopAlert,
   InkeepChatButton,
+  InkeepProvider,
   PersistentPodcastPlayer,
   GoogleTagManagerNoScript,
 } from "@solana-com/ui-chrome";
@@ -46,23 +47,24 @@ export default async function RootLayout({ children, params }: Props) {
         <NextIntlClientProvider messages={messages} locale={locale}>
           <PostHogProvider>
             <ThemeProvider>
-              <GTMTrackingSnippet />
-              <SitewideTopAlert />
-              <CookieConsent />
-              <ChromeWrapper>
-                <Header />
-              </ChromeWrapper>
-              {children}
-              <ChromeWrapper>
-                <Footer />
-              </ChromeWrapper>
-              <PersistentPodcastPlayer />
-              <InkeepChatButton />
-              <Script
-                id="signals-script"
-                strategy="afterInteractive"
-                dangerouslySetInnerHTML={{
-                  __html: `
+              <InkeepProvider>
+                <GTMTrackingSnippet />
+                <SitewideTopAlert />
+                <CookieConsent />
+                <ChromeWrapper>
+                  <Header />
+                </ChromeWrapper>
+                {children}
+                <ChromeWrapper>
+                  <Footer />
+                </ChromeWrapper>
+                <PersistentPodcastPlayer />
+                <InkeepChatButton />
+                <Script
+                  id="signals-script"
+                  strategy="afterInteractive"
+                  dangerouslySetInnerHTML={{
+                    __html: `
                     (function() {
                       if (typeof window === 'undefined') return;
                       if (typeof window.signals !== 'undefined') return;
@@ -82,8 +84,9 @@ export default async function RootLayout({ children, params }: Props) {
                       document.head.appendChild(script);
                     })();
                   `,
-                }}
-              />
+                  }}
+                />
+              </InkeepProvider>
             </ThemeProvider>
           </PostHogProvider>
         </NextIntlClientProvider>

@@ -128,6 +128,7 @@ function PointField({ compact = false }: { compact?: boolean }) {
 
 export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
   const t = useTranslations("request-for-startups");
+  const [requests, setRequests] = useState(REQUESTS);
   const [openRequest, setOpenRequest] = useState(REQUESTS[0].slug);
   const handleRequestChange = useCallback((value: string) => {
     setOpenRequest(value);
@@ -136,6 +137,18 @@ export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
   }, []);
 
   useEffect(() => {
+    // Shuffle after hydration so the server and initial client render agree.
+    const shuffledRequests = [...REQUESTS];
+    for (let index = shuffledRequests.length - 1; index > 0; index -= 1) {
+      const randomIndex = Math.floor(Math.random() * (index + 1));
+      [shuffledRequests[index], shuffledRequests[randomIndex]] = [
+        shuffledRequests[randomIndex],
+        shuffledRequests[index],
+      ];
+    }
+    setRequests(shuffledRequests);
+    setOpenRequest(shuffledRequests[0].slug);
+
     const syncRequestFromHash = () => {
       const requestSlug = resolveRequestSlug(window.location.hash.slice(1));
 
@@ -241,7 +254,7 @@ export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
               <span>{t("requests.indexPointOfView")}</span>
               <span aria-hidden="true" />
             </div>
-            {REQUESTS.map((request) => (
+            {requests.map((request) => (
               <AccordionItem
                 className={styles.request}
                 id={request.slug}

@@ -121,6 +121,72 @@ authority for every visual update.
 Before adding a new component, check whether one of these can be reused or
 narrowly extended.
 
+## Live Event State
+
+The home page has three editions, chosen by `CONFERENCE_STATE` in
+`src/content/conference-state.ts` (`pre` | `live` | `post`). Flipping the
+constant and merging is the release; there is no runtime toggle.
+
+- `post` leads with BP27 registration and the next-edition announcement, then
+  the 2026 Main Stage recording, a selection from the published agenda, past
+  highlighted November community events, announcements, speakers and sponsors.
+  It omits the expired ticket prompts, venue map, FAQ and countdown. Recap
+  selection lives in `src/content/post-conference.ts`; homepage copy is in the
+  `post` message namespace. Past events use a separate Luma cache and the past
+  calendar period. The post edition suppresses pre-event announcement fallbacks
+  when Media is unavailable.
+- `live` renders `src/components/sections/live/LiveEventSection.tsx` (stream
+  hero plus today's sessions), the venue map, sponsors, speakers, side events
+  and FAQ. `pre` renders the marketing page with the venue map after tickets and
+  before Why Attend, replacing Get Involved.
+- The home page loads the agenda once and wraps the live hero and the venue map
+  in `LiveScheduleProvider`, so both read the same schedule and the map's stage
+  zones (Main Stage, Royal Exchange) show what is on now and next. The homepage
+  agenda shows up to eight recent and upcoming sessions for the selected stage,
+  keeping sessions for 30 minutes after their scheduled end to allow overruns.
+  Rows use scheduled times without live/next/finished claims or highlights.
+- The agenda and the map link to each other with hash fragments defined in
+  `src/lib/live-links.ts`: `#map/<zone id>` opens the map on a zone and
+  `#today/<stage slug>` opens today's sessions on a stage. Both work from other
+  pages too, e.g. `/#map/royal-exchange`. A stage finds its zone by name, so a
+  new stage needs a zone with the same name in `map-data.ts`.
+- Visitors outside London see a note saying where they are viewing from and how
+  far their clock is from London's, with each session's time repeated in their
+  zone (`src/lib/viewer-time.ts`). The zone comes from the browser after mount,
+  so the server render only shows London times.
+- Home page metadata comes from `getHomeMetadata` in `src/app/metadata.ts`,
+  which switches to the `metadata.live` copy while the conference is live so
+  shared links read as "watch live". Other pages keep their own metadata.
+- Today's sessions come from the agenda loader (`src/content/live/agenda.ts`)
+  and are placed on the clock by `src/lib/live-sessions.ts` in Europe/London.
+  Sessions need a `HH:mm` time and a day tab (`Day 1` = 16 Nov, `Day 2` = 17
+  Nov, `Pre-Event` = 15 Nov); rows with `TBC`/`TBD` times are skipped.
+  `/api/live-sessions` refreshes the client every two minutes and five seconds
+  before each session boundary.
+- Set the YouTube live id in `src/content/live/streams.ts`
+  (`MAIN_STAGE_STREAM.youtubeVideoId`). Until it is set the hero shows a
+  placeholder naming the next session.
+- Outside the production deployment (`VERCEL_ENV !== "production"`, so local dev
+  and Vercel previews), `/?preview=live` renders the live edition while the
+  constant still says `pre`, and `&now=2026-11-16T10:05` freezes the clock so
+  the live layout can be checked on any date (London time unless the value names
+  a zone). Production ignores both parameters. `?preview=pre` shows the
+  marketing page once the constant has flipped.
+- The next-edition (BP27) announcement is a full-width bar under the hero on
+  both editions (`src/components/sections/NextEditionBar.tsx`). Its facts and
+  the `published` switch live in `src/content/next-edition.ts`; `null` facts are
+  not rendered. With `published: false` the bar shows only outside production
+  with `?preview=bp27`, which can be combined with an edition, e.g.
+  `?preview=pre&preview=bp27`.
+
+## Venue Map
+
+`src/components/venue/InteractiveMap.tsx` draws the Olympia floor plan from
+`src/content/venue/map-data.ts`. Positions are viewBox units (x 0–1000, y
+0–floor height) over the floor images in `public/img/venue`. To move a marker or
+add a booth, edit the data file only; icons and sponsor logos live in
+`public/img/venue/icons` and `public/img/venue/logos`.
+
 ## Validation
 
 Prefer targeted validation from the repo root:

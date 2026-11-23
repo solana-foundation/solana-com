@@ -520,6 +520,14 @@ export const ecosystemCommunityItems: NavItemDefinition[] = [
     icon: ApiConnectionCommunityIcon,
     partiallyActive: true,
   },
+  {
+    id: "ecosystem-superteam",
+    titleKey: "community.superteam.title",
+    descriptionKey: "community.superteam.description",
+    href: "https://superteam.fun/",
+    icon: GlobusIcon,
+    external: true,
+  },
 ];
 
 export const ecosystemCategoryItems: NavItemDefinition[] = [
