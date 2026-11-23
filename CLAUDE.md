@@ -68,6 +68,10 @@ pnpm build
 # Run tests
 pnpm test
 
+# Unified CI checks (format, CSS Modules, i18n scripts, lint, type check, tests)
+pnpm check
+pnpm check --affected
+
 # Linting
 pnpm lint
 
@@ -126,7 +130,7 @@ Key environment variables (defined in `turbo.json`):
 The pre-commit hook runs `lint-staged`, which applies oxlint and oxfmt to staged
 files and checks staged media images. It also runs `gitleaks` when that binary
 is installed; CI performs the authoritative secrets scan. The pre-push hook runs
-`pnpm lint` across the workspaces.
+`pnpm check --affected` across the workspaces.
 
 ## Code Conventions
 
