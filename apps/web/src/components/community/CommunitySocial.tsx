@@ -40,7 +40,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
   const {
     telegram = 70463,
     twitter = 3028785,
-    github = 97,
+    github,
     discord = 141556,
     meetup = 8656,
     weibo = 4400,
@@ -97,6 +97,7 @@ const CommunitySocial = ({ data }: { data: SocialData }) => {
       nameId: "community.socials.github",
       memberStrId: "community.socials.gt-stars",
       members: github,
+      membersStr: github === undefined ? "—" : undefined,
     },
     {
       link: "https://www.meetup.com/topics/solana/",
