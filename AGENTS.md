@@ -58,6 +58,8 @@ Pick the app first. That usually cuts exploration time in half.
   by apps
 - `packages/fab-menu`: reusable Solana property menu
 - `packages/sentry`: shared Sentry helpers
+- `packages/security-headers`: baseline HTTP security headers used by every
+  app's `next.config.ts`
 - `packages/sitemap`: shared sitemap generation helpers
 - `packages/config-oxlint`, `packages/config-typescript`: shared configs
 
@@ -121,6 +123,9 @@ If repo structure changed and the onboarding docs may be stale, use the
 
 If you touch navigation, shared header/footer behavior, or route ownership,
 inspect `packages/ui-chrome` and the target app `next.config.ts` together.
+
+The Media CMS (`/keystatic`) stays on the Media host; `apps/web` deliberately
+does not proxy it onto `solana.com`.
 
 ## Content Ownership
 
