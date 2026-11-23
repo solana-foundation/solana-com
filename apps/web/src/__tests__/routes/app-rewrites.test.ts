@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
+  BUILDER_APP_URL,
   DOCS_APP_URL,
   MEDIA_APP_URL,
   templatesAppUrl,
@@ -72,6 +73,10 @@ describe("Cross-app rewrites", () => {
       "/breakpoint/:path*",
       `${BREAKPOINT_APP_URL}/breakpoint/:path*`,
     );
+    expectBeforeFileRewrite(
+      "/builder/:path*",
+      `${BUILDER_APP_URL}/builder/:path*`,
+    );
 
     expect(beforeFiles.some(({ source }) => source.startsWith("/learn"))).toBe(
       false,
@@ -103,6 +108,10 @@ describe("Cross-app rewrites", () => {
     expectBeforeFileRewrite(
       "/breakpoint-assets/:path+",
       `${BREAKPOINT_APP_URL}/breakpoint-assets/:path+`,
+    );
+    expectBeforeFileRewrite(
+      "/builder-assets/:path+",
+      `${BUILDER_APP_URL}/builder-assets/:path+`,
     );
     expectBeforeFileRewrite(
       "/media-assets/:path+",

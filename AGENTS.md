@@ -28,6 +28,7 @@ Pick the app first. That usually cuts exploration time in half.
 | Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                                                  |
 | Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                                            |
 | Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                                            |
+| BLDR event site       | `apps/builder` / `solana-com-builder`       | `3007`     | `/builder` via rewrites                                                               |
 
 ## Repo Layout
 
@@ -96,6 +97,7 @@ Useful filters:
 - `solana-templates`
 - `solana-com-accelerate`
 - `solana-com-breakpoint`
+- `solana-com-builder`
 
 ## Turborepo Rules That Matter
 

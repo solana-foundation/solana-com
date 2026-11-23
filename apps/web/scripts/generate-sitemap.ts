@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import {
   accelerateRoutes,
   breakpointRoutes,
+  builderRoutes,
   dedupeEntries,
   docsRoutes,
   excludeRedirectSources,
@@ -65,6 +66,7 @@ async function generateSitemap() {
     templatesRoutes(),
     accelerateRoutes(),
     breakpointRoutes(),
+    builderRoutes(),
   ]);
 
   const entries = excludeRedirectSources(
