@@ -371,14 +371,6 @@ export const productSurfaceItems: NavItemDefinition[] = [
     variant: "large",
   },
   {
-    id: "products-actions",
-    titleKey: "nav.products.surfaces.items.actions.title",
-    descriptionKey: "nav.products.surfaces.items.actions.description",
-    href: "/solutions/actions",
-    icon: SparklesIcon,
-    variant: "large",
-  },
-  {
     id: "products-ai",
     titleKey: "nav.products.surfaces.items.ai.title",
     descriptionKey: "nav.products.surfaces.items.ai.description",

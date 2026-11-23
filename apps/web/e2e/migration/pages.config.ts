@@ -17,7 +17,6 @@ export const PAGES_TO_COMPARE: PageConfig[] = [
     name: "Token Extensions",
     category: "solutions",
   },
-  { route: "/solutions/actions", name: "Actions", category: "solutions" },
   {
     route: "/solutions/solana-permissioned-environments",
     name: "Solana Permissioned Environments",

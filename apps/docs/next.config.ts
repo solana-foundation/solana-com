@@ -152,6 +152,10 @@ const nextConfig: NextConfig = {
         source: "/docs/payments/production-readiness",
         destination: "/docs/tools/transaction-landing#transaction-landing",
       },
+      {
+        source: "/docs/tools/actions",
+        destination: "/docs/tools",
+      },
     ];
 
     return movedRoutes.flatMap(({ source, destination }) => {

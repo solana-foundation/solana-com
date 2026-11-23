@@ -313,11 +313,8 @@ const navigationHubStaticConfigs = {
         ],
       },
       {
-        href: "/solutions/actions",
+        href: "/docs/tools/solana-pay",
         links: [
-          {
-            href: "/solutions/actions",
-          },
           {
             href: "/docs/tools/solana-pay",
           },
@@ -360,9 +357,6 @@ const navigationHubStaticConfigs = {
           },
           {
             href: "/skills",
-          },
-          {
-            href: "/solutions/actions",
           },
           {
             href: "/solutions/ai",
