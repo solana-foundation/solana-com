@@ -24,6 +24,9 @@ Use this app for the Accelerate event microsite.
 - Shared navigation behavior depends on `NEXT_PUBLIC_APP_NAME="accelerate"`
 - Sponsor logos may come from `packages/ecosystem-data`
 - Route rewrites map `/accelerate/*` into the app
+- Agenda and speaker loaders in `src/lib/` use `AIRTABLE_PAT` and the shared
+  `@workspace/airtable` pacing/backoff helper. See `turbo.json` for the Miami
+  table/view overrides passed through to builds.
 
 ## Commands
 
@@ -32,6 +35,7 @@ pnpm --filter solana-com-accelerate dev
 pnpm --filter solana-com-accelerate build
 pnpm --filter solana-com-accelerate lint
 pnpm --filter solana-com-accelerate check-types
+pnpm --filter solana-com-accelerate test
 ```
 
 ## Gotchas

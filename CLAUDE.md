@@ -15,12 +15,14 @@ solana-com/
 │   ├── templates/    # Code templates showcase - port 3001
 │   └── breakpoint/   # Breakpoint event microsite - port 3005
 ├── packages/
+│   ├── airtable/            # Shared server-side Airtable pacing and backoff
 │   ├── config-oxlint/       # Shared oxlint configurations
 │   ├── config-typescript/   # Shared TypeScript configurations
 │   ├── docs-examples/       # Tested cookbook source snippets
 │   ├── ecosystem-data/      # Shared company and wallet registry
 │   ├── fab-menu/            # Reusable Solana property menu
 │   ├── i18n/                # Shared i18n utilities (next-intl)
+│   ├── security-headers/    # Baseline HTTP headers for all apps
 │   ├── sentry/              # Shared Sentry helpers
 │   ├── sitemap/             # Shared sitemap generation helpers
 │   ├── ui/                  # Shared UI components (Radix-based)
@@ -87,6 +89,9 @@ their source files during the build:
 - `@workspace/ecosystem-data` - Canonical company metadata, wallet records, and
   logos
 - `@workspace/sentry` - Shared Sentry configuration helpers
+- `@workspace/airtable` - Server-only Airtable pacing and backoff for event apps
+- `@workspace/security-headers` - Baseline HTTP headers applied by every app's
+  `next.config.ts`
 - `@workspace/docs-examples` - Tested code embedded in cookbook pages
 - `@workspace/config-oxlint` - oxlint configurations
 - `@workspace/config-typescript` - TypeScript configurations

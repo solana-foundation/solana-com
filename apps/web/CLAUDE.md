@@ -13,7 +13,7 @@ separately deployed apps.
 ## Tech Stack
 
 - **Framework**: Next.js 15 (App Router) with next-intl
-- **Styling**: Tailwind CSS, SCSS, Bootstrap 5
+- **Styling**: Tailwind CSS and existing SCSS; use Tailwind for styling changes
 - **Animation**: Motion, GSAP
 - **UI Components**: Radix UI primitives and shared workspace UI
 - **Testing**: Vitest + React Testing Library
@@ -89,16 +89,16 @@ ANALYZE=true pnpm build
 
 ## Routing Patterns
 
-- All routes are under `[locale]` for i18n support
+- Localized pages live under `[locale]`; API routes live under `src/app/api/`
 - Uses Next.js App Router with layouts and route groups
 - Rewrites and redirects managed in `rewrites-redirects.ts`
+- `/keystatic` stays on the Media host and is not proxied onto `solana.com`
 
 ## Key Dependencies (App-Specific)
 
 - `@typeform/embed` - Typeform embeds
 - `gsap` - GreenSock animations (transpiled via next.config)
 - `react-slick` / `slick-carousel` - Carousels
-- `react-player` - Video playback
 - `react-countup` - Animated counters
 - `swr` - Data fetching with caching
 - `unicornstudio-react` - Interactive backgrounds

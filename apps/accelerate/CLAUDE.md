@@ -14,7 +14,7 @@ Hong Kong and Miami experiences. Built with Next.js 15, MDX, and Tailwind CSS.
 - **Framework**: Next.js 15 (App Router) with MDX support
 - **Styling**: Tailwind CSS 3.4, SCSS
 - **Animation**: Motion
-- **i18n**: next-intl (English only for now)
+- **i18n**: next-intl with shared locale configuration and message loading
 - **UI Components**: @workspace/ui, @solana-com/ui-chrome
 - **Icons**: Boxicons and shared `ui-chrome` icons
 
@@ -114,7 +114,10 @@ To add a new event location:
 
 ## Environment Variables
 
-Uses shared env vars from root turbo.json. No app-specific variables required.
+Agenda and speaker loaders in `src/lib/` use `AIRTABLE_PAT`. Miami loaders
+support base, table, and view overrides listed in the Accelerate build task in
+root `turbo.json`; Shanghai agenda IDs are defined in its loader. The shared
+`@workspace/airtable` helper handles request pacing and 429 backoff.
 
 ## Dependencies
 
@@ -123,6 +126,8 @@ Key workspace dependencies:
 - `@workspace/ui` - Shared UI components
 - `@solana-com/ui-chrome` - Header, Footer, ThemeProvider
 - `@workspace/i18n` - i18n utilities
+- `@workspace/airtable` - Server-only Airtable pacing and backoff
+- `@workspace/security-headers` - Shared HTTP header baseline
 
 ## Conventions
 
