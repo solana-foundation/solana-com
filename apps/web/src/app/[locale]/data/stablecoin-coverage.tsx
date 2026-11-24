@@ -269,12 +269,12 @@ function CoverageMark({ value }: { value: boolean }) {
   const t = useTranslations("dataDashboard");
 
   return value ? (
-    <span className="inline-flex items-center justify-center text-nd-primary">
+    <span className="inline-flex items-center justify-center text-nd-highlight-green">
       <Check aria-hidden="true" className="h-4 w-4" />
       <span className="sr-only">{t("stablecoinCoverage.covered")}</span>
     </span>
   ) : (
-    <span className="inline-flex items-center justify-center text-nd-mid-em-text/50">
+    <span className="inline-flex items-center justify-center text-red-400">
       <X aria-hidden="true" className="h-4 w-4" />
       <span className="sr-only">{t("stablecoinCoverage.notCovered")}</span>
     </span>
