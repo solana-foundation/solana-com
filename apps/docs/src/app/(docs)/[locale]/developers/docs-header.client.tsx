@@ -199,8 +199,8 @@ export function ThemeToggle({
 
 /**
  * The docs search field. It opens the docs search (components/docs/ask/
- * ask-search.client.tsx; Inkeep's off the docs) on the page: on click, on
- * Enter, and on ⌘K / Ctrl+K anywhere on the page, with what was typed.
+ * ask-search.client.tsx) on the page: on click, on Enter, and on ⌘K /
+ * Ctrl+K anywhere on the page, with what was typed.
  * Keyboard focus alone does not open it (WCAG 3.2.1 On Focus): keyboard
  * users can type and press Enter. Without JavaScript the form submits to
  * `<docs>?q=<text>`, where the docs page opens its search with the text.

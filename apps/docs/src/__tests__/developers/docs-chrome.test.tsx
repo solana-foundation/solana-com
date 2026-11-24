@@ -155,25 +155,28 @@ describe("DocsHeader", () => {
 });
 
 describe("DocsHeader Ask AI", () => {
-  it("has Ask AI's ✨ on the docs only (the landing and cookbook have Inkeep)", async () => {
+  it("has Ask AI's ✨ on every page: the landing, the docs, the cookbook and the 404", async () => {
     const ask = (container: HTMLElement) =>
       container.querySelector("header [data-docs-ask-open]");
-    const docs = renderWithIntl(
-      await DocsHeader({ locale: "en", askAi: true }),
-    );
-    expect(ask(docs.container)).toHaveAttribute("aria-label", "Ask AI");
-    docs.unmount();
-    const landing = renderWithIntl(await DocsHeader({ locale: "en" }));
-    expect(ask(landing.container)).toBeNull();
-    landing.unmount();
-    // The prerendered 404's: not in the server render, which doesn't know
-    // the URL (shown once hydrated on a docs URL; inkeep.test.tsx).
-    const missing = renderToString(
+    // The landing's header (default tabs) and a docs or cookbook page's
+    // (its tabs and active tab) are the same component.
+    for (const props of [
+      { locale: "en" },
+      { locale: "ja" },
+      { locale: "en", activeTab: "docs" },
+    ]) {
+      const view = renderWithIntl(await DocsHeader(props), props.locale);
+      expect(ask(view.container)).toHaveAttribute("aria-label", "Ask AI");
+      view.unmount();
+    }
+    // In the server render too, so the prerendered 404 has it in its HTML
+    // (hidden without JavaScript: html:not([data-dh-js])).
+    const prerendered = renderToString(
       <NextIntlClientProvider locale="en" messages={en}>
-        {await DocsHeader({ locale: "en", askAi: "by-path" })}
+        {await DocsHeader({ locale: "en" })}
       </NextIntlClientProvider>,
     );
-    expect(missing).not.toContain('data-docs-ask-open=""');
+    expect(prerendered).toContain('data-docs-ask-open=""');
   });
 });
 

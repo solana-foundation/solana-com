@@ -210,7 +210,7 @@ describe("AskSearch", () => {
     expect(location.search).toBe("");
   });
 
-  it("opens search on arrival with ?search=, as Inkeep did", () => {
+  it("opens search on arrival with ?search=, as the earlier search did", () => {
     history.replaceState(null, "", "/developers/docs?search=%20rent%20");
     render(withIntl(<AskSearch />));
     expect(screen.getByRole("textbox")).toHaveValue("rent");

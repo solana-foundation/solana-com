@@ -370,11 +370,12 @@ function SearchBody({ initialQuery }: { initialQuery: string }) {
 }
 
 /**
- * The docs search, in place of Inkeep's: a dialog over the page, opened by
- * the docs header's search field (`openDocsSearch`, with what was typed,
- * and `?q=` on arrival) and by `?search=` links. Its open state is Bri's
- * Ask Solana store (`openAskSolana` in search mode); results come from her
- * `searchDocs`.
+ * The docs search, on every page of the docs layout: a dialog over the
+ * page, opened by the docs header's search field (`openDocsSearch`, with
+ * what was typed, and `?q=` on arrival) and by `?search=` links. Its open
+ * state is Bri's Ask Solana store (`openAskSolana` in search mode); results
+ * come from her `searchDocs`, or from the docs' own index
+ * (/api/docs-search) when that fails or is slow.
  */
 export function AskSearch() {
   const tc = useTranslations("commands");
@@ -390,7 +391,7 @@ export function AskSearch() {
     const onSearch = (event: Event) =>
       search((event as CustomEvent<{ query?: string }>).detail?.query);
     window.addEventListener(DOCS_SEARCH_OPEN_EVENT, onSearch);
-    // `?search=` stays in the URL, as with Inkeep and Bri's modal.
+    // `?search=` stays in the URL, as with Bri's modal.
     const linked = new URLSearchParams(window.location.search)
       .get("search")
       ?.trim();

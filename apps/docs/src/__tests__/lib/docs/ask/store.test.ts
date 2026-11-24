@@ -292,7 +292,7 @@ describe("prepaint script", () => {
     expect(html.getAttribute("data-ask")).toBe("fullscreen");
   });
 
-  it("leaves the page alone off the docs, where Inkeep answers", () => {
+  it("makes room on every page of the layout, not only the docs", () => {
     setViewport(1440);
     sessionStorage.setItem(
       ASK_STORAGE_KEYS.ui,
@@ -300,17 +300,24 @@ describe("prepaint script", () => {
     );
     for (const path of [
       "/developers",
-      "/developers/cookbook/transactions/send-sol?ask=full",
+      "/ja/developers",
+      "/developers/cookbook/transactions/send-sol",
       "/ja/developers/cookbook",
-      "/developers/docsearch",
+      "/developers/docs/does-not-exist",
     ]) {
       window.history.replaceState(null, "", path);
       run();
-      expect(html.hasAttribute("data-ask")).toBe(false);
+      expect(html.getAttribute("data-ask")).toBe("docked");
+      html.removeAttribute("data-ask");
+      html.style.removeProperty("--ask-w");
     }
-    window.history.replaceState(null, "", "/developers/docs");
+    window.history.replaceState(
+      null,
+      "",
+      "/developers/cookbook/transactions/send-sol?ask=full",
+    );
     run();
-    expect(html.getAttribute("data-ask")).toBe("docked");
+    expect(html.getAttribute("data-ask")).toBe("fullscreen");
   });
 
   it("shows the page again if the full-screen panel never mounts", () => {

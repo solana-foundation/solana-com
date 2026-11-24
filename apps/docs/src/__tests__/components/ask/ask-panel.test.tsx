@@ -224,8 +224,8 @@ describe("Ask AI launcher and panel", () => {
   });
 
   it("gives the page its room back when Ask AI unmounts, and takes it again", async () => {
-    // A client-side move to the cookbook (Inkeep) unmounts Ask AI; the
-    // panel stays open in the store for the way back.
+    // Unmounting Ask AI gives the page its room back; the panel stays open
+    // in the store for when it mounts again.
     setViewport(1440);
     const view = renderAsk();
     await act(async () => askStore.open());

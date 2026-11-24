@@ -30,13 +30,12 @@ type Props = {
 
 /**
  * Root layout of the /developers landing and the docs (/developers/docs,
- * /developers/cookbook, /learn/<article>). They wear the docs header and
- * footer, so the site Header and Footer are left out, and the client gets
- * only the messages its components read (cookie banner, landing calculator,
- * newsletter form, Ask AI and Inkeep), not the whole site's. The assistant
- * lives here (DocsAssistant): Ask AI and its docs search on
- * /developers/docs, so a conversation survives moving between docs pages,
- * and Inkeep's chat and search on the other routes.
+ * /developers/cookbook). They wear the docs header and footer, so the site
+ * Header and Footer are left out, and the client gets only the messages its
+ * components read (cookie banner, landing calculator, newsletter form, Ask
+ * AI and the docs search), not the whole site's. The assistant lives here
+ * (DocsAssistant): Ask AI and the docs search on every page, so a
+ * conversation survives moving between pages.
  */
 export default async function DocsRootLayout({ children, params }: Props) {
   const { locale = "en" } = await params;
@@ -67,7 +66,7 @@ export default async function DocsRootLayout({ children, params }: Props) {
           <SitewideTopAlert />
           <CookieConsent />
           {/* Before the page: a panel left docked keeps its room from the
-              first paint (on the docs only, see the script). */}
+              first paint (see the script). */}
           <script
             // Static string, no user input.
             dangerouslySetInnerHTML={{ __html: DOCS_ASK_PREPAINT_SCRIPT }}

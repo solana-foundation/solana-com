@@ -1,13 +1,10 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "./cn";
-import { isAskAiPath } from "@/lib/docs/ask-ai";
 import { askStore } from "@/lib/docs/ask/store";
 import { useAskSelector } from "@/lib/docs/ask/use-ask";
-import { useHydrated } from "@/lib/docs/use-hydrated";
 import { ASK_PANEL_ID } from "./ask-panel.client";
 import { focusRing } from "./ui";
 
@@ -39,25 +36,17 @@ const warmProps = {
  * The docs header's ✨ (below 1280px, where there's no floating pill). It
  * opens through `[data-docs-ask-open]` (DOCS_ASK_OPEN_ATTR) like the
  * page's other openers; the header (a server component) sets its look.
- * `byPath`: for the prerendered 404, whose render doesn't know the URL;
- * shown once hydrated, on a /developers/docs URL only (isAskAiPath), as
- * the panel is (components/docs/docs-assistant.client.tsx).
  */
 export function AskHeaderButton({
   label,
   className,
   children,
-  byPath = false,
 }: {
   label: string;
   className?: string;
   children: ReactNode;
-  byPath?: boolean;
 }) {
   const state = useLauncherState();
-  const pathname = usePathname();
-  const hydrated = useHydrated();
-  if (byPath && !(hydrated && isAskAiPath(pathname))) return null;
   return (
     <button
       type="button"

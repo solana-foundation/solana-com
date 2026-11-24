@@ -180,6 +180,9 @@ const nextConfig: NextConfig = {
     // Webpack heap isolated so Vercel has memory available for type-checking.
     webpackBuildWorker: true,
     webpackMemoryOptimizations: true,
+    // Import only the ui-chrome modules the app uses, not its whole barrel
+    // (the site header and the Inkeep widget among them).
+    optimizePackageImports: ["@solana-com/ui-chrome"],
   },
 
   // The social images read their backgrounds, logo and fonts from disk.

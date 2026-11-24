@@ -1,8 +1,6 @@
 /**
- * Event the docs search listens for, sent by the docs header's search
- * field: on /developers/docs the agent's (components/docs/ask/
- * ask-search.client.tsx), elsewhere Inkeep's (components/docs/
- * inkeep.client.tsx).
+ * Event the docs search (components/docs/ask/ask-search.client.tsx) listens
+ * for, sent by the docs header's search field.
  */
 export const DOCS_SEARCH_OPEN_EVENT = "docs-search:open";
 

@@ -6,8 +6,7 @@ import Script from "next/script";
  * recorded output, Playground links, in-page video playback and the agent
  * banner's Copy button. Each script delegates from `document` and survives
  * client-side navigation. The search hand-off, the theme toggle and the
- * logo link are React now (docs-header, ask/ask-search.client,
- * inkeep.client).
+ * logo link are React now (docs-header, ask/ask-search.client).
  * They load once the page has, so they don't compete with its first paint.
  */
 const SCRIPTS = [
