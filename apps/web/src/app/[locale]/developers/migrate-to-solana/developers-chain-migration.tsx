@@ -9,6 +9,7 @@ import { Check } from "@boxicons/react/Check";
 import { CheckShield } from "@boxicons/react/CheckShield";
 import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { Code } from "@boxicons/react/Code";
+import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
 import { Coins } from "@boxicons/react/Coins";
 import { FileDetail as FileText } from "@boxicons/react/FileDetail";
 import { Lock } from "@boxicons/react/Lock";
@@ -66,6 +67,7 @@ const CATEGORY_ICONS: Record<
   rpc: Server,
   wallets: Wallet,
   tokens: Coins,
+  liquidity: ArrowLeftRight,
   security: CheckShield,
   multisig: Lock,
 };

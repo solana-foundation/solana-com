@@ -39,7 +39,7 @@ export type MigrationPartner = {
 
 export type PartnerCategory = {
   /** i18n key under partners.categories.<key> */
-  key: "rpc" | "wallets" | "tokens" | "security" | "multisig";
+  key: "rpc" | "wallets" | "tokens" | "liquidity" | "security" | "multisig";
   partners: MigrationPartner[];
 };
 
@@ -95,20 +95,48 @@ export const PARTNER_CATEGORIES: PartnerCategory[] = [
     ],
   },
   {
+    // Native Solana tokens: issue a new token and move holders over with a
+    // claim or airdrop, rather than bridging the old one.
     key: "tokens",
     partners: [
       {
-        id: "wormhole",
-        name: "Wormhole",
-        url: "https://wormhole.com",
+        id: "metaplex",
+        name: "Metaplex",
+        url: "https://www.metaplex.com",
         status: "pending",
+        companyId: "metaplex",
       },
+      {
+        id: "streamflow",
+        name: "Streamflow",
+        url: "https://streamflow.finance",
+        status: "pending",
+        companyId: "streamflow",
+      },
+    ],
+  },
+  {
+    key: "liquidity",
+    partners: [
       {
         id: "jupiter",
         name: "Jupiter",
         url: "https://jup.ag",
         status: "pending",
         companyId: "jupiter",
+      },
+      {
+        id: "raydium",
+        name: "Raydium",
+        url: "https://raydium.io",
+        status: "pending",
+        companyId: "raydium",
+      },
+      {
+        id: "meteora",
+        name: "Meteora",
+        url: "https://www.meteora.ag",
+        status: "pending",
       },
     ],
   },
