@@ -239,7 +239,7 @@ const moduleExports = (phase: string): NextConfig => {
   return plugins.reduce<NextConfig>((acc, next) => next(acc), config);
 };
 
-export default withSentryConfig(moduleExports, {
+const sentryConfig = withSentryConfig(moduleExports, {
   org: "solana-fndn",
   project: "javascript-nextjs",
   silent: !process.env.CI,
@@ -251,3 +251,33 @@ export default withSentryConfig(moduleExports, {
       process.env.VERCEL_ENV !== "production" || !process.env.SENTRY_AUTH_TOKEN,
   },
 });
+
+type WebpackFn = NonNullable<NextConfig["webpack"]>;
+
+// Source maps for the browser bundles only. The server bundles hold every
+// compiled MDX page, and their maps take the production build past its 4 GB
+// heap. Sentry turns maps on for any build whose devtool is unset, so this
+// runs after its webpack step.
+export default async function config(
+  phase: string,
+  context: { defaultConfig: NextConfig },
+): Promise<NextConfig> {
+  const resolved: NextConfig =
+    typeof sentryConfig === "function"
+      ? await (
+          sentryConfig as (
+            phase: string,
+            context: { defaultConfig: NextConfig },
+          ) => NextConfig | Promise<NextConfig>
+        )(phase, context)
+      : sentryConfig;
+  const sentryWebpack = resolved.webpack;
+  const webpack: WebpackFn = (webpackConfig, options) => {
+    const out = sentryWebpack
+      ? sentryWebpack(webpackConfig, options)
+      : webpackConfig;
+    if (options.isServer) out.devtool = false;
+    return out;
+  };
+  return { ...resolved, webpack };
+}
