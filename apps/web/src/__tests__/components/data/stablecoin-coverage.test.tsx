@@ -7,11 +7,15 @@ import { loadMergedMessages } from "@workspace/i18n/messages";
 import {
   filterRows,
   formatRowNumber,
+  getVisibleCoverageProviders,
   getRowNumbers,
   shortenAddress,
   StablecoinCoverageTable,
 } from "@/app/[locale]/data/stablecoin-coverage";
-import type { StablecoinCoverageRow } from "@/app/[locale]/data/stablecoin-coverage-data";
+import type {
+  StablecoinCoverageProvider,
+  StablecoinCoverageRow,
+} from "@/app/[locale]/data/stablecoin-coverage-data";
 
 let messages: AbstractIntlMessages;
 
@@ -38,7 +42,11 @@ const rows: StablecoinCoverageRow[] = Array.from(
 
 function renderTable(
   tableRows = rows,
-  props: { error?: Error; isLoading?: boolean } = {},
+  props: {
+    error?: Error;
+    isLoading?: boolean;
+    providers?: StablecoinCoverageProvider[];
+  } = {},
 ) {
   render(
     <NextIntlClientProvider locale="en" messages={messages}>
@@ -179,7 +187,50 @@ describe("StablecoinCoverageTable", () => {
   });
 });
 
+describe("StablecoinCoverageTable provider columns", () => {
+  it("shows only the given providers' columns and marks", () => {
+    renderTable(rows, { providers: ["DeFiLlama", "Top Ledger"] });
+
+    const table = screen.getByRole("table", { name: tableName });
+    expect(
+      within(table).queryByRole("columnheader", { name: "Allium" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(table).getByRole("columnheader", { name: "Top Ledger" }),
+    ).toBeInTheDocument();
+    // TOKEN0: DeFiLlama covered, Top Ledger not
+    const firstRow = within(table).getByRole("row", { name: /TOKEN0 / });
+    expect(within(firstRow).getAllByText("Covered")).toHaveLength(1);
+    expect(within(firstRow).getAllByText("Not covered")).toHaveLength(1);
+  });
+});
+
 describe("stablecoin coverage helpers", () => {
+  it("hides providers that are listed in the selector but deselected", () => {
+    const available = ["Allium", "Artemis", "DeFiLlama", "Dune", "Top Ledger"];
+    expect(
+      getVisibleCoverageProviders(new Set(["DeFiLlama", "Dune"]), available),
+    ).toEqual(["DeFiLlama", "Dune"]);
+    expect(getVisibleCoverageProviders(new Set(available), available)).toEqual([
+      "Allium",
+      "DeFiLlama",
+      "Dune",
+      "Top Ledger",
+    ]);
+  });
+
+  it("keeps providers the selector doesn't list, e.g. before it loads", () => {
+    expect(getVisibleCoverageProviders(new Set(), [])).toEqual([
+      "Allium",
+      "DeFiLlama",
+      "Dune",
+      "Top Ledger",
+    ]);
+    expect(
+      getVisibleCoverageProviders(new Set(["Dune"]), ["Allium", "Dune"]),
+    ).toEqual(["DeFiLlama", "Dune", "Top Ledger"]);
+  });
+
   it("shortens mint addresses", () => {
     expect(shortenAddress("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v")).toBe(
       "EPjF…Dt1v",

@@ -15,6 +15,7 @@ import { useTranslations } from "@workspace/i18n/client";
 
 import {
   stablecoinCoverageProviders,
+  type StablecoinCoverageProvider,
   type StablecoinCoverageRow,
 } from "./stablecoin-coverage-data";
 
@@ -24,12 +25,15 @@ const visibleTokenCount = 6;
 type StablecoinCoverageTableProps = {
   error?: Error;
   isLoading?: boolean;
+  /** Provider columns to show, in order (see getVisibleCoverageProviders). */
+  providers?: readonly StablecoinCoverageProvider[];
   rows: StablecoinCoverageRow[];
 };
 
 export function StablecoinCoverageTable({
   error,
   isLoading = false,
+  providers = stablecoinCoverageProviders,
   rows,
 }: StablecoinCoverageTableProps) {
   const t = useTranslations("dataDashboard");
@@ -125,7 +129,7 @@ export function StablecoinCoverageTable({
               >
                 {t("stablecoinCoverage.mintAddress")}
               </th>
-              {stablecoinCoverageProviders.map((provider) => (
+              {providers.map((provider) => (
                 <th
                   className="sticky top-0 z-10 border-b border-nd-border-light bg-nd-inverse px-3 py-3 text-center"
                   key={provider}
@@ -154,7 +158,7 @@ export function StablecoinCoverageTable({
                 <td className="border-t border-nd-border-light px-4 py-3">
                   <MintAddressLink mintAddress={row.mintAddress} />
                 </td>
-                {stablecoinCoverageProviders.map((provider) => (
+                {providers.map((provider) => (
                   <td
                     className="border-t border-nd-border-light px-3 py-3 text-center"
                     key={provider}
@@ -188,7 +192,7 @@ export function StablecoinCoverageTable({
               <MintAddressLink mintAddress={row.mintAddress} />
             </div>
             <dl className="mt-3 grid grid-cols-3 gap-x-4 gap-y-2">
-              {stablecoinCoverageProviders.map((provider) => (
+              {providers.map((provider) => (
                 <div className="flex items-center gap-2" key={provider}>
                   <dt className="font-brand-mono text-[10px] font-bold uppercase text-nd-mid-em-text">
                     {provider}
@@ -328,6 +332,22 @@ export function shortenAddress(address: string) {
   return address.length > 10
     ? `${address.slice(0, 4)}…${address.slice(-4)}`
     : address;
+}
+
+/**
+ * The coverage columns to show for the dashboard's provider selection. A
+ * provider is hidden only when the selector lists it and it's deselected;
+ * one the selector doesn't list (or before its options load) stays visible,
+ * since there's no way to turn it back on.
+ */
+export function getVisibleCoverageProviders(
+  selectedProviders: ReadonlySet<string>,
+  availableProviders: readonly string[],
+) {
+  return stablecoinCoverageProviders.filter(
+    (provider) =>
+      !availableProviders.includes(provider) || selectedProviders.has(provider),
+  );
 }
 
 export function filterRows(rows: StablecoinCoverageRow[], query: string) {

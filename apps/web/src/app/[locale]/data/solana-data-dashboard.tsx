@@ -68,7 +68,10 @@ import {
 import { DataResourceCarousel } from "./dashboard-resources";
 import { ProviderLinkTable } from "./provider-link-table";
 import { SenderProviderExperience } from "./sender-provider-experience";
-import { StablecoinCoverageTable } from "./stablecoin-coverage";
+import {
+  getVisibleCoverageProviders,
+  StablecoinCoverageTable,
+} from "./stablecoin-coverage";
 import type {
   StablecoinCoverageResponse,
   StablecoinCoverageRow,
@@ -172,6 +175,10 @@ export function SolanaDataDashboard() {
   );
   const selectedProviderList = useMemo(
     () => getSelectedProviderList(selectedProviders, availableProviders),
+    [availableProviders, selectedProviders],
+  );
+  const coverageProviders = useMemo(
+    () => getVisibleCoverageProviders(selectedProviders, availableProviders),
     [availableProviders, selectedProviders],
   );
   const updateQuery = useDashboardQueryUpdater(
@@ -384,6 +391,7 @@ export function SolanaDataDashboard() {
                 <StablecoinCoverageTable
                   error={stablecoinCoverageError}
                   isLoading={isStablecoinCoverageLoading}
+                  providers={coverageProviders}
                   rows={stablecoinCoverage?.rows ?? emptyCoverageRows}
                 />
               ) : null}
