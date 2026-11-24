@@ -58,6 +58,15 @@ const HEADER_ID = "dh";
  */
 const MENU_AFTER_ASK = "max-lg:[[data-docs]_&]:order-3";
 
+/**
+ * From 1024px to 1079px on docs pages the ✨ tile takes the room the last
+ * tab needs (docs.css spaces the compact bar for a header without it), so
+ * the bar's side padding and the tab gap shrink there; the landing, which
+ * doesn't load docs.css, keeps its own spacing.
+ */
+const COMPACT_BAR = "lg:max-[1079px]:[[data-docs]_&]:!px-8";
+const COMPACT_TABS = "lg:max-[1079px]:[[data-docs]_&>ul]:!gap-2.5";
+
 function languageHref(code: string, paths?: Record<string, string>) {
   if (paths?.[code]) return paths[code];
   return code === "en" ? "/developers" : `/${code}/developers`;
@@ -126,13 +135,18 @@ function Tabs({
   tabs,
   label,
   activeTab,
+  className,
 }: {
   tabs: DocsTab[];
   label: string;
   activeTab?: string;
+  className?: string;
 }) {
   return (
-    <nav className="dh-tabs" aria-label={label}>
+    <nav
+      className={className ? `dh-tabs ${className}` : "dh-tabs"}
+      aria-label={label}
+    >
       <ul>
         {tabs.map((tab, index) => (
           <li
@@ -199,7 +213,7 @@ export async function DocsHeader({
       <a href={activeTab ? "#content-area" : "#dl-main"} className="dh-skip">
         {t("skip")}
       </a>
-      <div className="dh-bar">
+      <div className={`dh-bar ${COMPACT_BAR}`}>
         <a
           href={localizedHref(locale, "/developers")}
           className="dh-logo"
@@ -207,7 +221,12 @@ export async function DocsHeader({
         >
           <SolanaLogo gradientId="dh-logo-g" developers />
         </a>
-        <Tabs tabs={tabs} label={t("sections")} activeTab={activeTab} />
+        <Tabs
+          tabs={tabs}
+          label={t("sections")}
+          activeTab={activeTab}
+          className={COMPACT_TABS}
+        />
         <div className="dh-tools">
           <DocsSearchField action={docsRoot} prompt={DOCS_SEARCH_PROMPT} />
           <a
