@@ -1,0 +1,172 @@
+---
+title: Deployment-Assets
+description: Den Build Ihres Programms für das Deployment auf Mainnet vorbereiten
+---
+
+Stellen Sie sicher, dass Sie Folgendes bereithalten, bevor Sie Ihre Anwendung auf Mainnet deployen:
+
+- Die ELF-Datei des Programms – in der Regel das Ergebnis von `anchor build` oder
+  `cargo-build-sbf`, die auf `.so` endet
+- Das keypair des Programms – eine JSON-Datei mit einem Array von Ganzzahlen
+
+In diesem Abschnitt beschreiben wir, wo Sie diese Assets finden und wie Sie sie
+vorbereiten.
+
+## ELF-Datei vorbereiten [#preparing-your-elf-file]
+
+Die ELF-Datei enthält den kompilierten Bytecode, Informationen zum Speicherlayout und
+Metadaten, die die Solana Virtual Machine (SVM) benötigt, um zu verstehen, wie Ihr Programm
+geladen und ausgeführt wird. Die ELF-Datei wird erstellt, wenn Ihr Quellcode kompiliert wird.
+
+Um Ihre ELF-Datei zu erstellen, können Sie für Anchor den folgenden Befehl ausführen:
+
+```bash
+anchor build
+```
+
+oder für andere Frameworks den folgenden:
+
+```bash
+cargo build-sbf
+```
+
+Ihre ELF-Datei finden Sie anschließend in einem Verzeichnis wie
+`target/deploy/<PROGRAM_NAME>.so`.
+
+Ihr Programm ist bereit, wenn die ELF-Datei für
+[sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3) kompiliert wurde. Um
+Ihr Programm zu überprüfen, können Sie unter Linux den folgenden Befehl ausführen:
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Und unter macOS die folgenden Befehle:
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+Wenn Sie eine Ausgabe wie die folgende sehen, ist Ihr Programm bereit:
+
+```
+  Flags:                             0x3
+```
+
+Falls nicht, folgen Sie der Migrationsanleitung, die
+[hier](https://solana.com/upgrades/sbpfv3-programs) verlinkt ist.
+
+## Programmadresse vorbereiten [#preparing-your-program-address]
+
+Ihre Programmadresse ist die Programm-ID, mit der Sie die Anweisungen Ihres Programms aufrufen. Sie können entweder 1) das beim Build generierte keypair des Programms verwenden, 2) ein neues keypair grinden, dessen Adresse mit einem benutzerdefinierten Präfix beginnt, oder 3) Adressen für Konten aus einer Basisadresse und einem seed ableiten. Die ersten beiden Optionen erzeugen ein keypair, das für das program account signieren kann. Konten, die mit einem seed erstellt wurden, haben keinen eigenen privaten Schlüssel; sie werden von ihren Basiskonten kontrolliert.
+
+### Das generierte keypair verwenden
+
+Standardmäßig legen `anchor build` und `cargo build-sbf` das keypair des Programms hier ab:
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+Sichern Sie diese Datei, bevor Sie das Build-Verzeichnis bereinigen. Jeder mit Zugriff auf das
+keypair kann als das program account signieren, committen Sie es daher nicht in die Versionsverwaltung.
+
+### Ein keypair mit benutzerdefiniertem Präfix grinden
+
+Verwenden Sie [`vanity`](https://github.com/cavemanloverboy/vanity), um nach einem
+Ed25519-keypair zu suchen, dessen öffentlicher Schlüssel mit einem bestimmten base58-Präfix beginnt. Installieren Sie
+die CPU-Version von crates.io:
+
+```bash
+cargo install vanity
+```
+
+Das Projekt bietet außerdem CUDA-, Metal- und OpenCL-Builds für GPU-beschleunigte
+Suchen. Die Anforderungen der einzelnen Backends finden Sie in den Installationsanweisungen von `vanity`.
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+Sobald `vanity` einen Treffer findet, gibt es den öffentlichen Schlüssel, den privaten seed als Hex-Wert
+und ein Solana-kompatibles keypair als JSON-Array aus. Speichern Sie die JSON-Datei an einem sicheren
+Ort und prüfen Sie anschließend, ob sie den erwarteten öffentlichen Schlüssel enthält:
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+Behandeln Sie die Ausgabe des Befehls und die gespeicherte JSON-Datei wie privates Schlüsselmaterial.
+
+### Konten mit einem seed erstellen
+
+Für eine schnellere Suche durchsucht `vanity grind` seed-Strings für
+`CreateAccountWithSeed`, anstatt Ed25519-keypairs zu generieren. Geben Sie den
+öffentlichen Schlüssel des Basiskontos an, das die Erstellung autorisiert, den Eigentümer der Konten
+und das gesuchte Präfix an. Für ein upgradefähiges program account verwenden Sie den
+upgradeable BPF Loader als Eigentümer:
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+Das Ergebnis enthält die abgeleitete Adresse und einen seed-String. Überprüfen Sie beides, bevor Sie
+die Konten erstellen:
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+Verwenden Sie dieselbe Basisadresse, denselben seed und denselben Eigentümer, um die Adresse mit
+`Pubkey::create_with_seed` abzuleiten, und senden Sie anschließend eine System Program-Anweisung
+`create_account_with_seed`. Das Basiskonto und das Finanzierungskonto
+müssen die Transaktion signieren. Da abgeleitete Konten kein eigenständiges
+keypair besitzen, erfordert diese Option einen Ablauf zur Kontoerstellung und zum Deployment, der
+das Basiskonto statt einer keypair-Datei des Programms verwendet.
+
+### Programmadresse im Quellcode aktualisieren
+
+Nachdem Sie sich für ein keypair oder für Konten mit seed entschieden haben, verwenden Sie deren öffentliche Adresse als
+Programm-ID überall dort, wo das Projekt sie deklariert. Enthält der Quellcode noch die
+alte Adresse, können Clients Anweisungen an das falsche Programm senden, und Laufzeitprüfungen
+der ID können fehlschlagen.
+
+Aktualisieren Sie in einem Anchor-Workspace sowohl den Programmeintrag in der `Anchor.toml` im Stammverzeichnis
+als auch den Aufruf von `declare_id!` in `programs/<PROGRAM_NAME>/src/lib.rs`. Der
+Schlüssel unter `[programs.<CLUSTER>]` ist der Workspace-Name des Programms. Aktualisieren Sie jede
+Cluster-Tabelle, in der Sie die neue Adresse verwenden möchten; das folgende Beispiel aktualisiert
+Mainnet.
+
+In Anchor.toml:
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+In `programs/<your_program>/lib.rs`:
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio verwendet keine `Anchor.toml`. Aktualisieren Sie den Aufruf von `declare_id!` in der
+`src/lib.rs` des Programm-Crates. Aktuelle Pinocchio-Projekte importieren das Makro aus
+`pinocchio::address`.
+
+Quasar deklariert die Adresse ebenfalls in der `src/lib.rs` des Onchain-Programm-Crates und
+verwendet keine `Anchor.toml`. Das Makro `declare_id!` ist über
+`quasar_lang::prelude::*` verfügbar.
+
+Bauen Sie das Programm neu und generieren Sie alle IDL- oder Client-Artefakte neu, nachdem Sie die Adresse geändert haben.
+Durchsuchen Sie außerdem Deployment-Skripte, Tests und die Anwendungskonfiguration
+nach der alten Programm-ID und ersetzen Sie alle hartcodierten Verweise.

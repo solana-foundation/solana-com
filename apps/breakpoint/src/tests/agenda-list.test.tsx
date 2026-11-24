@@ -118,19 +118,24 @@ function titles() {
 }
 
 describe("AgendaList", () => {
-  it.each(["2026-11-17T10:00:00Z", "2026-11-18T10:00:00Z"])(
-    "opens on Day 2 on and after November 17 (%s)",
-    (now) => {
-      vi.setSystemTime(new Date(now));
-      renderList(items);
+  it.each([
+    "2026-11-15T10:00:00Z",
+    "2026-11-17T10:00:00Z",
+    "2026-11-18T10:00:00Z",
+  ])("opens on Day 1 regardless of the current date (%s)", (now) => {
+    vi.setSystemTime(new Date(now));
+    renderList(items);
 
-      expect(screen.getByRole("tab", { name: /Day 2/ })).toHaveAttribute(
-        "aria-selected",
-        "true",
-      );
-      expect(titles()).toEqual(["The Machine Economy"]);
-    },
-  );
+    expect(screen.getByRole("tab", { name: /Day 1/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(titles()).toEqual([
+      "MoneyGram Ramps",
+      "Unlocking Private Markets",
+      "Lunch",
+    ]);
+  });
 
   it.each(["session", "static"] as const)(
     "shows pre-event registration as a %s regardless of the selected stage",

@@ -623,7 +623,7 @@ export function DeliveryVsPaymentPage({
               </p>
               <div className="mt-7 flex flex-wrap gap-x-8 gap-y-4">
                 <ChromeLink
-                  href="/docs/defi/dvp-program"
+                  href="/developers/docs/defi/dvp-program"
                   hrefLang="en"
                   className="inline-flex items-center gap-2 font-brand-mono text-xs uppercase tracking-[0.1em] text-white transition-colors hover:text-nd-highlight-green focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                 >

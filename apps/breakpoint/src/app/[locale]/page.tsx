@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTranslations } from "@workspace/i18n/server";
+import PostConferenceSection from "@/components/sections/post/PostConferenceSection";
 import HeroSection from "@/components/sections/HeroSection";
 import PageShell from "@/components/PageShell";
 import Marquee from "@/components/Marquee";
@@ -53,9 +54,14 @@ export default async function HomePage({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "breakpoint" });
   const initialNow = Date.now();
-  const jsonLd = await buildBreakpointJsonLd(locale);
+  const jsonLd = await buildBreakpointJsonLd(
+    locale,
+    resolveConferenceState(await searchParams),
+  );
   const requestSearchParams = await searchParams;
-  const live = isLiveConference(resolveConferenceState(requestSearchParams));
+  const state = resolveConferenceState(requestSearchParams);
+  const live = isLiveConference(state);
+  const post = state === "post";
   const nextEdition = isNextEditionVisible(requestSearchParams) ? (
     <NextEditionBar announcement={NEXT_EDITION} />
   ) : null;
@@ -68,7 +74,7 @@ export default async function HomePage({
       navigation={
         // The main nav button goes to registration for the next edition.
         {
-          ctaAlwaysVisible: live,
+          ctaAlwaysVisible: live || post,
           ctaHref: "/registration",
           ctaLabel: t("nextEdition.navCta", {
             shortName: NEXT_EDITION.shortName,
@@ -83,7 +89,18 @@ export default async function HomePage({
         />
       }
     >
-      {live ? (
+      {post ? (
+        <>
+          <PostConferenceSection
+            locale={locale}
+            showNextEdition={isNextEditionVisible(requestSearchParams)}
+          />
+          <EventsSection postConference />
+          <AnnouncementsSection postConference />
+          <SpeakersSection />
+          <SponsorsSection />
+        </>
+      ) : live ? (
         <>
           <LiveScheduleProvider
             allowClockPreview={!isProductionDeployment()}
@@ -123,7 +140,14 @@ export default async function HomePage({
           <FAQSection />
         </>
       )}
-      <Footer />
+      <Footer
+        nextEdition={
+          post && isNextEditionVisible(requestSearchParams)
+            ? NEXT_EDITION
+            : undefined
+        }
+        hideCountdown={post}
+      />
     </PageShell>
   );
 }

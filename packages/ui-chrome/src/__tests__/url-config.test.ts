@@ -59,4 +59,20 @@ describe("cross-app URL configuration", () => {
     expect(shouldUseNextLink("/changelog")).toBe(true);
     expect(shouldUseNextLink("/changelog/rss.xml")).toBe(true);
   });
+
+  it("treats /developers/docs as a docs app route", async () => {
+    const webShouldUseNextLink = await loadShouldUseNextLink();
+
+    expect(webShouldUseNextLink("/developers/docs")).toBe(false);
+    expect(webShouldUseNextLink("/developers/docs/core")).toBe(false);
+    expect(webShouldUseNextLink("/developers/payments")).toBe(true);
+
+    const docsShouldUseNextLink = await loadShouldUseNextLink("docs");
+
+    expect(docsShouldUseNextLink("/developers")).toBe(true);
+    expect(docsShouldUseNextLink("/developers/docs")).toBe(true);
+    expect(docsShouldUseNextLink("/developers/docs/core")).toBe(true);
+    expect(docsShouldUseNextLink("/developers/docsearch")).toBe(false);
+    expect(docsShouldUseNextLink("/developers/payments")).toBe(false);
+  });
 });

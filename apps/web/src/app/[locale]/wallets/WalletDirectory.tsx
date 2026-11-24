@@ -1265,11 +1265,11 @@ export function WalletDirectory({
           <p>{t("builders.description")}</p>
         </div>
         <div className={styles.builderLinks}>
-          <a href="https://solana.com/docs/frontend/react-hooks">
+          <a href="https://solana.com/developers/docs/frontend/react-hooks">
             {t("builders.reactWalletConnection")}{" "}
             <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>
-          <a href="https://solana.com/docs/core/transactions/signing-in-production">
+          <a href="https://solana.com/developers/docs/core/transactions/signing-in-production">
             {t("builders.productionSigning")}{" "}
             <ExternalLink width={15} height={15} aria-hidden="true" />
           </a>

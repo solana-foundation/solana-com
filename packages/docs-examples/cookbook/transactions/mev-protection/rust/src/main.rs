@@ -76,30 +76,32 @@ async fn main() -> anyhow::Result<()> {
     let serialized = bincode::serialize(&transaction)?;
     let base64_tx = STANDARD.encode(&serialized);
 
-    // Send via Jito block engine (not standard RPC). In tests we just verify the
-    // transaction builds + serializes — the actual block-engine submit needs a
-    // reachable Jito endpoint.
-    let client = reqwest::Client::new();
-    match client
-        .post(JITO_ENDPOINT)
-        .header("Content-Type", "application/json")
-        .json(&serde_json::json!({
-            "jsonrpc": "2.0",
-            "id": 1,
-            "method": "sendTransaction",
-            "params": [base64_tx, {"encoding": "base64"}]
-        }))
-        .send()
-        .await
-    {
-        Ok(response) => match response.json::<serde_json::Value>().await {
-            Ok(body) => match body["result"].as_str() {
-                Some(signature) => println!("Sent with dontfront protection: {signature}"),
-                None => eprintln!("Jito returned: {:?}", body),
-            },
-            Err(e) => eprintln!("Failed to parse Jito response: {}", e),
-        },
-        Err(e) => eprintln!("Jito submission failed (expected in offline tests): {}", e),
+    // Sending through Jito submits a real mainnet transaction, so it is off by
+    // default and the example prints the signed transaction instead. To send it,
+    // sign with a funded mainnet keypair, take the blockhash from a mainnet RPC
+    // node, and set SEND_TO_JITO=1.
+    if std::env::var("SEND_TO_JITO").as_deref() == Ok("1") {
+        // Send via Jito's block engine, not a regular RPC node.
+        let response = reqwest::Client::new()
+            .post(JITO_ENDPOINT)
+            .json(&serde_json::json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "sendTransaction",
+                "params": [base64_tx, {"encoding": "base64"}]
+            }))
+            .send()
+            .await?;
+        let status = response.status();
+        let body: serde_json::Value = response.json().await?;
+        match body["result"].as_str() {
+            Some(signature) if status.is_success() && body.get("error").is_none() => {
+                println!("Sent with dontfront protection: {signature}")
+            }
+            _ => anyhow::bail!("Jito rejected the transaction (HTTP {status}): {body}"),
+        }
+    } else {
+        println!("Signed transaction (base64): {base64_tx}");
     }
 
     Ok(())

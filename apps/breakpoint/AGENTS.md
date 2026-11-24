@@ -123,10 +123,18 @@ narrowly extended.
 
 ## Live Event State
 
-The home page has two editions, chosen by `CONFERENCE_STATE` in
+The home page has three editions, chosen by `CONFERENCE_STATE` in
 `src/content/conference-state.ts` (`pre` | `live` | `post`). Flipping the
 constant and merging is the release; there is no runtime toggle.
 
+- `post` leads with BP27 registration and the next-edition announcement, then
+  the 2026 Main Stage recording, a selection from the published agenda, past
+  highlighted November community events, announcements, speakers and sponsors.
+  It omits the expired ticket prompts, venue map, FAQ and countdown. Recap
+  selection lives in `src/content/post-conference.ts`; homepage copy is in the
+  `post` message namespace. Past events use a separate Luma cache and the past
+  calendar period. The post edition suppresses pre-event announcement fallbacks
+  when Media is unavailable.
 - `live` renders `src/components/sections/live/LiveEventSection.tsx` (stream
   hero plus today's sessions), the venue map, sponsors, speakers, side events
   and FAQ. `pre` renders the marketing page with the venue map after tickets and

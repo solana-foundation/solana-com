@@ -31,10 +31,9 @@ apps/templates/
 │   │       ├── page.tsx       # Template list
 │   │       └── [id]/          # Template detail pages and social images
 │   ├── components/            # React components
-│   │   ├── TemplateCard/
-│   │   ├── TemplateGrid/
-│   │   ├── FilterSidebar/
-│   │   └── SearchBar/
+│   │   ├── templates/         # Template grid, filters, and detail layouts
+│   │   ├── search/            # Search input, results, and modal
+│   │   └── header/            # App header components
 │   ├── fonts/                 # Custom fonts
 │   ├── i18n/                  # i18n configuration
 │   ├── lib/                   # Utility libraries

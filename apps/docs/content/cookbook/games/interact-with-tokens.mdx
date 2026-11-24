@@ -19,29 +19,28 @@ keywords:
   - anchor
   - games
   - example
+anchorAliases:
+  build-and-deploy: build-the-program
 ---
 
 Tokens on Solana can serve various purposes, such as in-game rewards,
 incentives, or other applications. For example, you can create tokens and
 distribute them to players when they complete specific in-game actions. In this
 example we will learn how to setup an Anchor program to mint and burn tokens in
-a game. If you want to instead learn how you can store tokens in a PDA you can
-check out the
-[Token Vault example](https://beta.solpg.io/tutorials/spl-token-vault) in Solana
-Playground.
+a game.
 
 ## Overview
 
 In this tutorial, we will build a game using Anchor to introduce the basics of
-interacting with the [Token Program](/docs/tokens) on Solana. The game will be
+interacting with the [Token Program](/developers/docs/tokens) on Solana. The game will be
 structured around four main actions: creating a new token mint, initializing
 player accounts, rewarding players for defeating enemies, and allowing players
 to heal by burning tokens.
 
-The program consists of 4 [instructions](/docs/core/instructions):
+The program consists of 4 [instructions](/developers/docs/core/instructions):
 
 - `create_mint` - this instruction creates a new token mint with a
-  [Program Derived Address (PDA)](/docs/core/pda) as the mint authority and
+  [program-derived address (PDA)](/developers/docs/core/pda) as the mint authority and
   creates the metadata account for the mint. We will add a constraint that
   allows only an "admin" to invoke this instruction
 - `init_player` - this instruction initializes a new player account with a
@@ -59,24 +58,102 @@ The program consists of 4 [instructions](/docs/core/instructions):
 
 ## Getting Started
 
-To start building the program, visit the
-[Solana Playground](https://beta.solpg.io/) and create a new Anchor project. If
-you're new to Solana Playground, you'll also need to create a Playground Wallet.
-You can also find the final example here called
-[Battle coins](https://beta.solpg.io/tutorials/battle-coins)
+You'll build the program and run its client on your machine with the Anchor
+CLI. Before you start,
+[install the Solana development tools](/developers/docs/quickstart). The
+installer sets up the Anchor CLI 1.1.2, the Solana CLI, Surfpool, Node.js, and
+Yarn, which this tutorial uses.
 
-After creating a new project, replace the default starter code with the code
-below:
+<Steps titleSize="h3">
 
-```rust title="lib.rs"
+<Step title="Create the project">
+
+Create a project with a single-file program and a Mocha test:
+
+```bash Terminal
+anchor init anchor-token --template single --test-template mocha --package-manager yarn
+cd anchor-token
+```
+
+`--package-manager yarn` sets the project up with Yarn. Without it,
+`anchor init` uses the first of pnpm, Yarn, and npm that it finds. The program
+is in `programs/anchor-token/src/lib.rs`, and the client you'll write is the
+test file, `tests/anchor-token.ts`.
+
+</Step>
+
+<Step title="Add the dependencies">
+
+In `programs/anchor-token/Cargo.toml`, add `anchor-spl` with its `metadata`
+feature, enable Anchor's `init-if-needed` feature (the `init_if_needed`
+constraint needs it), and add `anchor-spl/idl-build` to the `idl-build`
+feature. Keep the other `[features]` entries that `anchor init` created:
+
+```toml programs/anchor-token/Cargo.toml
+[features]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }
+anchor-spl = { version = "1.1.2", features = ["metadata"] }
+```
+
+The client uses the `@solana/spl-token` library. Add it with Yarn:
+
+```bash Terminal
+yarn add @solana/spl-token
+```
+
+</Step>
+
+<Step title="Load the Token Metadata program">
+
+`anchor test` runs the client against a local [Surfpool](/developers/docs/tools/surfpool)
+validator. The `create_mint` instruction calls the Token Metadata program,
+which the local validator doesn't have. Add this section to `Anchor.toml`:
+
+```toml Anchor.toml
+[surfpool]
+online = true
+```
+
+`anchor test` starts Surfpool offline unless `online` is `true`. Online,
+Surfpool loads accounts that a transaction uses but the local validator doesn't
+have, such as the Token Metadata program, from mainnet. Without this setting,
+`create_mint` fails with `InvalidProgramExecutable`.
+
+<Note>
+  To use `solana-test-validator` instead of Surfpool, add this to `Anchor.toml`
+  to clone the Token Metadata program from mainnet, then run
+  `anchor test --validator legacy` wherever this tutorial runs `anchor test`:
+
+  ```toml Anchor.toml
+  [test.validator]
+  url = "https://api.mainnet-beta.solana.com"
+
+  [[test.validator.clone]]
+  address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+  ```
+</Note>
+
+</Step>
+
+</Steps>
+
+Next, replace the starter code in `programs/anchor-token/src/lib.rs` with the
+code below:
+
+```rust lib.rs
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    metadata::{create_metadata_accounts_v3, CreateMetadataAccountsV3, Metadata},
+    metadata::{
+        create_metadata_accounts_v3,
+        mpl_token_metadata::{accounts::Metadata as MetadataAccount, types::DataV2},
+        CreateMetadataAccountsV3, Metadata,
+    },
     token::{burn, mint_to, Burn, Mint, MintTo, Token, TokenAccount},
 };
-use mpl_token_metadata::{pda::find_metadata_account, state::DataV2};
-use solana_program::{pubkey, pubkey::Pubkey};
 
 declare_id!("11111111111111111111111111111111");
 
@@ -87,9 +164,11 @@ pub mod anchor_token {
 ```
 
 Here we are simply bringing into scope the crates and corresponding modules we
-will be using for this program. We'll be using the `anchor_spl` and
-`mpl_token_metadata` crates to help us interact with the SPL Token program and
-Metaplex's Token Metadata program.
+will be using for this program. We'll be using the `anchor_spl` crate to
+interact with the SPL Token program, and its `metadata` module, which re-exports
+Metaplex's `mpl_token_metadata` crate, to interact with the Token Metadata
+program. You'll replace the `declare_id!` placeholder with your program's
+address when you [build the program](#build-the-program).
 
 ## Create Mint instruction
 
@@ -98,8 +177,14 @@ metadata account. The onchain token metadata, including the name, symbol, and
 URI, will be provided as parameters to the instruction.
 
 Additionally, we'll only allow an "admin" to invoke this instruction by defining
-an `ADMIN_PUBKEY` constant and using it as a constraint. Be sure to replace the
-`ADMIN_PUBKEY` with your Solana Playground wallet's public key.
+an `ADMIN_PUBKEY` constant and using it as a constraint. Be sure to replace
+`REPLACE_WITH_YOUR_WALLET_PUBKEY` in the `ADMIN_PUBKEY` line with the address of
+the wallet that signs the client's transactions. That's the `wallet` in
+`Anchor.toml`, `~/.config/solana/id.json` by default. Print its address with:
+
+```bash Terminal
+solana address -k ~/.config/solana/id.json
+```
 
 The `create_mint` instruction requires the following accounts:
 
@@ -116,7 +201,7 @@ The `create_mint` instruction requires the following accounts:
 - `system_program`- a required account when creating a new account
 - `rent` - Sysvar Rent, a required account when creating the metadata account
 
-```rust title="lib.rs" {2}
+```rust lib.rs
 // Only this public key can call this instruction
 const ADMIN_PUBKEY: Pubkey = pubkey!("REPLACE_WITH_YOUR_WALLET_PUBKEY");
 
@@ -133,7 +218,7 @@ pub mod anchor_token {
     ) -> Result<()> {
         // PDA seeds and bump to "sign" for CPI
         let seeds = b"reward";
-        let bump = *ctx.bumps.get("reward_token_mint").unwrap();
+        let bump = ctx.bumps.reward_token_mint;
         let signer: &[&[&[u8]]] = &[&[seeds, &[bump]]];
 
         // Onchain token metadata for the mint
@@ -149,7 +234,7 @@ pub mod anchor_token {
 
         // CPI Context
         let cpi_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_metadata_program.to_account_info(),
+            ctx.accounts.token_metadata_program.key(),
             CreateMetadataAccountsV3 {
                 metadata: ctx.accounts.metadata_account.to_account_info(), // the metadata account being created
                 mint: ctx.accounts.reward_token_mint.to_account_info(), // the mint account of the metadata account
@@ -197,7 +282,7 @@ pub struct CreateMint<'info> {
     ///CHECK: Using "address" constraint to validate metadata account address
     #[account(
         mut,
-        address=find_metadata_account(&reward_token_mint.key()).0
+        address = MetadataAccount::find_pda(&reward_token_mint.key()).0
     )]
     pub metadata_account: UncheckedAccount<'info>,
 
@@ -213,8 +298,11 @@ Address (PDA) as both the address of the token mint and its mint authority. The
 instruction takes a URI (offchain metadata), name, and symbol as parameters.
 
 This instruction then creates a metadata account for the token mint through a
-[Cross-Program Invocation (CPI)](/docs/core/cpi) calling the
+[Cross-Program Invocation (CPI)](/developers/docs/core/cpi) calling the
 `create_metadata_accounts_v3` instruction from the Token Metadata program.
+`CpiContext::new_with_signer` takes the address of the program to call
+(`ctx.accounts.token_metadata_program.key()`), the accounts that instruction
+needs, and the seeds the program signs with.
 
 The PDA is used to "sign" the CPI since it is the mint authority, which is a
 required signer when creating the metadata account for a mint. The instruction
@@ -243,7 +331,7 @@ The `init_player` instruction requires the following accounts:
   of the account
 - `system_program` - a required account when creating a new account
 
-```rust title="lib.rs"
+```rust lib.rs
 // Player max health
 const MAX_HEALTH: u8 = 100;
 
@@ -281,7 +369,7 @@ pub struct PlayerData {
 }
 ```
 
-The `player_data` account is initialized using a Program Derived Address (PDA)
+The `player_data` account is initialized using a program-derived address (PDA)
 with the `player` public key as one of the seeds. This ensures that each
 `player_data` account is unique and associated with the `player`, allowing every
 player to create their own `player_data` account.
@@ -305,7 +393,7 @@ The `kill_enemy` instruction requires the following accounts:
   accounts
 - `system_program` - a required account when creating a new account
 
-```rust title="lib.rs"
+```rust lib.rs
 #[program]
 pub mod anchor_token {
     use super::*;
@@ -322,12 +410,12 @@ pub mod anchor_token {
 
         // PDA seeds and bump to "sign" for CPI
         let seeds = b"reward";
-        let bump = *ctx.bumps.get("reward_token_mint").unwrap();
+        let bump = ctx.bumps.reward_token_mint;
         let signer: &[&[&[u8]]] = &[&[seeds, &[bump]]];
 
         // CPI Context
         let cpi_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             MintTo {
                 mint: ctx.accounts.reward_token_mint.to_account_info(),
                 to: ctx.accounts.player_token_account.to_account_info(),
@@ -395,7 +483,7 @@ The instruction then uses a cross-program invocation (CPI) to call the `mint_to`
 instruction from the Token program and mints 1 token of the `reward_token_mint`
 to the `player_token_account` as a reward for killing the enemy.
 
-Since the mint authority for the token mint is a Program Derived Address (PDA),
+Since the mint authority for the token mint is a program-derived address (PDA),
 we can mint tokens directly by calling this instruction without additional
 signers. The program can "sign" on behalf of the PDA, allowing token minting
 without explicitly requiring extra signers.
@@ -418,7 +506,7 @@ The `heal` instruction requires the following accounts:
 - `associated_token_program` - required when working with associated token
   accounts
 
-```rust title="lib.rs"
+```rust lib.rs
 #[program]
 pub mod anchor_token {
     use super::*;
@@ -430,7 +518,7 @@ pub mod anchor_token {
 
         // CPI Context
         let cpi_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Burn {
                 mint: ctx.accounts.reward_token_mint.to_account_info(),
                 from: ctx.accounts.player_token_account.to_account_info(),
@@ -485,22 +573,23 @@ instruction. The instruction then uses a cross-program invocation (CPI) to call
 the `burn` instruction from the Token program, which burns 1 token from the
 `player_token_account` to heal the player.
 
-## Build and Deploy
+## Build the Program
 
-Great job! You've now completed the program! Go ahead and build and deploy it
-using the Solana Playground. Your final program should look like this:
+You've now completed the program. Your final program should look like this:
 
-```rust title="lib.rs"
+```rust lib.rs
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    metadata::{create_metadata_accounts_v3, CreateMetadataAccountsV3, Metadata},
+    metadata::{
+        create_metadata_accounts_v3,
+        mpl_token_metadata::{accounts::Metadata as MetadataAccount, types::DataV2},
+        CreateMetadataAccountsV3, Metadata,
+    },
     token::{burn, mint_to, Burn, Mint, MintTo, Token, TokenAccount},
 };
-use mpl_token_metadata::{pda::find_metadata_account, state::DataV2};
-use solana_program::{pubkey, pubkey::Pubkey};
 
-declare_id!("CCLnXJAJYFjCHLCugpBCEQKrpiSApiRM4UxkBUHJRrv4");
+declare_id!("11111111111111111111111111111111");
 
 const ADMIN_PUBKEY: Pubkey = pubkey!("REPLACE_WITH_YOUR_WALLET_PUBKEY");
 const MAX_HEALTH: u8 = 100;
@@ -518,7 +607,7 @@ pub mod anchor_token {
     ) -> Result<()> {
         // PDA seeds and bump to "sign" for CPI
         let seeds = b"reward";
-        let bump = *ctx.bumps.get("reward_token_mint").unwrap();
+        let bump = ctx.bumps.reward_token_mint;
         let signer: &[&[&[u8]]] = &[&[seeds, &[bump]]];
 
         // Onchain token metadata for the mint
@@ -534,7 +623,7 @@ pub mod anchor_token {
 
         // CPI Context
         let cpi_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_metadata_program.to_account_info(),
+            ctx.accounts.token_metadata_program.key(),
             CreateMetadataAccountsV3 {
                 metadata: ctx.accounts.metadata_account.to_account_info(), // the metadata account being created
                 mint: ctx.accounts.reward_token_mint.to_account_info(), // the mint account of the metadata account
@@ -575,12 +664,12 @@ pub mod anchor_token {
 
         // PDA seeds and bump to "sign" for CPI
         let seeds = b"reward";
-        let bump = *ctx.bumps.get("reward_token_mint").unwrap();
+        let bump = ctx.bumps.reward_token_mint;
         let signer: &[&[&[u8]]] = &[&[seeds, &[bump]]];
 
         // CPI Context
         let cpi_ctx = CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             MintTo {
                 mint: ctx.accounts.reward_token_mint.to_account_info(),
                 to: ctx.accounts.player_token_account.to_account_info(),
@@ -604,7 +693,7 @@ pub mod anchor_token {
 
         // CPI Context
         let cpi_ctx = CpiContext::new(
-            ctx.accounts.token_program.to_account_info(),
+            ctx.accounts.token_program.key(),
             Burn {
                 mint: ctx.accounts.reward_token_mint.to_account_info(),
                 from: ctx.accounts.player_token_account.to_account_info(),
@@ -645,7 +734,7 @@ pub struct CreateMint<'info> {
     ///CHECK: Using "address" constraint to validate metadata account address
     #[account(
         mut,
-        address=find_metadata_account(&reward_token_mint.key()).0
+        address = MetadataAccount::find_pda(&reward_token_mint.key()).0
     )]
     pub metadata_account: UncheckedAccount<'info>,
 
@@ -745,30 +834,56 @@ pub enum ErrorCode {
 }
 ```
 
+Set the program's `declare_id!` to your project's program address, then build
+the program:
+
+```bash Terminal
+anchor keys sync
+anchor build
+```
+
+`anchor keys sync` writes the address of the program keypair that `anchor init`
+created into `declare_id!`. Without it, `anchor build` only warns
+`Program ID mismatch detected`, and the client fails with
+`DeclaredProgramIdMismatch`.
+
+If `anchor build` fails, see
+[Build your first program](/developers/docs/programs/build-first-program#run-test)
+for the workarounds that apply to your Anchor and Solana CLI versions.
+
 ## Get Started with the Client
 
 In this section, we'll walk you through a simple client-side implementation for
-interacting with the program. To get started, navigate to the `client.ts` file
-in Solana Playground, remove the placeholder code, and add the code snippets
+interacting with the program. The client is the project's Mocha test:
+`anchor test` builds the program, starts a local validator, deploys the program
+to it, and runs `tests/anchor-token.ts`. To get started, open
+`tests/anchor-token.ts`, remove the placeholder code, and add the code snippets
 from the following sections.
 
 Start by adding the following code for the setup.
 
-```js title="client.ts"
-import { Metaplex } from "@metaplex-foundation/js";
+```ts tests/anchor-token.ts
+import * as anchor from "@anchor-lang/core";
+import { Program } from "@anchor-lang/core";
 import { getMint, getAssociatedTokenAddressSync } from "@solana/spl-token";
+import { AnchorToken } from "../target/types/anchor_token";
+
+// Configure the client to use the local cluster
+const provider = anchor.AnchorProvider.env();
+anchor.setProvider(provider);
+
+const program = anchor.workspace.anchorToken as Program<AnchorToken>;
+const connection = provider.connection;
+const wallet = provider.wallet;
 
 // metaplex token metadata program ID
-const TOKEN_METADATA_PROGRAM_ID = new web3.PublicKey(
+const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey(
   "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
 );
 
-// metaplex setup
-const metaplex = Metaplex.make(pg.connection);
-
 // token metadata
 const metadata = {
-  uri: "https://raw.githubusercontent.com/solana-developers/program-examples/new-examples/tokens/tokens/.assets/spl-token.json",
+  uri: "https://raw.githubusercontent.com/solana-foundation/program-examples/main/tokens/.assets/spl-token.json",
   name: "Solana Gold",
   symbol: "GOLDSOL"
 };
@@ -776,49 +891,50 @@ const metadata = {
 // reward token mint PDA
 const [rewardTokenMintPda] = anchor.web3.PublicKey.findProgramAddressSync(
   [Buffer.from("reward")],
-  pg.PROGRAM_ID
+  program.programId
 );
 
 // player data account PDA
 const [playerPDA] = anchor.web3.PublicKey.findProgramAddressSync(
-  [Buffer.from("player"), pg.wallet.publicKey.toBuffer()],
-  pg.PROGRAM_ID
+  [Buffer.from("player"), wallet.publicKey.toBuffer()],
+  program.programId
 );
 
 // reward token mint metadata account address
-const rewardTokenMintMetadataPDA = await metaplex
-  .nfts()
-  .pdas()
-  .metadata({ mint: rewardTokenMintPda });
+const [rewardTokenMintMetadataPDA] = anchor.web3.PublicKey.findProgramAddressSync(
+  [
+    Buffer.from("metadata"),
+    TOKEN_METADATA_PROGRAM_ID.toBuffer(),
+    rewardTokenMintPda.toBuffer()
+  ],
+  TOKEN_METADATA_PROGRAM_ID
+);
 
 // player token account address
 const playerTokenAccount = getAssociatedTokenAddressSync(
   rewardTokenMintPda,
-  pg.wallet.publicKey
+  wallet.publicKey
 );
 ```
 
+`@anchor-lang/core` is Anchor's TypeScript client. `anchor.workspace.anchorToken`
+creates a client for the program from the IDL that `anchor build` writes to
+`target/idl/anchor_token.json`, typed with `target/types/anchor_token.ts`. The
+provider connects to the local validator that `anchor test` starts and signs
+with the `wallet` in `Anchor.toml`.
+
 Next, add the following two helper functions. These functions will be used to
-confirm transactions and fetch account data.
+log transaction signatures and fetch account data.
 
-```js
-async function logTransaction(txHash) {
-  const { blockhash, lastValidBlockHeight } =
-    await pg.connection.getLatestBlockhash();
-
-  await pg.connection.confirmTransaction({
-    blockhash,
-    lastValidBlockHeight,
-    signature: txHash
-  });
-
-  console.log(`Use 'solana confirm -v ${txHash}' to see the logs`);
+```ts
+function logTransaction(txHash: string) {
+  console.log(`Transaction signature: ${txHash}`);
 }
 
 async function fetchAccountData() {
   const [playerBalance, playerData] = await Promise.all([
-    pg.connection.getTokenAccountBalance(playerTokenAccount),
-    pg.program.account.playerData.fetch(playerPDA)
+    connection.getTokenAccountBalance(playerTokenAccount),
+    program.account.playerData.fetch(playerPDA)
   ]);
 
   console.log("Player Token Balance: ", playerBalance.value.uiAmount);
@@ -829,97 +945,115 @@ async function fetchAccountData() {
 Next, invoke the `createMint` instruction to create a new token mint if it does
 not already exist:
 
-```js
-let txHash;
-
-try {
-  const mintData = await getMint(pg.connection, rewardTokenMintPda);
-  console.log("Mint Already Exists");
-} catch {
-  txHash = await pg.program.methods
-    .createMint(metadata.uri, metadata.name, metadata.symbol)
-    .accounts({
-      rewardTokenMint: rewardTokenMintPda,
-      metadataAccount: rewardTokenMintMetadataPDA,
-      tokenMetadataProgram: TOKEN_METADATA_PROGRAM_ID
-    })
-    .rpc();
-  await logTransaction(txHash);
-}
-console.log("Token Mint: ", rewardTokenMintPda.toString());
+```ts
+it("Creates the reward token mint", async () => {
+  try {
+    await getMint(connection, rewardTokenMintPda);
+    console.log("Mint Already Exists");
+  } catch {
+    const txHash = await program.methods
+      .createMint(metadata.uri, metadata.name, metadata.symbol)
+      .accounts({
+        metadataAccount: rewardTokenMintMetadataPDA
+      })
+      .rpc();
+    logTransaction(txHash);
+  }
+  console.log("Token Mint: ", rewardTokenMintPda.toString());
+});
 ```
+
+`rpc()` sends the transaction and waits for the validator to confirm it. The
+client fills in every account that it can work out from the IDL: fixed
+addresses such as `admin` and the program accounts, PDAs whose seeds the IDL
+describes, such as `rewardTokenMint`, and signers, which default to the
+provider's wallet. `accounts()` takes only the rest, here `metadataAccount`,
+because the program checks its address with a function call that the IDL can't
+describe. Listing an account that the client resolves is a TypeScript error;
+use `accountsPartial()` instead to set such accounts yourself.
 
 Next, call the `initPlayer` instruction to create a new player account if one
 does not already exist.
 
-```js
-try {
-  const playerData = await pg.program.account.playerData.fetch(playerPDA);
-  console.log("Player Already Exists");
-  console.log("Player Health: ", playerData.health);
-} catch {
-  txHash = await pg.program.methods
-    .initPlayer()
-    .accounts({
-      playerData: playerPDA,
-      player: pg.wallet.publicKey
-    })
-    .rpc();
-  await logTransaction(txHash);
-  console.log("Player Account Created");
-}
+```ts
+it("Initializes the player", async () => {
+  try {
+    const playerData = await program.account.playerData.fetch(playerPDA);
+    console.log("Player Already Exists");
+    console.log("Player Health: ", playerData.health);
+  } catch {
+    const txHash = await program.methods.initPlayer().rpc();
+    logTransaction(txHash);
+    console.log("Player Account Created");
+  }
+});
 ```
 
 Next, invoke the `killEnemy` instruction:
 
-```js
-txHash = await pg.program.methods
-  .killEnemy()
-  .accounts({
-    playerData: playerPDA,
-    playerTokenAccount: playerTokenAccount,
-    rewardTokenMint: rewardTokenMintPda
-  })
-  .rpc();
-await logTransaction(txHash);
-console.log("Enemy Defeated");
-await fetchAccountData();
+```ts
+it("Kills an enemy", async () => {
+  const txHash = await program.methods.killEnemy().rpc();
+  logTransaction(txHash);
+  console.log("Enemy Defeated");
+  await fetchAccountData();
+});
 ```
 
 Next, invoke the `heal` instruction:
 
-```js
-txHash = await pg.program.methods
-  .heal()
-  .accounts({
-    playerData: playerPDA,
-    playerTokenAccount: playerTokenAccount,
-    rewardTokenMint: rewardTokenMintPda
-  })
-  .rpc();
-await logTransaction(txHash);
-console.log("Player Healed");
-await fetchAccountData();
+```ts
+it("Heals the player", async () => {
+  const txHash = await program.methods.heal().rpc();
+  logTransaction(txHash);
+  console.log("Player Healed");
+  await fetchAccountData();
+});
 ```
 
-Finally, run the client by clicking the “Run” button in Solana Playground. You
-can copy the Token Mint address printed to the console and verify on Solana
-Explorer that the token now has metadata. The output should be similar to the
-following:
+Finally, run the client:
 
+```bash Terminal
+anchor test
 ```
-Running client...
-  client.ts:
-    Use 'solana confirm -v 3AWnpt2Wy6jQckue4QeKsgDNKhKkhpewPmRtxvJpzxGgvK9XK9KEpTiUzAQ5vSC6CUoUjc6xWZCtrihVrFy8sACC' to see the logs
-    Token Mint:  3eS7hdyeVX5g8JGhn3Z7qFXJaewoJ8hzgvubovQsPm4S
-    Use 'solana confirm -v 63jbBr5U4LG75TiiHfz65q7yKJfHDhGP2ocCiDat5M2k4cWtUMAx9sHvxhnEguLDKXMbDUQKUt1nhvyQkXoDhxst' to see the logs
-    Player Account Created
-    Use 'solana confirm -v 2ziK41WLoxfEHvtUgc5c1SyKCAr5FvAS54ARBJrjqh9GDwzYqu7qWCwHJCgMZyFEVovYK5nUZhDRHPTMrTjq1Mm6' to see the logs
-    Enemy Defeated
-    Player Token Balance:  1
-    Player Health:  90
-    Use 'solana confirm -v 2QoAH22Q3xXz9t2TYRycQMqpEmauaRvmUfZ7ZNKUEoUyHWqpjW972VD3eZyeJrXsviaiCC3g6TE54oKmKbFQf2Q7' to see the logs
-    Player Healed
-    Player Token Balance:  0
-    Player Health:  100
+
+`anchor test` builds the program, starts Surfpool, deploys the program, runs
+the client, then stops the validator. The output should be similar to the
+following, with your own addresses and signatures. Before it, recent Node.js
+releases print a `MODULE_TYPELESS_PACKAGE_JSON` warning about
+`tests/anchor-token.ts`, which doesn't affect the client.
+
+```txt title="Output"
+Transaction signature: 569qoEtkKPPsFbFL5krsSMPQQbQWe5aXCwVpXAgRxt6ToP1cmpdpongKmvm1xq8HnsTU9XDauavPjgrKvp5pZZDa
+Token Mint:  7xH57Gd8qWnMPUEiebTw95ptC3XexkoJWzmYQpioJx3f
+  ✔ Creates the reward token mint (125ms)
+Transaction signature: 38FsjcD9SWjs4Hw8UDvidDKhPhdzJqSTtf2Q9vqP73XpWM1AXv7WWs7JtnBHwXwa1dYn8hBgA8oYCzyEMDvBJm7D
+Player Account Created
+  ✔ Initializes the player (58ms)
+Transaction signature: jDGBQSBtmr3CqZgYt3JriUXZK6PSwVpck83Mtv8ARmQZRKnEzjqz2avESefc1DDpa1WMweZTy5SX2djnKiT1Pjh
+Enemy Defeated
+Player Token Balance:  1
+Player Health:  90
+  ✔ Kills an enemy (75ms)
+Transaction signature: 8VPFkkj9oJW4fHdEa1YouZ2rEL81jxAnvAHrpTcbNQNsnonk51iDtjpiQjh865LHSoxvJbsNqEgfgk6MLY97NxE
+Player Healed
+Player Token Balance:  0
+Player Health:  100
+  ✔ Heals the player
+
+  4 passing (268ms)
 ```
+
+Each `anchor test` run starts a new local validator, so the client creates the
+mint and the player account every time. The `Mint Already Exists` and
+`Player Already Exists` branches only run against a validator that already has
+those accounts.
+
+To inspect the transactions and accounts after the client runs, use
+`anchor test --detach`, which keeps the validator running until you press
+Ctrl+C. Print a transaction's logs, including the Token Metadata program's
+`IX: Create Metadata Accounts v3` from `createMint`, with
+`solana confirm -v <SIGNATURE> --url localhost`. To look up the token mint
+address, open
+[Solana Explorer](https://explorer.solana.com/?cluster=custom&customUrl=http%3A%2F%2Flocalhost%3A8899)
+connected to the local validator.

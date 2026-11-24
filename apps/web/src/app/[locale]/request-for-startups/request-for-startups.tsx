@@ -330,7 +330,7 @@ export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
                           variant="outline"
                           className={styles.briefLink}
                         >
-                          <Link href="/docs/intro/quick-start">
+                          <Link href="/developers/docs/quickstart">
                             <User pack="filled" aria-hidden="true" />
                             Humans: open the quickstart{" "}
                             <ArrowUpRight pack="filled" aria-hidden="true" />
@@ -418,7 +418,7 @@ export function RequestForStartupsPage({ news = [] }: { news?: NewsItem[] }) {
               </a>
             </Button>
             <Button asChild variant="outline" className={styles.ctaSecondary}>
-              <Link href="/docs/intro/quick-start">
+              <Link href="/developers/docs/quickstart">
                 <User pack="filled" aria-hidden="true" />
                 Humans: open the quickstart{" "}
                 <ArrowUpRight pack="filled" aria-hidden="true" />

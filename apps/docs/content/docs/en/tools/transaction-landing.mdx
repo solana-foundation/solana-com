@@ -1,27 +1,29 @@
 ---
 title: Transaction Landing
+sidebarTitle: "Transaction landing"
 description:
-  Best practices for improving your Solana app's transaction landing rate on
-  Mainnet
+  "How to get transactions included on mainnet: RPC providers, send settings,
+  priority fees, compute limits, retries, confirmation levels, and error
+  handling."
 ---
 
 ## RPC Infrastructure
 
-[Public endpoints](https://solana.com/docs/references/clusters#solana-public-rpc-endpoints)
-(`api.mainnet.solana.com`) are rate-limited with no SLA. They're fine for
-development but will fail production payment flows—like trying to run a payment
-processor through a shared API with no uptime guarantee.
+[Public endpoints](/developers/docs/references/clusters#solana-public-rpc-endpoints)
+(`api.mainnet.solana.com`) are rate-limited and carry no SLA. They suit
+development and are not intended for production workloads. Use a
+[private RPC provider](https://solana.com/rpc) for production.
 
-<Callout type="caution" title="Never use public RPC for production">
-  Use a [private RPC provider](https://solana.com/rpc) for reliable, low-latency
-  access.
-</Callout>
+When choosing an RPC provider, compare:
 
-When choosing an RPC provider, look for:
-
-- **Reliability**: SLAs with uptime guarantees (99.9%+)
-- **Latency**: Geographic proximity to your users
-- **Features**: Transaction landing features, indexing, priority fee APIs
+- **Reliability**: an SLA with an uptime commitment
+- **Latency**: geographic proximity to your users and servers
+- **Method coverage**: the RPC methods your workload needs, and historical
+  depth that covers your reconciliation period
+- **Transaction landing**: staked connections, priority fee APIs, and bundle
+  support where your workload depends on them
+- **Credential handling**: separate keys per environment, and a way to rotate
+  them
 
 For a full list of RPC providers, see the
 [RPC Infrastructure Providers](https://solana.com/rpc) guide.
@@ -60,7 +62,7 @@ async function roundRobinTransport<TResponse>(
 }
 ```
 
-If you prefer not to build your own routing tools, you can leverage a third
+If you prefer not to build your own routing tools, you can use a third
 party service like [Iron Forge](https://www.ironforge.sanctum.so/) to handle the
 routing for you.
 
@@ -91,16 +93,18 @@ landing rates:
 - Fetch with `confirmed` commitment
 - Store the `lastValidBlockHeight` returned by `getLatestBlockhash`—this tells
   you when your transaction expires
-- Blockhashes expire after a time set by the protocol depending on the slot
-  length.
+- A blockhash is valid for 150 blocks, about 30 seconds at 200ms slots. For
+  converting slots to wall-clock time, see
+  [settlement and finality](/developers/docs/defi/finality)
 
 **Send options:**
 
 - `maxRetries: 0` — Disable automatic RPC retries. Handle retries yourself so
   you can refresh the blockhash when needed.
-- `skipPreflight: true` — Bypass simulation before sending. Use this when you've
-  already validated the transaction and want lowest latency. Keep it `false`
-  during development to catch errors early.
+- `skipPreflight: true` — Bypass simulation before sending. Use it only when the
+  transaction has already been simulated, for example to estimate its compute
+  units. Otherwise keep it `false` so simulation catches errors before a fee is
+  spent.
 
 ```typescript
 import { createSolanaRpc } from "@solana/kit";
@@ -120,7 +124,7 @@ const signature = await rpc
   .sendTransaction(encodedTransaction, {
     encoding: "base64",
     maxRetries: 0n, // Handle retries yourself
-    skipPreflight: true, // Skip simulation for speed (use false during dev)
+    skipPreflight: true, // Only after the transaction has been simulated
     preflightCommitment: "confirmed"
   })
   .send();
@@ -133,11 +137,10 @@ const { lastValidBlockHeight } = latestBlockhash;
 ### Use Priority Fees
 
 Every Solana transaction requires a transaction fee, paid in SOL. Transaction
-fees are split into two parts: the base fee and the priority fee. The base fee
-compensates validators for processing the transaction. The priority fee is an
-optional fee, to increase the chance that the current leader will process your
-transaction. Think of it like express shipping: you pay more for faster, more
-reliable delivery.
+fees are split into two parts: the base fee and the priority fee. Half of the
+base fee is burned and half goes to the validator that processes the
+transaction. The priority fee is an optional fee that increases the chance the
+current leader will process your transaction.
 
 **How fees work:**
 
@@ -147,11 +150,11 @@ Priority fee (legacy/v0) = ceil(compute_unit_price * compute_unit_limit / 1,000,
 Priority fee (v1 only) = Absolute total in lamports set in the message config
 ```
 
-**Real-world costs:**
-
-- Simple USDC transfer: ~$0.001-0.005 during normal conditions
-- During congestion: ~$0.01-0.05
-- Peak congestion: Can spike higher
+The base fee is a protocol constant; see
+[transaction fees](/developers/docs/core/fees). Priority fee levels move with
+demand, so read the current distribution from
+[`getRecentPrioritizationFees`](/developers/docs/rpc/http/getrecentprioritizationfees)
+or a provider's fee API rather than from documentation.
 
 **Sample Implementation:**
 
@@ -178,25 +181,33 @@ const tx = pipe(
 - [QuickNode Priority Fee Add-on](https://marketplace.quicknode.com/add-on/solana-priority-fee)
 - [Triton Priority Fees API](https://docs.triton.one/chains/solana/improved-priority-fees-api)
 
-For the full fee mechanics, see [Transaction Fees](/docs/core/fees) and our
+For the full fee mechanics, see [Transaction Fees](/developers/docs/core/fees) and our
 guide:
-[How to Add Priority Fees to a Transaction](https://solana.com/developers/cookbook/transactions/add-priority-fees).
+[How to Add Priority Fees to a Transaction](/developers/cookbook/transactions/add-priority-fees).
 
 ### Optimize Compute Units
 
-Compute on Solana is measured in compute units (CUs) which are a rough estimate
-of the amount of work the program is doing. Compute limits today are 50 million
-CUs per block, and 1.4 million CUs per transaction. When you submit a
-transaction, you need to estimate the amount of compute that will be used, and
-set the compute unit limit accordingly - this is effectively a request for how
-much of the total capacity that should be reserved for your transaction. In
-practice, this means properly estimating the compute units required for your
-transaction is critical to having your transaction included in a block (and
-important for managing your priority fees). The transaction and block compute
-limit are determined by the protocol.
+Compute on Solana is effectively a measure of the amount of work the program is
+doing. A transaction may use at most 1.4 million compute units, a fixed cap. The
+per-block and per-writable-account limits are feature-gated
+([SIMD-0286](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0286-raise-block-limits-to-100M.md),
+[SIMD-0306](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0306-raise-account-cu-limits.md))
+and scale with the slot time under
+[SIMD-0525](https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0525-reduce-slot-times.md).
+At the current 200ms target they are 50 million compute units per block and 20
+million per writable account per block. Verify the current values against the
+active feature gates; [compute budget](/developers/docs/core/fees/compute-budget)
+explains the mechanism.
+
+When you submit a transaction, you need to estimate the amount of compute that
+will be used, and set the compute unit limit accordingly - this is effectively a
+request for how much of the total capacity that should be reserved for your
+transaction. In practice, this means properly estimating the compute units
+required for your transaction is critical to having your transaction included in
+a block (and important for managing your priority fees).
 
 The Solana JSON RPC API has a
-[`simulatetransaction`](/docs/rpc/http/simulatetransaction) method that can be
+[`simulatetransaction`](/developers/docs/rpc/http/simulatetransaction) method that can be
 used to estimate the compute units required for a transaction, which includes an
 estimate of the compute units that will be used.
 [`@solana/kit`](https://github.com/anza-xyz/kit) provides helper functions that
@@ -217,12 +228,12 @@ const estimateAndSetResourceLimits = estimateAndSetResourceLimitsFactory(
 const txWithResourceLimits = await estimateAndSetResourceLimits(tx);
 ```
 
-<Callout type="info">
+<Info>
   If you build and send transactions with a kit plugin client, you typically
   don't need this step — the client adds compute budget instructions for you
   when it sends (`.sendTransaction()`). The manual flow above is for when you
   assemble transactions directly with `@solana/kit`.
-</Callout>
+</Info>
 
 In production, if you are repeating the same type of transaction multiple times,
 you should consider caching the compute estimate for the transaction type to
@@ -230,10 +241,10 @@ avoid the overhead of estimating the compute units every time.
 
 ### Jito Bundles
 
-Jito bundles are a tool for managing atomic execution of multiple transactions.
-This is achieved by sending multiple transactions to the Jito network with a
-tip. Tips can be used to incentivize the Jito network to include your
-transactions in a block.
+Jito bundles group several transactions so that they execute atomically and in
+order when a Jito-connected leader includes them. Bundles are submitted to the
+Jito network with a tip, which is an incentive for inclusion rather than a
+guarantee of it.
 
 **Resources:**
 
@@ -244,17 +255,19 @@ transactions in a block.
 ### Retry Strategies
 
 Transactions can fail for many reasons. Unlike traditional payment APIs that
-return success/failure immediately, blockchain transactions require confirmation
+return success/failure immediately, a Solana transaction requires confirmation
 tracking.
 
 **Key concepts:**
 
-- **Blockhash expiration**: Blockhash expiration: Transaction blockhashes remain
-  valid for 150 slots (roughly 30 seconds at 200ms slot times). Actual
-  expiration time may vary depending on block production speed. Use
-  lastValidBlockHeight to determine when a blockhash has expired.
-- **Idempotency**: The same signed transaction always produces the same
-  signature—resubmitting is safe
+- **Blockhash expiration**: A transaction is valid for 150 blocks from its
+  blockhash, about 30 seconds at 200ms slots. The time varies with block
+  production, so use `lastValidBlockHeight` to tell when the blockhash has
+  expired
+- **Idempotency**: Resubmitting the same signed transaction is safe; it carries
+  the same signature and executes at most once. A transaction rebuilt with a new
+  blockhash is a new transaction, so rebuild only after the original's blockhash
+  has expired
 - **Exponential backoff**: Avoid overwhelming the network with rapid retries
 
 ```typescript
@@ -278,8 +291,8 @@ const sendAndConfirmTransaction = sendAndConfirmTransactionFactory({
 try {
   await sendAndConfirmTransaction(signedTransaction, {
     commitment: "confirmed",
-    // Optional: abort after 75 seconds
-    abortSignal: AbortSignal.timeout(75_000)
+    // Optional: abort after 45 seconds
+    abortSignal: AbortSignal.timeout(45_000)
   });
 } catch (e) {
   if (isSolanaError(e, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED)) {
@@ -297,8 +310,30 @@ signaling that you need to rebuild the transaction with a fresh blockhash.
 
 ### Additional Resources
 
+- [Confirmation & finality](/developers/docs/core/transactions/confirmation)
 - [Helius: How to Land Transactions on Solana](https://www.helius.dev/blog/how-to-land-transactions-on-solana)
 - [QuickNode: Strategies to Optimize Solana Transactions](https://www.quicknode.com/docs/solana/transactions)
+
+## Understanding Confirmation Levels
+
+Solana exposes three commitment levels:
+
+| Level       | Definition                | Use case                             |
+| ----------- | ------------------------- | ------------------------------------ |
+| `processed` | In a block, not yet voted | Immediate interface feedback only    |
+| `confirmed` | Same as `finalized`       | Existing code; planned for removal   |
+| `finalized` | Certified by validators   | User-facing display and records      |
+
+A block is finalized roughly 150 milliseconds after it is produced, and
+`confirmed` reports the same block, so waiting for `finalized` costs nothing
+extra. Use `finalized` for anything that feeds a book of record. Shorten any
+timeout, retry, or interface delay that was sized for a multi-second wait.
+[Settlement and finality](/developers/docs/defi/finality) covers how finality
+works, which level to use for the blockhash and for the result, and why
+protocol finality is not legal finality.
+
+For more on checking transaction status, see
+[Interacting with Solana](/developers/docs/payments/interacting-with-solana).
 
 ## Error Handling
 
@@ -311,34 +346,52 @@ import {
   SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED,
   SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE,
   SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND,
-  SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS
+  SOLANA_ERROR__TRANSACTION_ERROR__ACCOUNT_NOT_FOUND,
+  SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM,
+  type SolanaErrorCode
 } from "@solana/kit";
 
 function handlePaymentError(error: unknown): {
   message: string;
   retryable: boolean;
 } {
+  // Errors arrive wrapped, sometimes several levels deep (for example
+  // "Transaction simulation failed" from client.sendTransaction), with the
+  // specific code further down the `cause` chain. Check every level.
+  const chain: unknown[] = [];
+  for (let c: unknown = error; c; c = isSolanaError(c) ? c.cause : undefined) {
+    chain.push(c);
+  }
+  const has = (code: SolanaErrorCode) =>
+    chain.some((c) => isSolanaError(c, code));
+
   // Blockhash expired—rebuild and retry
   if (
-    isSolanaError(error, SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
-    isSolanaError(error, SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
+    has(SOLANA_ERROR__BLOCK_HEIGHT_EXCEEDED) ||
+    has(SOLANA_ERROR__TRANSACTION_ERROR__BLOCKHASH_NOT_FOUND)
   ) {
     return { message: "Transaction expired—rebuilding", retryable: true };
   }
 
   // Insufficient SOL for fees
-  if (
-    isSolanaError(
-      error,
-      SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE
-    )
-  ) {
+  if (has(SOLANA_ERROR__TRANSACTION_ERROR__INSUFFICIENT_FUNDS_FOR_FEE)) {
     return { message: "Not enough SOL for fees", retryable: false };
   }
 
-  // Insufficient token balance
+  // Fee payer account has never been funded ("no record of a prior credit")
+  if (has(SOLANA_ERROR__TRANSACTION_ERROR__ACCOUNT_NOT_FOUND)) {
+    return { message: "Fee payer account is not funded", retryable: false };
+  }
+
+  // Insufficient SOL or token balance: the System Program and the Token
+  // programs both return custom error 1. Other programs use code 1 for
+  // other errors, so check `context.index` if your transaction calls them.
   if (
-    isSolanaError(error, SOLANA_ERROR__INSTRUCTION_ERROR__INSUFFICIENT_FUNDS)
+    chain.some(
+      (c) =>
+        isSolanaError(c, SOLANA_ERROR__INSTRUCTION_ERROR__CUSTOM) &&
+        c.context.code === 1
+    )
   ) {
     return { message: "Insufficient balance", retryable: false };
   }
@@ -349,20 +402,25 @@ function handlePaymentError(error: unknown): {
 }
 ```
 
+Preflight simulation errors reject with a top-level `Transaction simulation
+failed` error and carry the specific code further down the `cause` chain, which
+is why the handler checks every level. `BLOCK_HEIGHT_EXCEEDED` is thrown at the
+top level.
+
 **Common Error Codes:**
 
 | Error Code                   | Cause                 | Recovery                                                                                                 |
 | ---------------------------- | --------------------- | -------------------------------------------------------------------------------------------------------- |
 | `BLOCK_HEIGHT_EXCEEDED`      | Blockhash expired     | Rebuild with fresh blockhash                                                                             |
 | `BLOCKHASH_NOT_FOUND`        | Blockhash not found   | Rebuild with fresh blockhash                                                                             |
-| `INSUFFICIENT_FUNDS_FOR_FEE` | Not enough SOL        | Fund fee payer or use [fee abstraction](/docs/payments/send-payments/payment-processing/fee-abstraction) |
-| `INSUFFICIENT_FUNDS`         | Not enough tokens     | User needs more balance                                                                                  |
-| `ACCOUNT_NOT_FOUND`          | Token account missing | Create ATA in transaction                                                                                |
+| `INSUFFICIENT_FUNDS_FOR_FEE` | Not enough SOL        | Fund fee payer or use [fee abstraction](/developers/docs/payments/send-payments/payment-processing/fee-abstraction) |
+| `INSTRUCTION_ERROR__CUSTOM` (code 1) | Not enough SOL or tokens for the transfer | User needs more balance                                                          |
+| `ACCOUNT_NOT_FOUND`          | Account missing or unfunded fee payer | Fund the fee payer, or create the ATA in the transaction |
 
 ## Gasless Transactions
 
 Users expect to pay in stablecoins, not acquire SOL for network fees. Gasless
 transactions solve this—similar to how Venmo users don't think about ACH fees.
 See
-[Fee Abstraction](/docs/payments/send-payments/payment-processing/fee-abstraction)
+[Fee Abstraction](/developers/docs/payments/send-payments/payment-processing/fee-abstraction)
 for complete implementation.
