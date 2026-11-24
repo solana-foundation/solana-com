@@ -81,6 +81,16 @@ describe("Migrate to Solana hub", () => {
     ).toBeNull();
   });
 
+  it("offers the guides and the support tracks from the hero", () => {
+    renderPage();
+    expect(
+      screen
+        .getByRole("link", { name: "See migration support" })
+        .getAttribute("href"),
+    ).toBe("#how-it-works");
+    expect(document.getElementById("how-it-works")).not.toBeNull();
+  });
+
   it("links the partners step to the partners section", () => {
     renderPage();
     const link = screen.getByRole("link", { name: "See migration partners" });

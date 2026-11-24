@@ -324,15 +324,13 @@ export function DevelopersChainMigrationPage() {
       url: "#choose-your-chain",
       hierarchy: "primary",
     },
-    ...(INTAKE_HREF
-      ? [
-          {
-            label: t("hero.getMatched"),
-            url: INTAKE_HREF,
-            hierarchy: "outline" as const,
-          },
-        ]
-      : []),
+    // The intake form CTA lives in the how-it-works, partners, and final
+    // sections; the hero keeps two choices: self-serve or supported.
+    {
+      label: t("hero.seeSupport"),
+      url: "#how-it-works",
+      hierarchy: "outline",
+    },
   ];
 
   return (
