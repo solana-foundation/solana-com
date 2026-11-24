@@ -17,20 +17,22 @@ solana-com/
 │   ├── accelerate/   # Event microsite - port 3004
 │   └── breakpoint/   # Event microsite - port 3005
 ├── packages/
+│   ├── airtable/            # Shared server-side Airtable pacing and backoff
 │   ├── config-oxlint/       # Shared oxlint configs
 │   ├── config-typescript/   # Shared TypeScript configs
 │   ├── docs-examples/       # Tested cookbook source snippets
 │   ├── ecosystem-data/      # Shared company and wallet registry
 │   ├── fab-menu/            # Reusable Solana property menu
 │   ├── i18n/                # Shared i18n utilities (next-intl)
+│   ├── security-headers/    # Baseline HTTP headers for all apps
 │   ├── sentry/              # Shared Sentry helpers
 │   ├── sitemap/             # Shared sitemap generation helpers
 │   ├── ui/                  # Shared UI components (Radix-based)
 │   └── ui-chrome/           # Header, Footer, Theme components
 ```
 
-The main web app (`apps/web`) uses **Next.js App Router** with all pages under
-`src/app/[locale]/`.
+The main web app (`apps/web`) uses **Next.js App Router**, with localized pages
+under `src/app/[locale]/` and API routes under `src/app/api/`.
 
 ## Workspace Guide
 
@@ -46,6 +48,8 @@ The main web app (`apps/web`) uses **Next.js App Router** with all pages under
 Shared packages worth checking early:
 
 - `packages/airtable` for event-app Airtable pacing and 429 backoff
+- `packages/security-headers` for the HTTP header baseline in every app's
+  `next.config.ts`
 - `packages/ui-chrome` for shared header/footer and cross-app link behavior
 - `packages/i18n` for locale config and message loading
 - `packages/ecosystem-data` for canonical company data, wallet records, and
@@ -119,6 +123,8 @@ node skills/refresh-agent-context/scripts/workspace_inventory.mjs
 - Several apps use `assetPrefix` plus rewrites because they are deployed
   separately behind `solana.com`
 - Shared env pass-through is also declared in `turbo.json`
+- `/keystatic` stays on the Media host and is deliberately not proxied onto
+  `solana.com`
 
 ## Contributing
 
