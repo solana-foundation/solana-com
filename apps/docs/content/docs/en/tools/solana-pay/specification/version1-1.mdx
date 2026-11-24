@@ -10,8 +10,11 @@ description:
 A standard protocol to encode Solana transaction requests within URLs to enable
 payments and other use cases.
 
-Rough consensus on this spec has been reached, and implementations exist in
-Phantom, FTX, and Slope.
+This version of the spec is in alpha and subject to change. Compared with
+[version 1](/developers/docs/tools/solana-pay/specification/version1), it adds
+a `redirect` parameter to transfer requests, an optional `redirect` field to
+transaction request POST responses, and error handling for transaction
+requests.
 
 This standard draws inspiration from
 [BIP 21](https://github.com/bitcoin/bips/blob/master/bip-0021.mediawiki) and
@@ -50,6 +53,7 @@ solana:<recipient>
       &label=<label>
       &message=<message>
       &memo=<memo>
+      &redirect=<redirect>
 ```
 
 The request is non-interactive because the parameters in the URL are used by a
@@ -70,7 +74,7 @@ recipient must be derived.
 A single `amount` field is allowed as an optional query parameter. The value
 must be a non-negative integer or decimal number of "user" units. For SOL,
 that's SOL and not lamports. For tokens, use
-[`uiAmountString` and not `amount`](/docs/rpc/json-structures#token-balances).
+[`uiAmountString` and not `amount`](/developers/docs/rpc/json-structures#token-balances).
 
 `0` is a valid value. If the value is a decimal number less than `1`, it must
 have a leading `0` before the `.`. Scientific notation is prohibited.
@@ -112,7 +116,7 @@ and may or may not correspond to an account on Solana.
 Because Solana validators index transactions by these account keys, `reference`
 values can be used as client IDs (IDs usable before knowing the eventual payment
 transaction). The
-[`getSignaturesForAddress`](/docs/rpc/http/getsignaturesforaddress) RPC method
+[`getSignaturesForAddress`](/developers/docs/rpc/http/getsignaturesforaddress) RPC method
 can be used locate transactions this way.
 
 ### Label
@@ -157,6 +161,25 @@ the second to last instruction of the transaction, immediately before the SOL or
 SPL Token transfer instruction, to avoid ambiguity with other instructions in
 the transaction.
 
+### Redirect
+
+A single `redirect` field is allowed as an optional query parameter. The value
+must be a
+[URL-encoded](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/encodeURIComponent)
+absolute HTTPS or `solana:` URL.
+
+The wallet must
+[URL-decode](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent)
+the value. If it is an HTTPS URL, the wallet should display the decoded value to
+the user.
+
+Redirect URLs should only be followed if the transaction is successful. A
+transaction should be considered successful if the user approves it and the
+broadcast transaction has a Confirmed or Finalized status. If the redirect is an
+HTTPS URL, the wallet should open the URL using any browser. This may be a
+browser included in the wallet. If it is a `solana:` URL, the wallet should
+treat it as a new Solana Pay request.
+
 ### Examples
 
 #### URL describing a transfer request for 1 SOL
@@ -175,6 +198,12 @@ solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=0.01&spl-token=EPjFWdd
 
 ```
 solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?label=Michael
+```
+
+#### URL describing a transfer request for 1 SOL with a redirect
+
+```
+solana:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN?amount=1&label=Michael&message=Thanks%20for%20all%20the%20fish&memo=OrderId12345&redirect=https%3A%2F%2Fexample.com
 ```
 
 ## Specification: Transaction Request
@@ -273,12 +302,13 @@ the icon image from the response.
 #### POST Response
 
 The wallet must handle HTTP
-[client error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses),
-[server error](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses),
+[client](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
 and
-[redirect responses](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages).
-The application must respond with these, or with an HTTP `OK` JSON response with
-a body of:
+[server](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+errors in accordance with the [error handling](#error-handling) specification.
+[Redirect responses](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#redirection_messages)
+must be handled appropriately. The application must respond with these, or with
+an HTTP `OK` JSON response with a body of:
 
 ```json
 { "transaction": "<transaction>" }
@@ -352,30 +382,69 @@ body:
 ```
 
 The `<message>` value must be a UTF-8 string that describes the nature of the
-transaction response.
+transaction response. The wallet must display at least the first 80 characters
+of the `message` field to the user if it is included in the response.
 
 For example, this might be the name of an item being purchased, a discount
 applied to the purchase, or a thank you note. The wallet should display the
 value to the user.
 
+The application may also include an optional `redirect` field in the response
+body:
+
+```json
+{ "redirect": "<redirect>", "transaction": "<transaction>" }
+```
+
+The `redirect` field must be an absolute HTTPS or `solana:` URL.
+
+If it is an HTTPS URL, the wallet should display the decoded value to the user.
+
+Redirect URLs should only be followed if the transaction is successful. A
+transaction should be considered successful if the user approves it and the
+broadcast transaction has a Confirmed or Finalized
+[commitment status](/developers/docs/rpc#configuring-state-commitment). If the
+redirect is an HTTPS URL, the wallet should open the URL using any browser. This
+may be a browser included in the wallet. If it is a `solana:` URL, the wallet
+should treat it as a new Solana Pay request.
+
 The wallet and application should allow additional fields in the request body
 and response body, which may be added by future specification.
 
+#### Error Handling
+
+If the application responds with an HTTP
+[client](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#client_error_responses)
+or
+[server](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status#server_error_responses)
+error in response to the POST or PUT operations, the wallet must consider the
+entire transaction request as failed.
+
+Client and server errors may optionally be accompanied by a JSON body containing
+a UTF-8 string `message` field describing the nature of the error:
+
+```json
+{ "message": "<message>" }
+```
+
+The wallet must display at least the first 80 characters of the `message` field
+to the user if it is included in the response.
+
 ### Example
 
-##### URL describing a transaction request.
+#### URL describing a transaction request.
 
 ```
 solana:https://example.com/solana-pay
 ```
 
-##### URL describing a transaction request with query parameters.
+#### URL describing a transaction request with query parameters.
 
 ```
 solana:https%3A%2F%2Fexample.com%2Fsolana-pay%3Forder%3D12345
 ```
 
-##### GET Request
+#### GET Request
 
 ```
 GET /solana-pay?order=12345 HTTP/1.1
@@ -385,7 +454,7 @@ Accept: application/json
 Accept-Encoding: br, gzip, deflate
 ```
 
-##### GET Response
+#### GET Response
 
 ```
 HTTP/1.1 200 OK
@@ -397,7 +466,7 @@ Content-Encoding: gzip
 {"label":"Michael Vines","icon":"https://example.com/icon.svg"}
 ```
 
-##### POST Request
+#### POST Request
 
 ```
 POST /solana-pay?order=12345 HTTP/1.1
@@ -411,7 +480,7 @@ Content-Length: 57
 {"account":"mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN"}
 ```
 
-##### POST Response
+#### POST Response
 
 ```
 HTTP/1.1 200 OK
@@ -420,7 +489,8 @@ Content-Type: application/json
 Content-Length: 298
 Content-Encoding: gzip
 
-{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA"}
+{"message":"Thanks for all the fish","transaction":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAECC4JMKqNplIXybGb/GhK1ofdVWeuEjXnQor7gi0Y2hMcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQECAAAMAgAAAAAAAAAAAAAA",
+"redirect": "https://example.com"}
 ```
 
 ## Extensions

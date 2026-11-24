@@ -8,6 +8,16 @@ description: Learn how to call an instruction from a Solana program in your test
 After deploying a program to LiteSVM, you'll need to execute instructions to
 interact with the deployed program.
 
+<Note>
+  The snippets on this page use these crates. Pin the versions shown so they
+  match the types LiteSVM uses:
+
+  ```bash
+  cargo add --dev litesvm solana-keypair@3 solana-signer@3 solana-transaction@4 solana-message@4 solana-instruction@3 solana-pubkey@3 solana-transaction-error@3 solana-compute-budget@4 solana-compute-budget-interface@3
+  cargo add --dev solana-system-interface --features bincode
+  ```
+</Note>
+
 LiteSVM provides a simple API for creating, sending, and simulating transactions
 that is fully compatible with Solana's transaction model.
 
@@ -46,7 +56,6 @@ let instruction = Instruction {
 ```rust
 use litesvm::LiteSVM;
 use solana_keypair::Keypair;
-use solana_message::Message;
 use solana_transaction::Transaction;
 use solana_signer::Signer;
 
@@ -58,9 +67,6 @@ svm.airdrop(&payer.pubkey(), 1_000_000_000).unwrap();
 
 // Create instruction
 let instruction = /* your instruction */;
-
-// Build message with payer
-let message = Message::new(&[instruction], Some(&payer.pubkey()));
 
 // Create and sign transaction
 let tx = Transaction::new_signed_with_payer(
@@ -75,16 +81,11 @@ let tx = Transaction::new_signed_with_payer(
 let result = svm.send_transaction(tx);
 ```
 
-<div className="ml-4 my-2">
-  <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-    What `new_signed_with_payer` does:
-  </div>
-  <ul className="space-y-0.5 ml-4 list-disc text-sm text-gray-600 dark:text-gray-400">
-    <li>Automatically builds a Message from your instructions</li>
-    <li>Automatically signs the transaction with all provided keypairs</li>
-    <li>Returns a fully signed, ready-to-send transaction</li>
-  </ul>
-</div>
+**What `new_signed_with_payer` does:**
+
+- Automatically builds a Message from your instructions
+- Automatically signs the transaction with all provided keypairs
+- Returns a fully signed, ready-to-send transaction
 
 ### Method 2: Custom Message Transaction
 
@@ -104,19 +105,14 @@ let tx = Transaction::new(
 let result = svm.send_transaction(tx);
 ```
 
-<div className="ml-4 my-2">
-  <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-    Use this method when you need control over the `Message` like:
-  </div>
-  <ul className="space-y-0.5 ml-4 list-disc text-sm text-gray-600 dark:text-gray-400">
-    <li>Versioned transactions (v0 with lookup tables)</li>
-    <li>Partial/multi-sig workflows</li>
-    <li>Durable nonces</li>
-    <li>Pre-signature simulation or inspection</li>
-    <li>Custom fee payer logic</li>
-    <li>Transaction size optimization</li>
-  </ul>
-</div>
+**Use this method when you need control over the `Message` like:**
+
+- Versioned transactions (v0 with lookup tables)
+- Partial/multi-sig workflows
+- Durable nonces
+- Pre-signature simulation or inspection
+- Custom fee payer logic
+- Transaction size optimization
 
 ## Versioned Transactions
 
@@ -124,10 +120,15 @@ LiteSVM supports both legacy and versioned transactions:
 
 ```rust
 use solana_transaction::versioned::VersionedTransaction;
-use solana_message::VersionedMessage;
+use solana_message::{Message, VersionedMessage};
 
-// Legacy transaction (most common)
-let legacy_msg = Message::new(&[instruction], Some(&payer.pubkey()));
+// Legacy transaction (most common).
+// `Message::new` leaves the blockhash zeroed, so use `new_with_blockhash`.
+let legacy_msg = Message::new_with_blockhash(
+    &[instruction],
+    Some(&payer.pubkey()),
+    &svm.latest_blockhash(),
+);
 let versioned_tx = VersionedTransaction::try_new(
     VersionedMessage::Legacy(legacy_msg),
     &[&payer]
@@ -169,6 +170,7 @@ pub struct TransactionMetadata {
     pub compute_units_consumed: u64,
     pub return_data: TransactionReturnData,
     pub fee: u64,
+    pub loaded_accounts_data_size: u32,
 }
 ```
 
@@ -204,6 +206,9 @@ match svm.send_transaction(tx) {
             TransactionError::InsufficientFundsForFee => {
                 println!("Not enough SOL for fees");
             }
+            TransactionError::AccountNotFound => {
+                println!("Fee payer doesn't exist");
+            }
             TransactionError::InvalidProgramForExecution => {
                 println!("Program doesn't exist or isn't executable");
             }
@@ -213,8 +218,8 @@ match svm.send_transaction(tx) {
                     InstructionError::Custom(code) => {
                         println!("Custom error code: {}", code);
                     }
-                    InstructionError::AccountNotFound => {
-                        println!("An account doesn't exist");
+                    InstructionError::MissingAccount => {
+                        println!("An account required by the instruction is missing");
                     }
                     _ => {}
                 }
@@ -248,10 +253,10 @@ println!("{}", result.pretty_logs());
 ### Log Output Example
 
 ```
-Program 11111111111111111111111111111111 invoke [1]
+Program <PROGRAM_ID> invoke [1]
 Program log: Processing instruction
-Program 11111111111111111111111111111111 consumed 2000 compute units
-Program 11111111111111111111111111111111 success
+Program <PROGRAM_ID> consumed 2000 of 200000 compute units
+Program <PROGRAM_ID> success
 ```
 
 ## Compute Budget Configuration
@@ -264,7 +269,7 @@ use solana_compute_budget::compute_budget::ComputeBudget;
 let mut svm = LiteSVM::new()
     .with_compute_budget(ComputeBudget {
         compute_unit_limit: 200_000,
-        ..Default::default()
+        ..ComputeBudget::new_with_defaults(true)
     });
 ```
 

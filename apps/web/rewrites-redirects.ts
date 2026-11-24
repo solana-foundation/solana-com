@@ -230,8 +230,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tools/x402-facilitator",
   },
   {
+    // The AI agents guide is the docs' Tools > AI page (not "Build with AI
+    // agents", intro/coding-with-agents).
     source: "/developers/guides/getstarted/intro-to-ai",
-    destination: "/docs/intro/coding-with-agents",
+    destination: "/developers/docs/tools/ai",
   },
   {
     source: "/developers/guides/getstarted/how-to-verify-a-token",
@@ -282,8 +284,11 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
     destination: "/docs/tools/x402-facilitator",
   },
   {
+    // /docs/tools/ai is a docs page again (Build onchain AI agents). Links
+    // from before #1771 to its old sections (now intro/coding-with-agents)
+    // are sent there by the docs app's legacy anchors.
     source: "/docs/tools/ai",
-    destination: "/docs/intro/coding-with-agents",
+    destination: "/developers/docs/tools/ai",
   },
   {
     source: "/docs/references",
@@ -589,6 +594,13 @@ export default {
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
         locale: false,
       },
+      // Ask Solana (docs AI agent) proxy. The docs app owns the route handler
+      // that injects X-Ask-Proxy-Secret before forwarding to the bot service.
+      {
+        source: "/api/ask/:path*",
+        destination: `${DOCS_APP_URL}/api/ask/:path*`,
+        locale: false,
+      },
       // Proxy /_next/image requests for /uploads/* to the media app's image
       // optimizer. The web app's /_next/image reads from its own filesystem,
       // but /uploads/ files live in the media app's deployment.
@@ -722,6 +734,16 @@ export default {
         locale: false,
       },
       {
+        source: "/developers/docs",
+        destination: `${DOCS_APP_URL}/developers/docs`,
+        locale: false,
+      },
+      {
+        source: "/developers/docs/:path*",
+        destination: `${DOCS_APP_URL}/developers/docs/:path*`,
+        locale: false,
+      },
+      {
         source: "/developers/cookbook",
         destination: `${DOCS_APP_URL}/developers/cookbook`,
         locale: false,
@@ -751,6 +773,27 @@ export default {
         destination: `${DOCS_APP_URL}/developers/bootcamp/:path*`,
         locale: false,
       },
+      // Docs app API routes
+      {
+        source: "/api/demo/:path+",
+        destination: `${DOCS_APP_URL}/api/demo/:path+`,
+        locale: false,
+      },
+      {
+        source: "/api/devnet-airdrop",
+        destination: `${DOCS_APP_URL}/api/devnet-airdrop`,
+        locale: false,
+      },
+      {
+        source: "/api/slot-time/tip",
+        destination: `${DOCS_APP_URL}/api/slot-time/tip`,
+        locale: false,
+      },
+      {
+        source: "/api/docs-search",
+        destination: `${DOCS_APP_URL}/api/docs-search`,
+        locale: false,
+      },
       // Docs app with locale
       {
         source: "/:locale/docs",
@@ -775,6 +818,16 @@ export default {
       {
         source: "/:locale/developers/:path*.md",
         destination: `${DOCS_APP_URL}/:locale/developers/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/docs",
+        destination: `${DOCS_APP_URL}/:locale/developers/docs`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/docs/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/docs/:path*`,
         locale: false,
       },
       {
@@ -965,7 +1018,8 @@ export default {
     },
     {
       source: "/cli",
-      destination: "/docs/intro/installation#install-the-solana-cli",
+      destination:
+        "/developers/docs/intro/installation/dependencies#install-solana-cli",
     },
     {
       source: "/setup",
@@ -1119,13 +1173,14 @@ export default {
       source: "/docs/core/transactions/versions",
       destination: "/docs/advanced/versions",
     },
+    // Rent has its own page in the docs again.
     {
       source: "/docs/core/rent",
-      destination: "/docs/core/fees",
+      destination: "/developers/docs/core/rent",
     },
     {
       source: "/docs/intro/rent",
-      destination: "/docs/core/fees",
+      destination: "/developers/docs/core/rent",
     },
     {
       source: "/docs/intro/transaction_fees",
@@ -1747,9 +1802,11 @@ export default {
       source: "/developers/guides/getstarted/rust-to-solana",
       destination: "/docs/intro/quick-start",
     },
+    // The scaffold guides' create-solana-dapp nextjs-anchor walkthrough is
+    // the cookbook's CRUD dApp guide.
     {
       source: "/developers/guides/getstarted/scaffold-nextjs-anchor",
-      destination: "/docs#deploy-your-first-solana-application",
+      destination: "/developers/cookbook/development/crud-dapp",
     },
     {
       source: "/developers/guides/wallets/add-solana-wallet-adapter-to-nextjs",
@@ -1769,7 +1826,7 @@ export default {
     },
     {
       source: "/developers/guides/getstarted/full-stack-solana-development",
-      destination: "/docs#deploy-your-first-solana-application",
+      destination: "/developers/cookbook/development/crud-dapp",
     },
     {
       source: "/docs/toolkit/:path*",

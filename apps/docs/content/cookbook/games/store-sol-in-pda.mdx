@@ -19,16 +19,15 @@ keywords:
   - anchor
   - games
   - example
+anchorAliases:
+  build-and-deploy: build-the-program
+  get-started-with-the-client: write-the-client
 ---
 
 Here you will learn how to store SOL in a PDA. In the example we will use it to
 reward players in a game. We will build a simple game where players can move
 right and collect a reward when they reach a specific position. The reward will
 be stored in a PDA, and players can claim it by interacting with the game.
-
-Video walkthrough:
-
-<Embed url="https://www.youtube.com/watch?v=gILXyWvXu7M" />
 
 ## Tiny Adventure Anchor Program - Part Two
 
@@ -51,30 +50,56 @@ The Tiny Adventure Two Program consists of 3 instructions:
   position.
 
 In the following sections, we will guide you through building the program step
-by step. You can find the complete source code, which can be deployed directly
-from your browser using the Solana Playground, at this link:
-[Open In Playground](https://beta.solpg.io/tutorials/tiny-adventure-two).
+by step in a local Anchor project, then play the game from a TypeScript client
+that runs against a local validator. The complete program is in
+[Build the program](#build-the-program).
 
 ### Getting Started
 
-To start building the Tiny Adventure game, follow these steps:
+This tutorial uses the Anchor CLI on your computer. If you haven't installed the
+Solana development tools yet, follow the
+[installation guide](/developers/docs/quickstart). It installs Rust, the Solana
+CLI, the Anchor CLI, Surfpool, Node.js, and Yarn. This tutorial was tested with Anchor
+CLI 1.1.2, Solana CLI 3.1.10 (the pair the installer sets up through AVM), and
+Surfpool 1.7.0.
 
-Visit the [Solana Playground](https://beta.solpg.io/) and create a new Anchor
-project. If you're new to Solana Playground, you'll also need to create a
-Playground Wallet.
+Create a project with a single-file program and a Mocha test:
 
-After creating a new project, replace the default starter code with the code
-below:
+```bash Terminal
+anchor init tiny-adventure-two --template single --test-template mocha --package-manager yarn
+cd tiny-adventure-two
+```
 
-```rust
+`--package-manager yarn` sets the project up with Yarn. Without it,
+`anchor init` uses the first of pnpm, Yarn, and npm that it finds. The program
+lives in `programs/tiny-adventure-two/src/lib.rs`. The TypeScript test in
+`tests/tiny-adventure-two.ts` is where you'll write the client.
+
+The `initialize_level_one` instruction uses Anchor's `init_if_needed`
+constraint, which needs the `init-if-needed` feature. In
+`programs/tiny-adventure-two/Cargo.toml`, replace the `anchor-lang` line under
+`[dependencies]` with:
+
+```toml title="programs/tiny-adventure-two/Cargo.toml"
+[dependencies]
+anchor-lang = { version = "1.1.2", features = ["init-if-needed"] }
+```
+
+Then replace the starter code in `programs/tiny-adventure-two/src/lib.rs` with
+the code below:
+
+```rust title="programs/tiny-adventure-two/src/lib.rs"
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 use anchor_lang::system_program;
 
+// `anchor keys sync` replaces this with your program's address.
 declare_id!("11111111111111111111111111111111");
 
+// 1 SOL is 1 billion lamports.
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+
 #[program]
-mod tiny_adventure_two {
+pub mod tiny_adventure_two {
     use super::*;
 }
 
@@ -96,14 +121,15 @@ fn print_player(player_position: u8) {
 
 In this game, the player starts at position 0 and can only move right. To
 visualize the player's progress throughout the game, we'll use message logs to
-represent their journey towards the reward chest!
+represent their journey towards the reward chest.
 
 ### Defining the Chest Vault Account
 
 Add the `CHEST_REWARD` constant at the beginning of the program. The
 `CHEST_REWARD` represents the amount of lamports that will be put into the chest
 and given out as rewards. Lamports are the smallest fractions of a SOL, with 1
-billion lamports being equal to 1 SOL.
+billion lamports being equal to 1 SOL. The `LAMPORTS_PER_SOL` constant at the
+top of the file holds that conversion.
 
 To store the SOL reward, we will define a new `ChestVaultAccount` struct. This
 is an empty struct because we will be directly updating the lamports in the
@@ -112,13 +138,16 @@ additional data.
 
 ```rust
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 use anchor_lang::system_program;
 
+// `anchor keys sync` replaces this with your program's address.
 declare_id!("11111111111111111111111111111111");
 
+// 1 SOL is 1 billion lamports.
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
+
 #[program]
-mod tiny_adventure_two {
+pub mod tiny_adventure_two {
     use super::*;
 
     // The amount of lamports that will be put into chests and given out as rewards.
@@ -141,15 +170,16 @@ The `GameDataAccount` struct contains a single field, `player_position`, which
 stores the player's current position as an unsigned 8-bit integer.
 
 ```rust
-
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 use anchor_lang::system_program;
 
+// `anchor keys sync` replaces this with your program's address.
 declare_id!("11111111111111111111111111111111");
 
+...
+
 #[program]
-mod tiny_adventure_two {
+pub mod tiny_adventure_two {
     use super::*;
     ...
 
@@ -240,7 +270,7 @@ on who can modify the `GameDataAccount`, effectively turning the game into a
 multiplayer experience where everyone can control the player's movement.
 
 Alternatively, you can use the signer's address as an extra seed in the
-`initialize` instruction, allowing each player to create their own
+`initialize_level_one` instruction, allowing each player to create their own
 `GameDataAccount`.
 
 ### Reset Level and Spawn Chest Instruction
@@ -251,9 +281,9 @@ of 0.1 SOL.
 
 The `reset_level_and_spawn_chest` instruction requires 4 accounts:
 
-- `new_game_data_account` - the `GameDataAccount` storing the player's position
+- `payer` - the player providing the SOL reward for the chest
 - `chest_vault` - the `ChestVaultAccount` storing the SOL reward
-- `signer` - the player providing the SOL reward for the chest
+- `game_data_account` - the `GameDataAccount` storing the player's position
 - `system_program` - the program we'll be invoking to transfer SOL using a
   cross-program invocation (CPI), more on this shortly
 
@@ -267,10 +297,10 @@ pub mod tiny_adventure_two {
         ctx.accounts.game_data_account.player_position = 0;
 
         let cpi_context = CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.system_program.key(),
             system_program::Transfer {
-                from: ctx.accounts.payer.to_account_info().clone(),
-                to: ctx.accounts.chest_vault.to_account_info().clone(),
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.chest_vault.to_account_info(),
             },
         );
         system_program::transfer(cpi_context, CHEST_REWARD)?;
@@ -302,12 +332,14 @@ This instruction includes a cross-program invocation (CPI) to transfer SOL from
 the payer to the `ChestVaultAccount`. A cross-program invocation is when one
 program invokes an instruction on another program. In this case, we use a CPI to
 invoke the `Transfer` instruction from the `system_program` to transfer SOL from
-the payer to the `ChestVaultAccount`.
+the payer to the `ChestVaultAccount`. `CpiContext::new` takes the address of the
+program to invoke, here the System Program's, and the accounts its instruction
+expects.
 
 Cross-program invocations are a key concept in the Solana programming model,
 enabling programs to directly interact with instructions from other programs.
-For a deeper dive into of CPIs, feel free to explore the
-[CPI guide](https://solana.com/docs/core/cpi?q=cpi).
+For a deeper dive into CPIs, feel free to explore the
+[CPI guide](/developers/docs/core/cpi).
 
 ### Move Right Instruction
 
@@ -326,9 +358,9 @@ will be "gib".
 
 The `move_right` instruction requires 3 accounts:
 
-- `new_game_data_account` - the `GameDataAccount` storing the player's position
 - `chest_vault` - the `ChestVaultAccount` storing the SOL reward
-- `player_wallet` - the wallet of the player invoking the instruction and the
+- `game_data_account` - the `GameDataAccount` storing the player's position
+- `player` - the wallet of the player invoking the instruction and the
   potential recipient of SOL reward
 
 ```rust
@@ -396,44 +428,47 @@ pub enum MyError {
 ```
 
 To transfer lamports from the reward chest to the player account, we can't use a
-Cross-Program Invocation (CPI) as we did previously, since the
-`ChestVaultAccount` isn't owned by the system program. Instead, we directly
-modify the lamports within the accounts by using `try_borrow_mut_lamports`. Keep
-in mind that the account you deduct lamports from must be a signer, and the
-runtime always makes sure that the total account balances stay equal after a
-transaction.
+Cross-Program Invocation (CPI) to the System Program as we did previously, since
+the `ChestVaultAccount` isn't owned by the System Program. Instead, we directly
+modify the lamports within the accounts by using `try_borrow_mut_lamports`.
 
-Note that Program Derived Accounts (PDAs) offer two main features:
+The program can subtract lamports from `ChestVaultAccount` because the program
+owns that account: the runtime only lets an account's owner program debit it,
+and no signature is involved. Any program can add lamports to a writable
+account, so crediting the player works too. After each instruction, the runtime
+also checks that the total balance across all accounts is unchanged (see the
+[account modification rules](/developers/docs/core/accounts/modification-rules)).
 
-1. Provide a deterministic way to find an account's address
-2. Allow the program from which a PDA is derived to "sign" for them
+PDA signing (`invoke_signed`, or `CpiContext::new_with_signer` in Anchor) is
+only needed when a CPI requires the PDA as a signer, for example a System
+Program transfer out of a PDA that the System Program owns. Here, the PDA gives
+the chest a deterministic address that every client can derive from the
+`chestVault` seed.
 
-This is the reason we are able to deduct lamports from the `ChestVaultAccount`
-without explicitly requiring an extra signer for the instruction.
+### Build the program
 
-### Build and Deploy
-
-Great job! You've now completed part two of the Tiny Adventure program! Your
+You've now completed part two of the Tiny Adventure program. Your
 final program should look like this:
 
-```rust
+```rust title="programs/tiny-adventure-two/src/lib.rs"
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::native_token::LAMPORTS_PER_SOL;
 use anchor_lang::system_program;
 
-// This is your program's public key and it will update
-// automatically when you build the project.
-declare_id!("7gZTdZg86YsYbs92Rhv63kZUAkoww1kLexJg8sNpgVQ3");
+// `anchor keys sync` replaces this with your program's address.
+declare_id!("11111111111111111111111111111111");
+
+// 1 SOL is 1 billion lamports.
+const LAMPORTS_PER_SOL: u64 = 1_000_000_000;
 
 #[program]
-mod tiny_adventure_two {
+pub mod tiny_adventure_two {
     use super::*;
 
     // The amount of lamports that will be put into chests and given out as rewards.
     const CHEST_REWARD: u64 = LAMPORTS_PER_SOL / 10; // 0.1 SOL
 
     pub fn initialize_level_one(_ctx: Context<InitializeLevelOne>) -> Result<()> {
-        // Usually in your production code you would not print lots of text because it cost compute units.
+        // Usually in your production code you would not print lots of text because it costs compute units.
         msg!("A Journey Begins!");
         msg!("o.......💎");
         Ok(())
@@ -443,10 +478,10 @@ mod tiny_adventure_two {
         ctx.accounts.game_data_account.player_position = 0;
 
         let cpi_context = CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
+            ctx.accounts.system_program.key(),
             system_program::Transfer {
-                from: ctx.accounts.payer.to_account_info().clone(),
-                to: ctx.accounts.chest_vault.to_account_info().clone(),
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.chest_vault.to_account_info(),
             },
         );
         system_program::transfer(cpi_context, CHEST_REWARD)?;
@@ -508,9 +543,9 @@ fn print_player(player_position: u8) {
 #[derive(Accounts)]
 pub struct InitializeLevelOne<'info> {
     // We must specify the space in order to initialize an account.
-    // First 8 bytes are default account discriminator,
-    // next 1 byte come from NewAccount.data being type u8.
-    // (u8 = 8 bits unsigned integer = 8 bytes)
+    // The first 8 bytes are the default account discriminator,
+    // the next 1 byte comes from GameDataAccount.player_position being type u8.
+    // (u8 = 8-bit unsigned integer = 1 byte)
     // You can also use the signer as seed [signer.key().as_ref()],
     #[account(
         init_if_needed,
@@ -571,88 +606,152 @@ pub enum MyError {
 }
 ```
 
-Now that the program is complete, let's build and deploy it using the Solana
-Playground!
+Point `declare_id!` at your project's program address, then build the program:
 
-If you're new to the Solana Playground, start by creating a Playground wallet
-and make sure you're connected to a Devnet endpoint. Next,
-run `solana airdrop 2` until you have 6 SOL. Once you have enough SOL, build and
-deploy the program. If your airdrop fails you can find other way
-[how to get Devnet Sol](https://solana.com/developers/cookbook/development/airdrops-and-faucets).
+```bash Terminal
+anchor keys sync
+anchor build
+```
 
-### Get Started with the Client
+`anchor keys sync` reads the program keypair that `anchor init` created in
+`target/deploy/tiny_adventure_two-keypair.json` and writes its address into
+`declare_id!` and `Anchor.toml`. `anchor build` compiles the program to
+`target/deploy/tiny_adventure_two.so` and writes its IDL to
+`target/idl/tiny_adventure_two.json` and the TypeScript types the client imports
+to `target/types/tiny_adventure_two.ts`.
 
-In this section, we'll walk through a simple client-side implementation for
-interacting with the game. We will break down the code and provide detailed
-explanations for each step. To get started, navigate to the `client.ts` file in
-Solana Playground, remove the placeholder code, and add the code snippets from
-the following sections.
+<Warning>
+  **`anchor build` fails with `Platform tools v1.52 is incompatible with SBPFv3`?**
+  That happens with Anchor 1.1.x on Solana CLI 4.3 or later, without AVM. Build
+  the program for SBPF v0 without the IDL, then build the IDL and the
+  TypeScript types on their own:
 
-First, let's derive the PDAs (Program Derived Addresses) for the
+  ```bash Terminal
+  anchor build --no-idl -- --arch v0
+  anchor idl build -o target/idl/tiny_adventure_two.json -t target/types/tiny_adventure_two.ts
+  ```
+
+  Then run the test in [Run the client](#run-the-client) with
+  `anchor test --skip-build`, so it doesn't rebuild. For other Anchor and
+  Solana CLI versions, see
+  [Build your first program](/developers/docs/programs/build-first-program#run-test).
+</Warning>
+
+### Write the client
+
+In this section, we'll walk through a simple client for interacting with the
+game. The client is the Mocha test that `anchor init` created, and `anchor test`
+runs it against a local validator. We will break down the code and provide
+detailed explanations for each step.
+
+Replace the contents of `tests/tiny-adventure-two.ts` with the code below, then
+add the code snippets from the following sections, in order, inside the `it`
+block:
+
+```ts title="tests/tiny-adventure-two.ts"
+import * as anchor from "@anchor-lang/core";
+import { Program } from "@anchor-lang/core";
+import { TinyAdventureTwo } from "../target/types/tiny_adventure_two";
+
+describe("tiny-adventure-two", () => {
+  // Configure the client to use the local cluster.
+  const provider = anchor.AnchorProvider.env();
+  anchor.setProvider(provider);
+
+  const program = anchor.workspace.tinyAdventureTwo as Program<TinyAdventureTwo>;
+  const player = provider.wallet.publicKey;
+
+  // Print the messages the program logged with msg! during a transaction
+  const printProgramLogs = async (txHash: string) => {
+    const tx = await provider.connection.getTransaction(txHash, {
+      commitment: "confirmed"
+    });
+    for (const log of tx?.meta?.logMessages ?? []) {
+      if (log.startsWith("Program log: ")) console.log(log);
+    }
+  };
+
+  it("Spawns a chest and collects the reward", async () => {
+    // Add the code from the following sections here.
+  });
+});
+```
+
+`program` is the client for your program, built from the IDL and types that
+`anchor build` wrote to `target`. `player` is the wallet set in `Anchor.toml`,
+which pays for and signs every transaction the test sends. `printProgramLogs`
+fetches a transaction and prints the lines your program logged with `msg!`, so
+you can follow the program's side of the game in the test output.
+
+First, let's derive the PDAs (program-derived addresses) for the
 `GameDataAccount` and `ChestVaultAccount`. A PDA is a unique address in the
 format of a public key, derived using the program's ID and additional seeds.
 
-```js
-// The PDA address everyone will be able to control the character if the interact with your program
+```ts
+// The PDA address everyone will be able to control the character if they interact with your program
 const [globalLevel1GameDataAccount, bump] =
-  await anchor.web3.PublicKey.findProgramAddress(
+  anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("level1", "utf8")],
-    //[pg.wallet.publicKey.toBuffer()], <- You could also add the player wallet as a seed, then you would have one instance per player. Need to also change the seed in the rust part
-    pg.program.programId
+    //[player.toBuffer()], <- You could also add the player wallet as a seed, then you would have one instance per player. Need to also change the seed in the rust part
+    program.programId
   );
 
-// This is where the program will save the SOL reward for the chests and from which the reward will be payed out again
+// This is where the program will save the SOL reward for the chests and from which the reward will be paid out again
 const [chestVaultAccount, chestBump] =
-  await anchor.web3.PublicKey.findProgramAddress(
+  anchor.web3.PublicKey.findProgramAddressSync(
     [Buffer.from("chestVault", "utf8")],
-    pg.program.programId
+    program.programId
   );
 ```
 
 Next, we'll call the `initializeLevelOne` instruction to set up the
 `GameDataAccount` and `ChestVaultAccount`.
 
-```js
+```ts
 // Initialize level
-let txHash = await pg.program.methods
+let txHash = await program.methods
   .initializeLevelOne()
-  .accounts({
+  .accountsPartial({
     chestVault: chestVaultAccount,
     newGameDataAccount: globalLevel1GameDataAccount,
-    signer: pg.wallet.publicKey,
-    systemProgram: web3.SystemProgram.programId
+    signer: player,
+    systemProgram: anchor.web3.SystemProgram.programId
   })
-  .signers([pg.wallet.keypair])
-  .rpc();
+  .rpc({ commitment: "confirmed" });
 
-console.log(`Use 'solana confirm -v ${txHash}' to see the logs`);
-await pg.connection.confirmTransaction(txHash);
+console.log(`Transaction: ${txHash}`);
+await printProgramLogs(txHash);
 
-let balance = await pg.connection.getBalance(pg.wallet.publicKey);
+let balance = await provider.connection.getBalance(player);
 console.log(
-  `My balance before spawning a chest: ${balance / web3.LAMPORTS_PER_SOL} SOL`
+  `My balance before spawning a chest: ${balance / anchor.web3.LAMPORTS_PER_SOL} SOL`
 );
 ```
+
+`accountsPartial` lets you pass every account the instruction requires, as this
+client does. With `.accounts()` instead, the client fills in the accounts it
+can work out itself: PDAs whose seeds are in the IDL, the System Program, and
+signers, which default to your wallet. `.rpc()` signs the transaction with your
+wallet, sends it, and waits for the `confirmed` commitment, so
+`printProgramLogs` can fetch it.
 
 After that, we'll use the `resetLevelAndSpawnChest` instruction to set the
 player's position to 0 and fill the `ChestVaultAccount` with 0.1 SOL.
 
-```js
+```ts
 // Set the player position back to 0 and pay to fill up the chest with sol
-txHash = await pg.program.methods
+txHash = await program.methods
   .resetLevelAndSpawnChest()
-  .accounts({
+  .accountsPartial({
     chestVault: chestVaultAccount,
     gameDataAccount: globalLevel1GameDataAccount,
-    payer: pg.wallet.publicKey,
-    systemProgram: web3.SystemProgram.programId
+    payer: player,
+    systemProgram: anchor.web3.SystemProgram.programId
   })
-  .signers([pg.wallet.keypair])
-  .rpc();
+  .rpc({ commitment: "confirmed" });
 
-console.log(`Use 'solana confirm -v ${txHash}' to see the logs`);
-await pg.connection.confirmTransaction(txHash);
-
+console.log(`Transaction: ${txHash}`);
+await printProgramLogs(txHash);
 console.log("Level reset and chest spawned 💎");
 console.log("o........💎");
 ```
@@ -661,31 +760,30 @@ Now we can interact with the game by calling the `moveRight` instruction. In
 this example, we'll loop through this instruction until the player reaches the
 position to collect the reward from the `ChestVaultAccount`.
 
-```js
+```ts
 // Here we move to the right three times and collect the chest at the end of the level
 for (let i = 0; i < 3; i++) {
-  txHash = await pg.program.methods
+  txHash = await program.methods
     .moveRight("gib")
-    .accounts({
+    .accountsPartial({
       chestVault: chestVaultAccount,
       gameDataAccount: globalLevel1GameDataAccount,
-      player: pg.wallet.publicKey
+      player: player
     })
-    .signers([pg.wallet.keypair])
-    .rpc();
+    .rpc({ commitment: "confirmed" });
 
-  console.log(`Use 'solana confirm -v ${txHash}' to see the logs`);
-  await pg.connection.confirmTransaction(txHash);
-  let balance = await pg.connection.getBalance(pg.wallet.publicKey);
-  console.log(`My balance: ${balance / web3.LAMPORTS_PER_SOL} SOL`);
+  console.log(`Transaction: ${txHash}`);
+  await printProgramLogs(txHash);
+  let balance = await provider.connection.getBalance(player);
+  console.log(`My balance: ${balance / anchor.web3.LAMPORTS_PER_SOL} SOL`);
 
-  let gameDateAccount = await pg.program.account.gameDataAccount.fetch(
+  let gameDataAccount = await program.account.gameDataAccount.fetch(
     globalLevel1GameDataAccount
   );
 
-  console.log("Player position is:", gameDateAccount.playerPosition.toString());
+  console.log("Player position is:", gameDataAccount.playerPosition.toString());
 
-  switch (gameDateAccount.playerPosition) {
+  switch (gameDataAccount.playerPosition) {
     case 0:
       console.log("A journey begins...");
       console.log("o........💎");
@@ -704,49 +802,80 @@ for (let i = 0; i < 3; i++) {
 }
 ```
 
-Finally, press the "Run" button in the Solana Playground to execute the client.
-When you input anything other than "gib" as the password for the **`moveRight`**
-instruction, you should encounter the following error message upon reaching the
-position to claim the chest reward:
+### Run the client
 
-```
-Error Code: WrongPassword. Error Number: 6000. Error Message: Password was wrong.
-```
+Run the test:
 
-However, if you enter the correct password, the output should resemble the
-following:
-
-```
-Running client...
-  client.ts:
-    Use 'solana confirm -v CX8VWV5Jp1kXDkZrTdeeyibgZg3B3cXAzchzCfNHvJoqARSGHeEU5injypxFwiKFcHPcWFG9BeNSrqZAdENtL2t' to see the logs
-    My balance before spawning a chest: 6.396630254 SOL
-    Use 'solana confirm -v 3HwAS1RK7beL3mGoNdFYWteJXF3NdJXiEskJrHtuJ6Tu9ow67Zo3yScQBEPQyish33hP8WyuVanmq93wEFJ2LQcx' to see the logs
-    Level reset and chest spawned 💎
-    o........💎
-    Use 'solana confirm -v 43KnGrx5VQYd8LctsNaNqN1hg69vE6wiiTbdxTC1uM3Hasnq7ZdM9zWx4JS39AKNz2FpQr9a3ZnEA7XscEzmXQ5U' to see the logs
-    My balance: 6.296620254 SOL
-    Player position is: 1
-    ....o....💎
-    Use 'solana confirm -v AGxYWDw49d4y5dLon5M42eu1qG8g2Yf7FeTr3Dpbf1uFXnMeUzp4XWmHyQP1YRNpT8acz4aTJU9f2FQpL6BSAkY' to see the logs
-    My balance: 6.296615254 SOL
-    Player position is: 2
-    ......o..💎
-    Use 'solana confirm -v 5pjAU5NrS4u91QLWZTvo9aXBtR3c6g981UGSxrWDoDW5MehXnx5LnAxu4jKLp1p75RKpVSgMBgg2zHX3WDyci7AK' to see the logs
-    My balance: 6.396610254 SOL
-    Player position is: 3
-    .........\o/💎
-    ...........\o/
+```bash Terminal
+anchor test
 ```
 
-Well done! You have successfully created, deployed, and interacted with Tiny
-Adventure Two from the client side. You've incorporated a new feature that
-allows players to collect rewards by reaching the chest at the end of the level.
-Moreover, you've learned how to transfer SOL within an Anchor program using
-cross-program invocations and by directly modifying lamports in accounts.
+`anchor test` builds the program, starts a local validator (Surfpool, the
+default in Anchor CLI 1.1.2), deploys the program to it, and runs the test. The
+validator funds your wallet, so you don't need devnet SOL, and it stops when the
+test finishes. If Surfpool isn't installed, `anchor test` fails with
+`` Failed to spawn `surfpool` ``; run `anchor test --validator legacy` to use
+`solana-test-validator` instead.
+
+The output should resemble the following. Your transaction signatures and
+balances will differ:
+
+```txt title="Output"
+  tiny-adventure-two
+Transaction: 5mF83zReJ7LNWTMBCkLJxDLMZA2XbRQpyU6NvcebgNNwRUP4ZUsFSP1wbRmeWumF6ZFDhUP1p1KDkP2Zg5HJu1s9
+Program log: Instruction: InitializeLevelOne
+Program log: A Journey Begins!
+Program log: o.......💎
+My balance before spawning a chest: 9999.99860816 SOL
+Transaction: 2Rz3yutGXpScFqd5pPCEeL8U4btqpz6g9z88BqaRzsJQwEPYBezSCPmBqcniwsyeKQRkpbKSPyhrXqvPyGuPy7NC
+Program log: Instruction: ResetLevelAndSpawnChest
+Program log: Level Reset and Chest Spawned at position 3
+Level reset and chest spawned 💎
+o........💎
+Transaction: 5rmP5x8azn9oKErRSf77xfqdkBSjspJkRycJeFmt6eazSBrrJ6tVnznDUmwjJNr2UvMHHUb8EceYAEW2U23udAT5
+Program log: Instruction: MoveRight
+Program log: ..o.......💎
+My balance: 9999.89859816 SOL
+Player position is: 1
+....o....💎
+Transaction: 63kWgqgJG1QPz7ELNNAvusBEVdUbPVusNNt8tbsafwZmPLUKxvt9SwoKxdEsrE2xcdavKwSqJJimoqW3AqtEEzN3
+Program log: Instruction: MoveRight
+Program log: ....o.....💎
+My balance: 9999.89859316 SOL
+Player position is: 2
+......o..💎
+Transaction: 544dsXqNUnYbAXfzeWhgVnefdQgooTPHYfz21a8HXquPQRC4VzTjNYCjw8Be8JuZY15YjnTnDH37MkebEaBoysQh
+Program log: Instruction: MoveRight
+Program log: You made it! Here is your reward 100000000 lamports
+My balance: 9999.99858816 SOL
+Player position is: 3
+.........\o/💎
+...........\o/
+    ✔ Spawns a chest and collects the reward (170ms)
+
+
+  1 passing (171ms)
+```
+
+Your balance drops by 0.1 SOL, plus transaction fees, when you spawn the chest,
+and the 0.1 SOL comes back when you reach the chest with the right password.
+
+If you change the password passed to **`moveRight`** to anything other than
+"gib", the third `moveRight` call fails when the player tries to claim the
+chest, and the test fails with this error:
+
+```txt
+Error: AnchorError thrown in programs/tiny-adventure-two/src/lib.rs:47. Error Code: WrongPassword. Error Number: 6000. Error Message: Password was wrong.
+```
+
+You have built Tiny Adventure Two, deployed it to a local validator, and played
+it from a client. You've incorporated a new feature that allows players to
+collect rewards by reaching the chest at the end of the level. Moreover, you've
+learned how to transfer SOL within an Anchor program using cross-program
+invocations and by directly modifying lamports in accounts.
 
 Feel free to continue building independently and enhance the game with
-additional features like new levels or alternative rewards!
+additional features like new levels or alternative rewards.
 
 For more advanced examples you can check out the
-[Solana Game Examples](/developers/cookbook/games/game-examples)
+[Solana Game Examples](/developers/cookbook/games/game-examples).

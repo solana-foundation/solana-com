@@ -67,9 +67,11 @@ const transactionMessage = await estimateAndSetResourceLimits(draftMessage, {
   commitment: "confirmed",
 });
 
+// Both are measured: compute units used, and bytes of account data loaded (a
+// SOL transfer only loads the System Program, whose data is its 14-byte name).
 console.log("Compute unit limit:", transactionMessage.config?.computeUnitLimit);
 console.log(
-  "Loaded accounts data size limit:",
+  "Loaded accounts data size limit (bytes):",
   transactionMessage.config?.loadedAccountsDataSizeLimit,
 );
 
