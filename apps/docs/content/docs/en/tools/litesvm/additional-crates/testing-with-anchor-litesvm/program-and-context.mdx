@@ -13,19 +13,37 @@ modules. This is the recommended way to build instructions in tests.
 
 ```rust
 // At the top of your test file, generate client modules from the IDL
+use anchor_lang::prelude::*;
+
 anchor_lang::declare_program!(my_program);
 
 // Now use the generated types:
+// my_program::ID (the program ID from the IDL)
 // my_program::client::accounts::Initialize { ... }
 // my_program::client::args::Initialize { ... }
-// my_program::MyAccount (for account deserialization)
+// my_program::accounts::MyAccount (for account deserialization)
+// my_program::events::MyEvent (for event parsing)
 ```
 
-<Callout type="info">
-  Run `anchor build` first to generate `target/idl/my_program.json`.
-  `declare_program!` reads this file at compile time. The macro name must match
-  your program's crate name (snake_case).
-</Callout>
+<Info>
+  Run `anchor build`, then copy `target/idl/my_program.json` to
+  `idls/my_program.json`. `declare_program!` reads `idls/<name>.json` at compile
+  time from the nearest `idls` directory in the crate directory or its parents.
+  The macro name must match the IDL file name (your program's snake_case name).
+  `anchor_lang` must be in scope where you call the macro, so add
+  `use anchor_lang::prelude::*;` above it. See the
+  [Quick Start](/developers/docs/tools/litesvm/additional-crates/testing-with-anchor-litesvm#project-setup)
+  for where to put the tests and the IDL.
+</Info>
+
+<Warning>
+  These examples need an SBPF v0 build of your program. `anchor-litesvm` 0.4
+  uses LiteSVM 0.11, which can't load SBPF v3 programs, so `build_with_program`
+  panics with `Failed to add program: Instruction(InvalidAccountData)`. With
+  Anchor 1.2 and later, build with `anchor build --arch v0` and run
+  `anchor test --skip-build`. For Anchor 1.1.x, see the
+  [Quick Start](/developers/docs/tools/litesvm/additional-crates/testing-with-anchor-litesvm#installation).
+</Warning>
 
 ## Setting Up the Test Environment
 
@@ -35,20 +53,18 @@ environment.
 ### Basic Setup
 
 ```rust
+use anchor_lang::prelude::*;
 use anchor_litesvm::AnchorLiteSVM;
-use solana_sdk::signature::{read_keypair_file, Signer};
 
 anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_basic_setup() {
-    // Read the program keypair to get the correct program ID
-    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
-
-    let mut ctx = AnchorLiteSVM::new()
+    // declare_program! provides the program ID from the IDL
+    let ctx = AnchorLiteSVM::new()
         .deploy_program(
-            program_keypair.pubkey(),
-            include_bytes!("../target/deploy/my_program.so"),
+            my_program::ID,
+            include_bytes!("../../../target/deploy/my_program.so"),
         )
         .build();
 
@@ -59,17 +75,17 @@ fn test_basic_setup() {
 ### Single Program Shorthand
 
 ```rust
+use anchor_lang::prelude::*;
 use anchor_litesvm::AnchorLiteSVM;
-use solana_sdk::signature::{read_keypair_file, Signer};
+
+anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_single_program() {
-    let program_keypair = read_keypair_file("target/deploy/my_program-keypair.json").unwrap();
-
     // Convenience method for single-program setups
-    let mut ctx = AnchorLiteSVM::build_with_program(
-        program_keypair.pubkey(),
-        include_bytes!("../target/deploy/my_program.so"),
+    let ctx = AnchorLiteSVM::build_with_program(
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 }
 ```
@@ -77,49 +93,53 @@ fn test_single_program() {
 ### Multiple Programs
 
 ```rust
+use anchor_lang::prelude::*;
 use anchor_litesvm::AnchorLiteSVM;
-use solana_sdk::signature::{read_keypair_file, Signer};
+
+anchor_lang::declare_program!(program_a);
+anchor_lang::declare_program!(program_b);
 
 #[test]
 fn test_multiple_programs() {
-    let program_a_kp = read_keypair_file("target/deploy/program_a-keypair.json").unwrap();
-    let program_b_kp = read_keypair_file("target/deploy/program_b-keypair.json").unwrap();
-
     // Deploy multiple programs — first one becomes the primary (ctx.program_id)
-    let mut ctx = AnchorLiteSVM::build_with_programs(&[
-        (program_a_kp.pubkey(), include_bytes!("../target/deploy/program_a.so") as &[u8]),
-        (program_b_kp.pubkey(), include_bytes!("../target/deploy/program_b.so") as &[u8]),
+    let ctx = AnchorLiteSVM::build_with_programs(&[
+        (program_a::ID, include_bytes!("../../../target/deploy/program_a.so") as &[u8]),
+        (program_b::ID, include_bytes!("../../../target/deploy/program_b.so") as &[u8]),
     ]);
 
     // Primary program is program_a
-    assert_eq!(ctx.program().id(), program_a_kp.pubkey());
+    assert_eq!(ctx.program().id(), program_a::ID);
 }
 ```
 
 ### Custom Payer
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use solana_keypair::Keypair;
-use solana_signer::Signer;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, Keypair, Signer};
+
+anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_custom_payer() {
     let custom_payer = Keypair::new();
 
-    let mut ctx = AnchorLiteSVM::new()
+    let ctx = AnchorLiteSVM::new()
         .with_payer(custom_payer)
-        .deploy_program(PROGRAM_ID, include_bytes!("../target/deploy/your_program.so"))
+        .deploy_program(
+            my_program::ID,
+            include_bytes!("../../../target/deploy/my_program.so"),
+        )
         .build();
 
     println!("Payer: {}", ctx.payer().pubkey());
 }
 ```
 
-<Callout type="info">
+<Info>
   If you don't specify a payer, `AnchorLiteSVM` automatically creates and funds
   one for you.
-</Callout>
+</Info>
 
 ## The AnchorContext
 
@@ -129,18 +149,20 @@ environment.
 ### Core Properties
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use solana_signer::Signer;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, Signer};
+
+anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_context_properties() {
-    let mut ctx = AnchorLiteSVM::build_with_program(
-        PROGRAM_ID,
-        include_bytes!("../target/deploy/your_program.so"),
+    let ctx = AnchorLiteSVM::build_with_program(
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
     // ctx.svm — direct access to the underlying LiteSVM instance (public field)
-    let balance = ctx.svm.get_balance(&some_pubkey);
+    let balance = ctx.svm.get_balance(&ctx.payer().pubkey());
 
     // ctx.payer() — the payer keypair
     let payer = ctx.payer();
@@ -158,16 +180,16 @@ fn test_context_properties() {
 ### Creating Funded Accounts
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use anchor_litesvm::TestHelpers;
-use solana_keypair::Keypair;
-use solana_signer::Signer;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, Keypair, Signer, TestHelpers};
+
+anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_create_accounts() {
     let mut ctx = AnchorLiteSVM::build_with_program(
-        PROGRAM_ID,
-        include_bytes!("../target/deploy/your_program.so"),
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
     // Option 1: via AnchorContext (returns Result<Keypair>)
@@ -185,16 +207,19 @@ fn test_create_accounts() {
 ### Checking Account Existence
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, TestHelpers};
+
+anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_account_exists() {
-    let mut ctx = AnchorLiteSVM::build_with_program(
-        PROGRAM_ID,
-        include_bytes!("../target/deploy/your_program.so"),
+    let ctx = AnchorLiteSVM::build_with_program(
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
-    let some_pda = ctx.svm.get_pda(&[b"vault"], &PROGRAM_ID);
+    let some_pda = ctx.svm.get_pda(&[b"vault"], &my_program::ID);
 
     if ctx.account_exists(&some_pda) {
         println!("Account exists!");
@@ -213,21 +238,25 @@ safety.
 ### Basic Instruction Building
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::prelude::*;
 use anchor_lang::system_program;
-use solana_signer::Signer;
+use anchor_litesvm::{AnchorLiteSVM, Signer, TestHelpers};
 
 anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_build_instruction() {
     let mut ctx = AnchorLiteSVM::build_with_program(
-        PROGRAM_ID,
-        include_bytes!("../target/deploy/my_program.so"),
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
     let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
-    let user_pda = ctx.svm.get_pda(&[b"user", user.pubkey().as_ref()], &PROGRAM_ID);
+    let seed: u64 = 42;
+    let user_pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &my_program::ID,
+    );
 
     // Build instruction using types generated by declare_program!
     let ix = ctx.program()
@@ -237,6 +266,7 @@ fn test_build_instruction() {
             system_program: system_program::ID,
         })
         .args(my_program::client::args::Initialize {
+            seed,
             name: "test".to_string(),
         })
         .instruction()
@@ -246,30 +276,34 @@ fn test_build_instruction() {
 }
 ```
 
-<Callout type="info">
+<Info>
   The `.accounts()` method accepts any type that implements `ToAccountMetas`,
   which all Anchor account structs do automatically. Similarly, `.args()`
   accepts any type implementing `InstructionData`.
-</Callout>
+</Info>
 
 ### Executing Instructions
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
+use anchor_lang::prelude::*;
 use anchor_lang::system_program;
-use solana_signer::Signer;
+use anchor_litesvm::{AnchorLiteSVM, Signer, TestHelpers};
 
 anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_execute_instruction() {
     let mut ctx = AnchorLiteSVM::build_with_program(
-        PROGRAM_ID,
-        include_bytes!("../target/deploy/my_program.so"),
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
     let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
-    let user_pda = ctx.svm.get_pda(&[b"user", user.pubkey().as_ref()], &PROGRAM_ID);
+    let seed: u64 = 42;
+    let user_pda = ctx.svm.get_pda(
+        &[b"user", user.pubkey().as_ref(), &seed.to_le_bytes()],
+        &my_program::ID,
+    );
 
     let ix = ctx.program()
         .accounts(my_program::client::accounts::Initialize {
@@ -277,7 +311,7 @@ fn test_execute_instruction() {
             user_account: user_pda,
             system_program: system_program::ID,
         })
-        .args(my_program::client::args::Initialize { name: "test".to_string() })
+        .args(my_program::client::args::Initialize { seed, name: "test".to_string() })
         .instruction()
         .unwrap();
 
@@ -291,23 +325,23 @@ fn test_execute_instruction() {
 ### Executing Multiple Instructions
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use solana_signer::Signer;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, Signer, TestHelpers};
 
 anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_execute_multiple_instructions() {
     let mut ctx = AnchorLiteSVM::build_with_program(
-        PROGRAM_ID,
-        include_bytes!("../target/deploy/my_program.so"),
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
     let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
 
     let ix1 = ctx.program()
         .accounts(my_program::client::accounts::Initialize { /* ... */ })
-        .args(my_program::client::args::Initialize { name: "first".to_string() })
+        .args(my_program::client::args::Initialize { seed: 42, name: "first".to_string() })
         .instruction()
         .unwrap();
 
@@ -327,15 +361,17 @@ fn test_execute_multiple_instructions() {
 ### Using send_and_confirm_transaction
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use solana_signer::Signer;
-use solana_transaction::Transaction;
+use anchor_lang::prelude::*;
+use anchor_litesvm::{AnchorLiteSVM, Signer, TestHelpers};
+use solana_sdk::transaction::Transaction;
+
+anchor_lang::declare_program!(my_program);
 
 #[test]
 fn test_send_transaction() {
     let mut ctx = AnchorLiteSVM::build_with_program(
-        PROGRAM_ID,
-        include_bytes!("../target/deploy/your_program.so"),
+        my_program::ID,
+        include_bytes!("../../../target/deploy/my_program.so"),
     );
 
     let user = ctx.svm.create_funded_account(10_000_000_000).unwrap();
@@ -361,27 +397,33 @@ fn test_send_transaction() {
 
 ## Complete Example
 
-Here's a comprehensive example using the escrow pattern with `declare_program!`:
+Here's a comprehensive example using the escrow pattern with `declare_program!`,
+for an escrow program like the one in
+[anchor-escrow-with-litesvm](https://github.com/brimigs/anchor-escrow-with-litesvm).
+It also uses the Associated Token Account and SPL Token crates, so add them
+first (from `programs/anchor_escrow`):
+
+```bash
+cargo add --dev spl-associated-token-account@8 litesvm-token@0.11
+```
 
 ```rust
-use anchor_litesvm::AnchorLiteSVM;
-use anchor_litesvm::{AssertionHelpers, TestHelpers};
+use anchor_lang::prelude::*;
 use anchor_lang::system_program;
-use solana_sdk::signature::{read_keypair_file, Signer};
-use spl_associated_token_account::get_associated_token_address;
+use anchor_litesvm::{AnchorLiteSVM, AssertionHelpers, Signer, TestHelpers};
 use litesvm_token::spl_token;
+use spl_associated_token_account::get_associated_token_address;
 
 anchor_lang::declare_program!(anchor_escrow);
 
 #[test]
 fn test_make_and_take() {
     // 1. One-line setup
-    let program_keypair = read_keypair_file("target/deploy/anchor_escrow-keypair.json").unwrap();
-    let program_id = program_keypair.pubkey();
+    let program_id = anchor_escrow::ID;
 
     let mut ctx = AnchorLiteSVM::build_with_program(
         program_id,
-        include_bytes!("../target/deploy/anchor_escrow.so"),
+        include_bytes!("../../../target/deploy/anchor_escrow.so"),
     );
 
     // 2. Create test accounts using TestHelpers on ctx.svm

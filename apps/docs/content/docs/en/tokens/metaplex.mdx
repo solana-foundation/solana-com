@@ -1,26 +1,29 @@
 ---
 title: Metaplex Metadata
+sidebarTitle: "Metaplex metadata"
 description:
   Learn how to add metadata to SPL Tokens using the Metaplex Token Metadata
   Program.
+anchorAliases:
+  off-chain-metadata-format: offchain-metadata-format
 ---
 
 Standard SPL Tokens don't include metadata like a name, symbol, or image. The
 [Metaplex Token Metadata Program](https://developers.metaplex.com/token-metadata)
 solves this by creating a metadata account linked to each token mint.
 
-<Callout type="info">
+<Info>
   This guide covers the Metaplex Token Metadata Program which can be used for
   standard SPL Tokens and Token-2022. To use the Token-2022 Metadata Extension,
-  see the [Metadata Extension guide](/docs/tokens/extensions/metadata) which
+  see the [Metadata Extension guide](/developers/docs/tokens/extensions/metadata) which
   stores metadata directly on the mint account.
-</Callout>
+</Info>
 
 ## How Token Metadata Works
 
-The Token Metadata Program creates a Program Derived Address (PDA) for each
+The Token Metadata Program creates a program-derived address (PDA) for each
 token mint. This metadata account stores onchain information like the token's
-name and symbol, plus a URI pointing to off-chain JSON metadata (images,
+name and symbol, plus a URI pointing to offchain JSON metadata (images,
 descriptions, etc.).
 
 ```text
@@ -37,6 +40,46 @@ descriptions, etc.).
 
 The metadata PDA is derived from seeds: `["metadata", program_id, mint_address]`
 
+## Setup
+
+The examples on this page use `@solana/kit` and the Metaplex Token Metadata
+Kit client:
+
+```bash Terminal
+npm install @solana/kit @solana-program/token @metaplex-foundation/mpl-token-metadata-kit
+```
+
+`@metaplex-foundation/mpl-token-metadata-kit` 0.0.3 loads
+`@solana-program/token` at runtime without listing it as a dependency, so
+install it as well. The Metaplex client is also built on `@solana/kit` 6, and
+npm installs a second copy of Kit for it. The two copies' RPC types don't
+match, so the update example reads the metadata account with Kit's
+`fetchEncodedAccount` and decodes it with `decodeMetadata` instead of passing
+`rpc` to `fetchMetadata`. The examples also call
+`assertIsTransactionWithBlockhashLifetime` before sending, which
+`sendAndConfirmTransactionFactory` needs to type-check.
+
+The examples send transactions to a local validator at `http://127.0.0.1:8899`.
+A plain local validator doesn't include the Token Metadata program, so start
+one that loads it from mainnet.
+[Surfpool](/developers/docs/intro/installation/surfpool-cli-basics) fetches the
+programs and accounts your transactions use from mainnet on demand:
+
+```bash Terminal
+surfpool start
+```
+
+With the Solana CLI's test validator, clone the program when it starts:
+
+```bash Terminal
+solana-test-validator --clone-upgradeable-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s --url mainnet-beta
+```
+
+The examples sign with your default Solana CLI keypair
+(`~/.config/solana/id.json`), which pays for the transactions and becomes the
+token's update authority. If you don't have one, create it with
+`solana-keygen new`.
+
 ## Create Token with Metadata
 
 The `createV1` instruction creates both the mint account and its metadata in a
@@ -44,12 +87,14 @@ single transaction.
 
 ### Typescript
 
-<CodeTabs storage="token-ts">
+<CodeGroup>
 
-```ts !! title="Kit"
+```ts Kit
 import {
   airdropFactory,
   appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  createKeyPairSignerFromBytes,
   createSolanaRpc,
   createSolanaRpcSubscriptions,
   createTransactionMessage,
@@ -61,6 +106,8 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners
 } from "@solana/kit";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import {
   getCreateV1InstructionAsync,
   TokenStandard
@@ -70,11 +117,16 @@ import {
 const rpc = createSolanaRpc("http://127.0.0.1:8899");
 const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
 
-// Generate keypairs
-const payer = await generateKeyPairSigner();
+// Load the default CLI keypair. It pays for the transaction and becomes the
+// update authority, so the update example below can sign with it.
+const payer = await createKeyPairSignerFromBytes(
+  new Uint8Array(
+    JSON.parse(await readFile(`${homedir()}/.config/solana/id.json`, "utf8"))
+  )
+);
 const mint = await generateKeyPairSigner();
 
-// Fund payer
+// Fund payer (local validator)
 await airdropFactory({ rpc, rpcSubscriptions })({
   recipientAddress: payer.address,
   lamports: lamports(1_000_000_000n),
@@ -105,6 +157,7 @@ const transactionMessage = pipe(
 
 const signedTransaction =
   await signTransactionMessageWithSigners(transactionMessage);
+assertIsTransactionWithBlockhashLifetime(signedTransaction);
 
 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
   signedTransaction,
@@ -114,10 +167,12 @@ await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
 console.log("Mint Address:", mint.address);
 ```
 
-```ts !! title="Kit Helper"
+```ts title="Kit Helper"
 import {
   airdropFactory,
   appendTransactionMessageInstructions,
+  assertIsTransactionWithBlockhashLifetime,
+  createKeyPairSignerFromBytes,
   createSolanaRpc,
   createSolanaRpcSubscriptions,
   createTransactionMessage,
@@ -129,17 +184,24 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners
 } from "@solana/kit";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { createFungible } from "@metaplex-foundation/mpl-token-metadata-kit";
 
 // Create connection
 const rpc = createSolanaRpc("http://127.0.0.1:8899");
 const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
 
-// Generate keypairs
-const payer = await generateKeyPairSigner();
+// Load the default CLI keypair. It pays for the transaction and becomes the
+// update authority, so the update example below can sign with it.
+const payer = await createKeyPairSignerFromBytes(
+  new Uint8Array(
+    JSON.parse(await readFile(`${homedir()}/.config/solana/id.json`, "utf8"))
+  )
+);
 const mint = await generateKeyPairSigner();
 
-// Fund payer
+// Fund payer (local validator)
 await airdropFactory({ rpc, rpcSubscriptions })({
   recipientAddress: payer.address,
   lamports: lamports(1_000_000_000n),
@@ -169,6 +231,7 @@ const transactionMessage = pipe(
 
 const signedTransaction =
   await signTransactionMessageWithSigners(transactionMessage);
+assertIsTransactionWithBlockhashLifetime(signedTransaction);
 
 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
   signedTransaction,
@@ -178,7 +241,7 @@ await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
 console.log("Mint Address:", mint.address);
 ```
 
-</CodeTabs>
+</CodeGroup>
 
 ## Fetch Token Metadata
 
@@ -190,35 +253,51 @@ cookbook recipe.
 
 The update authority can modify the metadata if the account is mutable.
 
-<CodeTabs storage="token-ts">
-
-```ts !! title="Kit"
+```ts Kit
 import {
+  address,
   appendTransactionMessageInstructions,
+  assertAccountExists,
+  assertIsTransactionWithBlockhashLifetime,
+  createKeyPairSignerFromBytes,
   createSolanaRpc,
   createSolanaRpcSubscriptions,
   createTransactionMessage,
+  fetchEncodedAccount,
   pipe,
   sendAndConfirmTransactionFactory,
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   signTransactionMessageWithSigners
 } from "@solana/kit";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import {
-  getUpdateV1InstructionAsync,
+  decodeMetadata,
   findMetadataPda,
-  fetchMetadata
+  getUpdateV1InstructionAsync
 } from "@metaplex-foundation/mpl-token-metadata-kit";
 
 const rpc = createSolanaRpc("http://127.0.0.1:8899");
 const rpcSubscriptions = createSolanaRpcSubscriptions("ws://127.0.0.1:8900");
 
-// authority must be a KeyPairSigner with update authority
-const mintAddress = "YOUR_MINT_ADDRESS";
+// Load the update authority as a KeyPairSigner (here, the default CLI keypair).
+// It must be the wallet that created the token and it must hold some SOL.
+const authority = await createKeyPairSignerFromBytes(
+  new Uint8Array(
+    JSON.parse(await readFile(`${homedir()}/.config/solana/id.json`, "utf8"))
+  )
+);
+
+// Replace with the address of a mutable token whose update authority is this
+// keypair, for example one you created with the create example above.
+const mintAddress = address("YOUR_MINT_ADDRESS");
 
 // Fetch current metadata to preserve existing values
 const [metadataAddress] = await findMetadataPda({ mint: mintAddress });
-const currentMetadata = await fetchMetadata(rpc, metadataAddress);
+const metadataAccount = await fetchEncodedAccount(rpc, metadataAddress);
+assertAccountExists(metadataAccount);
+const currentMetadata = decodeMetadata(metadataAccount);
 
 // Update metadata (must provide all data fields)
 const updateInstruction = await getUpdateV1InstructionAsync({
@@ -249,6 +328,7 @@ const transactionMessage = pipe(
 
 const signedTransaction =
   await signTransactionMessageWithSigners(transactionMessage);
+assertIsTransactionWithBlockhashLifetime(signedTransaction);
 
 await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
   signedTransaction,
@@ -257,8 +337,6 @@ await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
 
 console.log("Metadata updated successfully");
 ```
-
-</CodeTabs>
 
 ## Token Standards
 
@@ -286,13 +364,13 @@ tokenStandard: TokenStandard.NonFungible;
 tokenStandard: TokenStandard.ProgrammableNonFungible;
 ```
 
-## Off-Chain Metadata Format
+## Offchain Metadata Format
 
 The `uri` field points to a JSON file containing extended metadata. The standard
 format follows the
 [Metaplex Token Metadata Standard](https://developers.metaplex.com/token-metadata/token-standard):
 
-```json title="token-metadata.json"
+```json token-metadata.json
 {
   "name": "My Token",
   "symbol": "MTK",
@@ -316,32 +394,40 @@ format follows the
 }
 ```
 
-<Callout type="caution">
+<Danger>
   Store your metadata JSON on a reliable, permanent storage solution like
   Arweave, IPFS, or a dedicated CDN. If the URI becomes inaccessible, wallets
   and explorers won't be able to display your token's metadata.
-</Callout>
+</Danger>
 
 ## Metadata Account Structure
 
-The onchain metadata account contains:
+The onchain metadata account stores a `Metadata` struct, with the name,
+symbol, URI, royalties, and creators nested in a `Data` struct
+([source](https://github.com/metaplex-foundation/mpl-token-metadata/blob/0236c068fca3e3a8fb7d9e8057da58ba010af05d/programs/token-metadata/program/src/state/metadata.rs#L68-L95)):
 
 ```rust
 pub struct Metadata {
-    pub key: Key,                              // Account type identifier
-    pub update_authority: Pubkey,              // Can update metadata
-    pub mint: Pubkey,                          // Associated mint
-    pub name: String,                          // Token name (max 32 chars)
-    pub symbol: String,                        // Token symbol (max 10 chars)
-    pub uri: String,                           // URI to off-chain JSON (max 200 chars)
-    pub seller_fee_basis_points: u16,          // Royalty % (100 = 1%)
-    pub creators: Option<Vec<Creator>>,        // Creator list with shares
-    pub primary_sale_happened: bool,           // Primary sale flag
-    pub is_mutable: bool,                      // Can metadata be updated
-    pub edition_nonce: Option<u8>,             // Edition nonce
-    pub token_standard: Option<TokenStandard>, // Token type
-    pub collection: Option<Collection>,        // Collection info
-    pub uses: Option<Uses>,                    // Use tracking
+    pub key: Key,                                        // Account type identifier
+    pub update_authority: Pubkey,                        // Can update metadata
+    pub mint: Pubkey,                                    // Associated mint
+    pub data: Data,                                      // Name, symbol, URI, royalties, creators
+    pub primary_sale_happened: bool,                     // Primary sale flag
+    pub is_mutable: bool,                                // Can metadata be updated
+    pub edition_nonce: Option<u8>,                       // Edition nonce
+    pub token_standard: Option<TokenStandard>,           // Token type
+    pub collection: Option<Collection>,                  // Collection info
+    pub uses: Option<Uses>,                              // Use tracking
+    pub collection_details: Option<CollectionDetails>,   // Collection size (collection NFTs)
+    pub programmable_config: Option<ProgrammableConfig>, // Rule set (programmable NFTs)
+}
+
+pub struct Data {
+    pub name: String,                   // Token name (max 32 chars)
+    pub symbol: String,                 // Token symbol (max 10 chars)
+    pub uri: String,                    // URI to offchain JSON (max 200 chars)
+    pub seller_fee_basis_points: u16,   // Royalty % (100 = 1%)
+    pub creators: Option<Vec<Creator>>, // Creator list with shares
 }
 ```
 
@@ -349,7 +435,7 @@ pub struct Metadata {
 
 1. **Set appropriate mutability**: Use `isMutable: false` for tokens that should
    never change
-2. **Use reliable URI hosting**: Off-chain metadata should be on permanent
+2. **Use reliable URI hosting**: Offchain metadata should be on permanent
    storage
 3. **Verify creators**: Creator addresses should be verified to confirm
    authenticity

@@ -33,7 +33,7 @@ export default function AiHero() {
           <Button
             newTab
             size="large"
-            to="/docs/intro/coding-with-agents"
+            to="/developers/docs/intro/coding-with-agents"
             variant="secondary"
           >
             {t("ai.hero.cta")}
