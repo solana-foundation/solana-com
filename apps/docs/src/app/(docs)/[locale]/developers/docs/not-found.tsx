@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default function NotFound() {
-  return <DocsNotFound askAi />;
+  return <DocsNotFound />;
 }

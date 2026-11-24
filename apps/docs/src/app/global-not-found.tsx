@@ -20,13 +20,12 @@ export const metadata: Metadata = {
  * src/middleware.ts sends missing docs pages here, so their 404 is a full
  * page in the HTML, not an empty shell the browser fills in after loading
  * the page's JavaScript (as a page's notFound() renders). Prerendered once
- * for every URL, so the header's Ask AI ✨ goes by the URL once hydrated
- * (a /developers/docs one), as the panel does.
+ * for every URL.
  */
 export default function GlobalNotFound() {
   return (
     <DocsRootLayout params={Promise.resolve({ locale: defaultLocale })}>
-      <DocsNotFound askAi="by-path" />
+      <DocsNotFound />
     </DocsRootLayout>
   );
 }

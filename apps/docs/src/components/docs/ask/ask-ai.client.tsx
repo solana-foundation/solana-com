@@ -37,12 +37,11 @@ function isOtherField(target: EventTarget | null) {
 }
 
 /**
- * Ask AI on the docs (/developers/docs): the launcher, the one panel and
+ * Ask AI on every page of the docs layout: the launcher, the one panel and
  * the "Ask AI about this" pill by selected text, mounted once in the docs
  * layout (DocsAssistant) so the conversation survives client-side
- * navigation, and the panel's room on <html> goes when it unmounts (a move
- * to the cookbook, which has Inkeep). Routes every
- * opener to the store (`openAskAi()` from code blocks, page actions and
+ * navigation, and the panel's room on <html> goes if it unmounts. Routes
+ * every opener to the store (`openAskAi()` from code blocks, page actions and
  * the search hand-off; `[data-docs-ask-open]` buttons; ⌘I / Ctrl+I; the
  * pill), passes the localized prompts to it, sends Ask AI's analytics
  * events (and the search's) to GA4, and gives focus back to whatever
@@ -75,8 +74,7 @@ export function AskAi() {
     });
   }, [t]);
 
-  // Before paint: back on the docs after the cookbook, a docked panel
-  // takes its room in the same frame.
+  // Before paint: a docked panel takes its room in the same frame.
   useLayoutEffect(() => connectAskHtml(), []);
   useEffect(() => connectAskAiEvents(), []);
   useEffect(() => connectAskAnalytics(), []);

@@ -6,6 +6,7 @@ import type { DocsTab, DocsTabIcon } from "@/data/developers/docs-nav";
 import { DOCS_LANGUAGE_NAMES } from "@/lib/docs/language-paths";
 import { getDocsNavigation } from "@/lib/docs/navigation";
 import { DocsScripts } from "./docs-scripts";
+import { ASK_ROOM_CLASS } from "./ask/room";
 import { NotFoundSuggestions } from "./docs-not-found.client";
 import "./docs-styles.css";
 
@@ -13,9 +14,8 @@ import "./docs-styles.css";
  * The docs 404 (docs.json `errors.404`): the docs chrome, "404", the title,
  * the description with a link to the docs home, and a few pages whose
  * titles match the requested path (Fumadocs search), as before. The HTTP
- * status is 404 (rendered from not-found.tsx). `askAi`: the docs' own 404,
- * whose header has Ask AI's ✨; "by-path" for the prerendered global 404,
- * which shows it once hydrated on a /developers/docs URL.
+ * status is 404 (rendered from not-found.tsx). Like every page in the
+ * layout it has Ask AI and the docs search, and makes room for the panel.
  */
 const ERROR = docsConfig.errors["404"];
 
@@ -38,11 +38,7 @@ function Description() {
   );
 }
 
-export async function DocsNotFound({
-  askAi = false,
-}: {
-  askAi?: boolean | "by-path";
-}) {
+export async function DocsNotFound() {
   const nav = getDocsNavigation(defaultLocale);
   const tabs: DocsTab[] = nav.tabs
     .filter((t) => !t.hidden)
@@ -56,12 +52,16 @@ export async function DocsNotFound({
   return (
     <>
       <DocsThemePrepaint />
-      <div data-docs="" data-dev-landing="docs" data-not-found="">
+      <div
+        data-docs=""
+        data-dev-landing="docs"
+        data-not-found=""
+        className={ASK_ROOM_CLASS}
+      >
         <DocsHeader
           locale={defaultLocale}
           tabs={tabs}
           languageNames={DOCS_LANGUAGE_NAMES}
-          askAi={askAi}
         />
         <main id="content-container" className="not-found-main">
           <div id="content-area">

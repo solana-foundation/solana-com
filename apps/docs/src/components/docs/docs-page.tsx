@@ -19,7 +19,6 @@ import {
 import { docsPageMetadata } from "@/lib/docs/metadata";
 import { contentLanguageAttributes } from "@/lib/docs/content-language";
 import { docsPageJsonLd } from "@/lib/docs/structured-data";
-import { isAskAiPath } from "@/lib/docs/ask-ai";
 import { DOCS_LANGUAGE_NAMES, languagePaths } from "@/lib/docs/language-paths";
 import { DocsSidebar, SidebarItems, SidebarNav } from "./docs-sidebar";
 import { DocsToc } from "./docs-toc.client";
@@ -29,6 +28,7 @@ import { DocsLink } from "./docs-link";
 import { ApiExamplesWrapper, docsComponents } from "./docs-components";
 import { ChevronIcon, TocIcon } from "./docs-ui-icons";
 import { DocsRunFlag, DocsScripts } from "./docs-scripts";
+import { ASK_ROOM_CLASS } from "./ask/room";
 import "./docs-styles.css";
 
 /**
@@ -159,9 +159,6 @@ export async function DocsPageView({
   const { tabs, active } = headerTabs(resolved);
   const tab = resolved.tab;
   const current = resolved.url;
-  // Ask AI's ✨, page action and selection pill: /developers/docs only (the
-  // cookbook has Inkeep, see docs-assistant.client.tsx).
-  const askAi = isAskAiPath(`/${slugs.join("/")}`);
   // One element for both copies of the nav (sidebar and header menu).
   const navItems = tab ? <SidebarItems tab={tab} current={current} /> : null;
   const examples = api ? (
@@ -200,25 +197,15 @@ export async function DocsPageView({
           further.
         </p>
       </blockquote>
-      {/* With Ask AI docked (html[data-ask=docked], ask/ask-panel.client.tsx)
-          everything but the header makes room for the panel, and the side
-          column (TOC or API examples) gives way when the text would get
-          narrower than at 1280px: its examples then show inline. The
-          header moves over only as far as its 92rem bar has room, so it
-          lines up with the page without squeezing its tabs (2rem less:
-          the panel's room replaces .docs-body's own end padding). Full
-          screen (html[data-ask=fullscreen], set before paint for a
-          full-screen link) hides the page under the dialog: on a load at
-          once, as the first style runs no transition; on Expand once the
-          dialog has faded in (150ms), so the page doesn't blink out first.
-          It also stops the body's colour transition, which would
-          otherwise fade from light to dark behind it as the theme loads. */}
+      {/* The page makes room for Ask AI (ask/room.ts). Docked, the side
+          column (TOC or API examples) also gives way when the text would
+          get narrower than at 1280px: its examples then show inline. */}
       <div
         data-docs=""
         data-dev-landing="docs"
         data-mode={wide ? "wide" : undefined}
         {...contentLanguageAttributes(locale, contentLocale)}
-        className="xl:[html[data-ask=docked]_&>.dh]:pe-[min(var(--ask-w)_-_2rem,max(0px,100%_-_92rem))] xl:[html[data-ask=docked]_&>:not(.dh)]:pe-[var(--ask-w)] [html[data-ask=fullscreen]_&]:invisible [html[data-ask=fullscreen]_&]:[transition:visibility_0s_150ms] motion-reduce:[html[data-ask=fullscreen]_&]:[transition:none] [html[data-ask=fullscreen]_body:has(&)]:transition-none"
+        className={ASK_ROOM_CLASS}
       >
         <DocsHeader
           locale={locale}
@@ -226,7 +213,6 @@ export async function DocsPageView({
           activeTab={active}
           languagePaths={languagePaths(resolved)}
           languageNames={DOCS_LANGUAGE_NAMES}
-          askAi={askAi}
           menu={
             tab ? (
               <div id="mobile-nav">
@@ -260,12 +246,9 @@ export async function DocsPageView({
                   )}
                 </div>
               )}
-              {/* The article: on the docs, selecting text in it offers
-                  "Ask AI about this" (DOCS_ASK_SELECTION_ATTR). */}
-              <div
-                id="content-area"
-                data-docs-ask-selection={askAi ? "" : undefined}
-              >
+              {/* The article: selecting text in it offers "Ask AI about
+                  this" (DOCS_ASK_SELECTION_ATTR). */}
+              <div id="content-area" data-docs-ask-selection="">
                 <header id="page-header">
                   <div className="page-heading">
                     {crumbs.length ? (
@@ -301,7 +284,6 @@ export async function DocsPageView({
                   <PageActions
                     markdownUrl={markdownPath(page.url)}
                     strings={strings}
-                    askAi={askAi}
                   />
                 </header>
                 {api ? (

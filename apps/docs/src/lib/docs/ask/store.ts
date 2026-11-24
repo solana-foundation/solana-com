@@ -23,8 +23,7 @@
  *   and --ask-w (the docked width), which the docs layouts use to make
  *   room for the panel; ./config.ts DOCS_ASK_PREPAINT_SCRIPT sets the same
  *   before paint. Only while an Ask AI root is mounted (connectAskHtml):
- *   a client-side move to a route without Ask AI (the cookbook) clears
- *   them.
+ *   its unmount clears them.
  * - A question that arrives while an answer is streaming is queued, not
  *   dropped.
  * - A question goes out as the reader's words. Bri's client sends only the
@@ -1463,8 +1462,7 @@ export const askStore = {
 /**
  * Gives <html> to the store while an Ask AI root is mounted: the panel's
  * attributes (data-ask, --ask-w) are set at once, and removed when it
- * unmounts. A client-side move from the docs to a route without Ask AI
- * (the cookbook) would otherwise keep room for a panel that isn't there.
+ * unmounts, so the page never keeps room for a panel that isn't there.
  * Call from the root island, before paint; returns the cleanup.
  */
 export function connectAskHtml(): () => void {

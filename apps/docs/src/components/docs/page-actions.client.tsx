@@ -58,13 +58,10 @@ function absolute(path: string) {
 export function PageActions({
   markdownUrl,
   strings,
-  askAi = false,
 }: {
   /** Path of the page's Markdown twin, e.g. /developers/docs/payments.md */
   markdownUrl: string;
   strings: DocsUiStrings;
-  /** The page has Ask AI (a /developers/docs page): the menu offers it. */
-  askAi?: boolean;
 }) {
   const tc = useTranslations("commands");
   const [copied, markCopied] = useCopied();
@@ -126,25 +123,23 @@ export function PageActions({
           <ChevronIcon className="page-action-chevron" />
         </summary>
         <div className="page-action-list" role="menu">
-          {askAi ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="page-action-item"
-              onClick={() => {
-                close();
-                openAskAi({ aboutPage: true });
-              }}
-            >
-              <span className="page-action-tile">
-                <SparkleIcon className="page-action-item-icon" />
-              </span>
-              <span className="page-action-text">
-                <span className="page-action-title">{tc("askAI")}</span>
-                <span className="page-action-desc">{strings.askAboutPage}</span>
-              </span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            className="page-action-item"
+            onClick={() => {
+              close();
+              openAskAi({ aboutPage: true });
+            }}
+          >
+            <span className="page-action-tile">
+              <SparkleIcon className="page-action-item-icon" />
+            </span>
+            <span className="page-action-text">
+              <span className="page-action-title">{tc("askAI")}</span>
+              <span className="page-action-desc">{strings.askAboutPage}</span>
+            </span>
+          </button>
           <button
             type="button"
             role="menuitem"

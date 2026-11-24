@@ -5,6 +5,7 @@ import { getIndexMetadata } from "@/app/metadata";
 import { JOB_PATHS, LEARN_ROUTES } from "@/data/developers/hub";
 import { getLatestDeveloperUpdates } from "@/lib/developer-media";
 import { DOCS_WEBSITE, ORGANIZATION } from "@/lib/docs/structured-data";
+import { ASK_ROOM_CLASS } from "@/components/docs/ask/room";
 import { DevelopersHub } from "./developers-hub";
 import {
   buildDeveloperHubJsonLd,
@@ -63,8 +64,9 @@ export default async function Page({ params }: Props) {
   });
 
   // The docs chrome replaces the solana.com Header/Footer here
-  // (ChromeWrapper skips them on this route). Inkeep answers here, not Ask
-  // AI (components/docs/docs-assistant.client.tsx).
+  // (ChromeWrapper skips them on this route). Ask AI and the docs search
+  // come from the layout (components/docs/docs-assistant.client.tsx); the
+  // page makes room for a docked panel (ASK_ROOM_CLASS).
   return (
     <>
       <DocsThemePrepaint />
@@ -79,7 +81,7 @@ export default async function Page({ params }: Props) {
           }),
         }}
       />
-      <div data-dev-landing="docs">
+      <div data-dev-landing="docs" className={ASK_ROOM_CLASS}>
         <DocsHeader locale={locale} />
         <DevelopersHub locale={locale} updates={updates} />
         <DocsFooter locale={locale} />

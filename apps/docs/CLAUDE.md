@@ -18,7 +18,8 @@ General `/learn` content is owned by `apps/web`.
 - **Code Highlighting**: Shiki, through Fumadocs' rehype-code
 - **Styling**: Tailwind CSS 3, SCSS, and the docs stylesheets in
   `content/styles`
-- **Search and Ask AI**: Inkeep
+- **Search and Ask AI**: the docs agent (Ask Solana), through the `/api/ask`
+  proxy; search falls back to the docs' own index (`/api/docs-search`)
 
 ## Project Structure
 

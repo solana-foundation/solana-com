@@ -3,10 +3,9 @@ import { useSyncExternalStore } from "react";
 const subscribeNever = () => () => undefined;
 
 /**
- * False in the server render and while hydrating, then true. For what the
- * server can't know: a missing page is the prerendered 404
- * (app/global-not-found.tsx) under the URL that was asked for, which its
- * render doesn't see.
+ * False in the server render and while hydrating, then true. For what only
+ * works in the browser, such as the docs layout's assistant
+ * (components/docs/docs-assistant.client.tsx).
  */
 export function useHydrated(): boolean {
   return useSyncExternalStore(

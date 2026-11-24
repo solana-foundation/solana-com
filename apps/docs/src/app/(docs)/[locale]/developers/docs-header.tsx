@@ -24,23 +24,22 @@ import {
 } from "./docs-icons";
 
 /**
- * The docs header, shared by the /developers landing and every docs page
- * (/developers/docs, /developers/cookbook, /developers/bootcamp, /learn/*),
- * so moving between them is one site. ONE row at every width (styles in
- * docs-chrome.css, "Docs header"):
+ * The docs header, shared by the /developers landing, every docs page
+ * (/developers/docs, /developers/cookbook) and the 404, so moving between
+ * them is one site. ONE row at every width (styles in docs-chrome.css,
+ * "Docs header"):
  * - >= 1440px: logo | tabs ... Video tutorials | search field, theme,
  *   language;
  * - 1280-1439px: the same, the search an icon button;
  * - 1024-1279px: compact: smaller logo, tighter tabs without icons, search
- *   icon, theme, language code;
- * - < 1024px: logo, search icon, Ask AI (✨, the docs only) and the menu
- *   button, which opens the tabs, the current section's pages (docs pages),
- *   the languages and the theme.
- * On /developers/docs (`askAi`), Ask AI (✨) sits beside the search icon up
- * to 1279px; from 1280px it is the floating launcher instead
- * (components/docs/ask). The landing and the cookbook have Inkeep's chat
- * button instead (components/docs/docs-assistant.client.tsx), and their
- * order below 1024px as before Ask AI: menu, then the search icon.
+ *   icon, Ask AI, theme, language code;
+ * - < 1024px: logo, search icon, Ask AI (✨) and the menu button, which
+ *   opens the tabs, the current section's pages (docs pages), the
+ *   languages and the theme.
+ * Ask AI (✨) sits beside the search icon up to 1279px; from 1280px it is
+ * the floating launcher instead (components/docs/ask). Both open the panel
+ * that the layout mounts on every page (components/docs/
+ * docs-assistant.client.tsx).
  * The logo is the home link (/developers). On docs pages the current tab is
  * marked (`activeTab`), and a hidden tab (Bootcamp, Learn) is appended while
  * one of its pages is shown, as before. Tabs and labels come from the docs
@@ -52,13 +51,12 @@ import {
 const HEADER_ID = "dh";
 
 /**
- * Below 1024px on docs pages, the menu button goes after Ask AI's ✨ while
- * the header has one (search, Ask AI, menu); without it (the landing, the
- * cookbook) it keeps its place before the search icon. By the ✨'s
- * presence, not a prop, so the 404's, shown once hydrated, moves it too.
+ * Below 1024px on docs pages, docs.css moves the search icon after the
+ * tools (order 2); the ✨ takes the same order and the menu button goes
+ * after both: search, Ask AI, menu. The landing keeps the DOM order, which
+ * is the same.
  */
-const MENU_AFTER_ASK =
-  "max-lg:[[data-docs]_.dh-tools:has(>[data-docs-ask-open])>&]:order-3";
+const MENU_AFTER_ASK = "max-lg:[[data-docs]_&]:order-3";
 
 function languageHref(code: string, paths?: Record<string, string>) {
   if (paths?.[code]) return paths[code];
@@ -169,7 +167,6 @@ export async function DocsHeader({
   menu,
   languagePaths,
   languageNames,
-  askAi = false,
 }: {
   locale: string;
   /** Tabs to show (default: the docs' visible tabs for `locale`). */
@@ -182,12 +179,6 @@ export async function DocsHeader({
   languagePaths?: Record<string, string>;
   /** Languages the menu lists (default: every solana.com language). */
   languageNames?: Record<string, string>;
-  /**
-   * A /developers/docs page: the header has Ask AI's ✨ button. "by-path":
-   * the prerendered 404, which doesn't know its URL: the ✨ shows once
-   * hydrated, on a /developers/docs URL.
-   */
-  askAi?: boolean | "by-path";
 }) {
   const t = await getTranslations({
     locale,
@@ -231,20 +222,17 @@ export async function DocsHeader({
               JS; it says whether the panel is open and warms the session
               on hover or focus. Below 1024px docs pages move the search
               icon after the tools (docs.css, order 2); the same order keeps
-              this beside it, and the menu goes last while it is there
-              (MENU_AFTER_ASK): search, Ask AI, menu. From 1024px, where the
-              search icon is a field tile, this is one too. */}
-          {askAi ? (
-            <AskHeaderButton
-              byPath={askAi === "by-path"}
-              label={tc("askAI")}
-              className="grid size-8 place-items-center rounded-lg text-[var(--sol-muted)] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-[var(--sol-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sol-purple)] motion-reduce:transition-none lg:ms-1.5 lg:size-[2.375rem] lg:rounded-[10px] lg:bg-[var(--sol-field)] lg:shadow-[inset_0_0_0_1px_var(--sol-field-line)] lg:hover:bg-[var(--sol-field)] lg:hover:shadow-[inset_0_0_0_1px_var(--sol-field-line-hover)] xl:!hidden max-lg:[[data-docs]_&]:order-2 [html:not([data-dh-js])_&]:!hidden"
-            >
-              <span aria-hidden="true" className="text-[15px] leading-none">
-                ✨
-              </span>
-            </AskHeaderButton>
-          ) : null}
+              this beside it, and the menu goes last (MENU_AFTER_ASK):
+              search, Ask AI, menu. From 1024px, where the search icon is a
+              field tile, this is one too. */}
+          <AskHeaderButton
+            label={tc("askAI")}
+            className="grid size-8 place-items-center rounded-lg text-[var(--sol-muted)] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-[var(--sol-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sol-purple)] motion-reduce:transition-none lg:ms-1.5 lg:size-[2.375rem] lg:rounded-[10px] lg:bg-[var(--sol-field)] lg:shadow-[inset_0_0_0_1px_var(--sol-field-line)] lg:hover:bg-[var(--sol-field)] lg:hover:shadow-[inset_0_0_0_1px_var(--sol-field-line-hover)] xl:!hidden max-lg:[[data-docs]_&]:order-2 [html:not([data-dh-js])_&]:!hidden"
+          >
+            <span aria-hidden="true" className="text-[15px] leading-none">
+              ✨
+            </span>
+          </AskHeaderButton>
           <ThemeToggle {...toggle} />
           <LanguageMenu
             locale={locale}

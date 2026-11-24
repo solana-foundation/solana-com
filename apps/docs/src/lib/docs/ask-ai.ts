@@ -1,22 +1,14 @@
 /**
- * Where Ask AI is: the docs, /developers/docs and below, in every locale
- * (Bri's rule, Ask Solana on /docs only, now that the docs live at
- * /developers/docs). The rest of this app (the /developers landing, the
- * cookbook) keeps Inkeep's chat and search (components/docs/
- * docs-assistant.client.tsx). Matches the path with or without a locale
- * prefix (`/ja/...`; the server render sees `/en/...`).
+ * Ask AI and the docs search are on every page this app serves: the
+ * /developers landing, the docs (/developers/docs), the cookbook
+ * (/developers/cookbook) and the 404, in every locale. They are mounted
+ * once in the docs layout (components/docs/docs-assistant.client.tsx).
  */
-export const ASK_AI_PATH = /^\/(?:[a-z]{2}\/)?developers\/docs(?:\/|$)/;
-
-export function isAskAiPath(pathname: string | null | undefined): boolean {
-  return !!pathname && ASK_AI_PATH.test(pathname);
-}
 
 /**
  * Event the Ask AI root (components/docs/ask/ask-ai.client.tsx) listens
  * for, with `detail: AskAiOpenOptions`. Sent by the code blocks' Ask
- * button, the page actions menu and the search hand-off. Off the docs,
- * Inkeep's chat takes it (components/docs/inkeep.client.tsx).
+ * button, the page actions menu and the search hand-off.
  */
 export const DOCS_ASK_OPEN_EVENT = "docs-ask-ai:open";
 
