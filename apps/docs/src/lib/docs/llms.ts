@@ -36,12 +36,13 @@ export async function pageMarkdown(page: DocsPage): Promise<string> {
   const fm = frontmatter(page);
   const head = [`# ${fm.title}`, ""];
   if (fm.description) head.push(`> ${fm.description}`, "");
+  if (fm.runtime) head.push(`**Runtime:** ${fm.runtime}`, "");
   return `${AGENT_PREAMBLE}\n${head.join("\n")}\n${await body(page)}\n`;
 }
 
 async function renderPage(page: DocsPage): Promise<string> {
   const fm = frontmatter(page);
-  return `# ${fm.title}\nSource: ${SITE}${page.url}\n\n${fm.description ? `${fm.description}\n\n` : ""}${await body(page)}`;
+  return `# ${fm.title}\nSource: ${SITE}${page.url}\n\n${fm.description ? `${fm.description}\n\n` : ""}${fm.runtime ? `**Runtime:** ${fm.runtime}\n\n` : ""}${await body(page)}`;
 }
 
 /**

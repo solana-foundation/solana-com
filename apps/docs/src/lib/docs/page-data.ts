@@ -22,6 +22,7 @@ export interface DocsFrontmatter {
   sidebarTitle?: string;
   mode?: string;
   hideFooterPagination?: boolean;
+  runtime?: string;
   noindex?: boolean;
   keywords?: string[];
   url?: string;

@@ -281,10 +281,25 @@ export async function DocsPageView({
                       <p>{smartQuotes(smartPunctuation(fm.description))}</p>
                     </div>
                   ) : null}
-                  <PageActions
-                    markdownUrl={markdownPath(page.url)}
-                    strings={strings}
-                  />
+                  {fm.runtime ? (
+                    <div className="mt-4 flex flex-wrap items-center gap-3 [&>#page-context-menu]:mt-0">
+                      <p className="m-0 rounded-xl border border-[#e7e7ea] px-3 py-1.5 text-sm leading-5 text-[#71717a] [html.dark_&]:border-[#2a2a30] [html.dark_&]:text-[#8b8b94]">
+                        Runtime:{" "}
+                        <span className="text-[#434046] [html.dark_&]:text-[#d2d0d5]">
+                          {fm.runtime}
+                        </span>
+                      </p>
+                      <PageActions
+                        markdownUrl={markdownPath(page.url)}
+                        strings={strings}
+                      />
+                    </div>
+                  ) : (
+                    <PageActions
+                      markdownUrl={markdownPath(page.url)}
+                      strings={strings}
+                    />
+                  )}
                 </header>
                 {api ? (
                   <div className="api-examples-inline [html[data-ask=docked]_&]:[@container_(width_<_58rem)]:!flex">
