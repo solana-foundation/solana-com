@@ -4,6 +4,7 @@ import { vi } from "vitest";
 class MockIntersectionObserver implements IntersectionObserver {
   readonly root = null;
   readonly rootMargin = "";
+  readonly scrollMargin = "";
   readonly thresholds = [];
   disconnect = vi.fn();
   observe = vi.fn();
