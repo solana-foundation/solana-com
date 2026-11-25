@@ -68,6 +68,10 @@ pnpm build
 # Run tests
 pnpm test
 
+# Everything CI checks: format, lint, type check and tests
+pnpm check             # every workspace
+pnpm check --affected  # only what the branch changed
+
 # Linting
 pnpm lint
 
@@ -126,7 +130,8 @@ Key environment variables (defined in `turbo.json`):
 The pre-commit hook runs `lint-staged`, which applies oxlint and oxfmt to staged
 files and checks staged media images. It also runs `gitleaks` when that binary
 is installed; CI performs the authoritative secrets scan. The pre-push hook runs
-`pnpm lint` across the workspaces.
+`pnpm check --affected`, the same command as CI's `check` job, against the
+workspaces the branch changed since it left `origin/main`.
 
 ## Code Conventions
 
