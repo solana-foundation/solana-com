@@ -29,7 +29,7 @@ export default function CategoryPostsClientPage({
   initialPageInfo,
   navItems,
 }: CategoryPostsClientPageProps) {
-  const [posts, setPosts] = useState<(PostItem | null)[]>([]);
+  const [posts, setPosts] = useState<PostItem[]>(latestPosts);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [pageInfo, setPageInfo] = useState<PageInfo>(
     initialPageInfo ?? {
