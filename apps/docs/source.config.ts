@@ -32,6 +32,7 @@ const schema = pageSchema
     sidebarTitle: z.string().optional(),
     mode: z.string().optional(),
     hideFooterPagination: z.boolean().optional(),
+    runtime: z.string().optional(),
     noindex: z.boolean().optional(),
     keywords: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
