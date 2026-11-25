@@ -6,7 +6,7 @@ import Button from "../shared/Button";
 import heroTitleImg from "../../../assets/possible/hero/possible-hero-headline_sm.jpg";
 import styles from "./PossibleHero.module.scss";
 import Image from "next/image";
-import VideoPoster from "assets/possible/opos_hype_poster.jpg";
+import VideoPoster from "@@/assets/possible/opos_hype_poster.jpg";
 import { VideoTrigger } from "@/component-library/video-modal";
 
 const PossibleHero = () => {
