@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { STAGE_BADGE_CLASSES } from "@/lib/upgrades/stage";
+import { SupportedClients } from "@/components/upgrades/supported-clients";
 import {
   isReleaseFullyLive,
   type ReleaseGroup,
@@ -107,39 +108,61 @@ function UpgradeCard({ upgrade }: { upgrade: UpgradeListItem }) {
   );
 }
 
-function OverviewCallout({ overview }: { overview: UpgradeListItem }) {
+/**
+ * The panel at the top of a protocol version: its overview article, when one
+ * exists, and the client releases that support it. Legacy client releases
+ * (Agave 4.x before Solana 1.0) have no clients and keep the plain overview.
+ */
+function VersionOverview({ group }: { group: ReleaseGroup }) {
   const t = useTranslations("upgrades.listing");
+  const { overview, clients } = group;
+
+  if (!overview && clients.length === 0) {
+    return null;
+  }
 
   return (
-    <Link
-      href={`/upgrades/${overview.slug}`}
-      className="mb-4 block border border-[#14F195]/35 bg-[#14F195]/5 p-6 transition-colors hover:border-[#14F195]/55 hover:bg-[#14F195]/[0.08]"
-    >
+    <div className="mb-4 border border-[#14F195]/35 bg-[#14F195]/5 p-6">
       <div className="mb-2.5 text-xs font-semibold uppercase tracking-[0.08em] text-[#14F195]">
-        {t("releaseOverview")}
+        {group.kind === "protocol"
+          ? t("protocolOverview", { name: group.name })
+          : t("releaseOverview")}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-5">
-        <div className="max-w-xl">
-          <p className="text-sm leading-6 text-[#ABABBA] md:text-[14.5px]">
-            {overview.subtitle || overview.description}
-          </p>
-        </div>
-        {overview.metrics.length > 0 && (
-          <div className="flex flex-wrap gap-6">
-            {overview.metrics.slice(0, 3).map((metric) => (
-              <div key={`${overview.slug}-${metric.value}-${metric.label}`}>
-                <div className="text-xl font-semibold tabular-nums text-white">
-                  {metric.value}
-                </div>
-                <div className="mt-1 max-w-[11rem] text-[11px] text-white/55">
-                  {metric.label}
-                </div>
-              </div>
-            ))}
+      {overview && (
+        <div className="flex flex-wrap items-center justify-between gap-5">
+          <div className="max-w-xl">
+            <p className="m-0 text-sm leading-6 text-[#ABABBA] md:text-[14.5px]">
+              {overview.subtitle || overview.description}
+            </p>
+            <Link
+              href={`/upgrades/${overview.slug}`}
+              className="group mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-white hover:underline"
+            >
+              {t("readOverview")}
+              <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </Link>
           </div>
-        )}
-      </div>
-    </Link>
+          {overview.metrics.length > 0 && (
+            <div className="flex flex-wrap gap-6">
+              {overview.metrics.slice(0, 3).map((metric) => (
+                <div key={`${overview.slug}-${metric.value}-${metric.label}`}>
+                  <div className="text-xl font-semibold tabular-nums text-white">
+                    {metric.value}
+                  </div>
+                  <div className="mt-1 max-w-[11rem] text-[11px] text-white/55">
+                    {metric.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+      <SupportedClients
+        clients={clients}
+        className={cn(overview && "mt-5 border-t border-[#14F195]/20 pt-5")}
+      />
+    </div>
   );
 }
 
@@ -247,62 +270,64 @@ function TableView({
           group={group}
           forceOpen={selectedRelease === group.key}
         >
-          {group.overview && <OverviewCallout overview={group.overview} />}
-          <div className="overflow-x-auto border border-white/10">
-            <table className="w-full min-w-[480px] table-fixed border-collapse">
-              <thead>
-                <tr className="border-b border-white/10 bg-white/[0.02]">
-                  <th className="w-[45%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
-                    {t("columnUpgrade")}
-                  </th>
-                  <th className="w-[27%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
-                    {t("columnKeyMetric")}
-                  </th>
-                  <th className="w-[28%] py-3 pl-12 pr-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
-                    {t("columnStatus")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.upgrades.map((upgrade) => {
-                  const metric = upgrade.metrics[0];
-                  return (
-                    <tr
-                      key={upgrade.slug}
-                      className="group relative border-b border-white/10 transition-colors last:border-b-0 hover:bg-white/[0.06]"
-                    >
-                      <td className="p-4 px-5 align-top">
-                        <Link
-                          href={`/upgrades/${upgrade.slug}`}
-                          className="block w-fit text-[15px] font-semibold group-hover:underline"
-                        >
-                          {upgrade.title}
-                        </Link>
-                        <div className="mt-1 text-[13px] leading-5 text-[#ABABBA]">
-                          {upgrade.subtitle || upgrade.description}
-                        </div>
-                      </td>
-                      <td className="p-4 px-5 align-top">
-                        {metric && (
-                          <>
-                            <div className="font-semibold tabular-nums">
-                              {metric.value}
-                            </div>
-                            <div className="mt-0.5 text-xs text-white/50">
-                              {metric.label}
-                            </div>
-                          </>
-                        )}
-                      </td>
-                      <td className="py-4 pl-12 pr-5 align-top">
-                        <StageBadge stage={upgrade.stage} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <VersionOverview group={group} />
+          {group.upgrades.length > 0 && (
+            <div className="overflow-x-auto border border-white/10">
+              <table className="w-full min-w-[480px] table-fixed border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 bg-white/[0.02]">
+                    <th className="w-[45%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                      {t("columnUpgrade")}
+                    </th>
+                    <th className="w-[27%] p-3 px-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                      {t("columnKeyMetric")}
+                    </th>
+                    <th className="w-[28%] py-3 pl-12 pr-5 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">
+                      {t("columnStatus")}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.upgrades.map((upgrade) => {
+                    const metric = upgrade.metrics[0];
+                    return (
+                      <tr
+                        key={upgrade.slug}
+                        className="group relative border-b border-white/10 transition-colors last:border-b-0 hover:bg-white/[0.06]"
+                      >
+                        <td className="p-4 px-5 align-top">
+                          <Link
+                            href={`/upgrades/${upgrade.slug}`}
+                            className="block w-fit text-[15px] font-semibold group-hover:underline"
+                          >
+                            {upgrade.title}
+                          </Link>
+                          <div className="mt-1 text-[13px] leading-5 text-[#ABABBA]">
+                            {upgrade.subtitle || upgrade.description}
+                          </div>
+                        </td>
+                        <td className="p-4 px-5 align-top">
+                          {metric && (
+                            <>
+                              <div className="font-semibold tabular-nums">
+                                {metric.value}
+                              </div>
+                              <div className="mt-0.5 text-xs text-white/50">
+                                {metric.label}
+                              </div>
+                            </>
+                          )}
+                        </td>
+                        <td className="py-4 pl-12 pr-5 align-top">
+                          <StageBadge stage={upgrade.stage} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </ReleaseSection>
       ))}
     </>
@@ -318,25 +343,22 @@ function CardsView({
 }) {
   return (
     <>
-      {groups.map((group) => {
-        const items = group.overview
-          ? [group.overview, ...group.upgrades]
-          : group.upgrades;
-
-        return (
-          <ReleaseSection
-            key={group.key}
-            group={group}
-            forceOpen={selectedRelease === group.key}
-          >
+      {groups.map((group) => (
+        <ReleaseSection
+          key={group.key}
+          group={group}
+          forceOpen={selectedRelease === group.key}
+        >
+          <VersionOverview group={group} />
+          {group.upgrades.length > 0 && (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
-              {items.map((upgrade) => (
+              {group.upgrades.map((upgrade) => (
                 <UpgradeCard key={upgrade.slug} upgrade={upgrade} />
               ))}
             </div>
-          </ReleaseSection>
-        );
-      })}
+          )}
+        </ReleaseSection>
+      ))}
     </>
   );
 }

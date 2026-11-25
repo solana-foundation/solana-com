@@ -19,6 +19,8 @@ import { JsonLd } from "@/components/seo/json-ld";
 import { buildUpgradeJsonLd } from "@/lib/content-structured-data";
 import { getUpgradeSocialImageUrl } from "@/lib/upgrades/social-image";
 import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
+import { getReleaseForOverview } from "@/lib/upgrades/releases";
+import { SupportedClients } from "@/components/upgrades/supported-clients";
 import {
   isUpgradeStage,
   STAGE_BADGE_CLASSES,
@@ -84,7 +86,10 @@ export default async function Page({ params }: Props) {
 
   if (!isPublishedUpgrade(entry)) notFound();
 
-  const rawBody = await entry.body();
+  const [rawBody, overviewRelease] = await Promise.all([
+    entry.body(),
+    getReleaseForOverview(slug),
+  ]);
   const titleDisplay = String(entry.title);
   const authorEntry = entry.author
     ? await reader.collections.authors.read(entry.author)
@@ -184,6 +189,12 @@ export default async function Page({ params }: Props) {
                 )}
               </div>
             )}
+          {overviewRelease && overviewRelease.clients.length > 0 && (
+            <SupportedClients
+              clients={overviewRelease.clients}
+              className="mt-8"
+            />
+          )}
         </div>
       </section>
 

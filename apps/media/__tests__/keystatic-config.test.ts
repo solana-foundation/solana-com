@@ -40,7 +40,14 @@ describe("releases collection", () => {
       config.collections?.releases?.schema ?? {},
     );
     expect(releaseFields).toEqual(
-      expect.arrayContaining(["name", "expectedDate", "status", "overview"]),
+      expect.arrayContaining([
+        "name",
+        "kind",
+        "expectedDate",
+        "status",
+        "overview",
+        "clients",
+      ]),
     );
   });
 });

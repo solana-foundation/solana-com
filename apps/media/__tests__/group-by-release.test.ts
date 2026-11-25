@@ -26,9 +26,11 @@ function release(overrides: Partial<ReleaseInput>): ReleaseInput {
   return {
     slug: "example-release",
     name: "Example Release",
+    kind: "protocol",
     status: "planned",
     expectedDate: null,
     overview: null,
+    clients: [],
     ...overrides,
   };
 }
@@ -269,9 +271,11 @@ describe("isReleaseFullyLive", () => {
     return {
       key: "r",
       name: "Release",
+      kind: "protocol",
       status: "shipped",
       expectedDate: null,
       overview: null,
+      clients: [],
       upgrades: [],
       ...overrides,
     };
@@ -326,5 +330,34 @@ describe("isReleaseFullyLive", () => {
 
   it("is false for an empty group", () => {
     expect(isReleaseFullyLive(group({}))).toBe(false);
+  });
+});
+
+describe("protocol version clients", () => {
+  it("carries a release's supported clients and kind onto its group", () => {
+    const clients = [
+      { name: "Agave", version: "v4.4", url: null },
+      { name: "Firedancer", version: "", url: null },
+    ];
+    const groups = groupUpgradesByRelease(
+      [upgrade({ slug: "a", release: "solana-1-0" })],
+      [release({ slug: "solana-1-0", name: "Solana 1.0", clients })],
+    );
+
+    expect(groups[0]).toMatchObject({
+      key: "solana-1-0",
+      kind: "protocol",
+      clients,
+    });
+  });
+
+  it("gives the unscheduled group no kind and no clients", () => {
+    const groups = groupUpgradesByRelease([upgrade({ slug: "a" })], []);
+
+    expect(groups[0]).toMatchObject({
+      key: "unscheduled",
+      kind: null,
+      clients: [],
+    });
   });
 });

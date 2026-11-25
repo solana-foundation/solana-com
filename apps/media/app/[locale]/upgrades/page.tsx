@@ -8,9 +8,9 @@ import { isPublishedUpgrade } from "@/lib/keystatic/upgrade-status";
 import { isUpgradeStage } from "@/lib/upgrades/stage";
 import {
   groupUpgradesByRelease,
-  type ReleaseInput,
   type UpgradeListItem,
 } from "@/lib/upgrades/group-by-release";
+import { getReleases } from "@/lib/upgrades/releases";
 import UpgradesClientPage from "./client-page";
 
 export const revalidate = 300;
@@ -75,34 +75,6 @@ async function getPublishedUpgrades(): Promise<UpgradeListItem[]> {
 
   return upgrades.filter(
     (upgrade): upgrade is UpgradeListItem => upgrade !== null,
-  );
-}
-
-async function getReleases(): Promise<ReleaseInput[]> {
-  const slugs = await reader.collections.releases.list();
-  const releases = await Promise.all(
-    slugs.map(async (slug: string) => {
-      const entry = (await reader.collections.releases.read(slug)) as Record<
-        string,
-        unknown
-      > | null;
-
-      if (!entry) {
-        return null;
-      }
-
-      return {
-        slug,
-        name: toStringValue(entry.name) || slug,
-        status: entry.status === "shipped" ? "shipped" : "planned",
-        expectedDate: toStringValue(entry.expectedDate) || null,
-        overview: toStringValue(entry.overview) || null,
-      } satisfies ReleaseInput;
-    }),
-  );
-
-  return releases.filter(
-    (release): release is ReleaseInput => release !== null,
   );
 }
 

@@ -50,7 +50,7 @@ apps/media/
 │   ├── links/                 # Link collections
 │   ├── podcasts/              # Podcast episodes
 │   ├── posts/                 # Blog posts (MDX)
-│   ├── releases/              # Release records for upgrade content
+│   ├── releases/              # Protocol version records for upgrade content
 │   ├── reports/               # Ecosystem research reports
 │   ├── upgrades/              # Network upgrade articles
 │   ├── switchbacks/           # Switchback sections
@@ -222,7 +222,8 @@ authoring surface; keep these rules when adding components or options:
 - `/api/posts/latest`, `/api/reports/latest`, `/api/links/latest` - Content
   metadata APIs
 - `/api/developer-updates/latest` - Runtime feed for the developer hub,
-  aggregating the latest developer news, changelog, upgrade, and release records
+  aggregating the latest developer news, changelog, upgrade, and protocol
+  version records
 - `/api/podcasts/[slug]/episodes` - Podcast episode API
 - `/api/keystatic/[...params]` - Keystatic API (GitHub OAuth callbacks, content
   operations)
