@@ -1,6 +1,9 @@
 // Mirrors data-api's METRICS_CACHE_TTL_SECONDS; generatedAt is stamped there.
 export const DATA_API_METRICS_TTL_SECONDS = 12 * 60 * 60;
 
+// Mirrors data-api's STABLECOIN_COVERAGE_CACHE_TTL_SECONDS.
+export const DATA_API_STABLECOIN_COVERAGE_TTL_SECONDS = 12 * 60 * 60;
+
 // Floor so the edge still coalesces requests once a payload is past the TTL.
 export const MIN_EDGE_MAX_AGE_SECONDS = 60;
 

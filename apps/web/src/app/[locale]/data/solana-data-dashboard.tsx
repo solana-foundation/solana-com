@@ -39,7 +39,11 @@ import {
 } from "./dashboard-copy";
 import { DashboardControls } from "./dashboard-controls";
 import { ChartGrid, DataError, KpiGrid } from "./dashboard-charts";
-import { fetchData, fetchRpcFilters } from "./dashboard-fetch";
+import {
+  fetchData,
+  fetchRpcFilters,
+  fetchStablecoinCoverage,
+} from "./dashboard-fetch";
 import {
   filterRowsForCharts,
   getChartsForTab,
@@ -64,6 +68,14 @@ import {
 import { DataResourceCarousel } from "./dashboard-resources";
 import { ProviderLinkTable } from "./provider-link-table";
 import { SenderProviderExperience } from "./sender-provider-experience";
+import {
+  getVisibleCoverageProviders,
+  StablecoinCoverageTable,
+} from "./stablecoin-coverage";
+import type {
+  StablecoinCoverageResponse,
+  StablecoinCoverageRow,
+} from "./stablecoin-coverage-data";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
 export { applyQueryUpdates } from "./dashboard-query";
@@ -77,6 +89,7 @@ export {
 export type { KpiAggregation } from "./dashboard-types";
 
 const emptyRows: MetricRow[] = [];
+const emptyCoverageRows: StablecoinCoverageRow[] = [];
 
 export function SolanaDataDashboard() {
   const locale = useLocale();
@@ -96,6 +109,7 @@ export function SolanaDataDashboard() {
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
   const isSendersTab = activeTab === "senders";
+  const isStablecoinsTab = activeTab === "stablecoins";
   const isLiveInfrastructureTab = isRpcTab || isSendersTab;
   const { data: rpcFilters } = useSWR<RpcLatencyFiltersResponse>(
     isRpcTab ? "/api/rpc/filters" : null,
@@ -132,6 +146,19 @@ export function SolanaDataDashboard() {
     fetchDashboardData,
     isLiveInfrastructureTab ? rpcDataSWRConfig : dataSWRConfig,
   );
+  const fetchCoverage = useCallback(
+    (url: string) => fetchStablecoinCoverage(url, errorMessages),
+    [errorMessages],
+  );
+  const {
+    data: stablecoinCoverage,
+    error: stablecoinCoverageError,
+    isLoading: isStablecoinCoverageLoading,
+  } = useSWR<StablecoinCoverageResponse>(
+    isStablecoinsTab ? "/api/databricks/stablecoin-coverage" : null,
+    fetchCoverage,
+    dataSWRConfig,
+  );
   const rows = useMemo(
     () =>
       filterRowsForCharts(
@@ -148,6 +175,10 @@ export function SolanaDataDashboard() {
   );
   const selectedProviderList = useMemo(
     () => getSelectedProviderList(selectedProviders, availableProviders),
+    [availableProviders, selectedProviders],
+  );
+  const coverageProviders = useMemo(
+    () => getVisibleCoverageProviders(selectedProviders, availableProviders),
     [availableProviders, selectedProviders],
   );
   const updateQuery = useDashboardQueryUpdater(
@@ -356,10 +387,19 @@ export function SolanaDataDashboard() {
                 />
               ) : null}
 
+              {isStablecoinsTab ? (
+                <StablecoinCoverageTable
+                  error={stablecoinCoverageError}
+                  isLoading={isStablecoinCoverageLoading}
+                  providers={coverageProviders}
+                  rows={stablecoinCoverage?.rows ?? emptyCoverageRows}
+                />
+              ) : null}
+
               <ChartGrid
                 activeCharts={activeCharts}
                 activeTab={activeTab}
-                isConnectedToPrevious={hasKpiGrid}
+                isConnectedToPrevious={hasKpiGrid && !isStablecoinsTab}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
                 range={range}
