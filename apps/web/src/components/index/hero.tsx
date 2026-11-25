@@ -160,7 +160,7 @@ export const Hero: React.FC<HeroProps> = ({
                 <div className="overflow-hidden w-full md:w-[504px]">
                   <div className="w-full flex flex-row items-stretch p-2 bg-[#DFCDF5] text-nd-inverse md:rounded-xl bg-blend-screen">
                     {bannerImgSrc && (
-                      <div className="grow-0 shrink-0 mr-3 md:mr-5 pb-10 md:pb-0">
+                      <div className="grow-0 shrink-0 me-3 md:me-5 pb-10 md:pb-0">
                         <Image
                           src={bannerImgSrc}
                           alt=""
@@ -176,12 +176,12 @@ export const Hero: React.FC<HeroProps> = ({
                     <div className="grow flex flex-col justify-between md:py-1.5 xl:py-2 md:pr-2">
                       <div className="max-md:py-1 max-md:pr-1">
                         {bannerEyebrow && (
-                          <p className="font-medium nd-body-l">
+                          <p className="font-medium nd-body-l" dir="auto">
                             {bannerEyebrow}
                           </p>
                         )}
                         {bannerDescription && (
-                          <p className="nd-body-s opacity-[0.64]">
+                          <p className="nd-body-s opacity-[0.64]" dir="auto">
                             {bannerDescription}
                           </p>
                         )}
@@ -191,7 +191,7 @@ export const Hero: React.FC<HeroProps> = ({
                           className={cn(
                             "rounded-full font-normal nd-body-s tracking-[-0.1em] !px-4 py-[6px] h-8 bg-nd-inverse text-nd-primary hover:!bg-nd-inverse/90",
                             bannerImgSrc
-                              ? "ml-[-86px] md:ml-0 w-[calc(100%+86px)] md:w-auto"
+                              ? "ms-[-86px] md:ms-0 w-[calc(100%+86px)] md:w-auto"
                               : "w-full md:w-auto",
                           )}
                           size="lg"

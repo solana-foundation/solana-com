@@ -19,7 +19,7 @@ async fn main() -> Result<()> {
     );
     let ws_client = PubsubClient::new("ws://localhost:8900").await?;
 
-    tokio::spawn(async move {
+    let subscriber = tokio::spawn(async move {
         let config = RpcAccountInfoConfig {
             commitment: Some(CommitmentConfig::confirmed()),
             encoding: None,
@@ -32,10 +32,14 @@ async fn main() -> Result<()> {
             .await
             .expect("Failed to subscribe to account updates");
 
-        while let Some(account) = stream.next().await {
+        // Print the first notification, then finish
+        if let Some(account) = stream.next().await {
             println!("{:#?}", account);
         }
     });
+
+    // Give the subscription time to register before the airdrop
+    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 
     let airdrop_signature = connection
         .request_airdrop(&wallet.pubkey(), LAMPORTS_PER_SOL)
@@ -46,6 +50,9 @@ async fn main() -> Result<()> {
             break;
         }
     }
+
+    // Wait for the subscriber to receive the notification
+    subscriber.await?;
     Ok(())
 }
 // #endregion subscribe

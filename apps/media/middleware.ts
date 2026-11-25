@@ -5,13 +5,12 @@ import {
 import { NextRequest, NextResponse } from "next/server";
 import { locales } from "@workspace/i18n/config";
 
-const MARKDOWN_PREFIXES = ["/news"] as const;
+const MARKDOWN_PREFIXES = ["/news", "/upgrades"] as const;
 
 function matchesMarkdownPrefix(path: string): boolean {
   const pathWithoutExt = path.endsWith(".md") ? path.slice(0, -3) : path;
-  return MARKDOWN_PREFIXES.some(
-    (prefix) =>
-      pathWithoutExt === prefix || pathWithoutExt.startsWith(`${prefix}/`),
+  return MARKDOWN_PREFIXES.some((prefix) =>
+    pathWithoutExt.startsWith(`${prefix}/`),
   );
 }
 
@@ -57,7 +56,9 @@ export default async function middleware(req: NextRequest) {
   ) {
     const url = req.nextUrl.clone();
     url.pathname = `/api/markdown/${normalizedSegments.join("/")}`;
-    return NextResponse.rewrite(url);
+    const markdown = NextResponse.rewrite(url);
+    markdown.headers.set("Vary", "Accept");
+    return markdown;
   }
 
   // Serve raw markdown for .md extension URLs
@@ -70,7 +71,13 @@ export default async function middleware(req: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  return handleI18nRouting(req);
+  const response = await handleI18nRouting(req);
+  // The same URL serves HTML or markdown depending on Accept, so shared caches
+  // must key on it; otherwise one negotiated response can be served to all.
+  if (matchesMarkdownPrefix(normalizedPath)) {
+    response.headers.append("Vary", "Accept");
+  }
+  return response;
 }
 
 export const config = {

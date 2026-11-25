@@ -43,7 +43,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "transaction-fees",
-            href: "/docs/core/fees",
+            href: "/developers/docs/core/fees",
           },
         ],
         terms: { t0: "priority-fee" },
@@ -60,7 +60,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "solana-account-model",
-            href: "/docs/core/accounts",
+            href: "/developers/docs/core/accounts",
           },
           {
             typeKey: "guide",
@@ -100,12 +100,12 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
           {
             typeKey: "docs",
             labelKey: "private-channels",
-            href: "/docs/tools/private-channels",
+            href: "/developers/docs/tools/private-channels",
           },
         ],
         terms: { t0: "confidential-balances", t1: "private-channels" },
@@ -163,7 +163,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "tokens-on-solana",
-            href: "/docs/tokens",
+            href: "/developers/docs/tokens",
           },
           {
             typeKey: "news",
@@ -195,7 +195,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "tokens-on-solana",
-            href: "/docs/tokens",
+            href: "/developers/docs/tokens",
           },
         ],
       },
@@ -264,7 +264,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "token-acl",
-            href: "/docs/tokenization/token-acl",
+            href: "/developers/docs/tokenization/token-acl",
           },
         ],
         terms: { t0: "token-extensions", t1: "token-acl" },
@@ -296,7 +296,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "token-acl",
-            href: "/docs/tokenization/token-acl",
+            href: "/developers/docs/tokenization/token-acl",
           },
         ],
         terms: { t0: "token-acl", t1: "allowlist", t2: "transfer-hook" },
@@ -337,12 +337,12 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
           {
             typeKey: "docs",
             labelKey: "private-channels",
-            href: "/docs/tools/private-channels",
+            href: "/developers/docs/tools/private-channels",
           },
         ],
         terms: {
@@ -357,7 +357,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
         ],
         terms: {
@@ -373,7 +373,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
           {
             typeKey: "web",
@@ -389,7 +389,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
           { typeKey: "web", labelKey: "privacy-on-solana", href: "/privacy" },
         ],
@@ -401,7 +401,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
           {
             typeKey: "github",
@@ -416,7 +416,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
           {
             typeKey: "docs",
@@ -432,12 +432,12 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "confidential-transfer",
-            href: "/docs/tokens/extensions/confidential-transfer",
+            href: "/developers/docs/tokens/extensions/confidential-transfer",
           },
           {
             typeKey: "docs",
             labelKey: "private-channels",
-            href: "/docs/tools/private-channels",
+            href: "/developers/docs/tools/private-channels",
           },
         ],
         terms: { t0: "confidential-balances", t1: "private-channels" },
@@ -588,7 +588,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "payment-indexing-and-webhooks",
-            href: "/docs/payments/accept-payments/indexing",
+            href: "/developers/docs/payments/accept-payments/indexing",
           },
         ],
       },
@@ -598,7 +598,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "subscription-payments",
-            href: "/docs/payments/subscriptions/overview",
+            href: "/developers/docs/payments/subscriptions/overview",
           },
         ],
       },
@@ -658,7 +658,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "durable-nonces",
-            href: "/docs/core/transactions/durable-nonces",
+            href: "/developers/docs/core/transactions/durable-nonces",
           },
           {
             typeKey: "guide",
@@ -790,7 +790,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "durable-nonces",
-            href: "/docs/core/transactions/durable-nonces",
+            href: "/developers/docs/core/transactions/durable-nonces",
           },
         ],
         terms: { t0: "rpc-providers", t1: "durable-nonce" },
@@ -813,7 +813,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "private-channels",
-            href: "/docs/tools/private-channels",
+            href: "/developers/docs/tools/private-channels",
           },
         ],
         terms: { t0: "private-channels", t1: "token-extensions" },
@@ -824,7 +824,7 @@ export const FAQ_TOPICS: FaqTopicMeta[] = [
           {
             typeKey: "docs",
             labelKey: "private-channels",
-            href: "/docs/tools/private-channels",
+            href: "/developers/docs/tools/private-channels",
           },
           {
             typeKey: "github",

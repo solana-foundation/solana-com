@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import { SolutionHero, SolutionHeroStat } from "@/components/solutions/hero.v2";
 import { useState } from "react";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
@@ -26,24 +27,31 @@ import {
   DiscountIcon,
 } from "@solana-com/ui-chrome/icons";
 
-export function SolutionsStablecoinsPage() {
+export function SolutionsStablecoinsPage({
+  heroMetrics,
+}: {
+  heroMetrics: DisplayMetric[];
+}) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const stats: SolutionHeroStat[] = [
     {
-      value: t("stablecoins.hero.stats.0.value"),
+      value: heroMetrics[0].value,
       label: t("stablecoins.hero.stats.0.label"),
+      source: heroMetrics[0].source,
       Icon: FlowIcon,
     },
     {
-      value: t("stablecoins.hero.stats.1.value"),
+      value: heroMetrics[1].value,
       label: t("stablecoins.hero.stats.1.label"),
+      source: heroMetrics[1].source,
       Icon: ArrowsIcon,
     },
     {
-      value: t("stablecoins.hero.stats.2.value"),
+      value: heroMetrics[2].value,
       label: t("stablecoins.hero.stats.2.label"),
+      source: heroMetrics[2].source,
       Icon: DiscountIcon,
     },
   ];

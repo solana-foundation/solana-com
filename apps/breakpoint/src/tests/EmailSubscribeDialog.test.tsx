@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "@workspace/i18n/client";
 import EmailSubscribeDialog from "@/components/EmailSubscribeDialog";
@@ -17,6 +23,7 @@ function renderDialog(onClose = () => {}) {
 
 describe("EmailSubscribeDialog", () => {
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
   });
 
@@ -47,19 +54,47 @@ describe("EmailSubscribeDialog", () => {
     expect(await screen.findByText(/subscribed/i)).toBeInTheDocument();
   });
 
-  it("shows an error for invalid email without submitting", () => {
-    const fetchMock = vi.spyOn(globalThis, "fetch");
+  it.each(["not-an-email", "x@", "@example.com"])(
+    "shows an error for the invalid email %s without submitting",
+    (value) => {
+      const fetchMock = vi.spyOn(globalThis, "fetch");
 
-    renderDialog();
+      renderDialog();
 
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "not-an-email" },
-    });
-    fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
+      fireEvent.change(screen.getByLabelText("Email"), { target: { value } });
+      fireEvent.submit(screen.getByLabelText("Email").closest("form")!);
 
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Please enter a valid email address and try again.",
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Please enter a valid email address and try again.",
+      );
+    },
+  );
+
+  it("focuses the email field and returns focus to the opener on close", () => {
+    const opener = document.createElement("button");
+    document.body.append(opener);
+    opener.focus();
+
+    const { unmount } = renderDialog();
+    expect(screen.getByLabelText("Email")).toHaveFocus();
+
+    unmount();
+    expect(opener).toHaveFocus();
+    opener.remove();
+  });
+
+  it("keeps focus where the user put it when the parent re-renders", () => {
+    const view = renderDialog(() => {});
+    const close = screen.getByRole("button", { name: "Close" });
+    close.focus();
+
+    view.rerender(
+      <NextIntlClientProvider locale="en" messages={messages}>
+        <EmailSubscribeDialog open onClose={() => {}} />
+      </NextIntlClientProvider>,
     );
+
+    expect(close).toHaveFocus();
   });
 });

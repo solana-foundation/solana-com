@@ -59,9 +59,38 @@ function getLinkIcon(href: string): ComponentType<SVGProps<SVGSVGElement>> {
   return LINK_ICON_MAP[href] ?? DocsIcon;
 }
 
+const SAFE_FALLBACK_HREF = "https://solana.com";
+
+/**
+ * The menu config is fetched at runtime and rendered on third-party sites, so
+ * every href is constrained to https(s) or a solana.com path before it is
+ * rendered; anything else falls back to the homepage.
+ */
 function resolveHref(href: string): string {
-  if (href.startsWith("http")) return href;
-  return `https://solana.com${href}`;
+  const value = typeof href === "string" ? href.trim() : "";
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      return new URL(value).href;
+    } catch {
+      return SAFE_FALLBACK_HREF;
+    }
+  }
+  if (value.startsWith("/") && !value.startsWith("//")) {
+    return `https://solana.com${value}`;
+  }
+  return SAFE_FALLBACK_HREF;
+}
+
+/** Bold lead-in up to the first dash, as plain text nodes rather than HTML. */
+function PromoText({ text }: { text: string }) {
+  const match = /^([^—-]+)([—-][\s\S]*)?$/.exec(text);
+  if (!match) return <>{text}</>;
+  return (
+    <>
+      <strong>{match[1]}</strong>
+      {match[2] ?? ""}
+    </>
+  );
 }
 
 interface ExplorePanelProps {
@@ -228,15 +257,9 @@ export function ExplorePanel({ data, config, onClose }: ExplorePanelProps) {
               rel="noopener noreferrer"
             >
               <span className="sfab-promo-badge">{data.promo.badge}</span>
-              <span
-                className="sfab-promo-text"
-                dangerouslySetInnerHTML={{
-                  __html: data.promo.text.replace(
-                    /^([^—-]+)/,
-                    "<strong>$1</strong>",
-                  ),
-                }}
-              />
+              <span className="sfab-promo-text">
+                <PromoText text={data.promo.text} />
+              </span>
               <ExternalIcon className="sfab-promo-arrow" />
             </a>
           </>

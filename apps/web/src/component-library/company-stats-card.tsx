@@ -11,6 +11,8 @@ export type CompanyStatsCardProps = {
   hideStats?: boolean;
   src?: string;
   statType?: "text" | "icon";
+  /** Registry values arrive formatted and localized, so they keep their case. */
+  isMetric?: boolean;
 };
 
 export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
@@ -22,6 +24,7 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
   statType = "text",
   statIcon,
   src,
+  isMetric = false,
 }) => {
   return (
     <article
@@ -64,7 +67,12 @@ export const CompanyStatsCard: React.FC<CompanyStatsCardProps> = ({
           ) : (
             <>
               <div className="sr-only">{statLabel}</div>
-              <div className="text-[24px] xl:text-[40px] leading-[1.33] xl:leading-[1.2] mb-1 uppercase">
+              <div
+                className={cn(
+                  "text-[24px] xl:text-[40px] leading-[1.33] xl:leading-[1.2] mb-1",
+                  !isMetric && "uppercase",
+                )}
+              >
                 {stat}
               </div>
               <div className="nd-body-m font-medium">{statLabel}</div>

@@ -1,64 +1,37 @@
 # #region priority
-#!/usr/bin/env python3
-"""
-Solana Cookbook - How to Add Priority Fees to a Transaction
-"""
-
 import asyncio
-from solana.rpc.async_api import AsyncClient
-from solders.keypair import Keypair
-from solders.system_program import transfer, TransferParams
-from solders.transaction import VersionedTransaction
-from solders.message import MessageV0
-from solders.instruction import Instruction
-from solders.pubkey import Pubkey
-from solders.compute_budget import set_compute_unit_price
 
-# Compute Budget Program ID
-COMPUTE_BUDGET_PROGRAM_ID = Pubkey.from_string("ComputeBudget111111111111111111111111111111")
+from solana.rpc.async_api import AsyncClient
+from solana.rpc.commitment import Confirmed
+from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
+from solders.instruction import Instruction
+from solders.keypair import Keypair
+from solders.message import MessageV0
+from solders.pubkey import Pubkey
+from solders.transaction import VersionedTransaction
+
+MEMO_PROGRAM_ID = Pubkey.from_string("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr")
+
 
 async def main():
-    rpc = AsyncClient("http://localhost:8899")
+    async with AsyncClient("http://localhost:8899", commitment=Confirmed) as client:
+        sender = Keypair()
+        airdrop = await client.request_airdrop(sender.pubkey(), 1_000_000_000)
+        await client.confirm_transaction(airdrop.value)
 
-    sender = Keypair()
-    recipient = Keypair()
+        instructions = [
+            set_compute_unit_limit(200_000),  # max compute units the transaction may use
+            set_compute_unit_price(5_000),  # priority fee in micro-lamports per compute unit
+            Instruction(MEMO_PROGRAM_ID, b"Hello, world!", []),
+        ]
 
-    amount = 1_000_000_000  # 1 SOL
-    priority_fee_lamports = 5000  # 5000 lamports priority fee
-
-    async with rpc:
-        # Get latest blockhash
-        latest_blockhash = await rpc.get_latest_blockhash()
-
-        # Create priority fee instruction
-        priority_fee_instruction = set_compute_unit_price(priority_fee_lamports)
-
-        # Create transfer instruction
-        transfer_instruction = transfer(
-            TransferParams(
-                from_pubkey=sender.pubkey(),
-                to_pubkey=recipient.pubkey(),
-                lamports=amount
-            )
-        )
-
-        # Create message with priority fee instruction first
-        message = MessageV0.try_compile(
-            payer=sender.pubkey(),
-            instructions=[priority_fee_instruction, transfer_instruction],
-            address_lookup_table_accounts=[],
-            recent_blockhash=latest_blockhash.value.blockhash
-        )
-
-        # Create transaction
+        blockhash = (await client.get_latest_blockhash()).value.blockhash
+        message = MessageV0.try_compile(sender.pubkey(), instructions, [], blockhash)
         transaction = VersionedTransaction(message, [sender])
 
-        print(f"Sender: {sender.pubkey()}")
-        print(f"Recipient: {recipient.pubkey()}")
-        print(f"Amount: {amount / 1_000_000_000} SOL")
-        print(f"Priority Fee: {priority_fee_lamports} lamports")
-        print(f"Transaction with priority fee created successfully")
+        signature = (await client.send_transaction(transaction)).value
+        print("Transaction Signature:", signature)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+
+asyncio.run(main())
 # #endregion priority

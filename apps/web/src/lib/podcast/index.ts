@@ -90,11 +90,15 @@ export default class PodcastApi {
     }
 
     const response = await fetch(
-      [
-        `https://api.simplecast.com/podcasts/${process.env.SIMPLECAST_PODCAST_ID}`,
-        `/episodes?status=published`,
-        `&limit=${limit}&offset=${offset}&search=${query}&sort=${sort}`,
-      ].join(""),
+      `https://api.simplecast.com/podcasts/${process.env.SIMPLECAST_PODCAST_ID}/episodes?${new URLSearchParams(
+        {
+          status: "published",
+          limit: String(limit),
+          offset: String(offset),
+          search: query,
+          sort,
+        },
+      ).toString()}`,
       {
         headers: PodcastApi.HEADERS,
       },

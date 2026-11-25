@@ -19,7 +19,6 @@ export const osl = {
     socials: {
       x: "https://twitter.com/OSLdotcom",
       linkedin: "https://hk.linkedin.com/company/osldotcom/",
-      discord: "https://discord.com/invite/oslglobal",
       telegram: "https://t.me/osl_community",
     },
   },

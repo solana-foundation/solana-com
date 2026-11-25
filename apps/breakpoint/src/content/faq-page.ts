@@ -1,9 +1,4 @@
-import {
-  APPLY_TO_SPEAK_HREF,
-  SPONSOR_FORM_HREF,
-  TICKET_TRANSFER_HREF,
-  VISA_CHECK_HREF,
-} from "@/content/links";
+import { TICKET_TRANSFER_HREF, VISA_CHECK_HREF } from "@/content/links";
 
 export type FAQPageItem = {
   id: string;
@@ -40,23 +35,14 @@ export const faqPageSections = [
       {
         id: "general-speaking",
         question: "How can I apply to speak at Breakpoint?",
-        answer: "",
-        answerHref: APPLY_TO_SPEAK_HREF,
-        answerLinkLabel: "Apply to speak",
-      },
-      {
-        id: "general-sponsor",
-        question: "How can I sponsor Breakpoint?",
         answer:
-          "If you're interested in sponsoring Breakpoint, submit your details",
-        answerHref: SPONSOR_FORM_HREF,
-        answerLinkLabel: "here",
+          "Speaker applications are now closed. We have an amazing line up locked in for Breakpoint.",
       },
       {
         id: "general-press",
         question: "How can I apply for press or content creator access?",
         answer:
-          "Use the Press or Content Creator application in the Get Involved section on the homepage.",
+          "Email breakpoint@solana.org about press or content creator access.",
       },
       {
         id: "general-contact",
@@ -174,7 +160,6 @@ const homepageFaqItemIds = [
   "tickets-included",
   "tickets-refundable",
   "general-speaking",
-  "general-sponsor",
 ] as const;
 
 function getFaqItemsById(ids: readonly string[]): FAQPageItem[] {

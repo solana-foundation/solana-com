@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isActivationWindow, rolloutState } from "@/components/slot200/stages";
+import {
+  FINAL_TRANSITION_EPOCH,
+  SLOT_200_TRANSITION_TARGET,
+  isActivationWindow,
+  rolloutState,
+} from "@/components/slot200/stages";
 
-describe("the 350ms to 300ms rollout", () => {
+describe("the slot-time rollout", () => {
   it("keeps the scheduled 300ms target while the network is stable at 350ms", () => {
     const rollout = rolloutState(352, 351);
 
@@ -92,8 +97,34 @@ describe("the 350ms to 300ms rollout", () => {
       to: 250,
       phase: "pre",
       stepsDone: 2,
-      targetEpoch: null,
+      targetEpoch: 1037,
     });
+  });
+
+  it("keeps the 250ms activation window tied to its effective epoch", () => {
+    const rollout = rolloutState(300, 300);
+
+    expect(rollout).toMatchObject({
+      from: 300,
+      to: 250,
+      targetEpoch: 1037,
+    });
+    expect(isActivationWindow(rollout, 1036)).toBe(false);
+    expect(isActivationWindow(rollout, 1037)).toBe(true);
+  });
+
+  it("targets the 200ms transition at the start of epoch 1053", () => {
+    const rollout = rolloutState(250, 250);
+
+    expect(FINAL_TRANSITION_EPOCH).toBe(1053);
+    expect(SLOT_200_TRANSITION_TARGET).toBe(454_896_000);
+    expect(rollout).toMatchObject({
+      from: 250,
+      to: 200,
+      targetEpoch: 1053,
+    });
+    expect(isActivationWindow(rollout, 1052)).toBe(false);
+    expect(isActivationWindow(rollout, 1053)).toBe(true);
   });
 
   it("keeps the rollout complete at the terminal 200ms step", () => {

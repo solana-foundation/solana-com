@@ -7,7 +7,7 @@ import {
   SwitchbackChain,
   CardDeck,
   ConversionPanel,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 
 import {
@@ -145,7 +145,7 @@ export function SolutionsGamesToolingPage() {
               src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
-              url: "/docs/intro/quick-start",
+              url: "/developers/docs/quickstart",
               label: "",
               endIcon: "arrow-right",
               hierarchy: "outline",

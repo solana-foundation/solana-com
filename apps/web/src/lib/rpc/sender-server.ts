@@ -8,7 +8,7 @@ import {
 } from "@/app/[locale]/data/data-config";
 
 const GRAFANA_PUBLIC_DASHBOARD_API_URL =
-  "https://rpclatency.grafana.net/api/public/dashboards/6f18bcfc9e0e4e0ea62d10e5e484c50d";
+  "https://solanafoundation.grafana.net/api/public/dashboards/d0708457d6a243ae8a4c8113090fa159";
 const ECONOMICS_PANEL_ID = 1;
 const TRANSACTIONS_OVER_TIME_PANEL_ID = 2;
 const MS_PER_SECOND = 1000;

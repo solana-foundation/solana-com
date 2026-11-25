@@ -26,7 +26,7 @@ handle all the gas fee complexity behind the scenes.
 ## Prerequisites
 
 - Completed the
-  [Kora Quick Start Guide](/docs/tools/kora/getting-started/quick-start) —
+  [Kora Quick Start Guide](/developers/docs/tools/kora/getting-started/quick-start) —
   running Kora server and local validator
 - Familiarity with [Solana Kit](https://www.solanakit.com/) and its plugin
   system
@@ -34,13 +34,21 @@ handle all the gas fee complexity behind the scenes.
 ## Installation
 
 ```bash
-pnpm add @solana/kora @solana/kit
+npm install @solana/kora @solana/kit@^6.1 @solana-program/token@^0.12 \
+  @solana-program/compute-budget@^0.13 \
+  @solana/kit-plugin-instruction-plan@^0.6 @solana/kit-plugin-payer@^0.6 \
+  @solana/kit-plugin-rpc@^0.6
 ```
 
-Peer dependencies (`@solana-program/token`, `@solana-program/compute-budget`,
-`@solana/kit-plugin-*`) are auto-installed by most package managers. See
-[Installation](/docs/tools/kora/getting-started/installation) if you need to
-install them manually.
+Pin the peer dependencies (`@solana/kit`, `@solana-program/token`,
+`@solana-program/compute-budget`, `@solana/kit-plugin-*`) to these versions.
+`@solana/kora` 0.2.x requires Kit 6.1 or later in the 6.x line. **Kit 7 and
+later are not supported.** A project that already has Kit 7 or later fails to
+install with an `ERESOLVE` conflict, and installs that skip peer checks
+(`--legacy-peer-deps`, or pnpm without pinned versions) get the latest Kit,
+which `@solana/kora` 0.2.x can't load. See
+[Installation](/developers/docs/tools/kora/getting-started/installation#peer-dependencies)
+for the exact errors.
 
 ## Creating the Client
 
@@ -56,7 +64,7 @@ const client = await createKitKoraClient({
   endpoint: "http://localhost:8080", // Kora RPC endpoint
   rpcUrl: "http://127.0.0.1:8899", // Solana RPC for CU estimation
   feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"), // USDC mint
-  feePayerWallet: userSigner // TransactionSigner for fee payment
+  feePayerWallet: userSigner, // TransactionSigner for fee payment
 });
 ```
 
@@ -85,14 +93,32 @@ The Kit client is composable with Kit program plugins. For example, with
 
 ```typescript
 import { createKitKoraClient } from "@solana/kora";
-import { tokenProgram } from "@solana-program/token";
+import {
+  findAssociatedTokenPda,
+  tokenProgram,
+  TOKEN_PROGRAM_ADDRESS,
+} from "@solana-program/token";
 import { address } from "@solana/kit";
+
+const usdcMint = address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
 const koraClient = await createKitKoraClient({
   endpoint: "http://localhost:8080",
   rpcUrl: "http://127.0.0.1:8899",
-  feeToken: address("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"),
-  feePayerWallet: userSigner
+  feeToken: usdcMint,
+  feePayerWallet: userSigner,
+});
+
+// Derive the sender's and recipient's associated token accounts
+const [senderAta] = await findAssociatedTokenPda({
+  owner: userSigner.address,
+  mint: usdcMint,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS,
+});
+const [recipientAta] = await findAssociatedTokenPda({
+  owner: recipientAddress,
+  mint: usdcMint,
+  tokenProgram: TOKEN_PROGRAM_ADDRESS,
 });
 
 // Compose with the token program plugin
@@ -101,13 +127,21 @@ const client = koraClient.use(tokenProgram());
 // Use token program methods — Kora handles all fee abstraction
 await client.token.instructions
   .transferToATA({
-    source: userTokenAccount,
-    destination: recipientAddress,
+    source: senderAta,
+    destination: recipientAta, // the recipient's ATA, not their wallet address
+    recipient: recipientAddress, // wallet that owns the destination ATA
+    mint: usdcMint,
+    decimals: 6,
     amount: 1_000_000n, // 1 USDC
-    authority: userSigner
+    authority: userSigner,
   })
   .sendTransaction();
 ```
+
+`transferToATA` requires `mint`, `decimals`, and `recipient` in addition to the
+source, destination, amount, and authority. The `destination` must be the
+recipient's associated token account (it is created idempotently if missing),
+not the recipient's wallet address.
 
 Behind the scenes, the Kit client:
 
@@ -133,7 +167,7 @@ const { tokens } = await client.kora.getSupportedTokens();
 // Estimate fees for an arbitrary transaction
 const estimate = await client.kora.estimateTransactionFee({
   transaction: base64EncodedTx,
-  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  fee_token: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
 });
 ```
 
@@ -142,19 +176,32 @@ All `.kora` method responses use Kit-typed values (`Address`, `Blockhash`,
 
 ## Token-2022 Support
 
-To pay fees with a Token-2022 token, pass the `tokenProgramId` option:
+To pay fees with a Token-2022 token, pass the Token-2022 program address as
+the `tokenProgramId` option:
 
 ```typescript
-import { TOKEN_2022_PROGRAM_ADDRESS } from "@solana-program/token-2022";
+import { createKitKoraClient } from "@solana/kora";
+import { address } from "@solana/kit";
+
+// Token-2022 program address
+const TOKEN_2022_PROGRAM_ADDRESS = address(
+  "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+);
 
 const client = await createKitKoraClient({
   endpoint: "http://localhost:8080",
   rpcUrl: "http://127.0.0.1:8899",
   feeToken: address("your-token-2022-mint"),
   feePayerWallet: userSigner,
-  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS
+  tokenProgramId: TOKEN_2022_PROGRAM_ADDRESS,
 });
 ```
+
+The example defines the address itself instead of importing
+`TOKEN_2022_PROGRAM_ADDRESS` from `@solana-program/token-2022`: every release of
+that package that works with Kit 6 declares a peer dependency on
+`@solana/sysvars` 5, which conflicts with Kit 6 (`npm install` fails with
+`ERESOLVE`).
 
 ## Compute Budget
 
@@ -165,12 +212,17 @@ and lower fees.
 To override with a fixed value:
 
 ```typescript
+import type { MicroLamports } from "@solana/kit";
+
 const client = await createKitKoraClient({
   // ...
   computeUnitLimit: 200_000,
-  computeUnitPrice: 1_000_000n // priority fee in micro-lamports
+  computeUnitPrice: 1_000_000n as MicroLamports, // priority fee in micro-lamports
 });
 ```
+
+`computeUnitPrice` is typed as Kit's branded `MicroLamports` type, so a plain
+`bigint` fails type-checking; cast it with `as MicroLamports`.
 
 ## When to Use Each Client
 
@@ -182,8 +234,8 @@ const client = await createKitKoraClient({
 
 ## Next Steps
 
-- [Full Transaction Flow](/docs/tools/kora/guides/full-demo) — Lower-level
+- [Full Transaction Flow](/developers/docs/tools/kora/guides/full-demo) — Lower-level
   walkthrough using `KoraClient` directly
-- [API Reference](/docs/tools/kora/json-rpc-api) — All available RPC methods
-- [Kora Configuration](/docs/tools/kora/operators/configuration) — Server-side
+- [API Reference](/developers/docs/tools/kora/json-rpc-api) — All available RPC methods
+- [Kora Configuration](/developers/docs/tools/kora/operators/configuration) — Server-side
   configuration options

@@ -5,24 +5,37 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/bonk.svg",
     key: "bonk",
+    metric: "consumer.bonk.holders",
   },
   {
     src: "/src/img/logos-eco/pudgy-penguins.webp",
     key: "pudgyPenguins",
+    metric: "consumer.pudgy-penguins.views",
   },
   {
     src: "/src/img/logos-eco/pump.webp",
     key: "pump",
+    metric: "consumer.pump.token-sale-raise",
   },
   {
     src: "/src/img/logos-eco/magic-eden.svg",
     key: "magicEden",
+    metric: "consumer.magic-eden.collectibles-volume",
   },
   {
     src: "/src/img/logos-eco/axiom.svg",
     key: "axiom",
+    metric: "consumer.axiom.revenue-first-4-months",
   },
-];
+] as const;
+
+/** Registry keys for the hero stats, in display order. */
+export const HERO_METRICS = [
+  "consumer.daily-active-wallets",
+  "consumer.fee-volatility-ratio",
+  "apps.revenue-12m",
+  "consumer.launchpad-tokens-2025",
+] as const;
 
 export const LOGOS = [
   {

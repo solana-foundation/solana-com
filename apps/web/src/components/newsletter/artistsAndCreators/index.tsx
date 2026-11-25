@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect } from "react";
-import { Input, Button } from "@solana-foundation/solana-lib";
+import { Input, Button } from "@workspace/ui";
 import {
   getIterableActionUrl,
   sendIterableFormRequest,
@@ -19,6 +19,54 @@ type FormValues = Record<string, FormField>;
 interface ArtistsAndCreatorsNewsletterProps {
   modalCloseHandler?: (() => void) | null;
   modalActionCompleted: React.MutableRefObject<boolean>;
+}
+
+function NewsletterField({
+  label,
+  name,
+  placeholder,
+  helperText,
+  error,
+  onChange,
+  className,
+}: {
+  label: string;
+  name: string;
+  placeholder: string;
+  helperText: string;
+  error?: boolean;
+  onChange: React.ChangeEventHandler<HTMLInputElement>;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <label htmlFor={name} className="mb-2 block text-sm text-white">
+        {label}
+      </label>
+      <Input
+        id={name}
+        name={name}
+        type={name === "email" ? "email" : "text"}
+        autoComplete={
+          name === "email"
+            ? "email"
+            : name === "firstName"
+              ? "given-name"
+              : "family-name"
+        }
+        placeholder={placeholder}
+        aria-invalid={error}
+        aria-describedby={helperText ? `${name}-error` : undefined}
+        className="h-11 rounded-full border-white/20 bg-[#111114] px-4 text-white placeholder:text-[#ABABBA]"
+        onChange={onChange}
+      />
+      {helperText && (
+        <p id={`${name}-error`} className="mt-1 text-sm text-red-400">
+          {helperText}
+        </p>
+      )}
+    </div>
+  );
 }
 
 const ArtistsAndCreatorsNewsletter = ({
@@ -57,14 +105,11 @@ const ArtistsAndCreatorsNewsletter = ({
   const validate = async () => {
     let isValid = true;
     const updatedValues = { ...values };
-    const veryBasicEmailCheck = new RegExp("[a-z0-9]+@[a-z]+.[a-z]{2,3}");
+    const veryBasicEmailCheck = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     Object.keys(values).forEach((key) => {
       if (key === "email" && !veryBasicEmailCheck.test(values.email.value)) {
         updatedValues.email.error = true;
-        isValid = false;
-      } else if (key === "Country" && values.Country?.value === "default") {
-        updatedValues.Country.error = true;
         isValid = false;
       } else if (
         values[key].required &&
@@ -81,13 +126,17 @@ const ArtistsAndCreatorsNewsletter = ({
 
   const onValueChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const updatedValues = { ...values };
-      updatedValues[e.target.name].error = false;
-      updatedValues[e.target.name].value = e.target.value;
-
-      setValues(updatedValues);
+      setValues((current) => ({
+        ...current,
+        [e.target.name]: {
+          ...current[e.target.name],
+          value: e.target.value,
+          error: false,
+        },
+      }));
+      setError(false);
     },
-    [values],
+    [],
   );
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -115,11 +164,9 @@ const ArtistsAndCreatorsNewsletter = ({
           formId: "artists_and_creators_newsletter",
           placement: "modal",
         });
-      } catch (err) {
-        console.error(err);
+      } catch {
         setError("Something went wrong, please try again.");
       } finally {
-        setIsSuccess(true);
         setIsSubmitting(false);
       }
     }
@@ -169,9 +216,8 @@ const ArtistsAndCreatorsNewsletter = ({
                   </p>
                 </DialogDescription>
                 <Button
-                  size={`md`}
-                  hierarchy={"secondary"}
-                  className="mt-4 mx-auto block"
+                  size="lg"
+                  className="mt-4 mx-auto flex rounded-full bg-[#14F195] font-brand-mono text-xs uppercase tracking-wide text-black hover:bg-[#14F195]/80"
                   onClick={() => modalCloseHandler?.()}
                 >
                   {t("artistsAndCreatorsNewsletter.form.success.cta")}
@@ -198,8 +244,7 @@ const ArtistsAndCreatorsNewsletter = ({
             <div className="flex justify-center">
               <div className="w-full lg:w-1/2">
                 <form onSubmit={onSubmit}>
-                  <Input
-                    size={"md"}
+                  <NewsletterField
                     label={t("artistsAndCreatorsNewsletter.form.email.label")}
                     name="email"
                     placeholder={t(
@@ -214,8 +259,7 @@ const ArtistsAndCreatorsNewsletter = ({
                     error={values.email.error}
                     onChange={onValueChange}
                   />
-                  <Input
-                    size={"md"}
+                  <NewsletterField
                     label={t(
                       "artistsAndCreatorsNewsletter.form.firstName.label",
                     )}
@@ -232,8 +276,7 @@ const ArtistsAndCreatorsNewsletter = ({
                     error={values.firstName.error}
                     onChange={onValueChange}
                   />
-                  <Input
-                    size={"md"}
+                  <NewsletterField
                     label={t(
                       "artistsAndCreatorsNewsletter.form.lastName.label",
                     )}
@@ -254,16 +297,18 @@ const ArtistsAndCreatorsNewsletter = ({
                   <Button
                     disabled={isSubmitting}
                     type="submit"
-                    size={`md`}
-                    hierarchy={"secondary"}
-                    className="mt-4 w-full"
+                    size="lg"
+                    className="mt-4 w-full rounded-full bg-[#14F195] font-brand-mono text-xs uppercase tracking-wide text-black hover:bg-[#14F195]/80"
                   >
                     {isSubmitting
                       ? t("artistsAndCreatorsNewsletter.form.submitting")
                       : t("artistsAndCreatorsNewsletter.form.submit")}
                   </Button>
                   {error && (
-                    <p className="text-sm font-light mb-0 text-error-500 text-center mt-6">
+                    <p
+                      role="alert"
+                      className="mt-6 mb-0 text-center text-sm font-light text-red-400"
+                    >
                       {error}
                     </p>
                   )}

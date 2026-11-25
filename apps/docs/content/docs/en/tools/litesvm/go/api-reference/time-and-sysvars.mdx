@@ -4,8 +4,10 @@ description: Clock manipulation and sysvar access in Go
 ---
 
 Methods for manipulating time and accessing system variables. Every sysvar
-getter has a matching setter; the structs are plain Go mirrors of the Solana
-source.
+getter has a matching setter. The types come from the
+[`github.com/gagliardetto/solana-go/sysvar`](https://pkg.go.dev/github.com/gagliardetto/solana-go/sysvar)
+package (imported as `sysvar`), and getters return pointers (or slices) that you
+can modify and pass back to the setter.
 
 ## Clock Manipulation
 
@@ -38,6 +40,7 @@ t.Logf("new slot:     %d", after.Slot)
 ### Clock
 
 ```go
+// sysvar is github.com/gagliardetto/solana-go/sysvar
 type Clock struct {
     Slot                uint64
     EpochStartTimestamp int64
@@ -46,7 +49,7 @@ type Clock struct {
     UnixTimestamp       int64
 }
 
-func (s *LiteSVM) Clock() (Clock, error)
+func (s *LiteSVM) Clock() (*sysvar.Clock, error)
 ```
 
 Read the Clock sysvar.
@@ -62,7 +65,7 @@ t.Logf("slot=%d epoch=%d unix=%d", c.Slot, c.Epoch, c.UnixTimestamp)
 ### SetClock
 
 ```go
-func (s *LiteSVM) SetClock(c Clock) error
+func (s *LiteSVM) SetClock(c *sysvar.Clock) error
 ```
 
 Overwrite the Clock sysvar. Read it, mutate fields, write it back when you need
@@ -81,10 +84,10 @@ if err := svm.SetClock(c); err != nil {
 }
 ```
 
-<Callout type="info">
+<Info>
   `WarpToSlot` only updates `Slot`. Use `SetClock` when your program reads
   `Epoch` or `UnixTimestamp` from the Clock sysvar.
-</Callout>
+</Info>
 
 ## Rent
 
@@ -92,13 +95,13 @@ if err := svm.SetClock(c); err != nil {
 
 ```go
 type Rent struct {
-    LamportsPerByteYear uint64
-    ExemptionThreshold  float64
-    BurnPercent         uint8
+    LamportsPerByte    uint64
+    ExemptionThreshold float64
+    BurnPercent        uint8
 }
 
-func (s *LiteSVM) Rent() (Rent, error)
-func (s *LiteSVM) SetRent(r Rent) error
+func (s *LiteSVM) Rent() (*sysvar.Rent, error)
+func (s *LiteSVM) SetRent(r *sysvar.Rent) error
 ```
 
 ```go
@@ -106,7 +109,7 @@ r, err := svm.Rent()
 if err != nil {
     t.Fatal(err)
 }
-t.Logf("lamports/byte-year: %d", r.LamportsPerByteYear)
+t.Logf("lamports/byte: %d", r.LamportsPerByte)
 t.Logf("exemption threshold: %.2f", r.ExemptionThreshold)
 t.Logf("burn percent: %d", r.BurnPercent)
 ```
@@ -138,8 +141,8 @@ type EpochSchedule struct {
     FirstNormalSlot          uint64
 }
 
-func (s *LiteSVM) EpochSchedule() (EpochSchedule, error)
-func (s *LiteSVM) SetEpochSchedule(e EpochSchedule) error
+func (s *LiteSVM) EpochSchedule() (*sysvar.EpochSchedule, error)
+func (s *LiteSVM) SetEpochSchedule(e *sysvar.EpochSchedule) error
 ```
 
 ```go
@@ -159,28 +162,30 @@ type EpochRewards struct {
     DistributionStartingBlockHeight uint64
     NumPartitions                   uint64
     ParentBlockhash                 solana.Hash
-    TotalPointsLo                   uint64 // low 64 bits of the u128 total_points
-    TotalPointsHi                   uint64 // high 64 bits
+    TotalPoints                     bin.Uint128 // u128 total_points
     TotalRewards                    uint64
     DistributedRewards              uint64
     Active                          bool
 }
 
-func (s *LiteSVM) EpochRewards() (EpochRewards, error)
-func (s *LiteSVM) SetEpochRewards(e EpochRewards) error
+func (s *LiteSVM) EpochRewards() (*sysvar.EpochRewards, error)
+func (s *LiteSVM) SetEpochRewards(e *sysvar.EpochRewards) error
 ```
 
-`total_points` is a `u128` on the Solana side; `litesvm-go` surfaces both halves
-explicitly so Go callers do not need a u128 library. For values that fit in 64
-bits, `TotalPointsHi` is `0` and `TotalPointsLo` is the value.
+`total_points` is a `u128` on the Solana side and is exposed as a
+`bin.Uint128` (from `github.com/gagliardetto/binary`) with `Lo` and `Hi` halves.
 
 ## Slot Information
 
 ### LastRestartSlot / SetLastRestartSlot
 
 ```go
-func (s *LiteSVM) LastRestartSlot() (uint64, error)
-func (s *LiteSVM) SetLastRestartSlot(slot uint64) error
+type LastRestartSlot struct {
+    LastRestartSlot uint64
+}
+
+func (s *LiteSVM) LastRestartSlot() (*sysvar.LastRestartSlot, error)
+func (s *LiteSVM) SetLastRestartSlot(l *sysvar.LastRestartSlot) error
 ```
 
 ```go
@@ -188,7 +193,7 @@ last, err := svm.LastRestartSlot()
 if err != nil {
     t.Fatal(err)
 }
-if err := svm.SetLastRestartSlot(last + 1); err != nil {
+if err := svm.SetLastRestartSlot(&sysvar.LastRestartSlot{LastRestartSlot: last.LastRestartSlot + 1}); err != nil {
     t.Fatal(err)
 }
 ```
@@ -201,32 +206,30 @@ type SlotHash struct {
     Hash solana.Hash
 }
 
-func (s *LiteSVM) SlotHashes() ([]SlotHash, error)
-func (s *LiteSVM) SetSlotHashes(items []SlotHash) error
+type SlotHashes []SlotHash
+
+func (s *LiteSVM) SlotHashes() (sysvar.SlotHashes, error)
+func (s *LiteSVM) SetSlotHashes(items sysvar.SlotHashes) error
 ```
 
 ### SlotHistory
 
-`SlotHistory` is a ~128 KB bitvec; `litesvm-go` exposes it as a handle rather
-than a slice.
+`SlotHistory` is a ~128 KB bitvec. `sysvar.SlotHistory` is a plain Go value, so
+there is nothing to close.
 
 ```go
-sh, err := litesvm.NewSlotHistory()
-if err != nil {
-    t.Fatal(err)
-}
-defer sh.Close()
+sh := sysvar.NewSlotHistory()
 
 sh.Add(42)
 
 switch sh.Check(42) {
-case litesvm.SlotHistoryFound:
+case sysvar.SlotHistoryFound:
     // ...
-case litesvm.SlotHistoryNotFound:
+case sysvar.SlotHistoryNotFound:
     // ...
-case litesvm.SlotHistoryTooOld:
+case sysvar.SlotHistoryTooOld:
     // ...
-case litesvm.SlotHistoryFuture:
+case sysvar.SlotHistoryFuture:
     // ...
 }
 
@@ -237,29 +240,33 @@ if err := svm.SetSlotHistory(sh); err != nil {
 
 | Method                                           | Description                                |
 | ------------------------------------------------ | ------------------------------------------ |
-| `litesvm.NewSlotHistory() (*SlotHistory, error)` | Empty handle                               |
+| `sysvar.NewSlotHistory() *sysvar.SlotHistory`    | New slot history                           |
 | `sh.Add(slot uint64)`                            | Record a slot                              |
 | `sh.Check(slot uint64) SlotHistoryCheck`         | `Future` / `TooOld` / `Found` / `NotFound` |
 | `sh.Oldest() uint64`                             | Oldest slot tracked                        |
 | `sh.Newest() uint64`                             | Newest slot tracked                        |
-| `sh.NextSlot() uint64`                           | Next slot to record                        |
-| `sh.SetNextSlot(slot uint64) error`              | Override the next-slot marker              |
-| `sh.Close()`                                     | Release the handle                         |
-| `svm.SlotHistory() (*SlotHistory, error)`        | Read into a fresh handle                   |
-| `svm.SetSlotHistory(*SlotHistory) error`         | Install on the SVM                         |
+| `sh.NextSlot`                                    | Field: next slot to record                 |
+| `svm.SlotHistory() (*sysvar.SlotHistory, error)` | Read the sysvar                            |
+| `svm.SetSlotHistory(*sysvar.SlotHistory) error`  | Install on the SVM                         |
 
 ## Stake History
 
 ```go
-type StakeHistoryItem struct {
-    Epoch        uint64
+type StakeHistoryEntry struct {
     Effective    uint64
     Activating   uint64
     Deactivating uint64
 }
 
-func (s *LiteSVM) StakeHistory() ([]StakeHistoryItem, error)
-func (s *LiteSVM) SetStakeHistory(items []StakeHistoryItem) error
+type StakeHistoryItem struct {
+    Epoch uint64
+    Entry StakeHistoryEntry
+}
+
+type StakeHistory []StakeHistoryItem
+
+func (s *LiteSVM) StakeHistory() (sysvar.StakeHistory, error)
+func (s *LiteSVM) SetStakeHistory(items sysvar.StakeHistory) error
 ```
 
 ## Testing Time-Dependent Logic

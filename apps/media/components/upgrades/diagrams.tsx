@@ -9,9 +9,8 @@ import React from "react";
  * from `currentColor`. Colors are literal rather than CSS custom properties
  * because the upgrades article template renders on a permanently dark surface.
  *
- * Registered as Keystatic component blocks in `lib/keystatic/components.tsx`
- * so the CMS editor accepts them in the article body, and wired into the MDX
- * component map in `./mdx-components.tsx`.
+ * Chosen through the UpgradeDiagram Keystatic block and rendered through the
+ * matching MDX component in `./mdx-components.tsx`.
  */
 
 /** Inline monospace run, matching the accent used for `code` in article prose. */
@@ -2109,6 +2108,579 @@ export function AgBlockLifecycle() {
           fill="#79828F"
         >
           green: replaced by Alpenglow · grey: untouched
+        </text>
+      </svg>
+    </Figure>
+  );
+}
+
+export function DnSignerFlow() {
+  const rows = [
+    {
+      label: "today: durable nonce transaction",
+      y: 46,
+      tone: "muted",
+      stages: [
+        { label: "cold key signs", sub: "a full transaction" },
+        { label: "anyone broadcasts", sub: "nonce replaces blockhash" },
+        { label: "runtime checks", sub: "and advances nonce account" },
+        { label: "instructions run", sub: "top-level, key signs" },
+      ],
+    },
+    {
+      label: "replacement: offline signer program",
+      y: 166,
+      tone: "green",
+      stages: [
+        { label: "cold key signs", sub: "a message, no blockhash" },
+        { label: "hot relayer wraps", sub: "fresh blockhash, pays fee" },
+        { label: "program verifies", sub: "and advances its own nonce" },
+        { label: "instructions run", sub: "via CPI, PDA signs" },
+      ],
+    },
+  ] as const;
+
+  return (
+    <Figure
+      caption={
+        <>
+          Durable nonces make the validator special-case transactions that skip
+          the blockhash check. The replacement moves signature checking and
+          replay protection into an ordinary onchain program, so every
+          transaction the validator sees is a normal blockhash transaction.
+        </>
+      }
+      minWidth={720}
+    >
+      <svg
+        viewBox="0 0 900 262"
+        role="img"
+        aria-label="Two flows compared. Today, a cold key signs a full durable nonce transaction, anyone broadcasts it, the runtime checks and advances the nonce account, and the instructions run top-level with the key as signer. In the replacement, the cold key signs a message without a blockhash, a hot relayer wraps it in a fresh blockhash transaction and pays the fee, an onchain program verifies the signature and advances its own nonce, and the instructions run through CPI with a PDA as signer."
+      >
+        <defs>
+          <marker
+            id="dnFlow"
+            markerWidth="7"
+            markerHeight="7"
+            refX="6"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0,0 7,3.5 0,7" fill="currentColor" />
+          </marker>
+        </defs>
+
+        {rows.map((row) => {
+          const green = row.tone === "green";
+          return (
+            <g key={row.label} fontFamily="ui-monospace, monospace">
+              <text
+                x="8"
+                y={row.y - 14}
+                fontSize="10.5"
+                fontWeight="600"
+                fill={green ? "#14F195" : "#79828F"}
+              >
+                {row.label}
+              </text>
+              {row.stages.map((st, i) => {
+                const x = 8 + i * 224;
+                const cx = x + 99;
+                return (
+                  <g key={st.label + i} textAnchor="middle">
+                    <rect
+                      x={x}
+                      y={row.y}
+                      width="198"
+                      height="54"
+                      rx="4"
+                      fill={green ? "#0F2E24" : "#161A20"}
+                      stroke={green ? "#14F195" : "#272D36"}
+                      strokeWidth={green ? 1.4 : 1}
+                    />
+                    <text
+                      x={cx}
+                      y={row.y + 22}
+                      fontSize="10.5"
+                      fontWeight="600"
+                      fill={green ? "#14F195" : "currentColor"}
+                    >
+                      {st.label}
+                    </text>
+                    <text x={cx} y={row.y + 40} fontSize="9.5" fill="#79828F">
+                      {st.sub}
+                    </text>
+                    {i < row.stages.length - 1 ? (
+                      <path
+                        d={`M ${x + 198} ${row.y + 27} L ${x + 220} ${row.y + 27}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        markerEnd="url(#dnFlow)"
+                      />
+                    ) : null}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+
+        <text
+          x="8"
+          y="250"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          the signed payload no longer expires with a blockhash, and the
+          transaction carrying it always does
+        </text>
+      </svg>
+    </Figure>
+  );
+}
+
+export function DnCallStacks() {
+  const panels = [
+    {
+      title: "Anza programmatic signer",
+      x: 8,
+      boxes: [
+        {
+          depth: 1,
+          label: "Ed25519 Signer · Submit",
+          sub: "verifies authority signatures",
+          tone: "plain",
+        },
+        {
+          depth: 2,
+          label: "Executor · Execute",
+          sub: "checks message against nonce",
+          tone: "plain",
+        },
+        {
+          depth: 3,
+          label: "Nonce · Advance",
+          sub: "consumes the nonce",
+          tone: "plain",
+        },
+        {
+          depth: 3,
+          label: "your instructions",
+          sub: "programmatic-signer PDA has signer privilege",
+          tone: "green",
+        },
+      ],
+    },
+    {
+      title: "Blueshift Vector",
+      x: 462,
+      boxes: [
+        {
+          depth: 1,
+          label: "Vector · Advance",
+          sub: "verifies signature, advances nonce",
+          tone: "plain",
+        },
+        {
+          depth: 1,
+          label: "Vector · Passthrough",
+          sub: "replays embedded instructions",
+          tone: "plain",
+        },
+        {
+          depth: 2,
+          label: "your instructions",
+          sub: "vector PDA signs",
+          tone: "green",
+        },
+        {
+          depth: 1,
+          label: "optional top-level ixs",
+          sub: "e.g. deadline, also signed",
+          tone: "muted",
+        },
+      ],
+    },
+  ] as const;
+
+  return (
+    <Figure
+      caption={
+        <>
+          Both designs run the authorized instructions through CPI. Under
+          Anza&apos;s design they start at stack height 3; under Vector they
+          start at stack height 2. Programs that require top-level calls reject
+          both.
+        </>
+      }
+      minWidth={760}
+    >
+      <svg
+        viewBox="0 0 900 312"
+        role="img"
+        aria-label="Instruction call stacks compared. In Anza's programmatic signer, the top-level Ed25519 Signer Submit instruction verifies signatures and calls the Executor, which calls the Nonce program to advance the nonce and then calls your instructions at stack height 3, where the programmatic-signer PDA has signer privilege. In Blueshift Vector, a top-level Advance instruction verifies the signature and advances the nonce, a sibling top-level Passthrough instruction calls your instructions at stack height 2 with the vector PDA as signer, and optional top-level instructions such as a deadline check are also covered by the signature."
+      >
+        {panels.map((panel) => (
+          <g key={panel.title} fontFamily="ui-monospace, monospace">
+            <text
+              x={panel.x}
+              y="20"
+              fontSize="11"
+              fontWeight="600"
+              fill="currentColor"
+            >
+              {panel.title}
+            </text>
+            {panel.boxes.map((box, i) => {
+              const green = box.tone === "green";
+              const muted = box.tone === "muted";
+              const x = panel.x + (box.depth - 1) * 36;
+              const y = 40 + i * 66;
+              // Connect each nested call to the nearest earlier box one level up.
+              const parentIndex = panel.boxes
+                .slice(0, i)
+                .map((b): number => b.depth)
+                .lastIndexOf(box.depth - 1);
+              const stemX = panel.x + (box.depth - 2) * 36 + 16;
+              const stemTop = 40 + parentIndex * 66 + 48;
+              return (
+                <g key={box.label}>
+                  {box.depth > 1 && parentIndex >= 0 ? (
+                    <path
+                      d={`M ${stemX} ${stemTop} L ${stemX} ${y + 24} L ${x} ${y + 24}`}
+                      fill="none"
+                      stroke="#79828F"
+                      strokeWidth="1"
+                    />
+                  ) : null}
+                  <rect
+                    x={x}
+                    y={y}
+                    width="340"
+                    height="48"
+                    rx="4"
+                    fill={green ? "#0F2E24" : "#161A20"}
+                    stroke={green ? "#14F195" : "#272D36"}
+                    strokeWidth={green ? 1.4 : 1}
+                    strokeDasharray={muted ? "4 3" : undefined}
+                  />
+                  <text
+                    x={x + 14}
+                    y={y + 20}
+                    fontSize="10.5"
+                    fontWeight="600"
+                    fill={
+                      green ? "#14F195" : muted ? "#79828F" : "currentColor"
+                    }
+                  >
+                    {box.label}
+                  </text>
+                  <text x={x + 14} y={y + 36} fontSize="9.5" fill="#79828F">
+                    {box.sub}
+                  </text>
+                  <text
+                    x={x + 326}
+                    y={y + 20}
+                    fontSize="9.5"
+                    textAnchor="end"
+                    fill={green ? "#14F195" : "#79828F"}
+                  >
+                    {`height ${box.depth}`}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        ))}
+
+        <text
+          x="8"
+          y="304"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          indent: one CPI level · green: the instructions the authority signed ·
+          height 1: top-level instruction
+        </text>
+      </svg>
+    </Figure>
+  );
+}
+
+export function DmCopyPaths() {
+  const rows = [
+    {
+      label: "today: copy in, copy out",
+      y: 46,
+      tone: "muted",
+      stages: [
+        { label: "account data", sub: "in validator memory" },
+        { label: "copy into the VM", sub: "before the program runs" },
+        { label: "program runs", sub: "on the copy, CPIs copy again" },
+        { label: "copy back", sub: "and compare for changes" },
+      ],
+    },
+    {
+      label: "direct mapping: no copies",
+      y: 166,
+      tone: "green",
+      stages: [
+        { label: "account data", sub: "in validator memory" },
+        { label: "VM maps it", sub: "same bytes, no copy" },
+        { label: "program runs", sub: "reads and writes in place" },
+        { label: "nothing to copy back", sub: "each access was checked" },
+      ],
+    },
+  ] as const;
+
+  return (
+    <Figure
+      caption={
+        <>
+          Today the validator copies account data into the virtual machine and
+          back, and every CPI repeats that. With direct mapping the virtual
+          machine points at the account data itself, so the runtime has to check
+          each read and write as it happens.
+        </>
+      }
+      minWidth={720}
+    >
+      <svg
+        viewBox="0 0 900 262"
+        role="img"
+        aria-label="Two flows compared. Today, account data in validator memory is copied into the virtual machine, the program runs on the copy while CPIs copy it again, and the data is copied back and compared for changes. With direct mapping, the virtual machine maps the same bytes without copying, the program reads and writes them in place, and there is nothing to copy back because each access was checked."
+      >
+        <defs>
+          <marker
+            id="dmFlow"
+            markerWidth="7"
+            markerHeight="7"
+            refX="6"
+            refY="3.5"
+            orient="auto"
+          >
+            <polygon points="0,0 7,3.5 0,7" fill="currentColor" />
+          </marker>
+        </defs>
+
+        {rows.map((row) => {
+          const green = row.tone === "green";
+          return (
+            <g key={row.label} fontFamily="ui-monospace, monospace">
+              <text
+                x="8"
+                y={row.y - 14}
+                fontSize="10.5"
+                fontWeight="600"
+                fill={green ? "#14F195" : "#79828F"}
+              >
+                {row.label}
+              </text>
+              {row.stages.map((st, i) => {
+                const x = 8 + i * 224;
+                const cx = x + 99;
+                return (
+                  <g key={st.label + i} textAnchor="middle">
+                    <rect
+                      x={x}
+                      y={row.y}
+                      width="198"
+                      height="54"
+                      rx="4"
+                      fill={green ? "#0F2E24" : "#161A20"}
+                      stroke={green ? "#14F195" : "#272D36"}
+                      strokeWidth={green ? 1.4 : 1}
+                    />
+                    <text
+                      x={cx}
+                      y={row.y + 22}
+                      fontSize="10.5"
+                      fontWeight="600"
+                      fill={green ? "#14F195" : "currentColor"}
+                    >
+                      {st.label}
+                    </text>
+                    <text x={cx} y={row.y + 40} fontSize="9.5" fill="#79828F">
+                      {st.sub}
+                    </text>
+                    {i < row.stages.length - 1 ? (
+                      <path
+                        d={`M ${x + 198} ${row.y + 27} L ${x + 220} ${row.y + 27}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        markerEnd="url(#dmFlow)"
+                      />
+                    ) : null}
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+
+        <text
+          x="8"
+          y="250"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          up to four copies per instruction become zero, and every memory access
+          is checked instead
+        </text>
+      </svg>
+    </Figure>
+  );
+}
+
+export function DmAccountAccess() {
+  const dataEnd = 470;
+  const accesses = [
+    { x: 240, label: "write to a read-only account, then restore it" },
+    { x: 680, label: "read past the end of the data" },
+  ] as const;
+  const rows = [
+    {
+      label: "before: checked only when the program returns",
+      y: 24,
+      tone: "muted",
+      results: ["allowed, nothing noticed", "allowed, reads the padding"],
+    },
+    {
+      label: "after: every access is checked",
+      y: 152,
+      tone: "green",
+      results: [
+        "fails: ReadonlyDataModified",
+        "fails: AccountDataTooSmall or InvalidRealloc",
+      ],
+    },
+  ] as const;
+
+  return (
+    <Figure
+      caption={
+        <>
+          The same account bytes, before and after. Today the runtime only
+          compares the data when the program returns, so a write that is undone
+          in time, or a read into the reserved padding after the data, goes
+          unnoticed. Under the new rules each access is checked as it happens.
+        </>
+      }
+      minWidth={720}
+    >
+      <svg
+        viewBox="0 0 900 280"
+        role="img"
+        aria-label="The same account shown twice: account data up to its current length, followed by 10 KiB of reserved padding. Before, writing to a read-only account and restoring it is allowed and nothing is noticed, and reading past the end of the data is allowed and reads the padding. After, the write fails with ReadonlyDataModified, and the read fails with AccountDataTooSmall or InvalidRealloc."
+      >
+        {rows.map((row) => {
+          const green = row.tone === "green";
+          const barY = row.y + 14;
+          return (
+            <g key={row.label} fontFamily="ui-monospace, monospace">
+              <text
+                x="8"
+                y={row.y}
+                fontSize="10.5"
+                fontWeight="600"
+                fill={green ? "#14F195" : "#79828F"}
+              >
+                {row.label}
+              </text>
+
+              <rect
+                x="8"
+                y={barY}
+                width={dataEnd - 8}
+                height="36"
+                rx="4"
+                fill={green ? "#0F2E24" : "#161A20"}
+                stroke={green ? "#14F195" : "#272D36"}
+                strokeWidth={green ? 1.4 : 1}
+              />
+              <text
+                x={(8 + dataEnd) / 2}
+                y={barY + 22}
+                fontSize="10"
+                textAnchor="middle"
+                fill={green ? "#14F195" : "currentColor"}
+              >
+                account data (current length)
+              </text>
+              <rect
+                x={dataEnd}
+                y={barY}
+                width={892 - dataEnd}
+                height="36"
+                rx="4"
+                fill="#1D222A"
+                stroke="#79828F"
+                strokeWidth="1"
+                strokeDasharray="3 4"
+              />
+              <text
+                x={(dataEnd + 892) / 2}
+                y={barY + 22}
+                fontSize="10"
+                textAnchor="middle"
+                fill="#79828F"
+              >
+                10 KiB reserved padding
+              </text>
+
+              {accesses.map((a, i) => {
+                const fails = green;
+                return (
+                  <g key={a.label} textAnchor="middle">
+                    <circle
+                      cx={a.x}
+                      cy={barY + 36}
+                      r="3.5"
+                      fill={fails ? "#FF8080" : "#79828F"}
+                    />
+                    <path
+                      d={`M ${a.x} ${barY + 40} L ${a.x} ${barY + 54}`}
+                      stroke={fails ? "#FF8080" : "#79828F"}
+                      strokeWidth="1.2"
+                    />
+                    <text
+                      x={a.x}
+                      y={barY + 68}
+                      fontSize="9.5"
+                      fill="currentColor"
+                    >
+                      {a.label}
+                    </text>
+                    <text
+                      x={a.x}
+                      y={barY + 85}
+                      fontSize="10"
+                      fontWeight="600"
+                      fill={fails ? "#FF8080" : "#79828F"}
+                    >
+                      {row.results[i]}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+
+        <text
+          x="8"
+          y="270"
+          fontFamily="ui-monospace, monospace"
+          fontSize="10"
+          fill="#79828F"
+        >
+          a write past the end of a writable account your program owns still
+          works: it grows the account, within the resize limits
         </text>
       </svg>
     </Figure>

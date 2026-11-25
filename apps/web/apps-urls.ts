@@ -63,8 +63,9 @@ export const BREAKPOINT_APP_URL =
     ? vercelBreakpointUrl
     : developmentBreakpointUrl);
 
-console.log("MEDIA_APP_URL", MEDIA_APP_URL);
-console.log("DOCS_APP_URL", DOCS_APP_URL);
-console.log("templatesAppUrl", templatesAppUrl);
-console.log("ACCELERATE_APP_URL", ACCELERATE_APP_URL);
-console.log("BREAKPOINT_APP_URL", BREAKPOINT_APP_URL);
+// Breakpoint badge site (BP26 badges): a Bun server on Google Cloud Run, not a
+// Vercel project, behind its own load balancer at badge-api.solana.com. It
+// serves its site and API under /breakpoint/badge itself.
+export const BREAKPOINT_BADGE_URL =
+  process.env.NEXT_PUBLIC_BREAKPOINT_BADGE_URL ||
+  "https://badge-api.solana.com";

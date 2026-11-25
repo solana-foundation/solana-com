@@ -1,0 +1,135 @@
+---
+title: 部署资产
+description: 为将程序构建部署到 Mainnet 做准备
+---
+
+在将应用部署到 Mainnet 之前，请确保你已准备好以下内容：
+
+- 程序 ELF 文件——通常是执行 `anchor build` 或 `cargo-build-sbf` 后生成的、以 `.so` 结尾的文件
+- 程序 keypair——包含整数数组的 JSON 文件
+
+本节将介绍在哪里找到这些资产以及如何准备它们。
+
+## 准备 ELF 文件 [#preparing-your-elf-file]
+
+ELF 文件包含编译后的字节码、内存布局信息以及元数据，Solana 虚拟机（SVM）需要这些信息来了解如何加载和运行你的程序。ELF 文件在源代码编译时生成。
+
+要创建 ELF 文件，可以为 Anchor 运行以下命令：
+
+```bash
+anchor build
+```
+
+或者为其他框架运行以下命令：
+
+```bash
+cargo build-sbf
+```
+
+然后你可以在类似 `target/deploy/<PROGRAM_NAME>.so` 的目录中找到 ELF 文件。
+
+当 ELF 文件被编译为 [sBPFv3](https://www.anza.xyz/blog/migrating-solana-programs-to-sbpfv3) 时，你的程序即已就绪。要检查程序，可以在 Linux 上运行以下命令：
+
+```bash
+readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+以及在 macOS 上运行以下命令：
+
+```bash
+# brew install llvm
+$(brew --prefix llvm)/bin/llvm-readelf -h target/deploy/<PROGRAM_NAME>.so | grep Flags:
+```
+
+如果看到类似以下的输出，说明你的程序已就绪：
+
+```
+  Flags:                             0x3
+```
+
+如果不是，请按照[此处](https://solana.com/upgrades/sbpfv3-programs)链接的迁移指南操作。
+
+## 准备程序地址 [#preparing-your-program-address]
+
+程序地址即你调用程序指令时使用的程序 ID。你可以：1）使用构建期间生成的程序 keypair；2）生成（grind）一个地址以自定义前缀开头的新 keypair；或 3）根据基础地址和 seed 派生账户地址。前两种方式会生成可为 program account 签名的 keypair。使用 seed 创建的账户没有自己的私钥，而是由基础账户控制。
+
+### 使用生成的 keypair
+
+默认情况下，`anchor build` 和 `cargo build-sbf` 会将程序 keypair 放在：
+
+```text
+target/deploy/<PROGRAM_NAME>-keypair.json
+```
+
+在清理构建目录之前，请先备份此文件。任何拥有该 keypair 的人都可以以 program account 的身份签名，因此请勿将其提交到源代码管理中。
+
+### 生成带自定义前缀的 keypair
+
+使用 [`vanity`](https://github.com/cavemanloverboy/vanity) 搜索公钥以特定 base58 前缀开头的 Ed25519 keypair。从 crates.io 安装 CPU 版本：
+
+```bash
+cargo install vanity
+```
+
+该项目还提供 CUDA、Metal 和 OpenCL 构建版本，用于 GPU 加速搜索。各后端的具体要求请参阅 `vanity` 的安装说明。
+
+```bash
+vanity grind-keypair --pattern Acme...
+```
+
+找到匹配项后，`vanity` 会输出公钥、十六进制的私钥种子，以及兼容 Solana 的 keypair JSON 数组。请将 JSON 文件保存在安全位置，然后确认其中包含预期的公钥：
+
+```bash
+solana-keygen pubkey path/to/keypair.json
+```
+
+请将命令输出和保存的 JSON 文件视为私钥材料。
+
+### 使用 seed 创建账户
+
+为了更快地搜索，`vanity grind` 会为 `CreateAccountWithSeed` 搜索 seed 字符串，而不是生成 Ed25519 keypair。请提供将授权创建账户的基础账户的公钥、账户所有者以及要搜索的前缀。对于可升级的 program account，请使用可升级 BPF loader 作为所有者：
+
+```bash
+vanity grind \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --pattern Acme...
+```
+
+结果包含派生地址和一个 seed 字符串。创建账户之前请先验证它们：
+
+```bash
+vanity verify \
+  --base <BASE_ACCOUNT_PUBKEY> \
+  --owner BPFLoaderUpgradeab1e11111111111111111111111 \
+  --seed <SEED>
+```
+
+使用相同的基础地址、seed 和所有者，通过 `Pubkey::create_with_seed` 派生地址，然后提交 System Program 的 `create_account_with_seed` 指令。基础账户和出资账户必须对交易签名。由于派生账户没有独立的 keypair，此方式需要采用使用基础账户（而非程序 keypair 文件）的账户创建与部署流程。
+
+### 在源代码中更新程序地址
+
+选定 keypair 或使用 seed 创建的账户后，请在项目中所有声明程序 ID 的位置使用其公开地址。如果源代码中仍包含旧地址，客户端可能会将指令发送到错误的程序，运行时的 ID 检查也可能失败。
+
+在 Anchor 工作区中，需要同时更新根目录 `Anchor.toml` 中的程序条目以及 `programs/<PROGRAM_NAME>/src/lib.rs` 中的 `declare_id!` 调用。`[programs.<CLUSTER>]` 下的键是该程序在工作区中的名称。请更新所有打算使用新地址的集群表；下面的示例更新的是 Mainnet。
+
+在 Anchor.toml 中：
+
+```diff
+ [programs.mainnet]
+-my_program = "<OLD_PROGRAM_ID>"
++my_program = "<NEW_PROGRAM_ID>"
+```
+
+在 `programs/<your_program>/lib.rs` 中：
+
+```diff
+-declare_id!("<OLD_PROGRAM_ID>");
++declare_id!("<NEW_PROGRAM_ID>");
+```
+
+Pinocchio 不使用 `Anchor.toml`。请更新程序 crate 的 `src/lib.rs` 中的 `declare_id!` 调用。当前的 Pinocchio 项目从 `pinocchio::address` 导入该宏。
+
+Quasar 同样在链上程序 crate 的 `src/lib.rs` 中声明地址，并且不使用 `Anchor.toml`。`declare_id!` 宏可通过 `quasar_lang::prelude::*` 获得。
+
+更改地址后，请重新构建程序，并重新生成所有 IDL 或客户端产物。同时，请在部署脚本、测试和应用配置中搜索旧的程序 ID，并替换所有硬编码的引用。

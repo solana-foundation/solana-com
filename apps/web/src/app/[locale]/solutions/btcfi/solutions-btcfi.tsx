@@ -12,33 +12,47 @@ import { SingleVideo } from "@/components/solutions/single-video.v2";
 import { SelectionColor } from "@/component-library/selection-color";
 import { CoinsIcon, WalletIcon, StepsIcon } from "@solana-com/ui-chrome/icons";
 import type { NewsItem } from "@/components/solutions/latest-news.v2";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
 type SolutionsBtcfiPageProps = {
   news: NewsItem[];
+  /** Registry figures for HERO_METRICS, in display order. */
+  heroMetrics: DisplayMetric[];
 };
 
-export function SolutionsBtcfiPage({ news }: SolutionsBtcfiPageProps) {
+export function SolutionsBtcfiPage({
+  news,
+  heroMetrics,
+}: SolutionsBtcfiPageProps) {
   const t = useTranslations();
 
   const stats: SolutionHeroStat[] = [
     {
-      value: t("btcfi.hero.stats.0.value"),
+      value: heroMetrics[0].value,
       label: t("btcfi.hero.stats.0.label"),
+      source: heroMetrics[0].source,
+      localized: true,
       Icon: CoinsIcon,
     },
     {
-      value: t("btcfi.hero.stats.1.value"),
+      value: heroMetrics[1].value,
       label: t("btcfi.hero.stats.1.label"),
+      source: heroMetrics[1].source,
+      localized: true,
       Icon: CoinsIcon,
     },
     {
-      value: t("btcfi.hero.stats.2.value"),
+      value: heroMetrics[2].value,
       label: t("btcfi.hero.stats.2.label"),
+      source: heroMetrics[2].source,
+      localized: true,
       Icon: WalletIcon,
     },
     {
-      value: t("btcfi.hero.stats.3.value"),
+      value: heroMetrics[3].value,
       label: t("btcfi.hero.stats.3.label"),
+      source: heroMetrics[3].source,
+      localized: true,
       Icon: StepsIcon,
     },
   ];

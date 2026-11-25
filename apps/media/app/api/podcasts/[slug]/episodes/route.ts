@@ -10,8 +10,20 @@ export async function GET(
 ) {
   try {
     const { slug } = await params;
-    const limit = parseInt(request.nextUrl.searchParams.get("limit") || "12");
-    const offset = parseInt(request.nextUrl.searchParams.get("offset") || "0");
+    const limit = Math.min(
+      Math.max(
+        parseInt(request.nextUrl.searchParams.get("limit") || "12", 10) || 12,
+        1,
+      ),
+      50,
+    );
+    const offset = Math.min(
+      Math.max(
+        parseInt(request.nextUrl.searchParams.get("offset") || "0", 10) || 0,
+        0,
+      ),
+      10_000,
+    );
 
     const podcast = await fetchPodcastBySlug(slug);
     if (!podcast) {

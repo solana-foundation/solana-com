@@ -20,6 +20,29 @@ export type BreakpointMessages = {
     venue: string;
     location: string;
   };
+  nextEdition: {
+    eyebrow: string;
+    headline: string;
+    headlineNoCity: string;
+    videoTitle: string;
+    navCta: string;
+    navCtaShort: string;
+    registerCta: string;
+    cta: {
+      watchAndRegister: string;
+      watch: string;
+      register: string;
+    };
+    signup: {
+      body: string;
+      emailLabel: string;
+      emailPlaceholder: string;
+      submit: string;
+      submitting: string;
+      success: string;
+      error: string;
+    };
+  };
   marquee: {
     text: string;
     highlight: string;
@@ -175,6 +198,95 @@ export type BreakpointMessages = {
       headline: string;
       cta: string;
     };
+  };
+  awards: {
+    metadata: {
+      title: string;
+      description: string;
+    };
+    hero: {
+      eyebrow: string;
+      title: string;
+      description: string;
+      cta: string;
+    };
+    marquee: {
+      community: string;
+      culture: string;
+      creators: string;
+      builders: string;
+      awards: string;
+    };
+    nominations: {
+      eyebrow: string;
+      headline: string;
+      description: string;
+      yourNominations: string;
+      nominatedCount: string;
+      chooseCategory: string;
+      categoryNavigation: string;
+      sections: {
+        individual: string;
+        community: string;
+      };
+      nominated: string;
+      status: {
+        closed: string;
+        notStarted: string;
+      };
+      submitted: string;
+      share: string;
+      change: string;
+      nomineeUsername: string;
+      usernamePlaceholder: string;
+      submit: string;
+      submitting: string;
+      previous: string;
+      next: string;
+      shareText: string;
+      errors: {
+        load: string;
+        invalidUsername: string;
+        session: string;
+        save: string;
+      };
+    };
+    voting: {
+      metadataDescription: string;
+      heroCta: string;
+      viewAwards: string;
+      heroDescription: string;
+      eyebrow: string;
+      headline: string;
+      description: string;
+      status: {
+        finalistsPending: string;
+        notStarted: string;
+        open: string;
+        closed: string;
+      };
+      progress: string;
+      voted: string;
+      submitted: string;
+      finalVote: string;
+      share: string;
+      chooseFinalist: string;
+      submit: string;
+      submitting: string;
+      shareText: string;
+      errors: {
+        load: string;
+        save: string;
+        alreadyVoted: string;
+      };
+    };
+    categories: Record<
+      string,
+      {
+        name: string;
+        description: string;
+      }
+    >;
   };
   pages: MessageRecord;
   accessibility: {

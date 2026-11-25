@@ -14,6 +14,7 @@ import { SolutionReport } from "@/components/solutions/report.v2";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import type { DisplayMetric } from "@/lib/metrics/present";
 import {
   WalletIcon,
   DiscountIcon,
@@ -21,29 +22,45 @@ import {
   CoinsIcon,
 } from "@solana-com/ui-chrome/icons";
 
-export function SolutionsConsumerPage() {
+export function SolutionsConsumerPage({
+  heroMetrics,
+  projectMetrics,
+}: {
+  /** Registry figures for HERO_METRICS, in display order. */
+  heroMetrics: DisplayMetric[];
+  /** Registry figures for PROJECTS, in the same order. */
+  projectMetrics: DisplayMetric[];
+}) {
   const t = useTranslations();
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const stats: SolutionHeroStat[] = [
     {
-      value: t("consumer.hero.stats.0.value"),
+      value: heroMetrics[0].value,
       label: t("consumer.hero.stats.0.label"),
+      source: heroMetrics[0].source,
+      localized: true,
       Icon: WalletIcon,
     },
     {
-      value: t("consumer.hero.stats.1.value"),
+      value: heroMetrics[1].value,
       label: t("consumer.hero.stats.1.label"),
+      source: heroMetrics[1].source,
+      localized: true,
       Icon: DiscountIcon,
     },
     {
-      value: t("consumer.hero.stats.2.value"),
+      value: heroMetrics[2].value,
       label: t("consumer.hero.stats.2.label"),
+      source: heroMetrics[2].source,
+      localized: true,
       Icon: MoneyIcon,
     },
     {
-      value: t("consumer.hero.stats.3.value"),
+      value: heroMetrics[3].value,
       label: t("consumer.hero.stats.3.label"),
+      source: heroMetrics[3].source,
+      localized: true,
       Icon: CoinsIcon,
     },
   ];
@@ -86,7 +103,12 @@ export function SolutionsConsumerPage() {
             light: (chunks) => <span className="font-light">{chunks}</span>,
             br: () => <br />,
           })}
-          projects={PROJECTS}
+          projects={PROJECTS.map((project, index) => ({
+            key: project.key,
+            src: project.src,
+            statValue: projectMetrics[index].value,
+            source: projectMetrics[index].source,
+          }))}
           translationBase="consumer.projects"
           logos={LOGOS}
           bgSrc="/src/img/solutions/consumer/ecosystem-bg.webp"

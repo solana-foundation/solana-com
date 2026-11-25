@@ -5,6 +5,11 @@ import appleTouchIcon from "@solana-com/ui-chrome/assets/apple-touch-icon.png";
 import { locales, defaultLocale } from "@workspace/i18n/config";
 import { getTranslations } from "@workspace/i18n/server";
 import { config, publicLocalizedRouteUrl } from "@/config";
+import {
+  CONFERENCE_STATE,
+  isLiveConference,
+  type ConferenceState,
+} from "@/content/conference-state";
 
 function createBreakpointSocialImage(alt: string) {
   const url = config.siteMetadata.socialShare;
@@ -23,6 +28,12 @@ type PageMetadataConfig = {
   description: string;
   path: string;
   title: string;
+  /** Replaces the site card; must be 1200×630. */
+  image?: { url: string; alt: string; type: string };
+  /** Keeps the page out of search results; its links are still followed. */
+  noindex?: boolean;
+  /** Query for og:url when a share variant unfurls differently, e.g. "?with=x". */
+  shareSearch?: string;
 };
 
 const getLanguageAlternates = (path: string) => {
@@ -90,7 +101,14 @@ export async function getBaseMetadata(
 
 export async function getPageMetadata(
   locale: string = defaultLocale,
-  { description, path, title }: PageMetadataConfig,
+  {
+    description,
+    path,
+    title,
+    image,
+    noindex,
+    shareSearch = "",
+  }: PageMetadataConfig,
 ): Promise<Metadata> {
   const base = await getBaseMetadata(locale, path);
   const t = await getTranslations({ locale, namespace: "breakpoint.metadata" });
@@ -98,20 +116,67 @@ export async function getPageMetadata(
   const socialTitle = `${title} | ${siteName}`;
   const openGraph = base.openGraph ?? {};
   const twitter = base.twitter ?? {};
+  const images = image && [
+    { ...image, secureUrl: image.url, width: 1200, height: 630 },
+  ];
 
   return {
     ...base,
     title,
     description,
+    ...(noindex && { robots: { index: false, follow: true } }),
     openGraph: {
       ...openGraph,
+      url: `${publicLocalizedRouteUrl(locale, path)}${shareSearch}`,
       title: socialTitle,
       description,
+      ...(images && { images }),
     },
     twitter: {
       ...twitter,
       title: socialTitle,
       description,
+      ...(images && { images }),
+    },
+  };
+}
+
+/**
+ * Home page metadata. While the conference is live the title, description
+ * and share card copy say so, so a link shared during the event reads as
+ * "watch now" rather than "register". Other pages keep their own metadata.
+ */
+export async function getHomeMetadata(
+  locale: string = defaultLocale,
+  state: ConferenceState = CONFERENCE_STATE,
+): Promise<Metadata> {
+  const base = await getBaseMetadata(locale, "/");
+  if (state === "pre") return base;
+
+  const t = await getTranslations({
+    locale,
+    namespace: isLiveConference(state)
+      ? "breakpoint.metadata.live"
+      : "breakpoint.metadata.post",
+  });
+  const title = t("title");
+  const description = t("description");
+  const ogTitle = t("ogTitle");
+  const ogDescription = t("ogDescription");
+
+  return {
+    ...base,
+    title: { ...(base.title as { template: string }), default: title },
+    description,
+    openGraph: {
+      ...base.openGraph,
+      title: ogTitle,
+      description: ogDescription,
+    },
+    twitter: {
+      ...base.twitter,
+      title: ogTitle,
+      description: ogDescription,
     },
   };
 }

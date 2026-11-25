@@ -16,6 +16,7 @@ import { Space_Grotesk } from "next/font/google";
 import localFont from "next/font/local";
 import { getBaseMetadata } from "../metadata";
 import "@@/src/scss/index.scss";
+import "@workspace/ui/scrollbar.css";
 import "../globals.css";
 
 // Load Space Grotesk font from Google Fonts

@@ -19,7 +19,7 @@ export const rockawayx = {
       website: "https://rockawayx.com/",
     },
     socials: {
-      x: "https://x.com/Rockaway_X",
+      x: "https://x.com/RockawayX",
       linkedin: "https://www.linkedin.com/company/rockawayx/",
     },
   },

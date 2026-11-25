@@ -1,10 +1,15 @@
 import { PossiblePage } from "./possible";
 import { getIndexMetadata } from "@/app/metadata";
+import { getDisplayMetrics } from "@/lib/metrics/present";
+import { POSSIBLE_METRICS } from "@/data/possible";
 
 type Props = { params: Promise<{ locale: string }> };
 
+export const revalidate = 60;
+
 export default async function Page(_props: Props) {
-  return <PossiblePage />;
+  const metrics = await getDisplayMetrics(POSSIBLE_METRICS);
+  return <PossiblePage carbonMetric={metrics["network.net-carbon-impact"]} />;
 }
 
 export async function generateMetadata({ params }: Props) {

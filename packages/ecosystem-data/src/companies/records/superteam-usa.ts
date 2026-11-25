@@ -15,7 +15,7 @@ export const superteamUsa = {
     sector: "Community",
     type: "Community",
     links: {
-      website: "https://superteam.fun/",
+      website: "https://us.superteam.fun/",
     },
     socials: {
       x: "https://x.com/SuperteamUSA",

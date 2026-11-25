@@ -1,5 +1,5 @@
 import { withRelatedProject } from "@vercel/related-projects";
-import { SIDE_EVENTS_HREF, SPONSOR_FORM_HREF } from "@/content/links";
+import { SIDE_EVENTS_HREF } from "@/content/links";
 import { breakpointHref } from "@/lib/links";
 
 const VERCEL_MEDIA_APP_URL = withRelatedProject({
@@ -43,12 +43,6 @@ const FALLBACK_BREAKPOINT_ANNOUNCEMENT_LINKS: BreakpointAnnouncementLink[] = [
     url: "https://www.youtube.com/watch?v=394wb968J68",
     tags: ["Recap"],
   },
-  {
-    id: "breakpoint-2026-become-a-sponsor",
-    title: "Become a sponsor \u2197",
-    url: SPONSOR_FORM_HREF,
-    tags: ["Sponsor"],
-  },
 ];
 
 function getBaseUrl(): string {
@@ -80,13 +74,15 @@ function isBreakpointAnnouncementLink(
   return (
     typeof link.id === "string" &&
     typeof link.title === "string" &&
-    typeof link.url === "string"
+    typeof link.url === "string" &&
+    // Only http(s) or root-relative targets may become hrefs.
+    /^(?:https?:\/\/|\/(?!\/))/i.test(link.url.trim())
   );
 }
 
-export async function fetchBreakpointAnnouncementLinks(): Promise<
-  BreakpointAnnouncementLink[]
-> {
+export async function fetchBreakpointAnnouncementLinks({
+  useFallback = true,
+}: { useFallback?: boolean } = {}): Promise<BreakpointAnnouncementLink[]> {
   try {
     const fetchOptions =
       process.env.NODE_ENV === "development"
@@ -110,9 +106,11 @@ export async function fetchBreakpointAnnouncementLinks(): Promise<
     const links = data.filter(isBreakpointAnnouncementLink).slice(0, 10);
     return links.length > 0
       ? links.map(normalizeBreakpointAnnouncementLink)
-      : getFallbackBreakpointAnnouncementLinks();
+      : useFallback
+        ? getFallbackBreakpointAnnouncementLinks()
+        : [];
   } catch (error) {
     console.error("Failed to fetch Breakpoint announcement links:", error);
-    return getFallbackBreakpointAnnouncementLinks();
+    return useFallback ? getFallbackBreakpointAnnouncementLinks() : [];
   }
 }

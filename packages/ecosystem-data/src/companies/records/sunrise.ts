@@ -1,4 +1,5 @@
 import type { CompanyRecord } from "../../types";
+import sunriseBreakpoint2026White from "../../../assets/companies/sunrise/breakpoint-2026-white.svg";
 import sunriseLogo from "../../../assets/companies/sunrise/logo.svg";
 
 export const sunrise = {
@@ -14,14 +15,22 @@ export const sunrise = {
     sector: "Tokenization",
     type: "Platform",
     links: {
-      website: "https://www.sunrisedefi.com/",
+      website: "https://sunrise.xyz/",
     },
     socials: {
-      x: "https://x.com/Sunrise_DeFi",
+      x: "https://x.com/sunrise",
     },
   },
   defaultLogoId: "logo",
   logos: [
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.svg",
+      format: "svg",
+      source: sunriseBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo",
       fileName: "logo.svg",
