@@ -251,12 +251,32 @@ const rpcInfraParamAliases: Partial<Record<string, RpcLatencyInfra>> = {
   terraswitch: "tsw",
 };
 
+// Lookup tables are plain objects; ignore inherited keys like "__proto__".
+function getOwnValue<T>(record: Partial<Record<string, T>>, key: string) {
+  return Object.hasOwn(record, key) ? record[key] : undefined;
+}
+
 export function normalizeRpcRegionParam(value: string | null | undefined) {
-  return value ? (rpcRegionParamAliases[value] ?? value) : value;
+  return value ? (getOwnValue(rpcRegionParamAliases, value) ?? value) : value;
 }
 
 export function normalizeRpcInfraParam(value: string | null | undefined) {
-  return value ? (rpcInfraParamAliases[value] ?? value) : value;
+  return value ? (getOwnValue(rpcInfraParamAliases, value) ?? value) : value;
+}
+
+/** Every raw region label any infra emits for a canonical colo, plus the colo itself. */
+export function getRegionSourceValues(value: string) {
+  const values = new Set([value]);
+  for (const sourceValues of Object.values(rpcRegionSourceValuesByInfra)) {
+    for (const sourceValue of getOwnValue<readonly string[]>(
+      sourceValues,
+      value,
+    ) ?? [])
+      values.add(sourceValue);
+  }
+  for (const [alias, region] of Object.entries(rpcRegionParamAliases))
+    if (region === value) values.add(alias);
+  return [...values].sort();
 }
 
 export function getRpcRegionSourceValue(
@@ -564,7 +584,7 @@ const providerAliases: Record<string, ProviderName> = {
 };
 
 export function normalizeProviderName(value: string) {
-  return providerAliases[value] ?? value;
+  return getOwnValue(providerAliases, value) ?? value;
 }
 
 export const metricColors: Record<string, string> = {

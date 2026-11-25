@@ -64,6 +64,7 @@ import {
 import { DataResourceCarousel } from "./dashboard-resources";
 import { ProviderLinkTable } from "./provider-link-table";
 import { SenderProviderExperience } from "./sender-provider-experience";
+import { SenderLandingPerformance } from "./sender-landing-performance";
 
 export { getSenderEconomicsItems } from "./sender-provider-experience";
 export { applyQueryUpdates } from "./dashboard-query";
@@ -92,6 +93,7 @@ export function SolanaDataDashboard() {
     rpcMethod,
     rpcRegion,
     rpcTimeframe,
+    landingRegion,
     setQueryString,
   } = useDashboardQueryParams();
   const isRpcTab = activeTab === "rpc";
@@ -370,6 +372,14 @@ export function SolanaDataDashboard() {
               />
             </>
           )
+        ) : null}
+
+        {isSendersTab ? (
+          <SenderLandingPerformance
+            region={landingRegion}
+            pageTimeframe={rpcTimeframe}
+            onRegionChange={(region) => updateQuery({ landingRegion: region })}
+          />
         ) : null}
 
         <DataResourceCarousel />
