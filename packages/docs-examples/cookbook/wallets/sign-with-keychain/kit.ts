@@ -5,9 +5,9 @@ import { rpcAirdrop, solanaRpc } from "@solana/kit-plugin-rpc";
 import { airdropSigner, signer } from "@solana/kit-plugin-signer";
 import { getTransferSolInstruction } from "@solana-program/system";
 
-// Every Keychain backend returns the same `SolanaSigner`. Swap this in-memory
-// signer for `createAwsKmsSigner`, `createVaultSigner`, ... and the rest of
-// this file is identical.
+// Most Keychain backends return a `SolanaTransactionSigner`. Swap this
+// in-memory signer for `createAwsKmsSigner`, `createVaultSigner`, ... and the
+// rest of this file is identical.
 const keychainSigner = await createMemorySigner({
   privateKey: crypto.getRandomValues(new Uint8Array(32)),
 });

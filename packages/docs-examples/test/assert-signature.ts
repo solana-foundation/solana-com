@@ -1,10 +1,16 @@
 import { expect, vi } from "vitest";
-import { createSolanaRpc, signature, type Signature } from "@solana/kit";
+import {
+  createSolanaRpc,
+  isSignature,
+  signature,
+  type Signature,
+} from "@solana/kit";
 
 // Base58 signatures are 87 or 88 chars; the alphabet excludes 0 O I l.
-const SIGNATURE_RE = /[1-9A-HJ-NP-Za-km-z]{87,88}/g;
-
-const rpc = createSolanaRpc("http://127.0.0.1:8899");
+// A 64-byte signature is 86 to 88 base58 characters (fewer when it starts
+// with zero bytes), so match the whole range and keep only candidates that
+// decode to 64 bytes.
+const SIGNATURE_RE = /[1-9A-HJ-NP-Za-km-z]{64,88}/g;
 
 /**
  * Run a cookbook example and assert every signature it logs is real.
@@ -34,7 +40,9 @@ export async function expectExampleLogsSignature(
     logSpy.mockRestore();
   }
 
-  const matches = [...logged.matchAll(SIGNATURE_RE)].map((m) => m[0]);
+  const matches = [...logged.matchAll(SIGNATURE_RE)]
+    .map((m) => m[0])
+    .filter(isSignature);
   expect(
     matches.length,
     `expected example to log a base58 signature, got:\n${logged}`,
@@ -51,6 +59,9 @@ export async function expectExampleLogsSignature(
 }
 
 async function fetchTxWithRetry(sig: Signature) {
+  const rpc = createSolanaRpc(
+    process.env.SOLANA_RPC_URL ?? "http://127.0.0.1:8899",
+  );
   for (let i = 0; i < 20; i++) {
     const tx = await rpc
       .getTransaction(sig, {

@@ -1,38 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
-import { Buffer } from "node:buffer";
-import {
-  brotliCompressSync,
-  brotliDecompressSync,
-  constants as zlibConstants,
-} from "node:zlib";
 
+import { getDataApiConfig, isProduction } from "@/lib/databricks/server";
 import {
-  type DatabricksConfig,
-  getDatabricksSqlMetricRows,
-  getDatabricksConfig,
-  isProduction,
-} from "@/lib/databricks/server";
+  type DataApiMetricsData,
+  getMetricsData,
+} from "@/lib/databricks/metrics-data";
+import { getEdgeMaxAgeSeconds } from "@/lib/databricks/cache-control";
 import {
   metricNames,
   normalizeProviderName,
-  rangeOptions,
   type DataApiResponse,
   type MetricRow,
 } from "@/app/[locale]/data/data-config";
+import {
+  getRangeDates,
+  getRangeDayCount,
+  getUtcToday,
+  isDateInRange,
+  parseDashboardRange,
+  type DashboardRange,
+} from "@/app/[locale]/data/date-range";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DATABRICKS_CACHE_REVALIDATE_SECONDS = 12 * 60 * 60;
 const EDGE_STALE_SECONDS = 24 * 60 * 60;
-const DEFAULT_RANGE_DAYS = 90;
-const MAX_RANGE_DAYS = Math.max(...rangeOptions.map((option) => option.value));
-const DATABRICKS_CACHE_KEY_VERSION = "solana-data-databricks-metric-rows-v4";
 const IS_PRODUCTION = isProduction();
 const NO_STORE_CACHE_CONTROL = "no-store, max-age=0";
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const DATA_UNAVAILABLE_ERROR =
   "Solana data is unavailable right now. Try again in a moment.";
 
@@ -43,24 +38,10 @@ type ErrorResponse = {
   missingEnv?: string[];
 };
 
-type DatabricksData = {
-  generatedAt: string;
-  rows: MetricRow[];
-  truncated: boolean;
-};
-
-type PackedDatabricksData = {
-  compression: "br";
-  generatedAt: string;
-  rows: string;
-  truncated: boolean;
-};
-
 const metricNameSet = new Set<string>(metricNames);
-const rangeValues = new Set<number>(rangeOptions.map((option) => option.value));
 
 export async function GET(request: NextRequest) {
-  const configResult = getDatabricksConfig();
+  const configResult = getDataApiConfig();
 
   if (!configResult.ok) {
     return json<ErrorResponse>(
@@ -70,18 +51,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const rangeDays = parseRangeDays(request.nextUrl.searchParams.get("days"));
+  const range = parseDashboardRange(
+    request.nextUrl.searchParams,
+    getUtcToday(),
+  );
 
   try {
-    const result = await getDatabricksData(configResult.config);
+    const result = await getMetricsData(configResult.config);
 
     return json<DataApiResponse>(
-      buildDataResponse(result, rangeDays),
+      buildDataResponse(result, range),
       200,
-      getSuccessCacheControl(),
+      getSuccessCacheControl(result.generatedAt),
     );
   } catch (error) {
-    console.error("Failed to load Solana Databricks data", error);
+    console.error("Failed to load Solana data from data-api", error);
 
     return json<ErrorResponse>(
       getDataErrorResponse(error),
@@ -92,24 +76,22 @@ export async function GET(request: NextRequest) {
 }
 
 function buildDataResponse(
-  result: DatabricksData,
-  rangeDays: number,
+  result: DataApiMetricsData,
+  range: DashboardRange,
 ): DataApiResponse {
   return {
     generatedAt: result.generatedAt,
-    rangeDays,
+    rangeDays: getRangeDayCount(range),
     truncated: result.truncated,
-    rows: filterRowsByRange(result.rows, rangeDays),
+    rows: filterRowsByRange(result.rows, range),
   };
 }
 
-function filterRowsByRange(rows: MetricRow[], rangeDays: number) {
-  const cutoffDate = new Date(Date.now() - rangeDays * DAY_IN_MS)
-    .toISOString()
-    .slice(0, 10);
+function filterRowsByRange(rows: MetricRow[], range: DashboardRange) {
+  const dates = getRangeDates(range, getUtcToday());
 
   return rows.flatMap((row) => {
-    if (!metricNameSet.has(row.metricName) || row.date < cutoffDate) {
+    if (!metricNameSet.has(row.metricName) || !isDateInRange(row.date, dates)) {
       return [];
     }
 
@@ -122,114 +104,7 @@ function filterRowsByRange(rows: MetricRow[], rangeDays: number) {
   });
 }
 
-function getDatabricksData(config: DatabricksConfig): Promise<DatabricksData> {
-  return IS_PRODUCTION
-    ? getCachedDatabricksData(config)
-    : fetchDatabricksData(config);
-}
-
-async function getCachedDatabricksData(config: DatabricksConfig) {
-  const dataCacheKey = getDatabricksCacheKey(config);
-  const cacheKeyParts = [DATABRICKS_CACHE_KEY_VERSION, dataCacheKey];
-
-  const packedData = await unstable_cache(
-    () => getInMemoryCachedDatabricksData(config, cacheKeyParts.join("|")),
-    cacheKeyParts,
-    {
-      revalidate: DATABRICKS_CACHE_REVALIDATE_SECONDS,
-      tags: ["solana-data-databricks"],
-    },
-  )();
-
-  return unpackDatabricksData(packedData);
-}
-
-async function fetchDatabricksData(
-  config: DatabricksConfig,
-): Promise<DatabricksData> {
-  const result = await getDatabricksSqlMetricRows(config, {
-    lookbackDays: MAX_RANGE_DAYS,
-    metricNames,
-  });
-
-  return {
-    ...result,
-    generatedAt: new Date().toISOString(),
-  };
-}
-
-async function fetchPackedDatabricksData(config: DatabricksConfig) {
-  return packDatabricksData(await fetchDatabricksData(config));
-}
-
-function packDatabricksData(data: DatabricksData): PackedDatabricksData {
-  return {
-    compression: "br",
-    generatedAt: data.generatedAt,
-    rows: brotliCompressSync(Buffer.from(JSON.stringify(data.rows)), {
-      params: {
-        [zlibConstants.BROTLI_PARAM_QUALITY]: 5,
-      },
-    }).toString("base64"),
-    truncated: data.truncated,
-  };
-}
-
-function unpackDatabricksData(data: PackedDatabricksData): DatabricksData {
-  return {
-    generatedAt: data.generatedAt,
-    rows: JSON.parse(
-      brotliDecompressSync(Buffer.from(data.rows, "base64")).toString("utf8"),
-    ) as MetricRow[],
-    truncated: data.truncated,
-  };
-}
-
-const databricksDataRequests = new Map<string, Promise<PackedDatabricksData>>();
-
-function getInMemoryCachedDatabricksData(
-  config: DatabricksConfig,
-  cacheKey: string,
-) {
-  const cachedRequest = databricksDataRequests.get(cacheKey);
-
-  if (cachedRequest) {
-    return cachedRequest;
-  }
-
-  pruneDatabricksDataRequests(cacheKey);
-
-  const request = fetchPackedDatabricksData(config);
-
-  request.then(
-    () => databricksDataRequests.delete(cacheKey),
-    () => databricksDataRequests.delete(cacheKey),
-  );
-
-  databricksDataRequests.set(cacheKey, request);
-
-  return request;
-}
-
-function pruneDatabricksDataRequests(activeCacheKey: string) {
-  for (const cacheKey of databricksDataRequests.keys()) {
-    if (cacheKey !== activeCacheKey) {
-      databricksDataRequests.delete(cacheKey);
-    }
-  }
-}
-
-function getDatabricksCacheKey(config: DatabricksConfig) {
-  return [
-    config.serverHostname,
-    config.httpPath,
-    config.warehouseId,
-    MAX_RANGE_DAYS,
-    metricNames.join(","),
-  ].join("|");
-}
-
-function getSuccessCacheControl() {
+function getSuccessCacheControl(generatedAt: string) {
   if (!IS_PRODUCTION) {
     return NO_STORE_CACHE_CONTROL;
   }
@@ -237,16 +112,16 @@ function getSuccessCacheControl() {
   return [
     "public",
     "max-age=0",
-    `s-maxage=${DATABRICKS_CACHE_REVALIDATE_SECONDS}`,
+    `s-maxage=${getEdgeMaxAgeSeconds(generatedAt)}`,
     `stale-while-revalidate=${EDGE_STALE_SECONDS}`,
   ].join(", ");
 }
 
 function getConfigErrorResponse(
-  configResult: Extract<ReturnType<typeof getDatabricksConfig>, { ok: false }>,
+  configResult: Extract<ReturnType<typeof getDataApiConfig>, { ok: false }>,
 ): ErrorResponse {
   return {
-    error: "The Databricks data source is not configured.",
+    error: "The Solana data API is not configured.",
     ...devOnly({
       invalidEnv: configResult.invalidEnv,
       missingEnv: configResult.missingEnv,
@@ -265,16 +140,6 @@ function getDataErrorResponse(error: unknown): ErrorResponse {
 
 function devOnly<T extends Record<string, unknown>>(value: T) {
   return IS_PRODUCTION ? {} : value;
-}
-
-function parseRangeDays(value: string | null) {
-  if (!value) {
-    return DEFAULT_RANGE_DAYS;
-  }
-
-  const parsed = Number(value);
-
-  return rangeValues.has(parsed) ? parsed : DEFAULT_RANGE_DAYS;
 }
 
 function json<T>(body: T, status: number, cacheControl: string) {

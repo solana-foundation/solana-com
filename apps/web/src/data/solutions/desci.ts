@@ -5,10 +5,12 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/bio-protocol.svg",
     key: "bioprotocol",
+    metric: "desci.bio-protocol.raised",
   },
   {
     src: "/src/img/logos-eco/molecule.svg",
     key: "molecule",
+    metric: "desci.molecule.ecosystem-value",
   },
   {
     src: "/src/img/logos-eco/curetopia.svg",
@@ -17,16 +19,19 @@ export const PROJECTS = [
   {
     src: "/src/img/logos-eco/pump-science.svg",
     key: "pumpscience",
+    metric: "desci.pump-science.volume",
   },
   {
     src: "/src/img/logos-eco/spinedao.svg",
     key: "spinedao",
+    metric: "desci.spinedao.records-labelled",
   },
   {
     src: "/src/img/logos-eco/genpulse.webp",
     key: "genpulse",
+    metric: "desci.genpulse.revenue",
   },
-];
+] as const;
 
 export const LOGOS = [
   {

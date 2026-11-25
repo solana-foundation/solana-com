@@ -301,10 +301,11 @@ function loadImage(src: string, signal: AbortSignal) {
 
 function getRenderSize(
   image: HTMLImageElement,
-  containerSize: CanvasSize | null,
+  containerWidth: number | undefined,
+  containerHeight: number | undefined,
 ) {
-  let w = containerSize?.width ?? image.naturalWidth;
-  let h = containerSize?.height ?? image.naturalHeight;
+  let w = containerWidth ?? image.naturalWidth;
+  let h = containerHeight ?? image.naturalHeight;
 
   if (w <= 0 || h <= 0) {
     w = image.naturalWidth;
@@ -318,6 +319,10 @@ function getRenderSize(
   }
 
   return { w: Math.max(1, Math.floor(w)), h: Math.max(1, Math.floor(h)) };
+}
+
+function parseSerializedOverrides(serializedOverrides: string) {
+  return JSON.parse(serializedOverrides) as TreatmentOverrides | null;
 }
 
 function drawFittedImage(
@@ -452,6 +457,8 @@ export default function ImageTreatment({
   }, []);
 
   const overridesKey = JSON.stringify(overrides ?? null);
+  const containerWidth = containerSize?.width;
+  const containerHeight = containerSize?.height;
 
   useEffect(() => {
     if (!image || !canvasRef.current || !inView) return;
@@ -462,7 +469,7 @@ export default function ImageTreatment({
     const animate = motion && !prefersReducedMotion;
     const shouldFlicker = flicker && !prefersReducedMotion;
 
-    const { w, h } = getRenderSize(image, containerSize);
+    const { w, h } = getRenderSize(image, containerWidth, containerHeight);
     canvas.width = w;
     canvas.height = h;
 
@@ -484,7 +491,7 @@ export default function ImageTreatment({
       exposure: lightPreset.exposure,
       contrast: lightPreset.contrast,
       animSpeed: 0.4,
-      ...(overrides ?? {}),
+      ...(parseSerializedOverrides(overridesKey) ?? {}),
     };
 
     const baseCanvas = document.createElement("canvas");
@@ -956,7 +963,6 @@ export default function ImageTreatment({
 
     renderFrame("static");
     renderHeadshot();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     image,
     fgImage,
@@ -971,8 +977,8 @@ export default function ImageTreatment({
     mouseRadius,
     objectFit,
     prefersReducedMotion,
-    containerSize?.width,
-    containerSize?.height,
+    containerWidth,
+    containerHeight,
     overridesKey,
   ]);
 

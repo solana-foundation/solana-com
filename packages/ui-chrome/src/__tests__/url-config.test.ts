@@ -30,6 +30,8 @@ describe("cross-app URL configuration", () => {
 
     expect(shouldUseNextLink("/data")).toBe(true);
     expect(shouldUseNextLink("/data/cluster")).toBe(true);
+    expect(shouldUseNextLink("/learn")).toBe(true);
+    expect(shouldUseNextLink("/learn/what-is-solana")).toBe(true);
   });
 
   it("does not treat /data as an internal docs route", async () => {
@@ -37,6 +39,7 @@ describe("cross-app URL configuration", () => {
 
     expect(shouldUseNextLink("/docs")).toBe(true);
     expect(shouldUseNextLink("/developers/cookbook")).toBe(true);
+    expect(shouldUseNextLink("/learn")).toBe(false);
     expect(shouldUseNextLink("/data")).toBe(false);
   });
 
@@ -55,5 +58,21 @@ describe("cross-app URL configuration", () => {
 
     expect(shouldUseNextLink("/changelog")).toBe(true);
     expect(shouldUseNextLink("/changelog/rss.xml")).toBe(true);
+  });
+
+  it("treats /developers/docs as a docs app route", async () => {
+    const webShouldUseNextLink = await loadShouldUseNextLink();
+
+    expect(webShouldUseNextLink("/developers/docs")).toBe(false);
+    expect(webShouldUseNextLink("/developers/docs/core")).toBe(false);
+    expect(webShouldUseNextLink("/developers/payments")).toBe(true);
+
+    const docsShouldUseNextLink = await loadShouldUseNextLink("docs");
+
+    expect(docsShouldUseNextLink("/developers")).toBe(true);
+    expect(docsShouldUseNextLink("/developers/docs")).toBe(true);
+    expect(docsShouldUseNextLink("/developers/docs/core")).toBe(true);
+    expect(docsShouldUseNextLink("/developers/docsearch")).toBe(false);
+    expect(docsShouldUseNextLink("/developers/payments")).toBe(false);
   });
 });

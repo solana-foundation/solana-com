@@ -1,6 +1,7 @@
 "use client";
 
 import React, {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -28,7 +29,7 @@ const HIGHLIGHT_QUOTES = [
     href: "https://x.com/rajgokal/status/1999181588962431098",
   },
   {
-    text: "Breakpoint AD25 @SolanaConf was the best event. People, energy, talks... everything shows you that this ecosystem is NOT slowing down. Very impressed by how @solana shifted from their meme culture to big boy plays with JPM and UAE gov't, meanwhile still retaining that fun culture.",
+    text: "Breakpoint AD25 @SolanaEvents was the best event. People, energy, talks... everything shows you that this ecosystem is NOT slowing down. Very impressed by how @solana shifted from their meme culture to big boy plays with JPM and UAE gov't, meanwhile still retaining that fun culture.",
     author: "Alsie",
     handle: "@AlsieLC",
     role: "Dune / now Solana",
@@ -89,18 +90,21 @@ export default function HighlightsSection() {
     timeoutsRef.current = [];
   };
 
-  const triggerGlitchTo = (next: number) => {
-    clearPendingTimeouts();
-    if (prefersReducedMotion) {
-      setIndex(next);
-      return;
-    }
-    setIsGlitching(true);
-    timeoutsRef.current.push(
-      setTimeout(() => setIndex(next), TWEET_GLITCH_MS / 2),
-      setTimeout(() => setIsGlitching(false), TWEET_GLITCH_MS),
-    );
-  };
+  const triggerGlitchTo = useCallback(
+    (next: number) => {
+      clearPendingTimeouts();
+      if (prefersReducedMotion) {
+        setIndex(next);
+        return;
+      }
+      setIsGlitching(true);
+      timeoutsRef.current.push(
+        setTimeout(() => setIndex(next), TWEET_GLITCH_MS / 2),
+        setTimeout(() => setIsGlitching(false), TWEET_GLITCH_MS),
+      );
+    },
+    [prefersReducedMotion],
+  );
 
   const handlePrev = () => {
     const next = index === 0 ? HIGHLIGHT_QUOTES.length - 1 : index - 1;
@@ -119,8 +123,7 @@ export default function HighlightsSection() {
       triggerGlitchTo(next);
     }, AUTO_ADVANCE_MS);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, isPaused, prefersReducedMotion]);
+  }, [index, isPaused, prefersReducedMotion, triggerGlitchTo]);
 
   useEffect(() => {
     return () => clearPendingTimeouts();

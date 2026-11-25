@@ -19,7 +19,7 @@ export const dabba = {
     },
     socials: {
       x: "https://x.com/DabbaNetwork",
-      linkedin: "https://www.linkedin.com/company/wifidabba",
+      linkedin: "https://www.linkedin.com/company/dabbanetwork",
       discord: "https://discord.gg/dabbanetwork",
       telegram: "https://t.me/DabbaHQ",
       github: "https://github.com/wifidabba",

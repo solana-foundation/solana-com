@@ -1,6 +1,5 @@
 "use client";
 
-import styles from "@/app/components/docs-code-snippet.module.css";
 import { cn } from "@/app/components/utils";
 import { Check } from "@boxicons/react/Check";
 import { Code as Code2 } from "@boxicons/react/Code";
@@ -129,8 +128,16 @@ export function DocsCodeSnippet({
         <code
           suppressHydrationWarning
           className={cn(
-            styles.code,
-            "block min-w-full whitespace-pre px-4",
+            "block min-w-full whitespace-pre px-4 text-[#d4d4d4]",
+            "[&_.token.comment]:text-[#8b949e] [&_.token.prolog]:text-[#8b949e] [&_.token.doctype]:text-[#8b949e] [&_.token.cdata]:text-[#8b949e]",
+            "[&_.token.punctuation]:text-[#c9d1d9]",
+            "[&_.token.property]:text-[#ff7b72] [&_.token.tag]:text-[#ff7b72] [&_.token.constant]:text-[#ff7b72] [&_.token.symbol]:text-[#ff7b72] [&_.token.deleted]:text-[#ff7b72]",
+            "[&_.token.boolean]:text-[#f2cc60] [&_.token.number]:text-[#f2cc60]",
+            "[&_.token.selector]:text-[#7ee787] [&_.token.attr-name]:text-[#7ee787] [&_.token.string]:text-[#7ee787] [&_.token.char]:text-[#7ee787] [&_.token.builtin]:text-[#7ee787] [&_.token.inserted]:text-[#7ee787]",
+            "[&_.token.operator]:text-[#79c0ff] [&_.token.entity]:text-[#79c0ff] [&_.token.url]:text-[#79c0ff] [&_.language-css_.token.string]:text-[#79c0ff] [&_.style_.token.string]:text-[#79c0ff]",
+            "[&_.token.atrule]:text-[#d2a8ff] [&_.token.keyword]:text-[#d2a8ff]",
+            "[&_.token.function]:text-[#ffa657] [&_.token.class-name]:text-[#ffa657]",
+            "[&_.token.regex]:text-[#a5d6ff] [&_.token.important]:text-[#a5d6ff] [&_.token.variable]:text-[#a5d6ff]",
             `language-${language}`,
           )}
           dangerouslySetInnerHTML={{ __html: highlightedCode }}

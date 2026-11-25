@@ -57,7 +57,7 @@ const ALLOWED_TAGS = [
 ];
 
 const ALLOWED_ATTRIBUTES: sanitizeHtml.IOptions["allowedAttributes"] = {
-  a: ["href", "name", "rel", "target", "title"],
+  a: ["href", "rel", "target", "title"],
   code: ["class", "style"],
   div: ["class"],
   img: ["alt", "height", "src", "title", "width"],
@@ -155,9 +155,10 @@ export async function markdownToHtml(markdown: string): Promise<string> {
         lang: block.lang || "text",
         theme: "github-dark",
       });
+      // A replacer function keeps `$&`/`$'` sequences in highlighted code literal.
       result = result.replace(
         `<pre data-code-id="${block.id}" data-lang="${block.lang}" data-code="${encodeURIComponent(block.code)}"></pre>`,
-        highlighted,
+        () => highlighted,
       );
     } catch {
       // If language is not supported, fall back to 'text'
@@ -165,9 +166,10 @@ export async function markdownToHtml(markdown: string): Promise<string> {
         lang: "text",
         theme: "github-dark",
       });
+      // A replacer function keeps `$&`/`$'` sequences in highlighted code literal.
       result = result.replace(
         `<pre data-code-id="${block.id}" data-lang="${block.lang}" data-code="${encodeURIComponent(block.code)}"></pre>`,
-        highlighted,
+        () => highlighted,
       );
     }
   }

@@ -12,6 +12,17 @@ import {
 } from "../utils";
 
 const docsContentRoot = path.join(repoRoot, "apps", "docs", "content");
+const learnContentRoot = path.join(repoRoot, "apps", "web", "content", "learn");
+
+const pokerGuideChapterRoutes = [
+  "/poker-players-guide-to-crypto/why-poker-players-make-natural-traders",
+  "/poker-players-guide-to-crypto/getting-ready-to-trade-crypto",
+  "/poker-players-guide-to-crypto/spot-trading-and-perpetual-futures",
+  "/poker-players-guide-to-crypto/trading-like-a-poker-player",
+  "/poker-players-guide-to-crypto/choosing-a-crypto-trading-venue",
+  "/poker-players-guide-to-crypto/keeping-your-crypto-secure",
+  "/poker-players-guide-to-crypto/your-next-trading-steps",
+];
 
 function toRoutePath(baseRoute: string, relativePath: string) {
   const withoutExtension = relativePath.replace(/\.mdx$/, "");
@@ -23,6 +34,14 @@ function toRoutePath(baseRoute: string, relativePath: string) {
   return normalizePath(
     routeSuffix ? `${normalizePath(baseRoute)}/${routeSuffix}` : baseRoute,
   );
+}
+
+// Frontmatter `noindex: true` pages are published but kept out of search.
+function isNoindex(filePath: string) {
+  const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(
+    fs.readFileSync(filePath, "utf8"),
+  );
+  return /^noindex:\s*true\s*$/m.test(frontmatter?.[1] ?? "");
 }
 
 function getLocalizedContentEntries(contentDir: string, baseRoute: string) {
@@ -40,7 +59,7 @@ function getLocalizedContentEntries(contentDir: string, baseRoute: string) {
     }
 
     for (const filePath of walkFiles(localeDir)) {
-      if (!filePath.endsWith(".mdx")) {
+      if (!filePath.endsWith(".mdx") || isNoindex(filePath)) {
         continue;
       }
 
@@ -68,7 +87,7 @@ function getDefaultLocaleContentEntries(contentDir: string, baseRoute: string) {
   }
 
   return walkFiles(contentDir)
-    .filter((filePath) => filePath.endsWith(".mdx"))
+    .filter((filePath) => filePath.endsWith(".mdx") && !isNoindex(filePath))
     .map((filePath) => {
       const relativePath = path.relative(contentDir, filePath);
       const routePath = toRoutePath(baseRoute, relativePath);
@@ -92,11 +111,13 @@ export const docsRoutes: RouteGenerator = () => {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
+      ...pokerGuideChapterRoutes.flatMap((routePath) =>
+        createLocalizedEntries(routePath, {
+          changeFrequency: "weekly",
+          priority: 0.8,
+        }),
+      ),
       ...createLocalizedEntries("/developers/cookbook", {
-        changeFrequency: "weekly",
-        priority: 0.8,
-      }),
-      ...createLocalizedEntries("/developers/bootcamp", {
         changeFrequency: "weekly",
         priority: 0.8,
       }),
@@ -110,19 +131,12 @@ export const docsRoutes: RouteGenerator = () => {
       ...rootEntries,
       ...getLocalizedContentEntries(
         path.join(docsContentRoot, "docs"),
-        "/docs",
+        "/developers/docs",
       ),
-      ...getLocalizedContentEntries(
-        path.join(docsContentRoot, "learn"),
-        "/learn",
-      ),
+      ...getLocalizedContentEntries(learnContentRoot, "/learn"),
       ...getDefaultLocaleContentEntries(
         path.join(docsContentRoot, "cookbook"),
         "/developers/cookbook",
-      ),
-      ...getLocalizedContentEntries(
-        path.join(docsContentRoot, "developers-learn"),
-        "/developers/bootcamp",
       ),
     ]);
   } catch (error) {

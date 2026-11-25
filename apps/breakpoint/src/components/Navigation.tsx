@@ -13,6 +13,8 @@ import {
   GENERAL_ADMISSION_HREF,
 } from "@/content/links";
 import { publicAssetPath } from "@/config";
+import { CONFERENCE_STATE } from "@/content/conference-state";
+import { NEXT_EDITION } from "@/content/next-edition";
 import {
   breakpointHref,
   getAnchorLinkProps,
@@ -23,7 +25,8 @@ import {
 const STICKY_OFFSET_PX = 12;
 const SCROLL_THRESHOLD_PX = 24;
 const GLITCH_MS = 520;
-const CTA_SIZE_CLASSES = "type-button gap-2 px-3";
+const CTA_SIZE_CLASSES =
+  "type-button gap-1 px-2 max-md:text-[length:var(--text-button-small)]! max-md:tracking-normal! md:gap-2 md:px-3";
 
 declare global {
   interface Window {
@@ -37,6 +40,8 @@ type NavigationProps = {
   ctaAlwaysVisible?: boolean;
   ctaHref?: string;
   ctaLabel?: string;
+  /** Shorter label shown below `md`, where the bar has no room for more. */
+  ctaShortLabel?: string;
   showMenuButton?: boolean;
 };
 
@@ -125,9 +130,16 @@ export default function Navigation({
   ctaAlwaysVisible = false,
   ctaHref,
   ctaLabel,
+  ctaShortLabel,
   showMenuButton = true,
 }: NavigationProps = {}) {
   const t = useTranslations("breakpoint");
+  // Every page promotes the next edition once the conference has ended.
+  if (CONFERENCE_STATE === "post") {
+    ctaHref = NEXT_EDITION.registrationHref;
+    ctaLabel = t("post.navCta", { year: NEXT_EDITION.year });
+    ctaShortLabel = ctaLabel;
+  }
   const pathname = usePathname();
   const navRef = useRef<HTMLElement>(null);
   const previousPathnameRef = useRef(pathname);
@@ -137,10 +149,9 @@ export default function Navigation({
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const navItems = [
+    { label: t("navigation.schedule"), href: "/schedule" },
     { label: t("navigation.speakers"), href: "/speakers" },
-    { label: t("navigation.travel"), href: "/travel" },
     { label: t("navigation.sponsors"), href: "/sponsors" },
-    { label: t("navigation.faq"), href: "/faq" },
   ];
 
   const clearGlitchTimeout = useCallback(() => {
@@ -255,7 +266,16 @@ export default function Navigation({
 
   const ctaInner = (
     <>
-      <span className="whitespace-nowrap">{resolvedCtaLabel}</span>
+      {ctaShortLabel ? (
+        <>
+          <span className="whitespace-nowrap md:hidden">{ctaShortLabel}</span>
+          <span className="hidden whitespace-nowrap md:inline">
+            {resolvedCtaLabel}
+          </span>
+        </>
+      ) : (
+        <span className="whitespace-nowrap">{resolvedCtaLabel}</span>
+      )}
       <span
         aria-hidden="true"
         className="inline-flex size-3 items-center justify-center"

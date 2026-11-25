@@ -20,14 +20,14 @@ Most apps are not standalone product islands. They share:
 
 Pick the app first. That usually cuts exploration time in half.
 
-| Area                  | Workspace                                   | Local Port | Key Route Prefixes                                                               |
-| --------------------- | ------------------------------------------- | ---------- | -------------------------------------------------------------------------------- |
-| Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/ecosystem`, `/events`, selected `/developers/*` routes      |
-| Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/learn`, `/developers`, `/developers/cookbook`, `/developers/bootcamp` |
-| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/reports`, `/upgrades`, `/podcasts`, `/keystatic`        |
-| Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                                             |
-| Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                                       |
-| Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                                       |
+| Area                  | Workspace                                   | Local Port | Key Route Prefixes                                                                    |
+| --------------------- | ------------------------------------------- | ---------- | ------------------------------------------------------------------------------------- |
+| Main marketing site   | `apps/web` / `solana-com`                   | `3000`     | `/`, `/solutions`, `/ecosystem`, `/events`, `/learn`, selected `/developers/*` routes |
+| Developer docs        | `apps/docs` / `solana-docs`                 | `3003`     | `/docs`, `/developers`, `/developers/cookbook`, `/developers/bootcamp`                |
+| Media/blog            | `apps/media` / `solana-com-media`           | `3002`     | `/news`, `/changelog`, `/reports`, `/upgrades`, `/podcasts`, `/keystatic`             |
+| Templates showcase    | `apps/templates` / `solana-templates`       | `3001`     | `/developers/templates` via rewrites                                                  |
+| Accelerate event site | `apps/accelerate` / `solana-com-accelerate` | `3004`     | `/accelerate` via rewrites                                                            |
+| Breakpoint event site | `apps/breakpoint` / `solana-com-breakpoint` | `3005`     | `/breakpoint` via rewrites                                                            |
 
 ## Repo Layout
 
@@ -35,6 +35,7 @@ Pick the app first. That usually cuts exploration time in half.
 
 - `apps/web`: main `solana.com` app, large surface area, mix of marketing,
   ecosystem, events, news aggregation, and developer entry points
+- `apps/web/content/learn`: localized general learning content for `/learn`
 - `apps/docs`: Fumadocs-based developer docs with MDX content under `content/`
 - `apps/media`: Keystatic-backed news and podcast site with content in
   `content/`
@@ -46,6 +47,9 @@ Pick the app first. That usually cuts exploration time in half.
 
 ### Shared packages
 
+- `packages/airtable`: server-only Airtable fetch pacing and 429 backoff, shared
+  across event apps and build workers on the same host
+
 - `packages/i18n`: locale list, routing helpers, shared message loading
 - `packages/ui`: reusable UI primitives
 - `packages/ui-chrome`: shared nav/footer/theme/cross-app link behavior
@@ -54,8 +58,10 @@ Pick the app first. That usually cuts exploration time in half.
   by apps
 - `packages/fab-menu`: reusable Solana property menu
 - `packages/sentry`: shared Sentry helpers
+- `packages/security-headers`: baseline HTTP security headers used by every
+  app's `next.config.ts`
 - `packages/sitemap`: shared sitemap generation helpers
-- `packages/config-eslint`, `packages/config-typescript`: shared configs
+- `packages/config-oxlint`, `packages/config-typescript`: shared configs
 
 ## First Commands To Reach For
 
@@ -118,15 +124,34 @@ If repo structure changed and the onboarding docs may be stale, use the
 If you touch navigation, shared header/footer behavior, or route ownership,
 inspect `packages/ui-chrome` and the target app `next.config.ts` together.
 
+The Media CMS (`/keystatic`) stays on the Media host; `apps/web` deliberately
+does not proxy it onto `solana.com`.
+
 ## Content Ownership
 
-- `apps/docs/content`: source of truth for docs, cookbook, learn, and developer
+- `apps/docs/content`: source of truth for docs, cookbook, and developer
   bootcamp content
+- `apps/web/content/learn`: source of truth for general learning content
 - `apps/media/content`: source of truth for posts, podcasts, reports, upgrades,
   releases, authors, tags, and global CMS content
 - `packages/i18n/messages/*`: shared UI message catalogs by app
 - `packages/ecosystem-data`: shared company metadata, wallet-directory records,
   and logos, not app-specific marketing copy
+
+## Public Content Authoring
+
+Before generating or materially rewriting reader-facing English copy, load and
+follow
+[`skills/solana-tone-of-voice/SKILL.md`](./skills/solana-tone-of-voice/SKILL.md).
+This applies to UI strings, landing-page and documentation prose, Media content,
+metadata, CTAs, and social copy. Read the owning app's instructions as well;
+they may impose more specific content, source, or format requirements.
+
+## Styling Constraint
+
+- Use Tailwind utility classes for all styling changes on this branch.
+- CSS Modules (`*.module.css`) are not an option for new or modified surfaces;
+  migrate existing module styles when touching that surface.
 
 ## Best Next File
 

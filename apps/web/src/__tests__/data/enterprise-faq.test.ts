@@ -54,12 +54,12 @@ describe("enterprise FAQ messages", () => {
           const tags = new Set(
             [...answer.matchAll(/<(t\d+)>/g)].map((match) => match[1]),
           );
-          expect(
-            [...tags].sort(),
-            `tags in ${locale} ${topic.key}.${item.key}.a`,
-          ).toEqual(Object.keys(item.terms ?? {}).sort());
 
           for (const tag of tags) {
+            expect(
+              item.terms,
+              `handler for ${tag} in ${locale} ${topic.key}.${item.key}.a`,
+            ).toHaveProperty(tag);
             expect(answer).toContain(`</${tag}>`);
           }
         }

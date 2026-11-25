@@ -7,6 +7,7 @@ import ImageTreatment, {
 import { publicAssetPath } from "@/config";
 
 type HeroCta = {
+  arrowDirection?: "up-right" | "down";
   href: string;
   label: string;
   rel?: string;
@@ -39,6 +40,7 @@ type SubpageHeroImageConfig = {
 };
 
 export type SubpageHeroImageKey =
+  | "awards"
   | "schedule"
   | "speakers"
   | "travel"
@@ -47,30 +49,35 @@ export type SubpageHeroImageKey =
 
 const SUBPAGE_HERO_IMAGES: Record<SubpageHeroImageKey, SubpageHeroImageConfig> =
   {
+    awards: {
+      color: "purple",
+      heightClassName: "min-h-[600px] md:min-h-[580px]",
+      src: "/img/subpage-heroes/schedule-hero.webp",
+    },
     schedule: {
       color: "purple",
-      heightClassName: "h-[480px] md:h-[467px]",
+      heightClassName: "min-h-[480px] md:min-h-[467px]",
       src: "/img/subpage-heroes/schedule-hero.webp",
     },
     speakers: {
       color: "green",
-      heightClassName: "h-[480px] md:h-[467px]",
+      heightClassName: "min-h-[480px] md:min-h-[467px]",
       src: "/img/subpage-heroes/speakers-hero.webp",
     },
     travel: {
       color: "blue",
-      heightClassName: "h-[423px] md:h-[395px]",
+      heightClassName: "min-h-[423px] md:min-h-[395px]",
       pixelEdgeSrc: "/assets/pixel-edge-travel.svg",
       src: "/img/subpage-heroes/travel-hero.webp",
     },
     registration: {
       color: "purple",
-      heightClassName: "h-[482px] md:h-[395px]",
+      heightClassName: "min-h-[482px] md:min-h-[395px]",
       src: "/img/subpage-heroes/registration-hero.webp",
     },
     sponsors: {
       color: "purple",
-      heightClassName: "h-[480px] md:h-[467px]",
+      heightClassName: "min-h-[480px] md:min-h-[467px]",
       src: "/img/subpage-heroes/sponsors-hero.webp",
     },
   };
@@ -123,6 +130,7 @@ function HeroBackground({
 }
 
 function HeroCtaLink({
+  arrowDirection,
   href,
   label,
   rel,
@@ -132,6 +140,7 @@ function HeroCtaLink({
   return (
     <Button
       arrow
+      arrowDirection={arrowDirection}
       className="w-full md:w-auto"
       href={href}
       label={label}
@@ -233,7 +242,7 @@ export default function SubpageHero({
 
       <HeroContent
         className={cn(
-          "container absolute left-1/2 top-[252px] flex w-full -translate-x-1/2 flex-col items-start gap-5 pb-3 text-white md:top-[252px] md:gap-8",
+          "container relative mx-auto flex w-full flex-col items-start gap-5 pb-3 pt-[252px] text-white md:gap-8",
           contentClassName,
         )}
         cta={cta}

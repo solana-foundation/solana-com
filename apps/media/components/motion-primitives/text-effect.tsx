@@ -164,7 +164,7 @@ const splitText = (text: string, per: "line" | "word" | "char") => {
 };
 
 const hasTransition = (
-  variant: Variant,
+  variant: Variant | undefined,
 ): variant is TargetAndTransition & { transition?: Transition } => {
   return (
     typeof variant === "object" && variant !== null && "transition" in variant
@@ -232,15 +232,12 @@ export function TextEffect({
 
   const baseDuration = 0.3 / speedSegment;
 
-  const customStagger = hasTransition(variants?.container?.visible ?? {})
-    ? (variants?.container?.visible as TargetAndTransition).transition
-        ?.staggerChildren
+  const containerVisible = variants?.container?.visible;
+  const visibleTransition = hasTransition(containerVisible)
+    ? containerVisible.transition
     : undefined;
-
-  const customDelay = hasTransition(variants?.container?.visible ?? {})
-    ? (variants?.container?.visible as TargetAndTransition).transition
-        ?.delayChildren
-    : undefined;
+  const customStagger = visibleTransition?.staggerChildren;
+  const customDelay = visibleTransition?.delayChildren;
 
   const computedVariants = {
     container: createVariantsWithTransition(

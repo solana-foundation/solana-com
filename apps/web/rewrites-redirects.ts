@@ -4,6 +4,7 @@ import {
   templatesAppUrl,
   ACCELERATE_APP_URL,
   BREAKPOINT_APP_URL,
+  BREAKPOINT_BADGE_URL,
 } from "./apps-urls";
 import { locales } from "@workspace/i18n/config";
 
@@ -12,6 +13,7 @@ const LOCALE_REGEX = locales.join("|");
 type RedirectInput = {
   source: string;
   destination: string;
+  localeDestination?: string;
   permanent?: boolean;
 };
 
@@ -20,50 +22,57 @@ type LocaleRedirect = RedirectInput & { locale: false };
 /**
  * Generates both bare-path and locale-prefixed versions of each redirect.
  * - For internal destinations: `:locale` param is prepended to both source and destination
+ * - `localeDestination` overrides that destination when the resource exists only at the root
  * - For external destinations (http/https): `:locale` param is only prepended to source
  * - All generated redirects use `locale: false` for explicit path control
  */
 function withLocaleRedirects(redirects: RedirectInput[]): LocaleRedirect[] {
-  return redirects.flatMap(({ source, destination, ...rest }) => {
-    const isExternalDest =
-      destination.startsWith("https://") || destination.startsWith("http://");
+  return redirects.flatMap(
+    ({ source, destination, localeDestination: override, ...rest }) => {
+      const isExternalDest =
+        destination.startsWith("https://") || destination.startsWith("http://");
 
-    const localeDestination = isExternalDest
-      ? destination
-      : destination.startsWith("/")
-        ? `/:locale${destination}`
-        : `/:locale/${destination}`;
+      const localeDestination =
+        override ??
+        (isExternalDest
+          ? destination
+          : destination.startsWith("/")
+            ? `/:locale${destination}`
+            : `/:locale/${destination}`);
 
-    return [
-      // Bare path (e.g. /brand → /branding)
-      { source, destination, locale: false, ...rest },
-      // Locale-prefixed (e.g. /:locale/brand → /:locale/branding)
-      {
-        source: `/:locale(${LOCALE_REGEX})${source}`,
-        destination: localeDestination,
-        locale: false,
-        ...rest,
-      },
-    ];
-  });
+      return [
+        // Bare path (e.g. /brand → /branding)
+        { source, destination, locale: false, ...rest },
+        // Locale-prefixed (e.g. /:locale/brand → /:locale/branding)
+        {
+          source: `/:locale(${LOCALE_REGEX})${source}`,
+          destination: localeDestination,
+          locale: false,
+          ...rest,
+        },
+      ];
+    },
+  );
 }
 
 /**
  * Adds a `.md` twin for each redirect so the raw-markdown variants of moved
  * pages (served via the docs app's markdown middleware) keep working.
- * Skipped for external destinations and destinations with anchors.
+ * Skipped for external destinations. Anchors are preserved after the `.md`
+ * suffix.
  */
 function withMdVariants(redirects: RedirectInput[]): RedirectInput[] {
   return redirects.flatMap((redirect) => {
     const { source, destination } = redirect;
     const isExternalDest =
       destination.startsWith("https://") || destination.startsWith("http://");
-    if (isExternalDest || destination.includes("#")) {
+    if (isExternalDest) {
       return [redirect];
     }
+    const markdownDestination = destination.replace(/(#|$)/, ".md$1");
     return [
       redirect,
-      { ...redirect, source: `${source}.md`, destination: `${destination}.md` },
+      { ...redirect, source: `${source}.md`, destination: markdownDestination },
     ];
   });
 }
@@ -131,6 +140,10 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   {
     source: "/developers/guides/advanced/actions",
     destination: "/docs/tools/actions",
+  },
+  {
+    source: "/developers/guides/advanced/security-best-practices",
+    destination: "/docs/tools/security",
   },
   {
     source: "/developers/guides/advanced/confirmation",
@@ -210,19 +223,29 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
   // getstarted/* → payments, tools, cookbook
   {
     source: "/developers/guides/getstarted/intro-to-x402",
-    destination: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
   },
   {
     source: "/developers/guides/getstarted/build-a-x402-facilitator",
-    destination: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
   },
   {
+    // The AI agents guide is the docs' Tools > AI page (not "Build with AI
+    // agents", intro/coding-with-agents).
     source: "/developers/guides/getstarted/intro-to-ai",
-    destination: "/docs/intro/coding-with-agents",
+    destination: "/developers/docs/tools/ai",
   },
   {
     source: "/developers/guides/getstarted/how-to-verify-a-token",
     destination: "/docs/tokens/how-to-verify-a-token",
+  },
+  {
+    source: "/developers/guides/getstarted/tokens",
+    destination: "/docs/tokens",
+  },
+  {
+    source: "/developers/guides/getstarted/actions",
+    destination: "/docs/tools/actions",
   },
   {
     source: "/developers/guides/getstarted/solana-token-airdrop-and-faucets",
@@ -249,8 +272,23 @@ const dissolvedGuideRedirects: RedirectInput[] = withMdVariants([
 
 const movedDocsRedirects: RedirectInput[] = withMdVariants([
   {
+    source: "/docs/payments/agentic-payments/intro-to-x402",
+    destination: "/docs/payments/agentic-payments/x402",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-quickstart",
+    destination: "/docs/payments/agentic-payments/x402/making-a-payment",
+  },
+  {
+    source: "/docs/payments/agentic-payments/x402-facilitator",
+    destination: "/docs/tools/x402-facilitator",
+  },
+  {
+    // /docs/tools/ai is a docs page again (Build onchain AI agents). Links
+    // from before #1771 to its old sections (now intro/coding-with-agents)
+    // are sent there by the docs app's legacy anchors.
     source: "/docs/tools/ai",
-    destination: "/docs/intro/coding-with-agents",
+    destination: "/developers/docs/tools/ai",
   },
   {
     source: "/docs/references",
@@ -310,6 +348,25 @@ const movedDocsRedirects: RedirectInput[] = withMdVariants([
   },
 ]);
 
+/**
+ * The badge site is English only: locale-prefixed URLs go to the one page
+ * (not through withLocaleRedirects: its bare-path twins would redirect to themselves).
+ */
+const breakpointBadgeLocaleRedirects: LocaleRedirect[] = [
+  {
+    source: `/:locale(${LOCALE_REGEX})/breakpoint/badge`,
+    destination: "/breakpoint/badge",
+    locale: false,
+    permanent: false,
+  },
+  {
+    source: `/:locale(${LOCALE_REGEX})/breakpoint/badge/:path*`,
+    destination: "/breakpoint/badge/:path*",
+    locale: false,
+    permanent: false,
+  },
+];
+
 const breakpointSubrouteRedirects: RedirectInput[] = [
   { source: "/agenda", destination: "/breakpoint/schedule" },
   { source: "/faq", destination: "/breakpoint/faq" },
@@ -341,8 +398,15 @@ const chainMigrationRedirects: RedirectInput[] = [
   },
   {
     source: "/developers/cosmos-to-svm",
-    destination: "/developers/migrate-to-solana/cosmos",
+    destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
     permanent: true,
+  },
+  // The Cosmos hub only listed two guides, which the docs sidebar now
+  // covers. Temporary so the hub can come back without cached redirects.
+  {
+    source: "/developers/migrate-to-solana/cosmos",
+    destination: "/developers/migrate-to-solana/cosmos/cosmwasm",
+    permanent: false,
   },
   // The CosmWasm guide lives under the Cosmos hub
   {
@@ -355,6 +419,17 @@ const chainMigrationRedirects: RedirectInput[] = [
 export default {
   rewrites: {
     beforeFiles: [
+      // Breakpoint badge site, before the Breakpoint app's catch-all below
+      {
+        source: "/breakpoint/badge",
+        destination: `${BREAKPOINT_BADGE_URL}/breakpoint/badge`,
+        locale: false,
+      },
+      {
+        source: "/breakpoint/badge/:path*",
+        destination: `${BREAKPOINT_BADGE_URL}/breakpoint/badge/:path*`,
+        locale: false,
+      },
       {
         source: "/breakpoint",
         destination: `${BREAKPOINT_APP_URL}/breakpoint`,
@@ -382,12 +457,8 @@ export default {
         destination: `${BREAKPOINT_APP_URL}/breakpoint-assets/:path+`,
         locale: false,
       },
-      // Media app rewrites - new routes
-      {
-        source: "/admin",
-        destination: `${MEDIA_APP_URL}/admin`,
-        locale: false,
-      },
+      // Media app rewrites - new routes. The CMS (/keystatic) is deliberately
+      // not proxied: editor cookies must stay on the media host, not solana.com.
       {
         source: "/news",
         destination: `${MEDIA_APP_URL}/news`,
@@ -499,6 +570,16 @@ export default {
         locale: false,
       },
       {
+        source: "/api/developer-updates/latest",
+        destination: `${MEDIA_APP_URL}/api/developer-updates/latest`,
+        locale: false,
+      },
+      {
+        source: "/api/changelog/:path*",
+        destination: `${MEDIA_APP_URL}/api/changelog/:path*`,
+        locale: false,
+      },
+      {
         source: "/api/posts/:path*",
         destination: `${MEDIA_APP_URL}/api/posts/:path*`,
         locale: false,
@@ -511,6 +592,13 @@ export default {
       {
         source: "/api/links/:path*",
         destination: `${MEDIA_APP_URL}/api/links/:path*`,
+        locale: false,
+      },
+      // Ask Solana (docs AI agent) proxy. The docs app owns the route handler
+      // that injects X-Ask-Proxy-Secret before forwarding to the bot service.
+      {
+        source: "/api/ask/:path*",
+        destination: `${DOCS_APP_URL}/api/ask/:path*`,
         locale: false,
       },
       // Proxy /_next/image requests for /uploads/* to the media app's image
@@ -636,21 +724,6 @@ export default {
         locale: false,
       },
       {
-        source: "/learn",
-        destination: `${DOCS_APP_URL}/learn`,
-        locale: false,
-      },
-      {
-        source: "/learn/:path*.md",
-        destination: `${DOCS_APP_URL}/learn/:path*.md`,
-        locale: false,
-      },
-      {
-        source: "/learn/:path*",
-        destination: `${DOCS_APP_URL}/learn/:path*`,
-        locale: false,
-      },
-      {
         source: "/developers",
         destination: `${DOCS_APP_URL}/developers`,
         locale: false,
@@ -658,6 +731,16 @@ export default {
       {
         source: "/developers/:path*.md",
         destination: `${DOCS_APP_URL}/developers/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/developers/docs",
+        destination: `${DOCS_APP_URL}/developers/docs`,
+        locale: false,
+      },
+      {
+        source: "/developers/docs/:path*",
+        destination: `${DOCS_APP_URL}/developers/docs/:path*`,
         locale: false,
       },
       {
@@ -690,6 +773,27 @@ export default {
         destination: `${DOCS_APP_URL}/developers/bootcamp/:path*`,
         locale: false,
       },
+      // Docs app API routes
+      {
+        source: "/api/demo/:path+",
+        destination: `${DOCS_APP_URL}/api/demo/:path+`,
+        locale: false,
+      },
+      {
+        source: "/api/devnet-airdrop",
+        destination: `${DOCS_APP_URL}/api/devnet-airdrop`,
+        locale: false,
+      },
+      {
+        source: "/api/slot-time/tip",
+        destination: `${DOCS_APP_URL}/api/slot-time/tip`,
+        locale: false,
+      },
+      {
+        source: "/api/docs-search",
+        destination: `${DOCS_APP_URL}/api/docs-search`,
+        locale: false,
+      },
       // Docs app with locale
       {
         source: "/:locale/docs",
@@ -707,21 +811,6 @@ export default {
         locale: false,
       },
       {
-        source: "/:locale/learn",
-        destination: `${DOCS_APP_URL}/:locale/learn`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn/:path*.md",
-        destination: `${DOCS_APP_URL}/:locale/learn/:path*.md`,
-        locale: false,
-      },
-      {
-        source: "/:locale/learn/:path*",
-        destination: `${DOCS_APP_URL}/:locale/learn/:path*`,
-        locale: false,
-      },
-      {
         source: "/:locale/developers",
         destination: `${DOCS_APP_URL}/:locale/developers`,
         locale: false,
@@ -729,6 +818,16 @@ export default {
       {
         source: "/:locale/developers/:path*.md",
         destination: `${DOCS_APP_URL}/:locale/developers/:path*.md`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/docs",
+        destination: `${DOCS_APP_URL}/:locale/developers/docs`,
+        locale: false,
+      },
+      {
+        source: "/:locale/developers/docs/:path*",
+        destination: `${DOCS_APP_URL}/:locale/developers/docs/:path*`,
         locale: false,
       },
       {
@@ -767,6 +866,29 @@ export default {
   },
 
   redirects: withLocaleRedirects([
+    {
+      source: "/accelerate/china",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
+      source: "/accelerate/china/:path*",
+      destination: "/accelerate",
+      permanent: true,
+    },
+    {
+      source:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.png",
+      destination:
+        "/uploads/posts/bits-to-bricks-crypto-security-michael-coates/heroImage.webp",
+      permanent: true,
+    },
+    {
+      source: "/uploads/posts/solana-changelog-september-18-2026/heroImage.png",
+      destination:
+        "/uploads/posts/solana-changelog-september-18-2026/heroImage.webp",
+      permanent: true,
+    },
     ...dissolvedGuideRedirects,
     ...movedDocsRedirects,
     ...chainMigrationRedirects,
@@ -805,6 +927,17 @@ export default {
       source: "/upgrades/larger-transaction-size",
       destination: "/upgrades/larger-transaction-sizes",
     },
+    {
+      source: "/upgrades/alpenglow/dashboard",
+      destination: "/upgrades/alpenglow",
+      permanent: true,
+    },
+
+    // /scholars applications moved from the built-in form to Typeform
+    {
+      source: "/scholars/apply",
+      destination: "https://solanafoundation.typeform.com/scholars",
+    },
 
     { source: "/reddit", destination: "https://reddit.com/r/solana" },
     { source: "/telegram", destination: "https://t.me/solana" },
@@ -836,7 +969,29 @@ export default {
     },
     { source: "/blog", destination: "/news" },
     { source: "/rss.xml", destination: "/news/rss.xml" },
+    { source: "/rss", destination: "/news/rss.xml" },
+    { source: "/feed.xml", destination: "/news/rss.xml" },
+    {
+      source: "/sitemap-0.xml",
+      destination: "/sitemap.xml",
+      localeDestination: "/sitemap.xml",
+    },
+    {
+      source: "/sitemap-index.xml",
+      destination: "/sitemap.xml",
+      localeDestination: "/sitemap.xml",
+    },
+    {
+      source: "/sitemap_index.xml",
+      destination: "/sitemap.xml",
+      localeDestination: "/sitemap.xml",
+    },
     { source: "/news/tag/:path*", destination: "/news" },
+    {
+      source: "/news/solana-changelog-agave-v4-1-0-rpc-2-0-and-alpenglow",
+      destination: "/news/solana-changelog-july-2-2026",
+      permanent: true,
+    },
     // /upgrades is now the source of truth for network upgrade status;
     // this hub post is retired.
     {
@@ -863,7 +1018,8 @@ export default {
     },
     {
       source: "/cli",
-      destination: "/docs/intro/installation#install-the-solana-cli",
+      destination:
+        "/developers/docs/intro/installation/dependencies#install-solana-cli",
     },
     {
       source: "/setup",
@@ -877,9 +1033,9 @@ export default {
     { source: "/disclaimer", destination: "/tos" },
     { source: "/ecosystem/:path+", destination: "/ecosystem" },
     { source: "/lolla", destination: "/" },
-    { source: "/solana-pay", destination: "https://solanapay.com/" },
-    { source: "/solanapay", destination: "https://solanapay.com/" },
-    { source: "/pay", destination: "https://solanapay.com/" },
+    { source: "/solana-pay", destination: "/docs/tools/solana-pay" },
+    { source: "/solanapay", destination: "/docs/tools/solana-pay" },
+    { source: "/pay", destination: "/docs/tools/solana-pay" },
     { source: "/mobile", destination: "https://solanamobile.com/" },
     {
       source: "/podcast",
@@ -904,14 +1060,15 @@ export default {
       destination:
         "https://solana.us17.list-manage.com/subscribe?u=dc5b8a6eb6dc3d737579c03c9&id=4a4784c804",
     },
-    { source: "/ignition", destination: "/hackathon" },
-    { source: "/solanaszn", destination: "/hackathon" },
-    { source: "/wormhole-hackathon", destination: "/hackathon" },
-    { source: "/defi", destination: "/hackathon" },
-    { source: "/riptide(.*)", destination: "/hackathon" },
-    { source: "/summercamp(.*)", destination: "/hackathon" },
-    { source: "/grizzlython(.*)", destination: "/hackathon" },
-    { source: "/hyperdrive(.*)", destination: "/hackathon" },
+    { source: "/hackathon", destination: "/hackathons" },
+    { source: "/ignition", destination: "/hackathons" },
+    { source: "/solanaszn", destination: "/hackathons" },
+    { source: "/wormhole-hackathon", destination: "/hackathons" },
+    { source: "/defi", destination: "/hackathons" },
+    { source: "/riptide(.*)", destination: "/hackathons" },
+    { source: "/summercamp(.*)", destination: "/hackathons" },
+    { source: "/grizzlython(.*)", destination: "/hackathons" },
+    { source: "/hyperdrive(.*)", destination: "/hackathons" },
     { source: "/developers/ai", destination: "/solutions/ai" },
     { source: "/ai", destination: "/solutions/ai" },
     { source: "/developer", destination: "/developers" },
@@ -948,6 +1105,21 @@ export default {
     {
       source: "/2024-outlook",
       destination: "/2024outlook",
+    },
+    {
+      source: "/community/report-2024-newsletter-sign-up",
+      destination: "/news/state-of-solana-breakpoint-2024",
+      permanent: true,
+    },
+    {
+      source: "/nftshowdown",
+      destination: "/news/solana-nft-showdown-winners",
+      permanent: true,
+    },
+    {
+      source: "/playgg",
+      destination: "/news/solana-solstice-2023-community-review",
+      permanent: true,
     },
     {
       source: "/collective",
@@ -1001,13 +1173,14 @@ export default {
       source: "/docs/core/transactions/versions",
       destination: "/docs/advanced/versions",
     },
+    // Rent has its own page in the docs again.
     {
       source: "/docs/core/rent",
-      destination: "/docs/core/fees",
+      destination: "/developers/docs/core/rent",
     },
     {
       source: "/docs/intro/rent",
-      destination: "/docs/core/fees",
+      destination: "/developers/docs/core/rent",
     },
     {
       source: "/docs/intro/transaction_fees",
@@ -1629,9 +1802,11 @@ export default {
       source: "/developers/guides/getstarted/rust-to-solana",
       destination: "/docs/intro/quick-start",
     },
+    // The scaffold guides' create-solana-dapp nextjs-anchor walkthrough is
+    // the cookbook's CRUD dApp guide.
     {
       source: "/developers/guides/getstarted/scaffold-nextjs-anchor",
-      destination: "/docs#deploy-your-first-solana-application",
+      destination: "/developers/cookbook/development/crud-dapp",
     },
     {
       source: "/developers/guides/wallets/add-solana-wallet-adapter-to-nextjs",
@@ -1651,7 +1826,7 @@ export default {
     },
     {
       source: "/developers/guides/getstarted/full-stack-solana-development",
-      destination: "/docs#deploy-your-first-solana-application",
+      destination: "/developers/cookbook/development/crud-dapp",
     },
     {
       source: "/docs/toolkit/:path*",
@@ -1686,22 +1861,31 @@ export default {
       source: "/docs/references/feature-gates/consume-cus-on-sbpf-failure",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0182-conditional-cu-metering.md",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/direct-mapping",
-      destination:
-        "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0219-stricter-abi-and-runtime-constraints.md",
+      destination: "/upgrades/direct-mapping",
+      permanent: true,
     },
     {
       source: "/docs/references/feature-gates/reserve-minimal-cus-for-builtins",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0170-builtin-instruction-cost-and-budget.md",
+      permanent: true,
     },
     {
       source:
         "/docs/references/feature-gates/tsynmcspg4xficj1v3tdb4c7crmr5tsbhlz4sf7rrna",
       destination:
         "https://github.com/solana-foundation/solana-improvement-documents/blob/main/proposals/0138-deprecate-legacy-vote-instructions.md",
+      permanent: true,
+    },
+    {
+      source: "/docs/references/feature-gates/:path*",
+      destination:
+        "https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule",
+      permanent: true,
     },
     {
       source: "/developers/cookbook/tokens/approve-token-delegate",
@@ -1885,5 +2069,5 @@ export default {
         "/developers/cookbook/development/using-mainnet-accounts-programs",
       destination: "/docs/intro/installation/surfpool-cli-basics",
     },
-  ]),
+  ]).concat(breakpointBadgeLocaleRedirects),
 };

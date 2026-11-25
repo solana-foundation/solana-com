@@ -4,7 +4,17 @@ description:
   This guide is for wallet service providers who want to integrate their key
   management solution into Kora. By adding your signer to Kora, you'll enable
   node operators to use your service for secure transaction signing.
+anchorAliases:
+  step-2-add-your-signer-to-signertypeconfig-enum: step-3-add-your-signer-to-signertypeconfig-enum
+  step-3-add-build-logic: step-4-add-build-logic
+  step-4-add-validation-logic: step-5-add-validation-logic
+  step-5-export-your-configuration: step-6-export-your-configuration
 ---
+
+> **Note:** This guide targets the `main` branch of the Kora repository. The
+> integration test harness (`harness_context`, `KoraSpec`, and the `[[test]]`
+> targets) and the `just` recipes referenced below exist only on `main` and the
+> beta tags. The `v2.0.5` tag has none of them.
 
 ## Architecture Overview
 
@@ -55,11 +65,14 @@ version (that includes your signer):
 
 ```toml
 [dependencies]
-solana-keychain = { version = "X.Y.Z", default-features = false, features = [
+solana-keychain = { version = "2.0.0", default-features = false, features = [
     "all",
-    "sdk-v3",
+    "sdk-v4",
 ] }
 ```
+
+The `2.x` series with `sdk-v4` is what `main` uses. The `v2.0.5` tag depends on
+`solana-keychain` `0.1.0` with `sdk-v3`.
 
 #### Step 2: Define Your Configuration Struct
 
@@ -76,7 +89,7 @@ pub struct YourServiceSignerConfig {
 }
 ```
 
-#### Step 2: Add Your Signer to `SignerTypeConfig` Enum
+#### Step 3: Add Your Signer to `SignerTypeConfig` Enum
 
 Add your signer variant to the `SignerTypeConfig` enum in
 `crates/lib/src/signer/config.rs`:
@@ -98,7 +111,7 @@ pub enum SignerTypeConfig {
 }
 ```
 
-#### Step 3: Add Build Logic
+#### Step 4: Add Build Logic
 
 In the same file (`config.rs`), add a method to build your signer from
 configuration in the `SignerConfig` implementation:
@@ -141,7 +154,7 @@ impl SignerConfig {
 **Note**: The method name `Signer::from_your_service()` should match what you
 implemented in the `solana-keychain` crate.
 
-#### Step 4: Add Validation Logic
+#### Step 5: Add Validation Logic
 
 Add validation for your signer's configuration in the
 `validate_individual_signer_config` method:
@@ -184,7 +197,7 @@ impl SignerConfig {
 }
 ```
 
-#### Step 5: Export Your Configuration
+#### Step 6: Export Your Configuration
 
 Add your new config struct to the module exports in
 `crates/lib/src/signer/mod.rs` (or at the top of the file if it's public):
@@ -260,8 +273,8 @@ Add the example environment variables to the following files:
 
 - `.env.example` (root of the project)
 - `.env` (root of the project, for local testing)
-- `./sdks/ts/.env.example`
-- `./sdks/ts/.env`
+- `sdks/ts/.env` (local only; the TypeScript SDK tests load it when you run
+  them from `sdks/ts`)
 
 ```bash
 # YourService Signer Configuration
@@ -272,14 +285,14 @@ YOUR_SERVICE_WALLET_ID=your_wallet_id_here
 
 ### Integration Tests
 
-Kora uses a unified test runner (`tests/src/bin/test_runner.rs`) that manages
-all integration testing phases including TypeScript tests. To add tests for your
-new signer:
+Each integration phase is its own `[[test]]` target in `tests/Cargo.toml`. Every
+target boots an embedded surfnet plus a Kora node through `harness_context`,
+seeded from scratch. Kora keeps config in process-global state, so a new signer
+needs a new target rather than a new module in an existing one.
 
-#### 1. Add Test Configuration
+#### 1. Add a Signer Fixture
 
-Create a new signer configuration file in `tests/src/common/fixtures/` for your
-service:
+Create a signer configuration in `tests/src/common/fixtures/`:
 
 ```toml
 # tests/src/common/fixtures/signers-your-service.toml
@@ -294,47 +307,66 @@ api_secret_env = "YOUR_SERVICE_API_SECRET"
 wallet_id_env = "YOUR_SERVICE_WALLET_ID"
 ```
 
-#### 2. Add Test Phase to Test Runner
+#### 2. Add a Test Target
 
-Update `tests/src/test_runner/test_cases.toml` to include a test phase for your
-signer:
+Register the phase in `tests/Cargo.toml`:
 
 ```toml
-[test.your_service]
-name = "YourService Signer Tests"
-config = "tests/src/common/fixtures/kora-test.toml"
-signers = "tests/src/common/fixtures/signers-your-service.toml"
-port = "8090"  # Use a unique port
-tests = ["your_service"]
+[[test]]
+name = "your_service"
+path = "your_service/main.rs"
 ```
+
+Then create `tests/your_service/main.rs`. It points the harness at your fixture
+and must contain at least one `#[tokio::test]` that exercises the signer:
+
+```rust
+#[path = "../src/common/mod.rs"]
+mod common;
+
+use common::*;
+use jsonrpsee::rpc_params;
+
+pub async fn ctx() -> TestContext {
+    harness_context(KoraSpec {
+        config: "tests/src/common/fixtures/kora-test.toml",
+        signers: "tests/src/common/fixtures/signers-your-service.toml",
+        initialize_payments_atas: false,
+    })
+    .await
+}
+
+#[tokio::test]
+async fn test_your_service_signs_as_fee_payer() {
+    let ctx = ctx().await;
+
+    let response: serde_json::Value = ctx
+        .rpc_call("getPayerSigner", rpc_params![])
+        .await
+        .expect("Failed to get payer signer");
+
+    response.assert_success();
+    assert!(response["signer_address"].as_str().is_some());
+}
+```
+
+Add a `signTransaction` test as well so the signer's signing path runs, not just
+key lookup. `tests/multi_signer/` is a complete example to copy from.
 
 #### 3. Running Tests
 
-Make sure your environment is set up:
-
 ```bash
-# Install binaries and dependencies
 just install
-just install-ts-sdk
-just build-ts-sdk
 
-# Set environment variables for your service
 export YOUR_SERVICE_API_KEY="your_key"
 export YOUR_SERVICE_API_SECRET="your_secret"
 export YOUR_SERVICE_WALLET_ID="your_wallet"
-```
 
-Run tests using the unified test runner:
+# Run only your phase
+cargo test -p tests --test your_service
 
-```bash
-# Run all integration tests (includes your new signer phase)
-just test-integration
-
-# Run tests with verbose output
-just test-integration-verbose
-
-# Run specific test phase with filter
-cargo run -p tests --bin test_runner -- --phases your_service
+# Run every integration phase
+just integration-test
 ```
 
 ## Documentation Requirements
@@ -365,21 +397,32 @@ service].
 2. Create a wallet...
 3. Configure environment variables:
 
-\```bash YOUR_SERVICE_API_KEY="your_api_key"
+```bash
+YOUR_SERVICE_API_KEY="your_api_key"
 YOUR_SERVICE_API_SECRET="your_api_secret"
-YOUR_SERVICE_WALLET_ID="your_wallet_id" \```
+YOUR_SERVICE_WALLET_ID="your_wallet_id"
+```
 
 ### Configure signers.toml
 
-\```toml [signer_pool] strategy = "round_robin"
+```toml
+[signer_pool]
+strategy = "round_robin"
 
-[[signers]] name = "yourservice_main" type = "your_service" api_key_env =
-"YOUR_SERVICE_API_KEY" api_secret_env = "YOUR_SERVICE_API_SECRET" wallet_id_env
-= "YOUR_SERVICE_WALLET_ID" weight = 1 \```
+[[signers]]
+name = "yourservice_main"
+type = "your_service"
+api_key_env = "YOUR_SERVICE_API_KEY"
+api_secret_env = "YOUR_SERVICE_API_SECRET"
+wallet_id_env = "YOUR_SERVICE_WALLET_ID"
+weight = 1
+```
 
 ### Run Kora with YourService Signer
 
-\```bash kora rpc start --signers-config signers.toml \```
+```bash
+kora --config kora.toml rpc start --signers-config signers.toml
+```
 ````
 
 ### 2. Update README
@@ -397,14 +440,15 @@ Add your service to the main README's signer list.
 - [ ] Exported configuration struct in `mod.rs`
 - [ ] (Optional) Added test mock builder method in `config_mock.rs`
 - [ ] Code compiles without warnings
-- [ ] All tests pass (`make test` and `make test-integration`)
+- [ ] All tests pass (`just test`)
+- [ ] Code is formatted (`just fmt`)
 - [ ] Documentation added following
       [`ADDING_SIGNERS.md`](https://github.com/solana-foundation/solana-keychain/blob/main/docs/ADDING_SIGNERS.md)
 - [ ] Example configuration files created (`.toml` and `.env.example`)
 - [ ] No hardcoded values or secrets
 - [ ] Error messages are helpful
 - [ ] Follows Rust naming conventions (snake_case)
-- [ ] Linting passes (`make lint`)
+- [ ] Formatting and lint checks pass (`just check`)
 - [ ] Contact the Kora team with API Keys for integration testing
 
 ## Getting Help
@@ -417,6 +461,9 @@ Add your service to the main README's signer list.
 - Join our community channels
 - Review existing signer configurations in
   [`crates/lib/src/signer/config.rs`](https://github.com/solana-foundation/kora/blob/v2.0.5/crates/lib/src/signer/config.rs)
+  (pinned to v2.0.5; see
+  [`main`](https://github.com/solana-foundation/kora/blob/main/crates/lib/src/signer/config.rs)
+  for the latest)
 
 ## Example PR Structure
 
@@ -433,5 +480,5 @@ feat(signer): add YourService signer configuration support
 - Add integration tests
 ```
 
-Welcome to the Kora ecosystem! We're excited to have your key management
+Welcome to the Kora ecosystem. We're glad to have your key management
 solution as part of the platform.

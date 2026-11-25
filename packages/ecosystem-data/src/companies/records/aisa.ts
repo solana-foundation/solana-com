@@ -19,8 +19,8 @@ export const aisa = {
     },
     socials: {
       x: "https://x.com/AIsaOneHQ",
-      linkedin: "https://www.linkedin.com/company/aipayhq",
-      discord: "https://discord.gg/bhjDrRKc",
+      linkedin: "https://www.linkedin.com/company/aisaonehq",
+      discord: "https://discord.com/invite/7rDnYnXra8",
     },
   },
   defaultLogoId: "logo",

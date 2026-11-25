@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getPathnameWithoutLocale } from "@workspace/i18n/pathname";
 import { config, isProxiedPath } from "@@/src/middleware";
 
 describe("Cross-app middleware routing", () => {
@@ -7,10 +8,25 @@ describe("Cross-app middleware routing", () => {
     expect(isProxiedPath("/changelog/rss.xml")).toBe(true);
   });
 
+  it("bypasses the main app middleware for docs-app developer docs", () => {
+    expect(isProxiedPath(getPathnameWithoutLocale("/developers/docs/x"))).toBe(
+      true,
+    );
+    expect(
+      isProxiedPath(getPathnameWithoutLocale("/ja/developers/docs/x")),
+    ).toBe(true);
+  });
+
+  it("keeps Learn routes in the main app", () => {
+    expect(isProxiedPath("/learn")).toBe(false);
+    expect(isProxiedPath("/learn/what-is-solana")).toBe(false);
+  });
+
   it("excludes the bare changelog route from the middleware matcher", () => {
-    const appRouteMatcher = new RegExp(`^${config.matcher[2]}$`);
+    const appRouteMatcher = new RegExp(`^${config.matcher.at(-1)}$`);
 
     expect(appRouteMatcher.test("/changelog")).toBe(false);
     expect(appRouteMatcher.test("/changelog/rss.xml")).toBe(false);
+    expect(appRouteMatcher.test("/wsop")).toBe(true);
   });
 });

@@ -100,7 +100,7 @@ export const config = {
       "Web3 event",
     ],
     author: "Solana Foundation",
-    socialShare: `${PUBLIC_SITE_ORIGIN}${routePath("/social-card.jpg")}`,
+    socialShare: `${PUBLIC_SITE_ORIGIN}${routePath("/social-card-post-conference.jpg")}`,
     googleAnalytics: {
       trackingId: "G-94WS0LRZRS",
       adWordsId: "AW-302884864",
@@ -114,6 +114,7 @@ export const config = {
   },
   event: {
     name: "Breakpoint 2026",
+    twitterHandle: "@SolanaEvents",
     description:
       "Three days of product launches, ecosystem strategy, builders, capital, and culture for the Solana community.",
     startDate: "2026-11-15",

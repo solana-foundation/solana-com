@@ -8,3 +8,10 @@ export const CONVERSION_PANEL_IMAGES = {
     src: "/src/img/landings/assets_2Fce0c7323a97a4d91bd0baa7490ec9139_2F389dc24276754a22b0dc57906f5ffe71.png",
   },
 };
+
+/** Registry keys for the stats row, in display order. */
+export const STATS_METRICS = [
+  "network.active-accounts",
+  "network.monthly-active-developers",
+  "network.active-repositories",
+] as const;

@@ -20,7 +20,7 @@ export const safepalWallet = {
       website: "https://www.safepal.com",
     },
     socials: {
-      x: "https://x.com/iSafePal",
+      x: "https://x.com/SafePal",
       linkedin: "https://www.linkedin.com/company/safepal",
       telegram: "https://t.me/SafePalwallet",
       github: "https://github.com/SafePalWallet",

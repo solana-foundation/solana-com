@@ -1,36 +1,27 @@
-import { unstable_cache } from "next/cache";
-
 export type RwaStats = {
   /** Count of unique RWA assets with Solana deployments. */
-  totalAssets: number;
-  /** Aggregate tokenized market value (USD) across Solana RWA deployments. */
-  totalValueUSD: number;
-  /** Aggregate daily transfer volume (USD) across Solana RWA deployments. */
-  volume24hUSD: number;
+  assetCount: number;
+  /**
+   * Circulating (distributed) value (USD) across Solana RWA deployments, the
+   * figure RWA.xyz publishes as distributed asset value.
+   */
+  distributedValueUSD: number;
+  /** Holding addresses summed across Solana RWA tokens. */
+  holderCount: number;
 };
 
-/**
- * Last-known values used when the API is unreachable.
- *
- * Headline value and asset count were refreshed from the public July 2026 RWA
- * update; 24h volume remains the last live API fallback.
- */
-const FALLBACK_STATS: RwaStats = {
-  totalAssets: 692,
-  totalValueUSD: 3_400_000_000,
-  volume24hUSD: 205_000_000,
+export type RwaStatsResult = {
+  stats: RwaStats;
+  /** When the stats were fetched (ISO). */
+  fetchedAt: string;
 };
 
 const REQUEST_TIMEOUT_MS = 8_000;
-
-/** RWA totals move throughout the day, but the external API should be called sparingly. */
-const CACHE_TTL_SECONDS = 60 * 60;
 
 const RWA_XYZ_API_URL =
   process.env.RWA_XYZ_API_BASE_URL ?? "https://api.rwa.xyz";
 const RWA_XYZ_PAGE_SIZE = 1000;
 const RWA_XYZ_MAX_PAGES = 25;
-const RWA_XYZ_CACHE_TAG = "rwa-stats";
 
 const SOLANA_NETWORK_SLUG = "solana";
 
@@ -61,16 +52,14 @@ type RwaXyzMetric = {
 
 type RwaXyzToken = {
   id?: number | string | null;
+  holding_addresses_count?: RwaXyzMetric | null;
+  circulating_asset_value_dollar?: RwaXyzMetric | null;
   token_id?: number | string | null;
   asset_id?: number | string | null;
   asset?: {
     id?: number | string | null;
     asset_id?: number | string | null;
   } | null;
-  market_value_dollar?: RwaXyzMetric | null;
-  circulating_market_value_dollar?: RwaXyzMetric | null;
-  total_asset_value_dollar?: RwaXyzMetric | null;
-  daily_transfer_volume_dollar?: RwaXyzMetric | null;
 };
 
 type RwaXyzTokensResponse = {
@@ -131,12 +120,6 @@ const getMetricValue = (metric?: RwaXyzMetric | null) => {
     : undefined;
 };
 
-const getTokenValueUSD = (token: RwaXyzToken) =>
-  getMetricValue(token.market_value_dollar) ??
-  getMetricValue(token.circulating_market_value_dollar) ??
-  getMetricValue(token.total_asset_value_dollar) ??
-  0;
-
 const getAssetId = (token: RwaXyzToken) =>
   token.asset_id ?? token.asset?.asset_id ?? token.asset?.id ?? token.id;
 
@@ -174,70 +157,65 @@ const fetchRwaXyzTokenPage = async (
   }
 };
 
-const fetchRwaStatsFromApi = async (): Promise<RwaStats> => {
-  if (!process.env.RWA_XYZ_API_TOKEN) {
-    return FALLBACK_STATS;
-  }
+/**
+ * Fetches live totals from RWA.xyz. Throws when the token is missing, a request
+ * fails, or the response is empty, so callers can fall back explicitly.
+ *
+ * Value uses circulating asset value only. Total asset value describes the
+ * underlying asset (e.g. a whole fund or listed share class), not what is
+ * tokenized on Solana, so it must not stand in when circulating value is absent.
+ */
+const fetchRwaStatsFromApi = async (): Promise<RwaStatsResult> => {
+  const firstPage = await fetchRwaXyzTokenPage(1);
+  const pageCount = firstPage.pagination?.pageCount ?? 1;
 
-  try {
-    const firstPage = await fetchRwaXyzTokenPage(1);
-    const pageCount = firstPage.pagination?.pageCount ?? 1;
-
-    if (pageCount > RWA_XYZ_MAX_PAGES) {
-      throw new Error(
-        `RWA.xyz response requires ${pageCount} pages, exceeding the ${RWA_XYZ_MAX_PAGES}-page safety limit`,
-      );
-    }
-
-    const remainingPages = await Promise.all(
-      Array.from({ length: pageCount - 1 }, (_, index) =>
-        fetchRwaXyzTokenPage(index + 2),
-      ),
+  if (pageCount > RWA_XYZ_MAX_PAGES) {
+    throw new Error(
+      `RWA.xyz response requires ${pageCount} pages, exceeding the ${RWA_XYZ_MAX_PAGES}-page safety limit`,
     );
+  }
 
-    const tokens = [
-      ...(firstPage.results ?? []),
-      ...remainingPages.flatMap((page) => page.results ?? []),
-    ];
-    const uniqueAssetIds = new Set<
-      NonNullable<ReturnType<typeof getAssetId>>
-    >();
-    let totalValueUSD = 0;
-    let volume24hUSD = 0;
+  const remainingPages = await Promise.all(
+    Array.from({ length: pageCount - 1 }, (_, index) =>
+      fetchRwaXyzTokenPage(index + 2),
+    ),
+  );
 
-    tokens.forEach((token) => {
-      const assetId = getAssetId(token);
+  const tokens = [
+    ...(firstPage.results ?? []),
+    ...remainingPages.flatMap((page) => page.results ?? []),
+  ];
+  const uniqueAssetIds = new Set<NonNullable<ReturnType<typeof getAssetId>>>();
+  let distributedValueUSD = 0;
+  let holderCount = 0;
 
-      if (assetId !== null && assetId !== undefined) {
-        uniqueAssetIds.add(assetId);
-      }
+  tokens.forEach((token) => {
+    const assetId = getAssetId(token);
 
-      totalValueUSD += getTokenValueUSD(token);
-      volume24hUSD += getMetricValue(token.daily_transfer_volume_dollar) ?? 0;
-    });
-
-    const stats: RwaStats = {
-      totalAssets: uniqueAssetIds.size,
-      totalValueUSD,
-      volume24hUSD,
-    };
-
-    if (stats.totalAssets === 0 || stats.totalValueUSD === 0) {
-      return FALLBACK_STATS;
+    if (assetId !== null && assetId !== undefined) {
+      uniqueAssetIds.add(assetId);
     }
 
-    return stats;
-  } catch (err) {
-    console.error("[fetchRwaStats] failed, using fallback stats:", err);
-    return FALLBACK_STATS;
+    distributedValueUSD +=
+      getMetricValue(token.circulating_asset_value_dollar) ?? 0;
+    holderCount += getMetricValue(token.holding_addresses_count) ?? 0;
+  });
+
+  const stats: RwaStats = {
+    assetCount: uniqueAssetIds.size,
+    distributedValueUSD,
+    holderCount,
+  };
+
+  if (stats.assetCount === 0 || stats.distributedValueUSD === 0) {
+    throw new Error("RWA.xyz returned no Solana RWA totals");
   }
+
+  return { stats, fetchedAt: new Date().toISOString() };
 };
 
-export const fetchRwaStats = unstable_cache(
-  fetchRwaStatsFromApi,
-  ["rwa-xyz-stats"],
-  {
-    revalidate: CACHE_TTL_SECONDS,
-    tags: [RWA_XYZ_CACHE_TAG],
-  },
-);
+/**
+ * Uncached: RWA.xyz is read once per refresh of the shared metrics stream
+ * (lib/metrics/loader.ts), which caches the resolved totals.
+ */
+export const fetchRwaStats = fetchRwaStatsFromApi;

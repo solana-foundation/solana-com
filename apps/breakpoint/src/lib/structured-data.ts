@@ -1,5 +1,9 @@
 import { getTranslations } from "@workspace/i18n/server";
 import { config, publicLocalizedRouteUrl } from "@/config";
+import {
+  CONFERENCE_STATE,
+  type ConferenceState,
+} from "@/content/conference-state";
 import { GENERAL_ADMISSION_HREF } from "@/content/links";
 import { GENERAL_ADMISSION_PRICE_CHANGE } from "@/content/ticket-pricing";
 
@@ -34,7 +38,10 @@ const TICKET_OFFERS: OfferSeed[] = [
   },
 ];
 
-export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
+export async function buildBreakpointJsonLd(
+  locale: string,
+  state: ConferenceState = CONFERENCE_STATE,
+): Promise<JsonLd> {
   const t = await getTranslations({ locale, namespace: "breakpoint" });
   const { publicUrl, siteMetadata, event } = config;
   const pageUrl = publicLocalizedRouteUrl(locale);
@@ -56,13 +63,7 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
     },
     {
       question: t("faq.items.q4.question"),
-      answer: "",
-      answerLinkLabel: t("faq.items.q4.answerLinkLabel"),
-    },
-    {
-      question: t("faq.items.q5.question"),
-      answer: t("faq.items.q5.answerPrefix"),
-      answerLinkLabel: t("faq.items.q5.answerLinkLabel"),
+      answer: t("faq.items.q4.answer"),
     },
   ];
 
@@ -91,18 +92,21 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
     organizer: {
       "@id": `${publicUrl}#organization`,
     },
-    offers: TICKET_OFFERS.map((offer) => ({
-      "@type": "Offer",
-      name: ticketName,
-      price: offer.price,
-      priceCurrency: "USD",
-      url: offer.url,
-      availability: "https://schema.org/InStock",
-      validFrom: offer.validFrom,
-      ...(offer.priceValidUntil
-        ? { priceValidUntil: offer.priceValidUntil }
-        : {}),
-    })),
+    offers:
+      state === "post"
+        ? []
+        : TICKET_OFFERS.map((offer) => ({
+            "@type": "Offer",
+            name: ticketName,
+            price: offer.price,
+            priceCurrency: "USD",
+            url: offer.url,
+            availability: "https://schema.org/InStock",
+            validFrom: offer.validFrom,
+            ...(offer.priceValidUntil
+              ? { priceValidUntil: offer.priceValidUntil }
+              : {}),
+          })),
   };
 
   const organizationNode: JsonLd = {
@@ -128,17 +132,17 @@ export async function buildBreakpointJsonLd(locale: string): Promise<JsonLd> {
       name: asPlainTextMessage(item.question),
       acceptedAnswer: {
         "@type": "Answer",
-        text: asPlainTextMessage(
-          [item.answer, item.answerLinkLabel && `${item.answerLinkLabel}.`]
-            .filter((part) => part?.trim().length)
-            .join(" "),
-        ),
+        text: asPlainTextMessage(item.answer),
       },
     })),
   };
 
   return {
     "@context": "https://schema.org",
-    "@graph": [eventNode, organizationNode, faqNode],
+    "@graph": [
+      eventNode,
+      organizationNode,
+      ...(state === "post" ? [] : [faqNode]),
+    ],
   };
 }

@@ -9,6 +9,7 @@ import PossibleCaseStudies from "@/components/possible/PossibleCaseStudies";
 import PossibleInnovation from "@/components/possible/PossibleInnovations";
 import dynamic from "next/dynamic";
 import { VideoPlayerModal } from "@/component-library/video-modal";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
 const PossibleStartBuilding = dynamic(
   () => import("@/components/possible/PossibleStartBuilding"),
@@ -30,7 +31,12 @@ const PossibleIcons = dynamic(
   { ssr: false },
 );
 
-export function PossiblePage() {
+export function PossiblePage({
+  carbonMetric,
+}: {
+  /** Registry figure for the net carbon impact stat. */
+  carbonMetric: DisplayMetric;
+}) {
   const [statsRef, statsInView] = useInView({
     threshold: 0,
     triggerOnce: true,
@@ -59,7 +65,10 @@ export function PossiblePage() {
           {statsInView ? (
             <>
               <PossibleStartBuilding />
-              <PossibleStats visible={statsInView} showKPIs={false} />
+              <PossibleStats
+                visible={statsInView}
+                carbonMetric={carbonMetric}
+              />
             </>
           ) : (
             <div className="min-h-screen w-full" />

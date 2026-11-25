@@ -129,8 +129,8 @@ describe("@workspace/i18n messages", () => {
       "Consultar requisitos de visado o ETA",
     );
     expect(messages).toHaveProperty(
-      "breakpoint.pages.registration.heroTitle",
-      "Consigue tus entradas para Breakpoint 2026",
+      "breakpoint.pages.registration.next.heroTitle",
+      "Regístrate en Breakpoint {year}",
     );
   });
 

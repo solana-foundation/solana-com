@@ -79,14 +79,6 @@ export default async function HomePage({ params }: PageProps) {
               },
               path: "/miami",
             },
-            {
-              event: {
-                ...config.events.china,
-                name: t("china.eventName"),
-                description: t("china.eventDescription"),
-              },
-              path: "/china",
-            },
           ],
         })}
       />

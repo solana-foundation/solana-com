@@ -57,6 +57,10 @@ describe("Cross-app rewrites", () => {
     );
     expectBeforeFileRewrite("/docs/:path*", `${DOCS_APP_URL}/docs/:path*`);
     expectBeforeFileRewrite(
+      "/api/ask/:path*",
+      `${DOCS_APP_URL}/api/ask/:path*`,
+    );
+    expectBeforeFileRewrite(
       "/developers/cookbook/:path*",
       `${DOCS_APP_URL}/developers/cookbook/:path*`,
     );
@@ -72,6 +76,43 @@ describe("Cross-app rewrites", () => {
       "/breakpoint/:path*",
       `${BREAKPOINT_APP_URL}/breakpoint/:path*`,
     );
+
+    expect(beforeFiles.some(({ source }) => source.startsWith("/learn"))).toBe(
+      false,
+    );
+  });
+
+  it("proxies every docs-app path to the same path on the docs app", () => {
+    for (const source of [
+      "/docs-assets/:path+",
+      "/opengraph/:path+",
+      "/llms.txt",
+      "/llms-full.txt",
+      "/api/demo/:path+",
+      "/api/devnet-airdrop",
+      "/api/slot-time/tip",
+      "/api/docs-search",
+      ...["", "/:locale"].flatMap((prefix) =>
+        [
+          "/docs",
+          "/docs/:path*.md",
+          "/docs/:path*",
+          "/developers",
+          "/developers/:path*.md",
+          "/developers/docs",
+          "/developers/docs/:path*",
+          "/developers/cookbook",
+          "/developers/cookbook/:path*",
+          "/developers/guides",
+          "/developers/guides/:path*",
+          "/developers/bootcamp",
+          "/developers/bootcamp/:path*",
+        ].map((path) => `${prefix}${path}`),
+      ),
+      "/docs.md",
+    ]) {
+      expectBeforeFileRewrite(source, `${DOCS_APP_URL}${source}`);
+    }
   });
 
   it("keeps templates rewrites before generic developer docs rewrites", () => {
@@ -132,7 +173,15 @@ describe("Cross-app rewrites", () => {
     );
   });
 
-  it("proxies media post APIs used by tweet embeds", () => {
+  it("proxies APIs owned by the media app", () => {
+    expectBeforeFileRewrite(
+      "/api/developer-updates/latest",
+      `${MEDIA_APP_URL}/api/developer-updates/latest`,
+    );
+    expectBeforeFileRewrite(
+      "/api/changelog/:path*",
+      `${MEDIA_APP_URL}/api/changelog/:path*`,
+    );
     expectBeforeFileRewrite(
       "/api/posts/:path*",
       `${MEDIA_APP_URL}/api/posts/:path*`,

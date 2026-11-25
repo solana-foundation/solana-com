@@ -4,6 +4,10 @@ import path from "node:path";
 import { loadMergedMessages, resolveLocale } from "@workspace/i18n/messages";
 import { tierFor } from "@/lib/epoch1000/tiers";
 import {
+  InvalidOgParamsError,
+  parseOgCardParams,
+} from "@/lib/epoch1000/og-params";
+import {
   GH_CELL_BORDER,
   GH_EMPTY,
   githubGreen,
@@ -104,14 +108,20 @@ function getSolanaLogo() {
 
 export async function GET(req: Request) {
   const p = new URL(req.url).searchParams;
-  const survived = Math.max(0, parseInt(p.get("s") ?? "0", 10) || 0);
-  const firstEpoch = Math.max(0, parseInt(p.get("fe") ?? "0", 10) || 0);
-  const currentEpoch = Math.max(
-    firstEpoch,
-    parseInt(p.get("c") ?? "0", 10) || 0,
-  );
-  const wallet = p.get("w") ?? "";
-  const capped = p.get("x") === "1";
+  let parsed;
+  try {
+    parsed = parseOgCardParams(p);
+  } catch (error) {
+    if (error instanceof InvalidOgParamsError) {
+      return new Response("Not Found", {
+        status: 404,
+        headers: { "Cache-Control": "public, max-age=0, s-maxage=3600" },
+      });
+    }
+    throw error;
+  }
+  const { survived, firstEpoch, currentEpoch, capped } = parsed;
+  const wallet = parsed.wallet ?? "";
   const tier = tierFor(survived);
   const survivedLabel = capped ? `${survived}+` : String(survived);
 

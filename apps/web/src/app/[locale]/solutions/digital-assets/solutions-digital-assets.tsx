@@ -6,7 +6,7 @@ import {
   SwitchbackChain,
   CardDeck,
   ConversionPanel,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { useTranslations } from "next-intl";
 import {
@@ -154,7 +154,7 @@ export function SolutionsDigitalAssetsPage() {
               src: DEVELOPER_CARD_IMAGE,
             },
             callToAction: {
-              url: "/docs/intro/quick-start",
+              url: "/developers/docs/quickstart",
               endIcon: "arrow-right",
               hierarchy: "outline",
             },

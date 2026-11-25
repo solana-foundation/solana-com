@@ -1,0 +1,22 @@
+// #region config
+import {
+  address,
+  createSolanaRpc,
+  createSolanaRpcSubscriptions,
+} from "@solana/kit";
+
+// Devnet by default. Point RPC_URL at mainnet (and USDC_MINT at mainnet USDC,
+// EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v) when you go live.
+export const RPC_URL = process.env.RPC_URL ?? "https://api.devnet.solana.com";
+export const RPC_SUBSCRIPTIONS_URL =
+  process.env.RPC_SUBSCRIPTIONS_URL ?? "wss://api.devnet.solana.com";
+export const USDC_MINT = address(
+  process.env.USDC_MINT ?? "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+);
+export const USDC_DECIMALS = 6;
+
+export const rpc = createSolanaRpc(RPC_URL);
+export const rpcSubscriptions = createSolanaRpcSubscriptions(
+  RPC_SUBSCRIPTIONS_URL,
+);
+// #endregion config

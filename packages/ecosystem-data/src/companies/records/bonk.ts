@@ -23,7 +23,6 @@ export const bonk = {
     },
     socials: {
       x: "https://x.com/bonk_inu",
-      linkedin: "https://www.linkedin.com/company/bonkinu",
       discord: "https://discord.com/invite/FTfayXdpqH",
       telegram: "https://t.me/Official_Bonk_Inu",
       github: "https://github.com/BonkLabs",

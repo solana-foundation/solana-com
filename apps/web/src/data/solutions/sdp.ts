@@ -95,6 +95,11 @@ export const LOGOS = [
     height: "19px",
   },
   {
+    src: "/src/img/logos-eco/nodit.svg",
+    alt: "Nodit",
+    height: "22px",
+  },
+  {
     src: "/src/img/logos-eco/validation-cloud.svg",
     alt: "Validation Cloud",
     height: "20px",
@@ -140,6 +145,12 @@ export const NODES_LOGOS = [
     alt: "QuickNode",
     height: "19px",
     href: "https://quicknode.com",
+  },
+  {
+    src: "/src/img/logos-eco/nodit.svg",
+    alt: "Nodit",
+    height: "22px",
+    href: "https://nodit.io",
   },
   {
     src: "/src/img/logos-eco/validation-cloud.svg",

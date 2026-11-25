@@ -17,8 +17,14 @@ import { Divider } from "@/components/solutions/divider.v2";
 // import { Decor } from "@/components/solutions/decor.v2";
 import { SingleVideo } from "@/components/solutions/single-video.v2";
 import { SelectionColor } from "@/component-library/selection-color";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
-export function SolutionsDesciPage() {
+export function SolutionsDesciPage({
+  projectMetrics,
+}: {
+  /** Registry figures for PROJECTS, in the same order; undefined for cards without a stat. */
+  projectMetrics: (DisplayMetric | undefined)[];
+}) {
   const t = useTranslations();
 
   return (
@@ -60,7 +66,12 @@ export function SolutionsDesciPage() {
             light: (chunks) => <span className="font-light">{chunks}</span>,
             br: () => <br />,
           })}
-          projects={PROJECTS}
+          projects={PROJECTS.map((project, index) => ({
+            key: project.key,
+            src: project.src,
+            statValue: projectMetrics[index]?.value,
+            source: projectMetrics[index]?.source,
+          }))}
           translationBase="desci.projects"
           logos={LOGOS}
           bgSrc="/src/img/solutions/desci/ecosystem-bg.webp"

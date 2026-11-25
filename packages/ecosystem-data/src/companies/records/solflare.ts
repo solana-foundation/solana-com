@@ -20,8 +20,8 @@ export const solflare = {
       website: "https://www.solflare.com/",
     },
     socials: {
-      x: "https://x.com/solflare_wallet",
-      linkedin: "https://www.linkedin.com/company/solflare-official",
+      x: "https://x.com/solflare",
+      linkedin: "https://www.linkedin.com/company/solflare",
       discord: "https://discord.com/invite/solflare",
       github: "https://github.com/solflare-wallet",
     },

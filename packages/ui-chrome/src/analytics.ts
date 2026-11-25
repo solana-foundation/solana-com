@@ -3,6 +3,7 @@
  *
  * Do not pass email addresses, form field values, full search terms, or URL
  * query strings. GA4 prohibits sending personally identifiable information.
+ * By product decision, docs_ai_search* events carry the redacted query.
  */
 export type AnalyticsAppName =
   | "web"
@@ -17,7 +18,17 @@ export type AnalyticsEventName =
   | "select_content"
   | "view_item"
   | "podcast_play"
-  | "podcast_subscribe";
+  | "podcast_subscribe"
+  | "docs_ai_chat_opened"
+  | "docs_ai_message_sent"
+  | "docs_ai_timing"
+  | "docs_ai_feedback"
+  | "docs_ai_code_followup_clicked"
+  | "docs_ai_widget_expanded"
+  | "docs_ai_widget_fullscreen"
+  | "docs_ai_view_switched"
+  | "docs_ai_search"
+  | "docs_ai_search_result_clicked";
 
 type AnalyticsValue = string | number | boolean | undefined;
 type AnalyticsParameters = Record<string, AnalyticsValue>;

@@ -1,66 +1,48 @@
 # #region create
 import asyncio
+
 from solana.rpc.async_api import AsyncClient
+from solana.rpc.commitment import Confirmed
 from solders.keypair import Keypair
-from solders.pubkey import Pubkey
-from solders.system_program import create_account, CreateAccountParams
-from solders.transaction import VersionedTransaction
 from solders.message import MessageV0
+from solders.system_program import ID as SYSTEM_PROGRAM_ID
+from solders.system_program import CreateAccountParams, create_account
+from solders.transaction import VersionedTransaction
+
+LAMPORTS_PER_SOL = 1_000_000_000
+
 
 async def main():
-    rpc = AsyncClient("http://localhost:8899")
+    async with AsyncClient("http://localhost:8899", commitment=Confirmed) as client:
+        sender = Keypair()
+        airdrop = await client.request_airdrop(sender.pubkey(), LAMPORTS_PER_SOL)
+        await client.confirm_transaction(airdrop.value)
 
-    payer = Keypair()
-    program_id = Pubkey.from_string("11111111111111111111111111111111")
+        new_account = Keypair()
+        space = 0
+        rent_lamports = (
+            await client.get_minimum_balance_for_rent_exemption(space)
+        ).value
 
-    # Create PDA (Program Derived Address)
-    seed = "hello"
-    pda, bump = Pubkey.find_program_address([seed.encode()], program_id)
-
-    space = 100  # Account data space
-
-    async with rpc:
-        # Get minimum balance for rent exemption
-        rent_lamports = await rpc.get_minimum_balance_for_rent_exemption(space)
-
-        # Get latest blockhash
-        recent_blockhash = await rpc.get_latest_blockhash()
-
-        # For PDA accounts, we need to use create_account_with_seed since PDA cannot sign
-        from solders.system_program import create_account_with_seed, CreateAccountWithSeedParams
-
-        # Use the payer as base for seed derivation
-        create_account_instruction = create_account_with_seed(
-            CreateAccountWithSeedParams(
-                from_pubkey=payer.pubkey(),
-                to_pubkey=pda,
-                base=payer.pubkey(),
-                seed=seed,
-                lamports=rent_lamports.value,
+        create_account_instruction = create_account(
+            CreateAccountParams(
+                from_pubkey=sender.pubkey(),
+                to_pubkey=new_account.pubkey(),
+                lamports=rent_lamports,
                 space=space,
-                owner=program_id
+                owner=SYSTEM_PROGRAM_ID,
             )
         )
 
-        # Create message
+        blockhash = (await client.get_latest_blockhash()).value.blockhash
         message = MessageV0.try_compile(
-            payer=payer.pubkey(),
-            instructions=[create_account_instruction],
-            address_lookup_table_accounts=[],
-            recent_blockhash=recent_blockhash.value.blockhash
+            sender.pubkey(), [create_account_instruction], [], blockhash
         )
+        transaction = VersionedTransaction(message, [sender, new_account])
 
-        # Create transaction
-        transaction = VersionedTransaction(message, [payer])
+        signature = (await client.send_transaction(transaction)).value
+        print("Transaction Signature for create account:", signature)
 
-        print(f"Payer: {payer.pubkey()}")
-        print(f"PDA: {pda}")
-        print(f"Bump: {bump}")
-        print(f"Program ID: {program_id}")
-        print(f"Seed: {seed}")
-        print(f"Rent Lamports: {rent_lamports.value}")
-        print(f"PDA account creation transaction created successfully")
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
 # #endregion create

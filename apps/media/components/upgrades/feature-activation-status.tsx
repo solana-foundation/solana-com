@@ -5,6 +5,7 @@ import {
   LARGER_TRANSACTIONS_FEATURE_ADDRESS,
   type FeatureActivationStatus as ActivationStatus,
 } from "@/lib/upgrades/feature-activation";
+import { address, type Address } from "@solana/kit";
 
 const CLUSTERS = ["Testnet", "Devnet", "Mainnet"] as const;
 type Cluster = (typeof CLUSTERS)[number];
@@ -20,21 +21,30 @@ function rpcUrl(cluster: Cluster): string {
 }
 
 const getCachedFeatureActivationStatus = unstable_cache(
-  async (cluster: Cluster): Promise<ActivationStatus> =>
+  async (
+    cluster: Cluster,
+    featureAddress: Address,
+  ): Promise<ActivationStatus> =>
     getFeatureActivationStatus(
       rpcUrl(cluster),
-      LARGER_TRANSACTIONS_FEATURE_ADDRESS,
+      featureAddress,
       AbortSignal.timeout(RPC_TIMEOUT_MS),
     ),
   ["feature-activation-status"],
   { revalidate: CACHE_SECONDS },
 );
 
-async function FeatureActivationStatusRow({ cluster }: { cluster: Cluster }) {
+async function FeatureActivationStatusRow({
+  cluster,
+  featureAddress,
+}: {
+  cluster: Cluster;
+  featureAddress: Address;
+}) {
   const t = await getTranslations("upgrades.featureActivation");
   let status: ActivationStatus | null;
   try {
-    status = await getCachedFeatureActivationStatus(cluster);
+    status = await getCachedFeatureActivationStatus(cluster, featureAddress);
   } catch (error) {
     console.error(
       `Failed to fetch ${cluster} feature activation status:`,
@@ -59,8 +69,13 @@ async function FeatureActivationStatusRow({ cluster }: { cluster: Cluster }) {
   );
 }
 
-export async function FeatureActivationStatus() {
+export async function FeatureActivationStatus({
+  featureAddress = LARGER_TRANSACTIONS_FEATURE_ADDRESS,
+}: {
+  featureAddress?: string;
+}) {
   const t = await getTranslations("upgrades.featureActivation");
+  const parsedFeatureAddress = address(featureAddress);
 
   return (
     <div className="overflow-x-auto mb-8">
@@ -77,7 +92,11 @@ export async function FeatureActivationStatus() {
         </thead>
         <tbody>
           {CLUSTERS.map((cluster) => (
-            <FeatureActivationStatusRow key={cluster} cluster={cluster} />
+            <FeatureActivationStatusRow
+              key={cluster}
+              cluster={cluster}
+              featureAddress={parsedFeatureAddress}
+            />
           ))}
         </tbody>
       </table>

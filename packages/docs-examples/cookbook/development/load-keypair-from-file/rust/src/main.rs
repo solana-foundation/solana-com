@@ -1,15 +1,13 @@
 use solana_client::nonblocking::rpc_client::RpcClient;
 use solana_commitment_config::CommitmentConfig;
-use solana_sdk::{
-    native_token::LAMPORTS_PER_SOL,
-    signer::{
-        keypair::{self, Keypair},
-        Signer,
-    },
+use solana_sdk::native_token::LAMPORTS_PER_SOL;
+// #region load
+use solana_sdk::signer::{
+    keypair::{self, Keypair},
+    Signer,
 };
 use std::{env, path};
 
-// #region load
 fn load_default_keypair() -> anyhow::Result<Keypair> {
     let home_path = env::var_os("HOME").unwrap();
     let default_keypair_path = ".config/solana/id.json"; // ! update if you want to use a different path

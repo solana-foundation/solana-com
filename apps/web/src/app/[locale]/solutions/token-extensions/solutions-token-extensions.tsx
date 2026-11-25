@@ -10,7 +10,7 @@ import {
   Accordion,
   YoutubeVideo,
   Button,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { ResponsiveBox } from "@/component-library/responsive-box";
 import { Columns } from "@/component-library/columns";
 import { useTranslations } from "next-intl";
@@ -41,7 +41,7 @@ export function SolutionsTokenExtensionsPage() {
             size: "lg",
             iconSize: "md",
             label: t("buttons.startBuilding"),
-            url: "https://solana.com/docs/tokens/extensions",
+            url: "https://solana.com/developers/docs/tokens/extensions",
           },
         ]}
         image={{
@@ -68,7 +68,7 @@ export function SolutionsTokenExtensionsPage() {
               hierarchy="outline"
               size="lg"
               iconSize="md"
-              url="https://solana.com/docs/tokens/extensions"
+              url="https://solana.com/developers/docs/tokens/extensions"
             />
             <Button
               key="get-in-touch"
@@ -250,7 +250,7 @@ export function SolutionsTokenExtensionsPage() {
           {
             hierarchy: "outline",
             size: "lg",
-            url: "https://solana.com/docs/tokens/extensions",
+            url: "https://solana.com/developers/docs/tokens/extensions",
             label: t("buttons.seeDocs"),
           },
         ]}

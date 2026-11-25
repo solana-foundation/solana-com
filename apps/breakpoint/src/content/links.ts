@@ -4,14 +4,10 @@ export const DEVELOPER_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-devapp";
 export const STUDENT_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-studentapp?typeform-source=www.google.com";
-export const SPONSOR_FORM_HREF =
-  "https://solanafoundation.typeform.com/bp26sponsorform";
 export const PRESS_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-press";
 export const CONTENT_CREATOR_APPLICATION_HREF =
   "https://solanafoundation.typeform.com/bp26-creator";
-export const APPLY_TO_SPEAK_HREF =
-  "https://airtable.com/appCy7M2j24UF6QqT/pagRLZbQJSUsyz3Tn/form";
 export const CODE_OF_CONDUCT_HREF = "https://shorturl.at/lEMR1";
 export const SIDE_EVENTS_HREF = "https://luma.com/BP-SideEvents";
 // Public calendar: https://luma.com/BP-Highlight
@@ -27,7 +23,21 @@ export const LONDON_CITY_AIRPORT_HREF = "https://www.londoncityairport.com/";
 export const HEATHROW_AIRPORT_HREF = "https://www.heathrow.com/";
 export const GATWICK_AIRPORT_HREF = "https://www.gatwickairport.com/";
 export const BREAKPOINT_EMAIL_HREF = "mailto:breakpoint@solana.org";
+// Iterable public form behind the header "Get Updates" dialog.
+export const BREAKPOINT_NEWSLETTER_FORM_ID =
+  "16189fcd-ac6c-4cc9-ac4a-94aa102fccc1";
+// Breakpoint 2027 updates list (Iterable list 11699158):
+// https://app.iterable.com/segmentation?emailListId=11699158
+// The site posts to the list's public subscriber form (its `publicIdString`),
+// not the list id.
+// Breakpoint 2027 registration on Luma.
+export const BP27_REGISTRATION_HREF = "https://luma.com/solana-breakpoint-2027";
+export const BP27_UPDATES_FORM_ID = "a85fd8f3-c4f1-4771-ac3e-03851ac82add";
 export const VISA_CHECK_HREF = "https://www.gov.uk/check-uk-visa";
 export const LOCUS_HREF = "https://breakpoint.golocus.xyz/uk-entry";
 export const IAS_HREF =
   "https://iasservices.org.uk/breakpoint-priority-visa-application-centre/";
+
+// Playlist supplied for the post-conference experience.
+export const BREAKPOINT_RECAP_PLAYLIST_HREF =
+  "https://www.youtube.com/playlist?list=PLHlhC6wstB90";

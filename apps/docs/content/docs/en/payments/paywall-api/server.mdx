@@ -1,0 +1,227 @@
+---
+title: "Add it to your server"
+description:
+  "Pay for your endpoint from a client with a spending cap, run the server and
+  client on a local test network, and move the handler into your own app."
+---
+
+import Stepper from "/snippets/paths/en/paywall-api/stepper-3.mdx";
+import Config from "/snippets/examples/paths/payments/checkout/config.mdx";
+import Verify from "/snippets/examples/paths/payments/checkout/verify.mdx";
+import X402Types from "/snippets/examples/paths/payments/paywall-api/types.mdx";
+import PaywallServer from "/snippets/examples/paths/payments/paywall-api/server.mdx";
+import PaywallClient from "/snippets/examples/paths/payments/paywall-api/client.mdx";
+import PaywallRun from "/snippets/examples/paths/payments/paywall-api/run.mdx";
+import Rpc from "/snippets/concepts/en/rpc.mdx";
+import Commitment from "/snippets/concepts/en/commitment.mdx";
+
+<Stepper />
+
+This step puts the server in a project on your machine, adds the client that
+pays it, and runs both against a local test network or devnet.
+
+## 1. Create the project
+
+You need Node.js 20.18 or later. The paywall shares the `solana-payments`
+project with the Build a checkout tutorial: its files go in `paywall-api/`,
+next to the `checkout/` folder it reuses two files from. Run every command from
+`solana-payments`. If you did the checkout tutorial, skip to
+[step 2](#2-save-the-server). Otherwise create the project:
+
+```bash Terminal
+mkdir -p solana-payments/checkout solana-payments/paywall-api && cd solana-payments
+npm init -y && npm pkg set type=module
+npm install @solana/kit @solana-program/token
+npm install --save-dev tsx
+```
+
+`"type": "module"` lets the scripts use top-level `await`. `tsx` runs the
+TypeScript files directly. The examples are tested with `@solana/kit` 8.4 and
+`@solana-program/token` 0.17.
+
+The server and client read their network settings from environment variables
+and default to devnet. Save this as `checkout/config.ts`:
+
+<Config />
+
+<Rpc />
+
+The server checks each settled payment with the checkout tutorial's
+`verifyPayment`. Save it as `checkout/verify-payment.ts`:
+
+<Verify />
+
+## 2. Save the server
+
+Save the two files from the previous step as `paywall-api/x402.ts` and
+`paywall-api/server.ts`:
+
+<X402Types />
+
+`x402.ts` reads `X402_NETWORK` the same way as `config.ts`, with the devnet
+CAIP-2 identifier as the default.
+
+<PaywallServer />
+
+## 3. Pay from a client
+
+`fetchWithPayment` works like `fetch`, but pays when it gets a `402`.
+`createPaymentHeader` picks the USDC option, refuses any price above
+`maxAmount`, and signs a USDC transfer to `payTo`. `fetchWithPayment` then
+retries with the signed transaction in the `X-PAYMENT` header. Save this as
+`paywall-api/client.ts`:
+
+<PaywallClient />
+
+Set `maxAmount`, the most a single request can cost, on every client you give
+a wallet to, including AI agents.
+
+## 4. Run it on your machine
+
+This script plays both sides. It starts the paywall server on port 3000 with a
+price of 0.001 USDC, paid to a new wallet whose USDC account it opens, then
+makes four requests: one without paying, one that pays, the same payment sent
+again, and one from a client whose `maxAmount` of 500 is below the price of
+1,000. Save it as `paywall-api/run.ts`:
+
+<PaywallRun />
+
+The script pays as the client with a key file: the one named in
+`CLIENT_KEYPAIR`, or the Solana CLI default `~/.config/solana/id.json`. If you
+don't have one yet, save this as `keygen.ts` in `solana-payments`. It writes a
+new key file in the same format and prints its address:
+
+```ts keygen.ts
+import { generateKeyPairSync } from "node:crypto";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { createKeyPairSignerFromBytes } from "@solana/kit";
+
+// Writes a new key file in the Solana CLI format (64 bytes as a JSON array).
+const keyPath = join(homedir(), ".config", "solana", "id.json");
+if (existsSync(keyPath)) throw new Error(`${keyPath} exists; not overwriting it`);
+const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+const bytes = new Uint8Array([
+  ...privateKey.export({ format: "der", type: "pkcs8" }).subarray(-32),
+  ...publicKey.export({ format: "der", type: "spki" }).subarray(-32),
+]);
+mkdirSync(dirname(keyPath), { recursive: true });
+writeFileSync(keyPath, JSON.stringify([...bytes]), { mode: 0o600 });
+console.log(`Address: ${(await createKeyPairSignerFromBytes(bytes)).address}`);
+```
+
+```bash Terminal
+npx tsx keygen.ts
+```
+
+The key file is a private key. Keep it out of version control.
+
+The client needs SOL for fees and at least 0.001 USDC on the same USDC mint the
+code uses. Pick a network:
+
+<Tabs>
+<Tab title="Local (Surfpool)">
+
+1. Install the [Surfpool CLI](/developers/docs/tools/surfpool/toolchain/getting-started)
+   and start a local network that copies accounts from devnet, so the devnet
+   USDC mint the code uses exists locally. It airdrops SOL to
+   `~/.config/solana/id.json` when it starts (create the key file first):
+
+   ```bash Terminal
+   surfpool start --network devnet
+   ```
+
+2. In another terminal, in `solana-payments`, give the client 1 test USDC with
+   Surfpool's
+   [`surfnet_setTokenAccount`](/developers/docs/tools/surfpool/rpc/cheatcodes)
+   cheatcode. Replace `<client address>` with the address of your key file:
+
+   ```bash Terminal
+   curl http://127.0.0.1:8899 -s -X POST -H "Content-Type: application/json" -d '
+     {"jsonrpc": "2.0", "id": 1, "method": "surfnet_setTokenAccount",
+      "params": ["<client address>", "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
+                 {"amount": 1000000, "state": "initialized"},
+                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"]}'
+   ```
+
+3. Point the code at Surfpool. `X402_NETWORK` stays at its devnet default,
+   because Surfpool copies devnet:
+
+   ```bash Terminal
+   export RPC_URL=http://127.0.0.1:8899
+   export RPC_SUBSCRIPTIONS_URL=ws://127.0.0.1:8900
+   ```
+
+</Tab>
+<Tab title="Devnet">
+
+Leave `RPC_URL` and `RPC_SUBSCRIPTIONS_URL` unset. Paste the client's address
+into the [Solana Faucet](https://faucet.solana.com/) for devnet SOL, and into
+[Circle's faucet](https://faucet.circle.com/) with **Solana Devnet** selected
+for devnet USDC.
+
+</Tab>
+</Tabs>
+
+Then run the script:
+
+```bash Terminal
+npx tsx paywall-api/run.ts
+```
+
+Expect the four answers shown under the script, with your own addresses and
+signatures: `402` with the price, `200` with the forecast and the settled
+signature, `402 payment already used` for the same `X-PAYMENT` header, and the
+over-cap client refusing without signing anything. Port 3000 in use? Run it
+with another port, for example `PORT=3001 npx tsx paywall-api/run.ts`.
+
+### Run the tests instead
+
+The code on these pages and its tests live in the docs repository under
+`packages/docs-examples/paths/payments/paywall-api`. The test starts its own
+Surfpool network and funds a test client, so you need no Surfpool CLI, keys,
+SOL, or USDC. It also checks that malformed `X-PAYMENT` headers get `402`
+without stopping the server, and that `payTo` is credited exactly the price:
+
+```sh Terminal
+git clone https://github.com/solana-foundation/solana-com.git
+cd solana-com
+corepack enable
+pnpm install
+pnpm --filter @workspace/docs-examples exec vitest run paths/payments/paywall-api
+```
+
+<Note>
+  The full example is in
+  [`packages/docs-examples/paths/payments/paywall-api`](https://github.com/solana-foundation/solana-com/tree/main/packages/docs-examples/paths/payments/paywall-api).
+</Note>
+
+<Note>
+  If you have no Solana CLI key file at `~/.config/solana/id.json`, the test
+  setup creates one there. To keep it out of your home folder, run the test
+  with `HOME` set to a temporary folder.
+</Note>
+
+## 5. Move it into your app
+
+Your server needs four files: `paywall-api/x402.ts`, `paywall-api/server.ts`,
+`checkout/config.ts`, and `checkout/verify-payment.ts`. The project that pays
+needs `paywall-api/client.ts`, `paywall-api/x402.ts`, and `checkout/config.ts`.
+If you put them all in one folder, change the imports `../checkout/config` and
+`../checkout/verify-payment` to `./config` and `./verify-payment`. Install
+`@solana/kit` and `@solana-program/token`. Then call
+`createPaywallServer({ payTo, price })` with your wallet address and a price in
+USDC base units (`1_000n` is 0.001 USDC), and call `listen` on the server it
+returns. The `payTo` wallet's USDC account must exist before the first payment.
+
+The handler only uses the request method, URL, and `X-PAYMENT` header, and it
+sets a status, headers, and a JSON body. To use Express, Fastify, or Hono, move
+the body of the `createServer` callback into a route handler for your paid
+route. The `usedSignatures` set must be shared by every request, as it is here.
+
+<Commitment />
+
+The server answers a paid request only after the payment reaches *confirmed*,
+so on a public network expect roughly the confirmation time added to your
+normal response time.

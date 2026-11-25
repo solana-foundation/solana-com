@@ -1,4 +1,8 @@
 import type { CompanyRecord } from "../../types";
+import raydiumLogoLight from "../../../assets/companies/raydium/logo-light.png";
+import raydiumLogoDarkRaster from "../../../assets/companies/raydium/logo-dark-raster.png";
+import raydiumMarkColor from "../../../assets/companies/raydium/mark-color.png";
+import raydiumBreakpoint2026White from "../../../assets/companies/raydium/breakpoint-2026-white.png";
 import raydiumLogoDark from "../../../assets/companies/raydium/logo-dark.svg";
 
 export const raydium = {
@@ -18,14 +22,45 @@ export const raydium = {
       docs: "https://docs.raydium.io/",
     },
     socials: {
-      x: "https://x.com/RaydiumProtocol",
+      x: "https://x.com/Raydium",
       discord: "https://discord.gg/raydium",
       github: "https://github.com/raydium-io",
-      medium: "https://medium.com/@raydium",
+      medium: "https://raydium.medium.com/",
     },
   },
   defaultLogoId: "logo-dark",
   logos: [
+    {
+      id: "logo-light",
+      fileName: "logo-light.png",
+      format: "png",
+      source: raydiumLogoLight,
+      theme: "dark",
+      kind: "logo",
+    },
+    {
+      id: "logo-dark-raster",
+      fileName: "logo-dark-raster.png",
+      format: "png",
+      source: raydiumLogoDarkRaster,
+      theme: "light",
+      kind: "logo",
+    },
+    {
+      id: "mark-color",
+      fileName: "mark-color.png",
+      format: "png",
+      source: raydiumMarkColor,
+      kind: "mark",
+    },
+    {
+      id: "breakpoint-2026-white",
+      fileName: "breakpoint-2026-white.png",
+      format: "png",
+      source: raydiumBreakpoint2026White,
+      theme: "dark",
+      kind: "logo",
+    },
     {
       id: "logo-dark",
       fileName: "logo-dark.svg",

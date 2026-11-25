@@ -102,4 +102,17 @@ describe("epoch1000 wallet checker rate limit", () => {
 
     expect(clientIpFromHeaders(headers)).toBe("203.0.113.10");
   });
+
+  it("ignores caller-supplied proxy headers that Vercel does not rewrite", () => {
+    const headers = new Headers({
+      "cf-connecting-ip": "198.51.100.1",
+      "true-client-ip": "198.51.100.2",
+      forwarded: "for=198.51.100.3",
+      "x-real-ip": "203.0.113.10",
+    });
+    expect(clientIpFromHeaders(headers)).toBe("203.0.113.10");
+    expect(
+      clientIpFromHeaders(new Headers({ "cf-connecting-ip": "198.51.100.1" })),
+    ).toBe("unknown");
+  });
 });

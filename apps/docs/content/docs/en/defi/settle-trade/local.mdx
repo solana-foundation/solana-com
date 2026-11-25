@@ -1,0 +1,179 @@
+---
+title: "Run it from your machine"
+description:
+  "Add the trade to your Issue an asset project, generate the DvP client, and
+  price and settle a trade from your terminal on a local Surfpool network or
+  devnet."
+---
+
+import Stepper from "/snippets/paths/en/settle-trade/stepper-3.mdx";
+import Price from "/snippets/examples/paths/defi/settle-trade/price.mdx";
+import Trade from "/snippets/examples/paths/defi/settle-trade/trade.mdx";
+import RunScript from "/snippets/examples/paths/defi/settle-trade/run.mdx";
+import Rent from "/snippets/concepts/en/rent.mdx";
+
+<Stepper />
+
+This step runs the trade from your terminal. The trade needs an asset to sell,
+so you add the DvP client and three files to your Issue an asset project. The
+output under each block is from a local Surfpool network copying mainnet.
+
+## 1. Start from your Issue an asset project
+
+If you haven't done it yet, follow
+[Run it from your machine](/developers/docs/assets/issue-asset/local) in the Issue an
+asset tutorial. You need its `config.ts`, `create-asset.ts`,
+`approve-holder.ts`, and `blocked-transfer.ts`, and an issuer key file. Each run
+creates a new LSF asset, and the issuer approves the investors and the trade's
+escrow.
+
+Then install the two extra packages the trade uses: the SPL Token client for
+the USDC leg and the Memo program address that `SettleDvp` takes.
+
+```bash Terminal
+npm install @solana-program/token @solana-program/memo
+```
+
+The examples are tested with `@solana-program/token` 0.17 and
+`@solana-program/memo` 0.15.
+
+## 2. Add the DvP client
+
+No package is published for the DvP client. Generate it from the program's IDL
+at the commit the
+[DvP program pages](/developers/docs/defi/dvp-program/create-a-trade#install) use, and copy
+it into your project as `./dvp`. Run this in your project folder. It clones the
+repository next to the project and needs `pnpm`:
+
+```bash Terminal
+git clone https://github.com/solana-foundation/dvp.git ../dvp-program
+(cd ../dvp-program && git checkout df9919ed02c25a93620e7f6820107c9050ce3b92 \
+  && pnpm install && pnpm generate-clients)
+cp -r ../dvp-program/clients/typescript/src ./dvp && rm -rf ./dvp/__tests__
+```
+
+The client depends only on `@solana/kit`, which the project already has.
+
+## 3. Start a local network
+
+Run the trade on a local Surfpool network that copies accounts from mainnet:
+the DvP program, the Pyth price feed account, and the USDC mint are mainnet's,
+and the test USDC is free.
+
+1. Install the [Surfpool CLI](/developers/docs/tools/surfpool/toolchain/getting-started)
+   and start it from mainnet, airdropping SOL to your issuer (replace
+   `<issuer address>` with the address of your key file):
+
+   ```bash Terminal
+   surfpool start --network mainnet --airdrop <issuer address>
+   ```
+
+   Without `--airdrop`, Surfpool only funds the Solana CLI default key file,
+   `~/.config/solana/id.json`.
+
+2. In the terminal where you run the code, point it at Surfpool and at mainnet
+   USDC. Unset, the code uses devnet and devnet USDC:
+
+   ```bash Terminal
+   export RPC_URL=http://127.0.0.1:8899
+   export RPC_SUBSCRIPTIONS_URL=ws://127.0.0.1:8900
+   export USDC_MINT=EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+   ```
+
+3. Give the issuer test USDC with Surfpool's
+   [`surfnet_setTokenAccount`](/developers/docs/tools/surfpool/rpc/cheatcodes)
+   cheatcode. Each run sends 6 USDC to the buyer, so 60 USDC covers ten runs.
+   Repeat it to top up:
+
+   ```bash Terminal
+   curl http://127.0.0.1:8899 -s -X POST -H "Content-Type: application/json" -d '
+     {"jsonrpc": "2.0", "id": 1, "method": "surfnet_setTokenAccount",
+      "params": ["<issuer address>", "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                 {"amount": 60000000, "state": "initialized"},
+                 "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"]}'
+   ```
+
+<Note>
+  **Devnet.** The same code runs against devnet with the three variables unset.
+  The examples were tested on a Surfpool network copying devnet, whose DvP
+  program is an older build than the client's commit (see
+  [Program ID](/developers/docs/defi/dvp-program#program-id)). The issuer needs SOL from
+  the [Solana Faucet](https://faucet.solana.com/) and 6 devnet USDC per run from
+  [Circle's faucet](https://faucet.circle.com/). The devnet USDC/USD feed can
+  update less often, so if the price check refuses the price as too old, set
+  `export MAX_PRICE_AGE_SECONDS=600`.
+</Note>
+
+## 4. Add the price
+
+Save this as `price.ts`. It's the code from the previous step.
+
+<Price />
+
+Surfpool copies the feed account once, the first time it's read, so a later
+run on the same network fails the age check with `price is … s old`. Reset the
+account to copy it again, then rerun:
+
+```bash Terminal
+curl http://127.0.0.1:8899 -s -X POST -H "Content-Type: application/json" -d '
+  {"jsonrpc": "2.0", "id": 1, "method": "surfnet_resetAccount",
+   "params": ["Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX"]}'
+```
+
+## 5. Add the trade
+
+Save this as `trade.ts`. It imports the client from `./dvp` and `failure` from
+the Issue an asset tutorial's `blocked-transfer.ts`.
+
+<Trade />
+
+<Rent />
+
+The agent pays the deposits for the trade record, its two escrow accounts, and
+a small marker account that stops the same trade address being used twice.
+When the agent settles, the record and the escrows are closed and their
+deposits go back to the agent. The marker account is never closed.
+
+## 6. Run it
+
+Save this as `trade-run.ts` (`run.ts` is the Issue an asset script). It creates
+a new LSF asset, gives the seller, the buyer, and the agent a little SOL for
+fees and the buyer 6 USDC, approves the two investors (the seller gets
+1000 LSF), then prices the trade, records it, funds the asset leg, tries to
+settle, funds the cash leg, and settles. The output starts with the new asset
+and the two approvals.
+
+<RunScript />
+
+Then run it:
+
+```bash Terminal
+npx tsx trade-run.ts
+```
+
+Expect the states and errors shown under the script, with your own addresses
+and signatures, and a USDC amount that follows the current price.
+
+## Run the tests instead
+
+The code on these pages and its tests live in the docs repository under
+`packages/docs-examples/paths/defi/settle-trade`. The test starts its own
+Surfpool network copying mainnet, so you need no Surfpool CLI, keys, SOL, or
+USDC:
+
+```bash Terminal
+git clone https://github.com/solana-foundation/solana-com.git
+cd solana-com
+corepack enable
+pnpm install
+pnpm --filter @workspace/docs-examples exec vitest run paths/defi/settle-trade
+```
+
+The tests pass when the first settle fails with `{"Custom":4}` and moves
+nothing, and the second moves 4 LSF to the buyer and the USDC to the seller and
+closes the trade.
+
+<Note>
+  The full example is in
+  [`packages/docs-examples/paths/defi/settle-trade`](https://github.com/solana-foundation/solana-com/tree/main/packages/docs-examples/paths/defi/settle-trade).
+</Note>

@@ -213,8 +213,8 @@ paths—no URL rewriting needed.
 
 **Solution:**
 
-1. Keep `@keystatic/core` 0.6.x paired with `@keystar/ui` 0.8.x. Keystatic 0.6
-   updates the UI and React Aria stack used by the branch dialog.
+1. Keep `@keystatic/core` 0.6.9 paired with its `@keystar/ui` 0.10.x peer. The
+   branch dialog uses the UI and React Aria stack supplied by these versions.
 2. Run `pnpm --filter solana-com-media test:keystatic-branches` to verify that
    the dialog opens, non-`staging-*` branches are filtered out, and the GitHub
    `createRef` request starts from `main`.

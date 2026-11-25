@@ -5,12 +5,19 @@ import {
   CardDeck,
   ConversionPanel,
   Stats,
-} from "@solana-foundation/solana-lib";
+} from "@workspace/ui/landing";
 import { useTranslations } from "next-intl";
 import { CONVERSION_PANEL_IMAGES } from "@/data/solutions/index";
 import { ResponsiveBox } from "@/component-library/responsive-box";
+import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
+import type { DisplayMetric } from "@/lib/metrics/present";
 
-export function SolutionsIndexPage() {
+export function SolutionsIndexPage({
+  statsMetrics,
+}: {
+  /** Registry figures for STATS_METRICS, in display order. */
+  statsMetrics: DisplayMetric[];
+}) {
   const t = useTranslations("solutions-index");
 
   const toolsCards = Array.from({ length: 8 }, (_, index) => ({
@@ -22,8 +29,8 @@ export function SolutionsIndexPage() {
     body: t(`cardsUseCases.${index}.body`),
   }));
 
-  const stats = Array.from({ length: 3 }, (_, index) => ({
-    stat: t(`stats.${index}.stat`),
+  const stats = statsMetrics.map((metric, index) => ({
+    stat: metric.value,
     description: t(`stats.${index}.description`),
   }));
 
@@ -324,6 +331,14 @@ export function SolutionsIndexPage() {
       />
 
       <Stats stats={stats} contained />
+      <div className="mx-auto -mt-8 mb-8 max-w-screen-xl px-4 sm:-mt-12 sm:px-6 lg:-mt-16 lg:px-8">
+        <MetricSourcesFootnote
+          items={statsMetrics.map((metric, index) => ({
+            label: stats[index].description,
+            source: metric.source,
+          }))}
+        />
+      </div>
 
       <ConversionPanel
         buttons={[

@@ -10,6 +10,7 @@ import { Link as LinkIcon } from "@boxicons/react/Link";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { remarkRejectMdxCode } from "@/lib/mdx-security";
 import rehypeSlug from "rehype-slug";
 import { reader } from "@/lib/reader";
 import { upgradeMdxComponents } from "@/components/upgrades/mdx-components";
@@ -194,7 +195,7 @@ export default async function Page({ params }: Props) {
               components={upgradeMdxComponents}
               options={{
                 mdxOptions: {
-                  remarkPlugins: [remarkGfm],
+                  remarkPlugins: [remarkGfm, remarkRejectMdxCode],
                   rehypePlugins: [rehypeSlug],
                 },
               }}
