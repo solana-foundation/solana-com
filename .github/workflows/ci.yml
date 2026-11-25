@@ -32,7 +32,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          # Full history so `turbo --affected` can diff against the base, but
+          # no file contents for old commits.
           fetch-depth: 0
+          filter: blob:none
 
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
@@ -43,15 +46,6 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version-file: .node-version
-          cache: "pnpm"
-
-      - name: Restore Turbo cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: .turbo/cache
-          key: ${{ runner.os }}-turbo-ci-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-ci-
 
       - name: Set fs.inotify
         run: sudo sysctl -w fs.inotify.max_user_watches=524288
@@ -60,6 +54,34 @@ jobs:
         run: |
           npm install --global @aikidosec/safe-chain@1.5.26
           safe-chain setup-ci
+
+      # Ask pnpm where it will put the store only after Safe Chain is set up,
+      # so the cached path is the one `pnpm install` below writes to.
+      - name: Locate pnpm store
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      # Caches are saved from main only (see the last steps), so pull requests
+      # read a store and a Turbo cache that main has already filled.
+      - name: Restore pnpm store
+        id: pnpm-store-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-store-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-${{ runner.os }}-
+
+      # main starts from an empty Turbo cache so the cache it saves holds one
+      # full run and does not grow with every commit.
+      - name: Restore Turbo cache
+        if: github.event_name != 'push'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .turbo/cache
+          key: turbo-check-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-check-${{ runner.os }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -71,3 +93,25 @@ jobs:
       - name: Check every workspace
         if: github.event_name != 'pull_request'
         run: pnpm check
+
+      - name: Prune pnpm store
+        if:
+          github.event_name == 'push' &&
+          steps.pnpm-store-cache.outputs.cache-hit != 'true'
+        run: pnpm store prune
+
+      - name: Save pnpm store
+        if:
+          github.event_name == 'push' &&
+          steps.pnpm-store-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ steps.pnpm-store-cache.outputs.cache-primary-key }}
+
+      - name: Save Turbo cache
+        if: github.event_name == 'push'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: .turbo/cache
+          key: turbo-check-${{ runner.os }}-${{ github.sha }}
