@@ -58,7 +58,7 @@ function renderStage() {
   return render(
     <div>
       <FilmStage
-        gains={{ agave: 1, firedancer: 1, mithril: 0, sig: 0 }}
+        gains={{ agave: 1, firedancer: 1 }}
         source={{
           status: "live",
           finalityMs: 200,

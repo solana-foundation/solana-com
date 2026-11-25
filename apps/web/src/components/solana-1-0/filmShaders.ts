@@ -51,24 +51,25 @@ void main() {
   float r = length(p);
   p *= 1.0 + 0.02 * sin(uTime * 0.9 - r * 2.2);
 
-  // heartbeat: every block sends a ring through its builder's particles
+  // heartbeat: blocks send a slow, faint ripple through their builder's
+  // particles; the renderer spaces them out so it never strobes
   float agave = step(aSeed.z, 0.5);
   float since = mix(uPulse.y, uPulse.x, agave);
   float amp = mix(uPulseAmp.y, uPulseAmp.x, agave);
-  float ring = (r - since * 3.4) * 3.2;
-  float wave = exp(-ring * ring) * exp(-since * 2.6) * amp;
-  p += normalize(p + 1e-4) * wave * 0.045;
+  float ring = (r - since * 1.6) * 2.4;
+  float wave = exp(-ring * ring) * exp(-since * 1.2) * amp;
+  p += normalize(p + 1e-4) * wave * 0.018;
 
   float gain = mix(uGain.y, uGain.x, agave);
   vec3 base = mix(uColB, uColA, agave);
   base = mix(base, vec3(1.0), 0.3 * step(0.86, aSeed.y));
   vec3 col = mix(vec3(0.15, 0.145, 0.16), base, gain);
   float twinkle = 0.62 + 0.38 * sin(uTime * (1.0 + aSeed.y * 2.0) + aSeed.w * 6.2831);
-  vCol = col * (twinkle + wave * 1.7) * mix(0.3, 1.0, gain);
+  vCol = col * (twinkle + wave * 0.35) * mix(0.3, 1.0, gain);
 
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * mv;
-  gl_PointSize = uScale * (0.55 + aSeed.y * 1.15) * (1.0 + wave * 1.3 + arc * 0.6) / -mv.z;
+  gl_PointSize = uScale * (0.55 + aSeed.y * 1.15) * (1.0 + wave * 0.25 + arc * 0.6) / -mv.z;
 }
 `;
 

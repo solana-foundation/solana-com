@@ -1,21 +1,16 @@
 /**
- * Solana 1.0 hero configuration: the four validator clients, their light
- * colours, and which sub-clients count toward each family's light.
+ * Solana 1.0 hero configuration: the validator clients producing mainnet
+ * blocks, their light colours, and which sub-clients count toward each
+ * family's light.
  */
 
-export type ClientId = "agave" | "firedancer" | "mithril" | "sig";
+export type ClientId = "agave" | "firedancer";
 
 export interface ClientConfig {
   id: ClientId;
   name: string;
   language: string;
   team: string;
-  /**
-   * Producing blocks on mainnet. Flip to `true` when a staged client goes
-   * live: it becomes a toggle, its blocks take its colour, and its stencil
-   * outline in the plate becomes a light source.
-   */
-  live: boolean;
   /**
    * The client's light: `#rrggbb` (a trailing alpha byte is ignored). Lamps,
    * the plate shader, and the block stream all read this one value.
@@ -42,7 +37,6 @@ const CLIENT_DEFS: Omit<ClientConfig, "rgb">[] = [
     name: "Agave",
     language: "Rust",
     team: "Anza",
-    live: true,
     hex: "#14f195",
   },
   {
@@ -50,24 +44,7 @@ const CLIENT_DEFS: Omit<ClientConfig, "rgb">[] = [
     name: "Firedancer",
     language: "C",
     team: "Jump",
-    live: true,
     hex: "#9945ff",
-  },
-  {
-    id: "mithril",
-    name: "Mithril",
-    language: "Go",
-    team: "Overclock",
-    live: false,
-    hex: "#9945ff",
-  },
-  {
-    id: "sig",
-    name: "Sig",
-    language: "Zig",
-    team: "Syndica",
-    live: false,
-    hex: "#14f195",
   },
 ];
 
@@ -79,8 +56,6 @@ export const CLIENTS: readonly ClientConfig[] = CLIENT_DEFS.map((client) => ({
 export const CLIENT_INDEX: Record<ClientId, number> = {
   agave: 0,
   firedancer: 1,
-  mithril: 2,
-  sig: 3,
 };
 
 /**
@@ -102,21 +77,15 @@ const FAMILY_BY_CLIENT: Record<string, ClientId> = {
   FireBAM: "firedancer",
   "Harmonic FD": "firedancer",
   "Harmonic Frank": "firedancer",
-  Mithril: "mithril",
-  Sig: "sig",
 };
 
-const LIVE = new Set(CLIENTS.filter((c) => c.live).map((c) => c.id));
-
 /**
- * Family for a block's builder. Null when the client is unknown or its
- * family is not yet live on mainnet: the block renders neutral grey and does
- * not count toward any client's light.
+ * Family for a block's builder. Null for any other client: the block renders
+ * neutral grey and does not count toward any client's light.
  */
 export function familyOf(client: string | null | undefined): ClientId | null {
   if (!client) return null;
-  const family = FAMILY_BY_CLIENT[client];
-  return family && LIVE.has(family) ? family : null;
+  return FAMILY_BY_CLIENT[client] ?? null;
 }
 
 /** Group a slot number in threes: 461204117 -> "461 204 117". */

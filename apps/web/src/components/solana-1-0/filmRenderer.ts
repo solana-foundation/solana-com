@@ -37,9 +37,17 @@ const PARTICLES_NARROW = 26_000;
 const CAMERA_Z = 6.2;
 const FOV = 40;
 const GAIN_EASE_MS = 250;
+/**
+ * Seconds between ripples per client. Slots are 200ms, so ringing on every
+ * block strobes; one ripple per gap keeps the link to block production calm.
+ */
+const RIPPLE_GAP_S = 2.4;
 
 export interface FilmRenderer {
-  /** A block landed: its builder's particles ring. Null rings both, faintly. */
+  /**
+   * A block landed: its builder's particles ripple, at most once per
+   * RIPPLE_GAP_S. Null ripples both, faintly.
+   */
   pushBlock: (_family: ClientId | null) => void;
   /** Target light per client, 0 or 1; eased inside the renderer. */
   setGains: (_gains: Record<ClientId, number>) => void;
@@ -178,7 +186,6 @@ export function createFilmRenderer(canvas: HTMLCanvasElement): FilmRenderer {
   let sceneValue = 0;
   let shown = 0;
   let pair = 0;
-  let blip = 0;
   let pointerX = 0;
   let pointerY = 0;
   const targets = [1, 1];
@@ -257,10 +264,9 @@ export function createFilmRenderer(canvas: HTMLCanvasElement): FilmRenderer {
     pointUniforms.uPulse.value.set(time - pulseAt[0], time - pulseAt[1]);
 
     // a cut glitches hardest mid-morph, in bursts rather than a steady smear
-    blip *= Math.exp(-dt * 9);
     const arc = Math.sin(mix * Math.PI);
     const burst = Math.sin(time * 23) * Math.sin(time * 7.3) > 0.1 ? 1 : 0.2;
-    postUniforms.uGlitch.value = Math.min(1, arc * arc * burst + blip);
+    postUniforms.uGlitch.value = arc * arc * burst;
     postUniforms.uTime.value = time;
     postUniforms.uHaze.value.set(0.5 + x / halfW / 2, 0.5 + y / halfH / 2);
 
@@ -287,17 +293,18 @@ export function createFilmRenderer(canvas: HTMLCanvasElement): FilmRenderer {
   return {
     pushBlock(family) {
       const amps = pointUniforms.uPulseAmp.value;
-      if (family === null) {
-        pulseAt[0] = pulseAt[1] = time;
-        amps.set(0.35, 0.35);
-      } else if (family === "agave" || family === "firedancer") {
-        const i = family === "agave" ? 0 : 1;
-        if (targets[i] <= 0) return;
+      const ripple = (i: number, amp: number) => {
+        if (time - pulseAt[i] < RIPPLE_GAP_S) return;
         pulseAt[i] = time;
-        amps.setComponent(i, 1);
+        amps.setComponent(i, amp);
+      };
+      if (family === null) {
+        ripple(0, 0.35);
+        ripple(1, 0.35);
+      } else {
+        const i = CLIENT_INDEX[family];
+        if (targets[i] > 0) ripple(i, 1);
       }
-      // now and then a block lands with a flicker of the film's static
-      if (Math.random() < 0.012) blip = 0.5;
     },
     setGains(next) {
       targets[0] = next.agave > 0 ? 1 : 0;

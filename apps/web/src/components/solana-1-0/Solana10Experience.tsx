@@ -21,8 +21,6 @@ const IDLE_SOURCE: NetworkSource = {
 const ALL_ON: Record<ClientId, number> = {
   agave: 1,
   firedancer: 1,
-  mithril: 1,
-  sig: 1,
 };
 
 const CAPTION_MS = 1100;
@@ -130,63 +128,43 @@ export default function Solana10Experience({
           <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0">
             {CLIENTS.map((client) => {
               const on = gains[client.id] > 0;
-              const state = !client.live
-                ? t("state.staged")
-                : on
-                  ? t("state.live")
-                  : t("state.cut");
-              const label = (
-                <>
-                  <span
-                    className={`mt-[0.3rem] block h-2.5 w-2.5 shrink-0 rounded-full border transition-[background-color,box-shadow] duration-300 ${client.live ? "border-solid" : "border-dashed"}`}
-                    style={{
-                      borderColor: lightCss(client),
-                      backgroundColor:
-                        client.live && on ? lightCss(client) : "transparent",
-                      boxShadow:
-                        client.live && on
-                          ? `0 0 12px ${lightCss(client)}`
-                          : "none",
-                      opacity: client.live ? 1 : 0.7,
-                    }}
-                  />
-                  <span className="min-w-0">
-                    <span
-                      className={`block text-[0.9375rem] font-medium leading-tight tracking-[0.02em] ${client.live && on ? "text-[#ece7df]" : "text-[var(--s10-dim)]"}`}
-                    >
-                      {client.name}
-                    </span>
-                    <span className="mt-1 block font-brand-mono text-[0.6875rem] font-light leading-snug tracking-[0.04em] text-[var(--s10-dim)]">
-                      {client.language} · {client.team} · {state}
-                    </span>
-                  </span>
-                </>
-              );
+              const state = on ? t("state.live") : t("state.cut");
               return (
                 <li key={client.id} className="m-0">
-                  {client.live ? (
-                    <button
-                      type="button"
-                      aria-pressed={on}
-                      aria-label={t("toggleLabel", { client: client.name })}
-                      onClick={() => toggle(client.id)}
-                      className={`flex min-h-16 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-solid p-3 text-left font-brand text-[0.9375rem] font-normal normal-case tracking-normal transition-colors duration-200 hover:border-white/50 hover:!bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ece7df] motion-reduce:transition-none ${on ? "border-white/30 !bg-white/[0.06]" : "border-white/15 !bg-transparent"}`}
-                    >
-                      {label}
+                  <button
+                    type="button"
+                    aria-pressed={on}
+                    aria-label={t("toggleLabel", { client: client.name })}
+                    onClick={() => toggle(client.id)}
+                    className={`flex min-h-16 w-full cursor-pointer items-center gap-2.5 rounded-lg border border-solid p-3 text-left font-brand text-[0.9375rem] font-normal normal-case tracking-normal transition-colors duration-200 hover:border-white/50 hover:!bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ece7df] motion-reduce:transition-none ${on ? "border-white/30 !bg-white/[0.06]" : "border-white/15 !bg-transparent"}`}
+                  >
+                    <span
+                      className="mt-[0.3rem] block h-2.5 w-2.5 shrink-0 rounded-full border border-solid transition-[background-color,box-shadow] duration-300"
+                      style={{
+                        borderColor: lightCss(client),
+                        backgroundColor: on ? lightCss(client) : "transparent",
+                        boxShadow: on ? `0 0 12px ${lightCss(client)}` : "none",
+                      }}
+                    />
+                    <span className="min-w-0">
                       <span
-                        aria-hidden="true"
-                        className={`ml-auto flex h-5 w-8 shrink-0 items-center rounded-full border border-solid p-0.5 transition-colors motion-reduce:transition-none ${on ? "border-[#ece7df] bg-[#ece7df]" : "border-white/30 bg-white/10"}`}
+                        className={`block text-[0.9375rem] font-medium leading-tight tracking-[0.02em] ${on ? "text-[#ece7df]" : "text-[var(--s10-dim)]"}`}
                       >
-                        <span
-                          className={`h-3 w-3 rounded-full transition-transform motion-reduce:transition-none ${on ? "translate-x-3 bg-[#040408]" : "translate-x-0 bg-[#8a857f]"}`}
-                        />
+                        {client.name}
                       </span>
-                    </button>
-                  ) : (
-                    <div className="flex min-h-16 items-center gap-2.5 p-3">
-                      {label}
-                    </div>
-                  )}
+                      <span className="mt-1 block font-brand-mono text-[0.6875rem] font-light leading-snug tracking-[0.04em] text-[var(--s10-dim)]">
+                        {client.language} · {client.team} · {state}
+                      </span>
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={`ml-auto flex h-5 w-8 shrink-0 items-center rounded-full border border-solid p-0.5 transition-colors motion-reduce:transition-none ${on ? "border-[#ece7df] bg-[#ece7df]" : "border-white/30 bg-white/10"}`}
+                    >
+                      <span
+                        className={`h-3 w-3 rounded-full transition-transform motion-reduce:transition-none ${on ? "translate-x-3 bg-[#040408]" : "translate-x-0 bg-[#8a857f]"}`}
+                      />
+                    </span>
+                  </button>
                 </li>
               );
             })}
@@ -231,7 +209,7 @@ function LatestBuilder({
   const { subscribe } = source;
   const gainsRef = useRef(gains);
   gainsRef.current = gains;
-  const dark = CLIENTS.every((c) => !c.live || gains[c.id] <= 0);
+  const dark = CLIENTS.every((c) => gains[c.id] <= 0);
 
   useEffect(() => {
     setFamily(null);
