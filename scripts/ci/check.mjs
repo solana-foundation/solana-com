@@ -17,11 +17,21 @@ const env = { ...process.env };
 if (affected && !env.TURBO_SCM_BASE) {
   // Turbo's default base is the local `main` branch, which is often stale.
   // Compare against where this branch left origin/main instead.
-  env.TURBO_SCM_BASE = execFileSync(
-    "git",
-    ["merge-base", "origin/main", "HEAD"],
-    { encoding: "utf8" },
-  ).trim();
+  try {
+    env.TURBO_SCM_BASE = execFileSync(
+      "git",
+      ["merge-base", "origin/main", "HEAD"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+  } catch {
+    // Stop rather than guess a base: a wrong one would check too little.
+    console.error(
+      "pnpm check --affected compares this branch with origin/main, which " +
+        "this clone does not have.\nFetch it with `git fetch origin main`, " +
+        "or run `pnpm check` to check every workspace.",
+    );
+    process.exit(1);
+  }
 }
 
 function turbo(task, ...extra) {
@@ -66,7 +76,12 @@ for (const step of steps) {
   if (inActions) console.log(`::group::${step.name}`);
   else console.log(`\n── ${step.name}: ${step.cmd.join(" ")}`);
   const started = performance.now();
-  const { status, error } = spawnSync(command, args, { stdio: "inherit", env });
+  const { status, error } = spawnSync(command, args, {
+    stdio: "inherit",
+    env,
+    // pnpm is a .cmd shim on Windows, which needs a shell to launch.
+    shell: process.platform === "win32",
+  });
   const seconds = (performance.now() - started) / 1000;
   if (inActions) console.log("::endgroup::");
   if (error) console.error(`${step.name}: ${error.message}`);
