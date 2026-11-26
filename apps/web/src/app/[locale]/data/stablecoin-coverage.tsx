@@ -97,7 +97,7 @@ export function StablecoinCoverageTable({
 
       <div
         aria-labelledby="stablecoin-coverage-title"
-        className="hidden overflow-auto md:block"
+        className="relative hidden overflow-auto md:block"
         ref={tableScrollRef}
         role="region"
         style={{ maxHeight: tableMaxHeight }}
@@ -174,7 +174,7 @@ export function StablecoinCoverageTable({
 
       <div
         aria-labelledby="stablecoin-coverage-title"
-        className="divide-y divide-nd-border-light overflow-y-auto md:hidden"
+        className="relative divide-y divide-nd-border-light overflow-y-auto md:hidden"
         ref={cardScrollRef}
         role="region"
         style={{ maxHeight: cardMaxHeight }}

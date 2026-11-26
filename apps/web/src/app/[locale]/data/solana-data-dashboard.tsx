@@ -387,19 +387,10 @@ export function SolanaDataDashboard() {
                 />
               ) : null}
 
-              {isStablecoinsTab ? (
-                <StablecoinCoverageTable
-                  error={stablecoinCoverageError}
-                  isLoading={isStablecoinCoverageLoading}
-                  providers={coverageProviders}
-                  rows={stablecoinCoverage?.rows ?? emptyCoverageRows}
-                />
-              ) : null}
-
               <ChartGrid
                 activeCharts={activeCharts}
                 activeTab={activeTab}
-                isConnectedToPrevious={hasKpiGrid && !isStablecoinsTab}
+                isConnectedToPrevious={hasKpiGrid}
                 isLoading={isInitialLoading}
                 isRefreshing={isRefreshing}
                 range={range}
@@ -408,6 +399,15 @@ export function SolanaDataDashboard() {
                 selectedProviders={selectedProviders}
                 visibleCharts={visibleCharts}
               />
+
+              {isStablecoinsTab ? (
+                <StablecoinCoverageTable
+                  error={stablecoinCoverageError}
+                  isLoading={isStablecoinCoverageLoading}
+                  providers={coverageProviders}
+                  rows={stablecoinCoverage?.rows ?? emptyCoverageRows}
+                />
+              ) : null}
             </>
           )
         ) : null}
