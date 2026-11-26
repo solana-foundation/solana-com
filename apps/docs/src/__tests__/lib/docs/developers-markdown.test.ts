@@ -40,9 +40,9 @@ describe("/developers as Markdown", () => {
     expect(md).toContain(
       "https://solana.com/developers/docs/intro/agent-setup.md",
     );
-    // Templates are another app: no .md twin. Coming-soon routes are left out.
+    // Templates are another app: no .md twin. Playground is another site.
     expect(md).toContain("(https://solana.com/developers/templates)");
-    expect(md).not.toContain(landing.routes.items.playground.title);
+    expect(md).toContain("(https://playground.solana.com)");
   });
 
   it("links locale pages in other languages", async () => {
