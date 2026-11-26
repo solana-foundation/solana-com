@@ -128,7 +128,7 @@ export const PAYMENT_SNIPPET = {
 
 /**
  * "Other ways to learn" cards. A route without an `href` is shown greyed
- * out as "Coming soon" (the new Solana Playground, until it launches).
+ * out as "Coming soon".
  */
 export const LEARN_ROUTES: readonly {
   id: "docs" | "bootcamp" | "templates" | "playground";
@@ -140,7 +140,7 @@ export const LEARN_ROUTES: readonly {
     href: "/developers/docs/video-guides/2026-developer-bootcamp",
   },
   { id: "templates", href: "/developers/templates" },
-  { id: "playground" },
+  { id: "playground", href: "https://playground.solana.com" },
 ];
 
 export type LearnRouteId = (typeof LEARN_ROUTES)[number]["id"];
