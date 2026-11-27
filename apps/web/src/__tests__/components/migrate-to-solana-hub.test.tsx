@@ -132,6 +132,20 @@ describe("Migrate to Solana hub", () => {
     expect(screen.getByRole("heading", { name: "Privacy" })).toBeTruthy();
   });
 
+  it("shows the Harmonic Aristotle credits offer and claim form", () => {
+    renderPage();
+    expect(
+      screen.getByText(
+        "1,000 Aristotle credits to formally verify your Solana programs.",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole("link", { name: "Claim your credits" })
+        .getAttribute("href"),
+    ).toBe("https://form.typeform.com/to/kXEFtTiu");
+  });
+
   it("lists ecosystem guides and migration examples", () => {
     renderPage();
     expect(

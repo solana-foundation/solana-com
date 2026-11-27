@@ -195,6 +195,18 @@ export const PARTNER_CATEGORIES: PartnerCategory[] = [
         status: "pending",
       },
       {
+        id: "harmonic",
+        name: "Harmonic Aristotle",
+        url: "https://www.harmonic.fun/aristotle/",
+        status: "live",
+        resources: [
+          {
+            key: "harmonicAristotleCredits",
+            url: "https://form.typeform.com/to/kXEFtTiu",
+          },
+        ],
+      },
+      {
         id: "cantina",
         name: "Cantina",
         url: "https://cantina.xyz",
