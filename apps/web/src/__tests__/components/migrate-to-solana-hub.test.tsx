@@ -12,6 +12,10 @@ import {
   getVisiblePartnerCategories,
   sanitizeReferral,
 } from "@/app/[locale]/developers/migrate-to-solana/migration-program";
+import {
+  MIGRATION_EXAMPLES,
+  RESOURCE_GROUPS,
+} from "@/app/[locale]/developers/migrate-to-solana/migration-resources";
 
 // Background animations aren't part of what these tests cover.
 vi.mock("next/dynamic", () => ({ default: () => () => null }));
@@ -126,6 +130,30 @@ describe("Migrate to Solana hub", () => {
         .getAttribute("href"),
     ).toBe("https://www.helius.dev/docs/privacy/integration/wallet");
     expect(screen.getByRole("heading", { name: "Privacy" })).toBeTruthy();
+  });
+
+  it("lists ecosystem guides and migration examples", () => {
+    renderPage();
+    expect(
+      screen.getByRole("heading", {
+        name: "Guides and migrations from the ecosystem",
+      }),
+    ).toBeTruthy();
+    for (const name of ["Helium", "Render Network", "GEODNET"]) {
+      expect(screen.getByRole("heading", { name })).toBeTruthy();
+    }
+
+    const items = [...RESOURCE_GROUPS, ...MIGRATION_EXAMPLES].flatMap(
+      (group) => group.items,
+    );
+    for (const item of items) {
+      expect(item.url).toMatch(/^(\/[a-z0-9]|https:\/\/)/);
+      const link = screen.getByRole("link", { name: new RegExp(item.title) });
+      expect(link.getAttribute("href")).toBe(item.url);
+      if (item.url.startsWith("https://")) {
+        expect(link.getAttribute("target")).toBe("_blank");
+      }
+    }
   });
 
   it("drops categories that have no visible partners", () => {

@@ -41,6 +41,11 @@ import {
   type MigrationPartner,
   type PartnerCategory,
 } from "./migration-program";
+import {
+  MIGRATION_EXAMPLES,
+  RESOURCE_GROUPS,
+  type MigrationResource,
+} from "./migration-resources";
 
 const UnicornScene = dynamic(
   () => import("unicornstudio-react").then((mod) => mod.default),
@@ -311,6 +316,35 @@ function PartnerTile({ partner }: { partner: MigrationPartner }) {
   );
 }
 
+function ResourceList({ items }: { items: MigrationResource[] }) {
+  return (
+    <ul className="m-0 flex list-none flex-col gap-4 p-0">
+      {items.map((item) => (
+        <li key={item.url} className="m-0">
+          <a
+            href={item.url}
+            {...externalProps(item.url)}
+            className="group flex items-start justify-between gap-3 text-inherit no-underline"
+          >
+            <span>
+              <span className="nd-body-m block font-medium text-white group-hover:underline">
+                {item.title}
+              </span>
+              <span className="nd-body-s block text-white/50">
+                {item.publisher}
+              </span>
+            </span>
+            <ArrowUpRight
+              className="mt-1 size-4 shrink-0 text-white/40 transition-colors group-hover:text-white"
+              aria-hidden
+            />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function DevelopersChainMigrationPage() {
   const tGuides = useTranslations("developers-evm-to-svm");
   const t = useTranslations("developers-migrate-hub");
@@ -551,6 +585,49 @@ export function DevelopersChainMigrationPage() {
           </section>
         </>
       ) : null}
+
+      <SectionDivider />
+
+      {/* Ecosystem guides and real-world migrations */}
+      <section
+        id="migration-resources"
+        className={`${SECTION} scroll-mt-24 py-24`}
+      >
+        <SectionHeading
+          eyebrow={t("resources.eyebrow")}
+          headline={t("resources.headline")}
+          body={t("resources.body")}
+        />
+        <div className="mt-12 grid gap-4 md:grid-cols-2">
+          {RESOURCE_GROUPS.map((group) => (
+            <div key={group.key} className={`p-8 ${CARD}`}>
+              <h3 className="font-brand text-xl font-medium text-white mb-6">
+                {t(`resources.groups.${group.key}`)}
+              </h3>
+              <ResourceList items={group.items} />
+            </div>
+          ))}
+        </div>
+        <h3 className="font-brand text-2xl font-medium text-white mt-16 mb-2">
+          {t("resources.examplesTitle")}
+        </h3>
+        <p className="nd-body-m text-[#ABABBA] mb-6 max-w-2xl">
+          {t("resources.examplesBody")}
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          {MIGRATION_EXAMPLES.map((example) => (
+            <div key={example.key} className={`p-8 ${CARD}`}>
+              <h4 className="font-brand text-xl font-medium text-white mb-1">
+                {t(`resources.examples.${example.key}.name`)}
+              </h4>
+              <p className="nd-body-s text-sky-200/80 mb-6">
+                {t(`resources.examples.${example.key}.route`)}
+              </p>
+              <ResourceList items={example.items} />
+            </div>
+          ))}
+        </div>
+      </section>
 
       <SectionDivider />
 
