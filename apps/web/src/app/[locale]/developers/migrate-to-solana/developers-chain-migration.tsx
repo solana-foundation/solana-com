@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { Container } from "@/component-library/container";
 import { useTranslations } from "next-intl";
@@ -30,9 +31,12 @@ import {
   INTAKE_FORM_URL,
   OFFICE_HOURS_URL,
   PARTNER_APPLICATION_URL,
+  REFERRAL_PARAM,
   SUPPORTED_THRESHOLD,
+  buildIntakeUrl,
   getPartnerLogoSrc,
   getVisiblePartnerCategories,
+  sanitizeReferral,
   type MigrationPartner,
   type PartnerCategory,
 } from "./migration-program";
@@ -50,10 +54,39 @@ const EarthAnimation = dynamic(
   { ssr: false },
 );
 
-// Local development shows pending partners and placeholder CTAs so the full
-// layout can be reviewed before partners and the HubSpot form are confirmed.
+// Local development shows pending partners so the full layout can be
+// reviewed before every partner has confirmed.
 const IS_DEV = process.env.NODE_ENV === "development";
-const INTAKE_HREF = INTAKE_FORM_URL || (IS_DEV ? "#intake-form-todo" : "");
+const REFERRAL_STORAGE_KEY = "migrate-to-solana:ref";
+
+/**
+ * Reads ?ref= for the internal referral competition and keeps it for the
+ * visit, so the referral survives clicking around the page before applying.
+ */
+function useReferral() {
+  const [referral, setReferral] = useState("");
+
+  useEffect(() => {
+    const fromUrl = sanitizeReferral(
+      new URLSearchParams(window.location.search).get(REFERRAL_PARAM),
+    );
+    let value = fromUrl;
+    try {
+      if (fromUrl) {
+        window.sessionStorage.setItem(REFERRAL_STORAGE_KEY, fromUrl);
+      } else {
+        value = sanitizeReferral(
+          window.sessionStorage.getItem(REFERRAL_STORAGE_KEY),
+        );
+      }
+    } catch {
+      // Storage can be unavailable (private mode); the URL value still works.
+    }
+    setReferral(value);
+  }, []);
+
+  return referral;
+}
 
 const THRESHOLD_VALUES = {
   tvl: SUPPORTED_THRESHOLD.tvlUsd,
@@ -284,12 +317,15 @@ export function DevelopersChainMigrationPage() {
     Icon: RESOURCE_ICONS[index],
   }));
 
+  const referral = useReferral();
+  const intakeHref = buildIntakeUrl(INTAKE_FORM_URL, referral);
+
   const partnerCategories = getVisiblePartnerCategories(IS_DEV);
 
   const steps = [
     { href: "#choose-your-chain", highlighted: false },
     {
-      href: INTAKE_HREF,
+      href: intakeHref,
       highlighted: false,
       // The partners section only renders when at least one partner is visible.
       secondaryHref: partnerCategories.length > 0 ? "#partners" : "",
@@ -437,10 +473,10 @@ export function DevelopersChainMigrationPage() {
                 headline={t("partners.headline")}
                 body={t("partners.body")}
               />
-              {INTAKE_HREF ? (
+              {intakeHref ? (
                 <div className="shrink-0">
                   <PillButton
-                    href={INTAKE_HREF}
+                    href={intakeHref}
                     label={t("hero.getMatched")}
                     hierarchy="primary"
                   />
@@ -659,9 +695,9 @@ export function DevelopersChainMigrationPage() {
               label={t("hero.readGuides")}
               hierarchy="primary"
             />
-            {INTAKE_HREF ? (
+            {intakeHref ? (
               <PillButton
-                href={INTAKE_HREF}
+                href={intakeHref}
                 label={t("hero.getMatched")}
                 hierarchy="outline"
               />

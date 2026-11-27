@@ -2,11 +2,41 @@ import { getCompanyLogoSrc, type CompanyId } from "@workspace/ecosystem-data";
 
 /**
  * Settings for the Migrate to Solana program sections of the hub page.
- * Owner todos for filling these in live in docs/migrate-to-solana/todo.md.
  */
 
-/** HubSpot intake form share URL. CTAs that open it are hidden while empty. */
-export const INTAKE_FORM_URL = "";
+/**
+ * Tally intake form. CTAs that open it are hidden while empty. Responses go
+ * to Google Sheets through Tally's integration.
+ */
+export const INTAKE_FORM_URL = "https://tally.so/r/WJzzAQ";
+
+/**
+ * Referral tracking for the internal competition: a link such as
+ * /developers/migrate-to-solana?ref=jh passes "jh" to the form's hidden field
+ * of the same name. The form has a hidden field called `ref`.
+ */
+export const REFERRAL_PARAM = "ref";
+
+/** Short staff codes only: letters, digits, dashes and underscores. */
+export function sanitizeReferral(value: string | null | undefined) {
+  if (!value) return "";
+  const trimmed = value.trim().toLowerCase();
+  return /^[a-z0-9_-]{1,32}$/.test(trimmed) ? trimmed : "";
+}
+
+/**
+ * Referral recorded for submissions that came through the website without a
+ * staff code, so they're distinguishable from direct visits to the form link.
+ */
+export const WEBSITE_REFERRAL = "website";
+
+/** The intake form URL with the referral code as a query parameter. */
+export function buildIntakeUrl(formUrl: string, referral: string) {
+  if (!formUrl) return "";
+  const url = new URL(formUrl);
+  url.searchParams.set(REFERRAL_PARAM, referral || WEBSITE_REFERRAL);
+  return url.toString();
+}
 
 /** Contact or form for companies that want to be listed as partners. */
 export const PARTNER_APPLICATION_URL = "";
@@ -147,6 +177,12 @@ export const PARTNER_CATEGORIES: PartnerCategory[] = [
         id: "ottersec",
         name: "OtterSec",
         url: "https://osec.io",
+        status: "pending",
+      },
+      {
+        id: "cantina",
+        name: "Cantina",
+        url: "https://cantina.xyz",
         status: "pending",
       },
     ],

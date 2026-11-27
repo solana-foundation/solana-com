@@ -6,8 +6,11 @@ import { loadMergedMessages } from "@workspace/i18n/messages";
 
 import { DevelopersChainMigrationPage } from "@/app/[locale]/developers/migrate-to-solana/developers-chain-migration";
 import {
+  INTAKE_FORM_URL,
   PARTNER_CATEGORIES,
+  buildIntakeUrl,
   getVisiblePartnerCategories,
+  sanitizeReferral,
 } from "@/app/[locale]/developers/migrate-to-solana/migration-program";
 
 // Background animations aren't part of what these tests cover.
@@ -74,11 +77,16 @@ describe("Migrate to Solana hub", () => {
     expect(screen.queryByText("Pending")).toBeNull();
   });
 
-  it("hides the intake CTA until a form URL is configured", () => {
+  it("opens the intake form from the partner CTAs", () => {
     renderPage();
-    expect(
-      screen.queryByRole("link", { name: "Get matched with partners" }),
-    ).toBeNull();
+    const links = screen.getAllByRole("link", {
+      name: "Get matched with partners",
+    });
+    expect(links.length).toBeGreaterThanOrEqual(2);
+    for (const link of links) {
+      expect(link.getAttribute("href")).toBe(`${INTAKE_FORM_URL}?ref=website`);
+      expect(link.getAttribute("target")).toBe("_blank");
+    }
   });
 
   it("offers the guides and the support tracks from the hero", () => {
@@ -104,5 +112,23 @@ describe("Migrate to Solana hub", () => {
     expect(getVisiblePartnerCategories(true)).toHaveLength(
       PARTNER_CATEGORIES.length,
     );
+  });
+
+  it("adds the referral code to the intake form URL", () => {
+    expect(buildIntakeUrl("https://tally.so/r/abc", "jh")).toBe(
+      "https://tally.so/r/abc?ref=jh",
+    );
+    expect(buildIntakeUrl("https://tally.so/r/abc", "")).toBe(
+      "https://tally.so/r/abc?ref=website",
+    );
+    expect(buildIntakeUrl("", "jh")).toBe("");
+  });
+
+  it("accepts only short staff codes as referrals", () => {
+    expect(sanitizeReferral(" JH ")).toBe("jh");
+    expect(sanitizeReferral("jonas-h_2")).toBe("jonas-h_2");
+    expect(sanitizeReferral("<script>")).toBe("");
+    expect(sanitizeReferral("a".repeat(33))).toBe("");
+    expect(sanitizeReferral(null)).toBe("");
   });
 });
