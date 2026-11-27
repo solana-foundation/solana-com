@@ -77,6 +77,7 @@ pnpm dev:bp
 pnpm --filter solana-docs dev
 pnpm --filter solana-templates dev
 pnpm --filter solana-com-breakpoint dev
+pnpm check --affected
 pnpm lint
 pnpm test
 pnpm --filter <workspace> lint
