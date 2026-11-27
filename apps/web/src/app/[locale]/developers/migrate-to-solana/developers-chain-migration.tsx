@@ -12,6 +12,7 @@ import { ChevronRight } from "@boxicons/react/ChevronRight";
 import { Code } from "@boxicons/react/Code";
 import { ArrowLeftRight } from "@boxicons/react/ArrowLeftRight";
 import { Coins } from "@boxicons/react/Coins";
+import { EyeSlash } from "@boxicons/react/EyeSlash";
 import { FileDetail as FileText } from "@boxicons/react/FileDetail";
 import { Lock } from "@boxicons/react/Lock";
 import { Plus } from "@boxicons/react/Plus";
@@ -103,6 +104,7 @@ const CATEGORY_ICONS: Record<
   liquidity: ArrowLeftRight,
   security: CheckShield,
   multisig: Lock,
+  privacy: EyeSlash,
 };
 
 const RESOURCE_ICONS = [Code, FileText, Youtube, Tools];
@@ -252,42 +254,59 @@ function PartnerTile({ partner }: { partner: MigrationPartner }) {
   const offerKey = `offers.${partner.id}`;
 
   return (
-    <li className="m-0">
+    <li className="m-0 flex h-full flex-col gap-3 rounded-lg border border-white/10 bg-black/30 p-4 transition-colors hover:border-white/30">
       <a
         href={partner.url}
         target="_blank"
         rel="noopener noreferrer"
         aria-label={t("visit", { name: partner.name })}
-        className="group flex h-full flex-col gap-3 rounded-lg border border-white/10 bg-black/30 p-4 text-inherit no-underline transition-colors hover:border-white/30"
+        className="group flex items-center justify-between gap-3 text-inherit no-underline"
       >
-        <div className="flex items-center justify-between gap-3">
-          {logoSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element -- static SVG asset from ecosystem-data
-            <img
-              src={logoSrc}
-              alt=""
-              className="h-6 w-auto max-w-[140px] object-contain object-left brightness-0 invert"
-            />
-          ) : (
-            <span className="font-brand text-lg font-medium text-white">
-              {partner.name}
-            </span>
-          )}
-          <ArrowUpRight
-            className="size-4 shrink-0 text-white/40 transition-colors group-hover:text-white"
-            aria-hidden
+        {logoSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element -- static SVG asset from ecosystem-data
+          <img
+            src={logoSrc}
+            alt=""
+            className="h-6 w-auto max-w-[140px] object-contain object-left brightness-0 invert"
           />
-        </div>
-        {logoSrc ? <span className="sr-only">{partner.name}</span> : null}
-        {t.has(offerKey) ? (
-          <p className="nd-body-s text-[#ABABBA] mb-0">{t(offerKey)}</p>
-        ) : null}
-        {partner.status === "pending" ? (
-          <span className="self-start rounded-full border border-amber-300/40 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-amber-200">
-            {t("pending")}
+        ) : (
+          <span className="font-brand text-lg font-medium text-white">
+            {partner.name}
           </span>
-        ) : null}
+        )}
+        <ArrowUpRight
+          className="size-4 shrink-0 text-white/40 transition-colors group-hover:text-white"
+          aria-hidden
+        />
       </a>
+      {t.has(offerKey) ? (
+        <p className="nd-body-s text-[#ABABBA] mb-0">{t(offerKey)}</p>
+      ) : null}
+      {partner.resources?.length ? (
+        <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
+          {partner.resources.map((resource) => (
+            <li key={resource.key} className="m-0">
+              <a
+                href={resource.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex items-center gap-1 text-sm text-white/70 no-underline transition-colors hover:text-white"
+              >
+                {t(`resources.${resource.key}`)}
+                <ArrowUpRight
+                  className="size-3.5 shrink-0 text-white/40 transition-colors group-hover:text-white"
+                  aria-hidden
+                />
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {partner.status === "pending" ? (
+        <span className="self-start rounded-full border border-amber-300/40 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-amber-200">
+          {t("pending")}
+        </span>
+      ) : null}
     </li>
   );
 }

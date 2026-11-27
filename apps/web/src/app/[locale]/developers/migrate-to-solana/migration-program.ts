@@ -65,11 +65,20 @@ export type MigrationPartner = {
   status: PartnerStatus;
   /** Omit when the company has no ecosystem-data record yet; the name renders as text. */
   companyId?: CompanyId;
+  /** Extra links shown on the card; labels live in partners.resources.<key>. */
+  resources?: { key: string; url: string }[];
 };
 
 export type PartnerCategory = {
   /** i18n key under partners.categories.<key> */
-  key: "rpc" | "wallets" | "tokens" | "liquidity" | "security" | "multisig";
+  key:
+    | "rpc"
+    | "wallets"
+    | "tokens"
+    | "liquidity"
+    | "security"
+    | "multisig"
+    | "privacy";
   partners: MigrationPartner[];
 };
 
@@ -88,7 +97,13 @@ export const PARTNER_CATEGORIES: PartnerCategory[] = [
         id: "helius",
         name: "Helius",
         url: "https://www.helius.dev",
-        status: "pending",
+        status: "live",
+        resources: [
+          {
+            key: "heliusSolanaVsEthereum",
+            url: "https://www.helius.dev/solana-vs-ethereum",
+          },
+        ],
       },
       {
         id: "triton",
@@ -196,6 +211,23 @@ export const PARTNER_CATEGORIES: PartnerCategory[] = [
         url: "https://squads.xyz",
         status: "pending",
         companyId: "squads",
+      },
+    ],
+  },
+  {
+    key: "privacy",
+    partners: [
+      {
+        id: "helius",
+        name: "Helius",
+        url: "https://www.helius.dev/docs/privacy",
+        status: "live",
+        resources: [
+          {
+            key: "heliusWalletIntegration",
+            url: "https://www.helius.dev/docs/privacy/integration/wallet",
+          },
+        ],
       },
     ],
   },

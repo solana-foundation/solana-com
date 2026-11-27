@@ -66,8 +66,8 @@ describe("Migrate to Solana hub", () => {
 
     for (const partner of live) {
       expect(
-        screen.getByRole("link", { name: `Visit ${partner.name}` }),
-      ).toBeTruthy();
+        screen.getAllByRole("link", { name: `Visit ${partner.name}` }).length,
+      ).toBeGreaterThan(0);
     }
     for (const partner of pending) {
       expect(
@@ -104,6 +104,28 @@ describe("Migrate to Solana hub", () => {
     const link = screen.getByRole("link", { name: "See migration partners" });
     expect(link.getAttribute("href")).toBe("#partners");
     expect(document.getElementById("partners")).not.toBeNull();
+  });
+
+  it("lists Helius under RPC and privacy with its resource links", () => {
+    renderPage();
+    const hrefs = screen
+      .getAllByRole("link", { name: "Visit Helius" })
+      .map((link) => link.getAttribute("href"));
+    expect(hrefs).toEqual([
+      "https://www.helius.dev",
+      "https://www.helius.dev/docs/privacy",
+    ]);
+    expect(
+      screen
+        .getByRole("link", { name: "Solana vs Ethereum guide" })
+        .getAttribute("href"),
+    ).toBe("https://www.helius.dev/solana-vs-ethereum");
+    expect(
+      screen
+        .getByRole("link", { name: "Wallet integration guide" })
+        .getAttribute("href"),
+    ).toBe("https://www.helius.dev/docs/privacy/integration/wallet");
+    expect(screen.getByRole("heading", { name: "Privacy" })).toBeTruthy();
   });
 
   it("drops categories that have no visible partners", () => {
