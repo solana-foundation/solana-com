@@ -22,20 +22,39 @@ export type UpgradeListItem = {
   order: number | null;
 };
 
+/**
+ * `protocol` is a Solana protocol version (Solana 1.0, 2.0, ...): a set of
+ * feature activations that every client supports. `client` is one of the
+ * Agave releases that predate protocol versioning.
+ */
+export type ReleaseKind = "protocol" | "client";
+
+/** A client release that supports a protocol version. */
+export type SupportedClient = {
+  name: string;
+  /** Empty while the supporting release is not yet known. */
+  version: string;
+  url: string | null;
+};
+
 export type ReleaseInput = {
   slug: string;
   name: string;
+  kind: ReleaseKind;
   status: "planned" | "shipped";
   expectedDate: string | null;
   overview: string | null;
+  clients: SupportedClient[];
 };
 
 export type ReleaseGroup = {
   key: string;
   name: string;
+  kind: ReleaseKind | null;
   status: "planned" | "shipped" | null;
   expectedDate: string | null;
   overview: UpgradeListItem | null;
+  clients: SupportedClient[];
   upgrades: UpgradeListItem[];
 };
 
@@ -89,9 +108,11 @@ export function groupUpgradesByRelease(
     return {
       key: release.slug,
       name: release.name,
+      kind: release.kind,
       status: release.status,
       expectedDate: release.expectedDate,
       overview,
+      clients: release.clients,
       upgrades: groupUpgrades,
     };
   });
@@ -107,9 +128,11 @@ export function groupUpgradesByRelease(
     groups.push({
       key: UNSCHEDULED_KEY,
       name: "Unscheduled",
+      kind: null,
       status: null,
       expectedDate: null,
       overview: null,
+      clients: [],
       upgrades: unscheduledUpgrades,
     });
   }

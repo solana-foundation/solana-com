@@ -48,6 +48,11 @@ voice, required structure, Keystatic frontmatter, and sourcing expectations for
   them.
 - Cluster names lowercase mid-sentence: mainnet, devnet, testnet. Client and
   release names capitalized: Agave 4.3, Firedancer.
+- Say when something ships by protocol version, not client release: "ships in
+  Solana 1.0", not "ships in Agave 4.4". Write the version as `Solana 1.0` in
+  prose, not "v1.0" or "protocol 1.0". Name a client release only when the
+  reader has to run it, and then give the exact release: "Agave v4.4.1 or
+  Firedancer v26.10.8 or later." See [Protocol Versions](#protocol-versions).
 - Backtick anything a reader would type or grep: field names, error codes, RPC
   methods, CLI commands, feature-gate addresses.
 - SIMDs as `SIMD-0296` — four digits, hyphenated.
@@ -115,13 +120,14 @@ and a detail section, and every detail section is linked from both.
 Two columns, with an empty header row. Which rows to include depends on whether
 the upgrade has shipped:
 
-| Row                                | Notes                                                                     |
-| ---------------------------------- | ------------------------------------------------------------------------- |
-| `Expected Mainnet Activation Date` | Before activation. Becomes `Mainnet Activation` once the upgrade is live. |
-| `Devnet Activation`                | Devnet, or devnet and testnet together.                                   |
-| `Breaking Change?`                 | `Yes` or `No`, plus a short qualifier. This decides the tier.             |
-| `Indexing Changes Required?`       | `Yes` or `No`, plus what has to change.                                   |
-| `Feature Gate`                     | The gate address, for upgrades that ship behind one.                      |
+| Row                                | Notes                                                                           |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| `Protocol Version`                 | Once assigned: `Solana 1.0, supported by Agave v4.4.1 and Firedancer v26.10.8`. |
+| `Expected Mainnet Activation Date` | Before activation. Becomes `Mainnet Activation` once the upgrade is live.       |
+| `Devnet Activation`                | Devnet, or devnet and testnet together.                                         |
+| `Breaking Change?`                 | `Yes` or `No`, plus a short qualifier. This decides the tier.                   |
+| `Indexing Changes Required?`       | `Yes` or `No`, plus what has to change.                                         |
+| `Feature Gate`                     | The gate address, for upgrades that ship behind one.                            |
 
 **Do not use `xdp.mdx` as a reference.** It predates the Keystatic migration and
 follows neither structure.
@@ -141,8 +147,8 @@ publishedAt: <YYYY-MM-DDT00:00:00.000Z>
 status: draft
 author: solana-foundation
 stage: in_development # planned | in_development | pending_activation | partially_active | live
-release: <release slug, e.g. agave-4-3> # optional, omit for Unscheduled
-order: <integer, e.g. 1> # optional, manual sort within the release
+release: <protocol version slug, e.g. solana-1-0> # optional, omit for Unscheduled
+order: <integer, e.g. 1> # optional, manual sort within the protocol version
 metrics:
   - value: <e.g. "150ms">
     label: <e.g. "Target finality">
@@ -163,6 +169,7 @@ tags:
 
 |                                  |     |
 | -------------------------------- | --- |
+| Protocol Version                 |     |
 | Expected Mainnet Activation Date |     |
 | Devnet Activation                |     |
 | Breaking Change?                 |     |
@@ -258,35 +265,70 @@ Give every change a **when**, too. "Nothing breaks on activation day" and
 act on both.
 
 `<Audience>` panels render collapsed, so the `summary` has to carry the takeaway
-on its own — write it as a full instruction ("Register a BLS pubkey, then
-upgrade to Agave 4.3."), not a label. Panel bodies are imperative bullets under
-an `**If you <do the affected thing>**` lead, not prose.
+on its own — write it as a full instruction ("Register a BLS pubkey, then run a
+client release that supports Solana 1.0."), not a label. Panel bodies are
+imperative bullets under an `**If you <do the affected thing>**` lead, not
+prose.
 
 ## Keystatic Frontmatter Reference
 
 Fields defined in `apps/media/keystatic.config.tsx`, `upgrades` collection:
 
-| Field                 | Type                      | Notes                                                                                                                                                                                                                                                                                                                                           |
-| --------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `title`               | slug/text                 | Required, becomes the URL slug                                                                                                                                                                                                                                                                                                                  |
-| `status`              | select                    | `draft` \| `published`, defaults to `draft`                                                                                                                                                                                                                                                                                                     |
-| `description`         | text                      | SEO meta description                                                                                                                                                                                                                                                                                                                            |
-| `subtitle`            | text                      | Shown below title in hero                                                                                                                                                                                                                                                                                                                       |
-| `stage`               | select                    | `planned` \| `in_development` \| `pending_activation` \| `partially_active` \| `live` — use `pending_activation` instead of `in_development` once the article's release has shipped but this specific feature hasn't activated yet, and `partially_active` for a staged rollout where some feature gates are live on mainnet and others are not |
-| `metrics`             | array of `{value, label}` | Key stat cards                                                                                                                                                                                                                                                                                                                                  |
-| `additionalResources` | array of `{label, url}`   | Optional link cards in the hero. `url` is a relative solana.com path or an absolute URL.                                                                                                                                                                                                                                                        |
-| `author`              | relationship              | Author entry                                                                                                                                                                                                                                                                                                                                    |
-| `publishedAt`         | datetime                  | Required                                                                                                                                                                                                                                                                                                                                        |
-| `release`             | relationship → releases   | Optional; unset = Unscheduled                                                                                                                                                                                                                                                                                                                   |
-| `order`               | integer                   | Optional; manual sort position within the release                                                                                                                                                                                                                                                                                               |
-| `categories`          | array → categories        | Typically just `upgrades`                                                                                                                                                                                                                                                                                                                       |
-| `tags`                | array → tags              | Typically `announcements`                                                                                                                                                                                                                                                                                                                       |
-| `body`                | MDX                       | The article content itself                                                                                                                                                                                                                                                                                                                      |
+| Field                 | Type                      | Notes                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `title`               | slug/text                 | Required, becomes the URL slug                                                                                                                                                                                                                                                                                                                           |
+| `status`              | select                    | `draft` \| `published`, defaults to `draft`                                                                                                                                                                                                                                                                                                              |
+| `description`         | text                      | SEO meta description                                                                                                                                                                                                                                                                                                                                     |
+| `subtitle`            | text                      | Shown below title in hero                                                                                                                                                                                                                                                                                                                                |
+| `stage`               | select                    | `planned` \| `in_development` \| `pending_activation` \| `partially_active` \| `live` — use `pending_activation` instead of `in_development` once the article's protocol version has shipped but this specific feature hasn't activated yet, and `partially_active` for a staged rollout where some feature gates are live on mainnet and others are not |
+| `metrics`             | array of `{value, label}` | Key stat cards                                                                                                                                                                                                                                                                                                                                           |
+| `additionalResources` | array of `{label, url}`   | Optional link cards in the hero. `url` is a relative solana.com path or an absolute URL.                                                                                                                                                                                                                                                                 |
+| `author`              | relationship              | Author entry                                                                                                                                                                                                                                                                                                                                             |
+| `publishedAt`         | datetime                  | Required                                                                                                                                                                                                                                                                                                                                                 |
+| `release`             | relationship → releases   | Optional protocol version (`solana-1-0`); unset = Unscheduled                                                                                                                                                                                                                                                                                            |
+| `order`               | integer                   | Optional; manual sort position within the version                                                                                                                                                                                                                                                                                                        |
+| `categories`          | array → categories        | Typically just `upgrades`                                                                                                                                                                                                                                                                                                                                |
+| `tags`                | array → tags              | Typically `announcements`                                                                                                                                                                                                                                                                                                                                |
+| `body`                | MDX                       | The article content itself                                                                                                                                                                                                                                                                                                                               |
 
 There is no `heroImage` field on this collection. The `og:image` for an upgrade
 is generated from the entry at
 `app/[locale]/upgrades/[slug]/social-image/route.tsx`, so there is nothing to
 set in frontmatter.
+
+## Protocol Versions
+
+`/upgrades` groups articles by Solana protocol version, not by client release. A
+protocol version (Solana 1.0, 2.0, ...) is a set of feature activations that
+every client supports. Solana 1.0 corresponds to Agave 4.4, Solana 2.0 to Agave
+4.5, and the major version goes up with each new protocol change.
+
+The set is not fixed. A feature that slips from one client release to the next
+slips from one protocol version to the next too: move the article by changing
+its `release` field, and say so in the article.
+
+Each version is a record in `content/releases/` (labelled "Protocol Versions" in
+Keystatic):
+
+| Field          | Notes                                                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`         | `Solana 1.0`. The slug becomes `solana-1-0`.                                                                                                        |
+| `kind`         | `protocol`. `client` is only for the Agave 4.1–4.3 records that predate protocol versioning.                                                        |
+| `expectedDate` | When the version is expected to ship, or shipped.                                                                                                   |
+| `status`       | `planned` or `shipped`.                                                                                                                             |
+| `overview`     | Slug of the version's overview article. That article's own `release` must point back at this version (`release-overview-consistency.test.ts`).      |
+| `clients`      | One `{name, version, url}` entry per client: the first release of that client that supports the version. Leave `version` blank while it is unknown. |
+
+`clients` is free text, so adding a new validator client needs no code change.
+The list renders in the version's overview panel on `/upgrades` and in the hero
+of its overview article.
+
+### Overview Articles
+
+Name a version's overview after the protocol version, not a client:
+`Solana 1.0 Overview` (`solana-1-0-overview.mdx`). Do not list client versions
+in the body; they come from the protocol version record and render above it.
+`agave-4-2-release-overview.mdx` predates protocol versions and keeps its name.
 
 ## Keeping an Article Current
 
@@ -306,6 +348,13 @@ When the state changes:
 - For a staged rollout, keep a `### Rollout Status` subsection saying which
   gates are live on which clusters, and set `stage: partially_active`.
   `reduced-rent.mdx` and `reduced-slot-times.mdx` both do this.
+- When a feature slips to the next protocol version, change its `release` field
+  and its `Protocol Version` row, and say in the body that it moved: "Originally
+  planned for Solana 1.0, this now ships in Solana 2.0."
+- When a protocol version ships, move each of its articles from `in_development`
+  to `pending_activation` (or `live`, if the gate is already active). Shipping a
+  protocol version does not activate its features; each gate keeps its own
+  activation date.
 
 ## Accuracy
 
@@ -322,6 +371,10 @@ reader has to take on trust should be the exception.
   to 96."
 - Give minimum versions, not "latest": "`@solana/kit` 8.0.0 or later", "Agave
   v4.2.2". Note when a version can read a change but not write it.
-- Distinguish what is specified from what is deployed. A SIMD merging, a release
-  shipping, and a feature gate activating are three separate events, and the
-  article has to say which have happened.
+- Distinguish what is specified from what is deployed. A SIMD merging, a
+  protocol version shipping, and a feature gate activating are three separate
+  events, and the article has to say which have happened.
+- Check each gate's state onchain before writing it down. An upgrade with more
+  than one gate can be partly live: the explorer's feature-gate page, or Anza's
+  [Feature Gate Tracker](https://github.com/anza-xyz/agave/wiki/Feature-Gate-Tracker-Schedule),
+  shows which have activated and at what epoch.

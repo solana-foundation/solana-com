@@ -258,10 +258,10 @@ export default config({
           validation: { isRequired: true },
         }),
         release: fields.relationship({
-          label: "Release",
+          label: "Protocol Version",
           collection: "releases",
           description:
-            "The release this upgrade ships in. Leave unset for Unscheduled.",
+            "The protocol version this upgrade ships in. Leave unset for Unscheduled.",
         }),
         order: fields.integer({
           label: "Order",
@@ -307,14 +307,57 @@ export default config({
     }),
 
     releases: collection({
-      label: "Releases",
+      label: "Protocol Versions",
       slugField: "name",
       path: "content/releases/*",
       format: { contentField: "description" },
       schema: {
         name: fields.slug({
-          name: { label: "Name", validation: { isRequired: true } },
+          name: {
+            label: "Name",
+            description: 'The protocol version, e.g. "Solana 1.0".',
+            validation: { isRequired: true },
+          },
         }),
+        kind: fields.select({
+          label: "Kind",
+          description:
+            "Protocol versions group upgrades by the set of feature activations every client supports. Client releases are the Agave releases that predate Solana 1.0.",
+          options: [
+            { label: "Protocol version", value: "protocol" },
+            { label: "Client release (legacy)", value: "client" },
+          ],
+          defaultValue: "protocol",
+        }),
+        clients: fields.array(
+          fields.object({
+            name: fields.text({
+              label: "Client",
+              description:
+                'The validator client, e.g. "Agave" or "Firedancer".',
+              validation: { isRequired: true },
+            }),
+            version: fields.text({
+              label: "Version",
+              description:
+                'The first client release that supports this protocol version, e.g. "v4.4". Leave blank while it is not yet known.',
+            }),
+            url: fields.text({
+              label: "Release Notes",
+              description:
+                "Optional link to the client's release notes or schedule. A relative Solana.com path or an absolute URL.",
+            }),
+          }),
+          {
+            label: "Supported Clients",
+            description:
+              "Client releases that support this protocol version. Shown in the protocol version's overview.",
+            itemLabel: (props) =>
+              [props.fields.name.value, props.fields.version.value]
+                .filter(Boolean)
+                .join(" ") || "Client",
+          },
+        ),
         expectedDate: fields.date({
           label: "Expected Date",
           description: "When this release is expected to ship, or shipped.",
@@ -332,7 +375,7 @@ export default config({
           label: "Overview Article",
           collection: "upgrades",
           description:
-            "The upgrade article featured as this release's overview.",
+            "The upgrade article featured as this protocol version's overview.",
         }),
         description: fields.mdx({ label: "Description" }),
       },

@@ -35,7 +35,8 @@ media-specific APIs.
 - `content/podcasts/*`: podcast show and episode metadata
 - `content/reports/*`: ecosystem research reports
 - `content/upgrades/*`: network upgrade articles
-- `content/releases/*`: release records referenced by upgrade content
+- `content/releases/*`: Solana protocol version records (Solana 1.0, 2.0, ...)
+  that group upgrade content and list supporting client releases
 - `content/authors/*`, `content/categories/*`, `content/tags/*`: taxonomies
 - `content/ctas/*`, `content/links/*`, `content/switchbacks/*`: reusable CMS
   content blocks
