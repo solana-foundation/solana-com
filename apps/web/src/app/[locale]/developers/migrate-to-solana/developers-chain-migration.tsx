@@ -383,7 +383,7 @@ export function DevelopersChainMigrationPage() {
       // The partners section only renders when at least one partner is visible.
       secondaryHref: partnerCategories.length > 0 ? "#partners" : "",
     },
-    { href: "#grant", highlighted: true },
+    { href: "#launch", highlighted: true },
   ].map((step, index) => ({
     ...step,
     label: t(`howItWorks.steps.${index}.label`, THRESHOLD_VALUES),
@@ -638,7 +638,7 @@ export function DevelopersChainMigrationPage() {
             <SectionHeading
               eyebrow={t("grant.eyebrow")}
               headline={t("grant.headline")}
-              body={t("grant.body")}
+              body={t("grant.body", THRESHOLD_VALUES)}
             />
             <p className="nd-body-s text-white/50 mb-0">{t("grant.note")}</p>
             <div>

@@ -84,7 +84,7 @@ describe("Migrate to Solana hub", () => {
   it("opens the intake form from the partner CTAs", () => {
     renderPage();
     const links = screen.getAllByRole("link", {
-      name: "Get matched with partners",
+      name: "Tell us about your launch",
     });
     expect(links.length).toBeGreaterThanOrEqual(2);
     for (const link of links) {
@@ -101,6 +101,19 @@ describe("Migrate to Solana hub", () => {
         .getAttribute("href"),
     ).toBe("#how-it-works");
     expect(document.getElementById("how-it-works")).not.toBeNull();
+  });
+
+  it("points the launch step at the launch support section", () => {
+    renderPage();
+    expect(
+      screen
+        .getByRole("link", { name: "See launch support" })
+        .getAttribute("href"),
+    ).toBe("#launch");
+    expect(document.getElementById("launch")).not.toBeNull();
+    expect(
+      screen.getByText(/help coordinate the announcement/, { selector: "p" }),
+    ).toBeTruthy();
   });
 
   it("links the partners step to the partners section", () => {

@@ -34,7 +34,7 @@ function renderPage() {
 
 function intakeHrefs() {
   return screen
-    .getAllByRole("link", { name: "Get matched with partners" })
+    .getAllByRole("link", { name: "Tell us about your launch" })
     .map((link) => link.getAttribute("href"));
 }
 
