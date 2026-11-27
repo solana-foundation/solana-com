@@ -7,7 +7,7 @@ const DEFAULT_TEMPLATE_NAMES = [
   "nextjs-anchor", // Kit - Next.js with Anchor
   "react-vite", // Kit - React + Vite
   "react-vite-anchor", // Kit - React + Vite with Anchor
-  "web3js-expo", // Mobile
+  "expo-kit-minimal", // Mobile
   "x402-template", // X402 Next.js
   "supabase-auth", // Auth
   "phantom-embedded-react", // Phantom Embedded Wallet (Next.js)
