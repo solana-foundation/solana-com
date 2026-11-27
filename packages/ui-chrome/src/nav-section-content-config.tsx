@@ -230,6 +230,14 @@ export const productSurfaceItems: NavItemDefinition[] = [
     variant: "large",
   },
   {
+    id: "products-agents",
+    titleKey: "nav.products.surfaces.items.agents.title",
+    descriptionKey: "nav.products.surfaces.items.agents.description",
+    href: "/agents",
+    icon: RootingIcon,
+    variant: "large",
+  },
+  {
     id: "products-x402",
     titleKey: "nav.products.surfaces.items.x402.title",
     descriptionKey: "nav.products.surfaces.items.x402.description",

@@ -67,6 +67,7 @@ export const FOOTER_COLUMNS: FooterColumnConfig[] = [
   {
     headingKey: "footer.agents.heading",
     links: [
+      { labelKey: "footer.agents.page", href: "/agents" },
       { labelKey: "footer.agents.llms", href: "/llms.txt", preserveHref: true },
       {
         labelKey: "footer.agents.fullDocs",

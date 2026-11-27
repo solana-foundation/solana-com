@@ -23,7 +23,8 @@ import {
 } from "@/data/developers/defi";
 import { MetricSourcesFootnote } from "@/component-library/metric-source-note";
 import type { DisplayMetric } from "@/lib/metrics/present";
-import { CopyCommand, HeroScene, PageSelectionColor } from "./interactions";
+import { CopyCommand } from "@/components/shared/copy-command";
+import { HeroScene, PageSelectionColor } from "./interactions";
 
 const container = "mx-auto w-full max-w-[1440px] px-5 md:px-8 xl:px-10";
 const sectionSpacing = "py-16 md:py-24 xl:py-32";

@@ -7,6 +7,8 @@ import { VideoGrid } from "@/components/solutions/video-grid.v2";
 import { VideoPlayerModal } from "@/component-library/video-modal";
 import { WhatIsIt } from "@/components/solutions/what-is-it.v2";
 import { useTranslations } from "next-intl";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
+import { Link } from "@/utils/Link";
 import { LOGOS, PRODUCTS, PROJECTS, VIDEOS } from "@/data/solutions/ai";
 import { Divider } from "@/components/solutions/divider.v2";
 import { Decor } from "@/components/solutions/decor.v2";
@@ -35,6 +37,27 @@ export function SolutionsAiPage({ news }: SolutionsAiPageProps) {
           extraCta={t("ai-solution.hero.extraCta")}
           extraCtaHref="https://solana.com/news/solana-ai-the-democratization-layer"
         />
+
+        <Divider />
+
+        <section
+          aria-labelledby="ai-agents-link"
+          className="mx-auto flex max-w-[1440px] flex-col gap-4 px-5 py-10 md:flex-row md:items-center md:justify-between md:px-8 xl:px-10"
+        >
+          <p
+            id="ai-agents-link"
+            className="m-0 max-w-3xl text-lg leading-snug text-white md:text-2xl"
+          >
+            {t("ai-solution.agentsLink.body")}
+          </p>
+          <Link
+            href="/agents"
+            className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-white px-5 py-3 text-base font-medium text-black no-underline transition-colors hover:bg-white/90 hover:text-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#F48252]"
+          >
+            {t("ai-solution.agentsLink.cta")}
+            <ArrowRight aria-hidden className="!size-5" />
+          </Link>
+        </section>
 
         <Divider />
 

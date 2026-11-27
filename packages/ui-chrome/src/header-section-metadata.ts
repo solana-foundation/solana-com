@@ -57,6 +57,7 @@ export const HEADER_SECTION_METADATA: Array<
       { type: "equals", value: "/agent-registry" },
       { type: "includes", value: "/agent-registry/" },
       { type: "equals", value: "/skills" },
+      { type: "equals", value: "/agents" },
       { type: "equals", value: "/solutions/actions" },
     ],
     contentAlign: "center",

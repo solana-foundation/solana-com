@@ -1,4 +1,6 @@
 import matter from "gray-matter";
+import { ArrowRight } from "@boxicons/react/ArrowRight";
+import { Link } from "@/utils/Link";
 import { getTranslations } from "next-intl/server";
 import { SkillItem } from "@/components/skills/SkillCard";
 import { SkillsGrid } from "@/components/skills/SkillsGrid";
@@ -152,6 +154,16 @@ export async function SkillsPage() {
             </p>
             <SkillsAudienceToggle />
             <SkillsInstallCommand copyLabel={translations.copyInstallCommand} />
+            <Link
+              href="/agents"
+              className="group inline-flex w-fit items-center gap-1 rounded-sm text-base text-white no-underline transition-colors hover:text-sky-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-300"
+            >
+              {t("agentsLink")}
+              <ArrowRight
+                aria-hidden
+                className="!size-5 shrink-0 text-sky-300 transition-transform group-hover:translate-x-0.5"
+              />
+            </Link>
           </div>
         </div>
       </section>

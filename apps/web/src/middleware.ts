@@ -108,6 +108,13 @@ export default async function middleware(req: NextRequest) {
   const acceptHeader = req.headers.get("accept") || "";
   const wantsMarkdown = acceptHeader.includes("text/markdown");
 
+  // /agents has a Markdown twin at /agents.md (English only).
+  if (wantsMarkdown && normalizedPath === "/agents") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/agents.md";
+    return NextResponse.rewrite(url);
+  }
+
   if (
     wantsMarkdown &&
     !normalizedPath.endsWith(".md") &&
