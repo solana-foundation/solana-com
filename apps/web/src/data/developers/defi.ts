@@ -87,7 +87,10 @@ export const TEMPLATES_LINK = {
 export const PRIMITIVES = [
   {
     id: "swaps",
-    links: [{ id: "jupiter", href: "https://developers.jup.ag/docs" }],
+    links: [
+      { id: "jupiter", href: "https://developers.jup.ag/docs" },
+      { id: "carbium", href: "https://carbium.sh/docs/quote" },
+    ],
   },
   {
     id: "liquidity",
