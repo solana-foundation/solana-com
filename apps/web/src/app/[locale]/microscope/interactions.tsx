@@ -2,13 +2,7 @@
 
 import { ChevronLeft } from "@boxicons/react/ChevronLeft";
 import { ChevronRight } from "@boxicons/react/ChevronRight";
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { SelectionColor } from "@/component-library/selection-color";
 import { SafeUnicornScene } from "@/components/shared/SafeUnicornScene";
 import { useScrollTextHighlight } from "@/hooks/useScrollTextHighlight";
@@ -48,84 +42,6 @@ export function Lead({ children }: { children: ReactNode }) {
     >
       {children}
     </p>
-  );
-}
-
-export function Tabs({
-  label,
-  items,
-}: {
-  label: string;
-  items: { name: string; content: ReactNode }[];
-}) {
-  const [selected, setSelected] = useState(0);
-  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  const root = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function selectHashTarget() {
-      const target = document.getElementById(window.location.hash.slice(1));
-      const panel = target?.closest<HTMLElement>("[role='tabpanel']");
-      if (panel && root.current?.contains(panel)) {
-        setSelected(Number(panel.dataset.index));
-      }
-    }
-    selectHashTarget();
-    window.addEventListener("hashchange", selectHashTarget);
-    return () => window.removeEventListener("hashchange", selectHashTarget);
-  }, []);
-
-  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-    event.preventDefault();
-    const next =
-      (index + (event.key === "ArrowRight" ? 1 : -1) + items.length) %
-      items.length;
-    setSelected(next);
-    buttons.current[next]?.focus();
-  }
-
-  return (
-    <div ref={root} className="min-w-0 space-y-3">
-      <div
-        role="tablist"
-        aria-label={label}
-        className="inline-flex max-w-full gap-2 overflow-x-auto font-sans"
-      >
-        {items.map((item, index) => (
-          <button
-            key={item.name}
-            ref={(node) => {
-              buttons.current[index] = node;
-            }}
-            type="button"
-            role="tab"
-            id={`${label.replaceAll(" ", "-")}-tab-${index}`}
-            aria-controls={`${label.replaceAll(" ", "-")}-panel-${index}`}
-            aria-selected={selected === index}
-            tabIndex={selected === index ? 0 : -1}
-            onClick={() => setSelected(index)}
-            onKeyDown={(event) => onKeyDown(event, index)}
-            className={`h-10 whitespace-nowrap rounded-full px-4 text-base leading-[22px] tracking-[-0.16px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#14F195] ${selected === index ? "!bg-white text-black hover:!bg-[#ececec]" : "!bg-white/[0.08] text-white hover:!bg-white/[0.12]"}`}
-          >
-            {item.name}
-          </button>
-        ))}
-      </div>
-      {items.map((item, index) => (
-        <div
-          key={item.name}
-          role="tabpanel"
-          data-index={index}
-          id={`${label.replaceAll(" ", "-")}-panel-${index}`}
-          aria-labelledby={`${label.replaceAll(" ", "-")}-tab-${index}`}
-          hidden={selected !== index}
-          className="min-w-0"
-        >
-          {item.content}
-        </div>
-      ))}
-    </div>
   );
 }
 

@@ -12,9 +12,9 @@ import {
   HeroScene,
   Lead,
   PageSelectionColor,
-  Tabs,
   type Panel,
 } from "./interactions";
+import { Tabs } from "@/components/shared/tabs";
 
 const repo = "https://github.com/solana-foundation/solana-microscope";
 const asset = "/microscope";

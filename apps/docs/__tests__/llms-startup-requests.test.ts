@@ -67,6 +67,21 @@ describe("public agent indexes", () => {
     expect(text).not.toContain("Commerce Kit");
   });
 
+  it("lists the solana.com/agents guide and its four jobs in /llms.txt", async () => {
+    const text = await (await getIndex()).text();
+
+    expect(text).toContain("## AI agents on Solana");
+    expect(text).toContain("https://solana.com/agents.md");
+    for (const anchor of [
+      "pay-for-apis",
+      "build-on-solana",
+      "be-found-and-earn",
+      "sell-to-agents",
+    ]) {
+      expect(text).toContain(`https://solana.com/agents.md#${anchor}`);
+    }
+  });
+
   it("keeps the existing inline documentation in the full corpus", async () => {
     const response = await getFullIndex();
     expect(await response.text()).toContain("Existing documentation content.");
