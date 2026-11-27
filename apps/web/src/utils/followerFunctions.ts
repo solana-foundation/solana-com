@@ -91,18 +91,31 @@ const getStableCoins = async (): Promise<number> => {
 };
 
 const getGHStargazers = async (): Promise<number> => {
-  const res = await cachedFetch(
+  const res = await fetch(
     "https://api.github.com/repos/solana-foundation/solana-com",
     {
-      method: "GET",
       headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
+        Accept: "application/vnd.github+json",
       },
-    },
+      next: { revalidate: 60 },
+    } as RequestInit,
   );
-  const jsonData = (await res.json()) as { stargazers_count?: number };
-  return jsonData?.stargazers_count || 0;
+
+  if (!res.ok) {
+    throw new Error(`Failed to fetch GitHub stars: ${res.status}`);
+  }
+
+  const jsonData = (await res.json()) as {
+    stargazers_count?: unknown;
+  };
+
+  const count = jsonData?.stargazers_count;
+
+  if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0) {
+    throw new Error("Invalid GitHub star count");
+  }
+
+  return count;
 };
 
 export type YTVideoItem = {
