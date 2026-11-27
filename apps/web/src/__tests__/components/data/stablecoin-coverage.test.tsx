@@ -31,6 +31,7 @@ const rows: StablecoinCoverageRow[] = Array.from(
   (_, index) => ({
     coverage: {
       Allium: true,
+      Blockworks: false,
       DeFiLlama: index < 5,
       Dune: index % 5 === 0,
       "Top Ledger": false,
@@ -124,7 +125,7 @@ describe("StablecoinCoverageTable", () => {
     const table = screen.getByRole("table", { name: tableName });
     const firstRow = within(table).getByRole("row", { name: /TOKEN0 / });
     expect(within(firstRow).getAllByText("Covered")).toHaveLength(3);
-    expect(within(firstRow).getAllByText("Not covered")).toHaveLength(1);
+    expect(within(firstRow).getAllByText("Not covered")).toHaveLength(2);
   });
 
   it("shows the shortened mint when a stablecoin has no token name", () => {
@@ -207,12 +208,20 @@ describe("StablecoinCoverageTable provider columns", () => {
 
 describe("stablecoin coverage helpers", () => {
   it("hides providers that are listed in the selector but deselected", () => {
-    const available = ["Allium", "Artemis", "DeFiLlama", "Dune", "Top Ledger"];
+    const available = [
+      "Allium",
+      "Artemis",
+      "Blockworks",
+      "DeFiLlama",
+      "Dune",
+      "Top Ledger",
+    ];
     expect(
       getVisibleCoverageProviders(new Set(["DeFiLlama", "Dune"]), available),
     ).toEqual(["DeFiLlama", "Dune"]);
     expect(getVisibleCoverageProviders(new Set(available), available)).toEqual([
       "Allium",
+      "Blockworks",
       "DeFiLlama",
       "Dune",
       "Top Ledger",
@@ -222,13 +231,14 @@ describe("stablecoin coverage helpers", () => {
   it("keeps providers the selector doesn't list, e.g. before it loads", () => {
     expect(getVisibleCoverageProviders(new Set(), [])).toEqual([
       "Allium",
+      "Blockworks",
       "DeFiLlama",
       "Dune",
       "Top Ledger",
     ]);
     expect(
       getVisibleCoverageProviders(new Set(["Dune"]), ["Allium", "Dune"]),
-    ).toEqual(["DeFiLlama", "Dune", "Top Ledger"]);
+    ).toEqual(["Blockworks", "DeFiLlama", "Dune", "Top Ledger"]);
   });
 
   it("shortens mint addresses", () => {

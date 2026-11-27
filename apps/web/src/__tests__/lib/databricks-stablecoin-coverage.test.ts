@@ -28,13 +28,20 @@ describe("data-api stablecoin coverage client", () => {
         data: {
           generatedAt: "2026-11-20T10:00:00+00:00",
           truncated: false,
-          providers: ["Allium", "DefiLlama", "Dune", "Top Ledger"],
+          providers: [
+            "Allium",
+            "Blockworks",
+            "DefiLlama",
+            "Dune",
+            "Top Ledger",
+          ],
           rows: [
             {
               token: "USDC",
               mint_address: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
               coverage: {
                 Allium: true,
+                Blockworks: true,
                 DefiLlama: true,
                 Dune: false,
                 "Top Ledger": true,
@@ -67,6 +74,7 @@ describe("data-api stablecoin coverage client", () => {
           // data-api's "DefiLlama" becomes the dashboard's "DeFiLlama"
           coverage: {
             Allium: true,
+            Blockworks: true,
             DeFiLlama: true,
             Dune: false,
             "Top Ledger": true,
@@ -78,6 +86,7 @@ describe("data-api stablecoin coverage client", () => {
           // providers missing from the payload count as not covered
           coverage: {
             Allium: false,
+            Blockworks: false,
             DeFiLlama: false,
             Dune: true,
             "Top Ledger": false,

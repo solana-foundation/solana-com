@@ -2,6 +2,7 @@
 // (normalizeProviderName maps data-api's "DefiLlama" to "DeFiLlama").
 export const stablecoinCoverageProviders = [
   "Allium",
+  "Blockworks",
   "DeFiLlama",
   "Dune",
   "Top Ledger",
