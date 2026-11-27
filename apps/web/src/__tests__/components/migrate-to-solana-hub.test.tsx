@@ -146,6 +146,14 @@ describe("Migrate to Solana hub", () => {
     ).toBe("https://form.typeform.com/to/kXEFtTiu");
   });
 
+  it("links Squads to its free multisig plan", () => {
+    renderPage();
+    expect(
+      screen.getByRole("link", { name: "Visit Squads" }).getAttribute("href"),
+    ).toBe("https://squads.xyz/multisig");
+    expect(screen.getByText(/one-time 0\.05 SOL deployment fee/)).toBeTruthy();
+  });
+
   it("lists ecosystem guides and migration examples", () => {
     renderPage();
     expect(

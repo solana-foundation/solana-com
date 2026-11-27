@@ -220,8 +220,8 @@ export const PARTNER_CATEGORIES: PartnerCategory[] = [
       {
         id: "squads",
         name: "Squads",
-        url: "https://squads.xyz",
-        status: "pending",
+        url: "https://squads.xyz/multisig",
+        status: "live",
         companyId: "squads",
       },
     ],
