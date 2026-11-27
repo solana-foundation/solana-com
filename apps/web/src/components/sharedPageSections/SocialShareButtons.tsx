@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { config } from "src/config";
+import { config } from "@/config";
 import {
   TwitterShareButton,
   XIcon,

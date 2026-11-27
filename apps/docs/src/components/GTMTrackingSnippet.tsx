@@ -6,7 +6,7 @@ import {
   getCookieConsentDefaultScript,
   isProductionAnalyticsEnabled,
 } from "@solana-com/ui-chrome";
-import { config } from "src/config";
+import { config } from "@/config";
 
 const GTMTrackingSnippet = () => {
   if (!isProductionAnalyticsEnabled()) return null;

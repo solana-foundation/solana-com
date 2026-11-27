@@ -10,7 +10,7 @@ import "slick-carousel/slick/slick-theme.css";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { ChevronDown } from "@boxicons/react/ChevronDown";
 import PossibleGlow from "./PossibleGlow";
-import PlayButton from "assets/possible/visionaries/play-button.png";
+import PlayButton from "@@/assets/possible/visionaries/play-button.png";
 import { PossibleVisionariesData } from "./PossibleVisionariesData";
 import { VideoTrigger } from "@/component-library/video-modal";
 
