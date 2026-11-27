@@ -42,10 +42,14 @@ export function Tabs({
   useEffect(() => {
     function selectHashTarget() {
       const target = document.getElementById(window.location.hash.slice(1));
-      const panel = target?.closest<HTMLElement>("[role='tabpanel']");
-      if (panel && root.current?.contains(panel)) {
-        selectRef.current(Number(panel.dataset.index));
-      }
+      if (!target || !root.current) return;
+      // Only this instance's own panels: a nested Tabs inside a panel has
+      // its own indexes, which must not select a panel here.
+      const ownPanels = root.current.querySelectorAll<HTMLElement>(
+        ":scope > [role='tabpanel']",
+      );
+      const panel = Array.from(ownPanels).find((own) => own.contains(target));
+      if (panel) selectRef.current(Number(panel.dataset.index));
     }
     selectHashTarget();
     window.addEventListener("hashchange", selectHashTarget);
