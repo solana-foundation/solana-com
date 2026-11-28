@@ -58,16 +58,25 @@ export function StablecoinCoverageTable({
 
   return (
     <section
+      aria-describedby="stablecoin-coverage-description"
       aria-labelledby="stablecoin-coverage-title"
       className="mt-10 border border-nd-border-light xl:mt-14"
     >
       <div className="flex flex-col gap-5 border-b border-nd-border-light px-4 py-5 md:px-6 xl:px-8">
-        <h2
-          className="m-0 text-[20px] leading-[1.25] font-medium tracking-normal xl:text-[24px]"
-          id="stablecoin-coverage-title"
-        >
-          {t("stablecoinCoverage.title")}
-        </h2>
+        <div className="flex flex-col gap-2">
+          <h2
+            className="m-0 text-[20px] leading-[1.25] font-medium tracking-normal xl:text-[24px]"
+            id="stablecoin-coverage-title"
+          >
+            {t("stablecoinCoverage.title")}
+          </h2>
+          <p
+            className="nd-body-s m-0 text-nd-mid-em-text"
+            id="stablecoin-coverage-description"
+          >
+            {t("stablecoinCoverage.description")}
+          </p>
+        </div>
 
         <label className="relative block min-w-0 sm:max-w-[360px]">
           <span className="sr-only">{t("stablecoinCoverage.searchLabel")}</span>

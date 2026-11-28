@@ -24,7 +24,7 @@ beforeAll(async () => {
 });
 
 const tableName =
-  "Stablecoins on Solana and the data providers that cover each one";
+  "Stablecoins on Solana with a median circulating supply above $1M, and the data providers that cover each one";
 
 const rows: StablecoinCoverageRow[] = Array.from(
   { length: 25 },
@@ -66,6 +66,15 @@ function getScrollBox(table: HTMLElement) {
 }
 
 describe("StablecoinCoverageTable", () => {
+  it("explains the $1M median supply cutoff under the title", () => {
+    renderTable();
+
+    const table = screen.getByRole("table", { name: tableName });
+    expect(table.closest("section")).toHaveAccessibleDescription(
+      "Stablecoins with a median circulating supply above $1M across providers.",
+    );
+  });
+
   it("renders every stablecoin inside a keyboard-scrollable region", () => {
     renderTable();
 
