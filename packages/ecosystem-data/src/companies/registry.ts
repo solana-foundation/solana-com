@@ -63,6 +63,7 @@ import { grayscale } from "./records/grayscale";
 import { greedAcademy } from "./records/greed-academy";
 import { hackhack } from "./records/hackhack";
 import { hamiltonLane } from "./records/hamilton-lane";
+import { hostdefi } from "./records/hostdefi";
 import { humaFinance } from "./records/huma-finance";
 import { ika } from "./records/ika";
 import { jito } from "./records/jito";
@@ -226,6 +227,7 @@ export const companies = [
   greedAcademy,
   hackhack,
   hamiltonLane,
+  hostdefi,
   humaFinance,
   ika,
   jito,
