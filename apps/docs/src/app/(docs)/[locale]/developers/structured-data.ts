@@ -71,10 +71,12 @@ export function buildDeveloperHubJsonLd({
         itemListOrder: "https://schema.org/ItemListUnordered",
         numberOfItems: resources.length,
         itemListElement: resources.map((resource, index) => {
-          const resourceUrl = new URL(
-            getAlternates(resource.path, locale).canonical,
-            config.publicUrl,
-          ).toString();
+          const resourceUrl = /^https?:\/\//.test(resource.path)
+            ? resource.path
+            : new URL(
+                getAlternates(resource.path, locale).canonical,
+                config.publicUrl,
+              ).toString();
 
           return {
             "@type": "ListItem",

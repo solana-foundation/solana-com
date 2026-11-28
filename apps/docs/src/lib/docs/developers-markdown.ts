@@ -17,6 +17,8 @@ import { AGENT_PREAMBLE } from "./llms";
 const SITE = "https://solana.com";
 
 function link(locale: string, href: string): string {
+  // Another site (Solana Playground): link it as is.
+  if (/^https?:\/\//.test(href)) return href;
   const path = localizedHref(locale, href);
   // Templates are another app's pages, with no Markdown twin.
   const md = path.startsWith("/developers/templates") ? path : `${path}.md`;

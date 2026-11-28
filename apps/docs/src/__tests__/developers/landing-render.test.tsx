@@ -136,16 +136,6 @@ describe("/developers landing", () => {
     ).toBe(true);
   });
 
-  it("shows Solana Playground greyed out as coming soon, not as a link", async () => {
-    renderWithIntl(await DevelopersHub({ locale: "en", updates: [] }), "en");
-    const card = screen.getByTestId("route-playground");
-    expect(card).toHaveAttribute("aria-disabled", "true");
-    expect(card.closest("a")).toBeNull();
-    expect(card.textContent).toContain("Solana Playground");
-    expect(card.textContent).toContain("Coming soon");
-    expect(screen.queryByRole("link", { name: /Cookbook/ })).toBeNull();
-  });
-
   it("links to hackathons in a new tab", async () => {
     renderWithIntl(await DevelopersHub({ locale: "en", updates: [] }));
     const link = within(screen.getByTestId("hackathons")).getByRole("link", {
