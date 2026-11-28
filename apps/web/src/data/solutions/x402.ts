@@ -23,6 +23,10 @@ export const PRODUCTS = [
     key: "cdp",
     href: "https://docs.cdp.coinbase.com/embedded-wallets/welcome",
   },
+  {
+    key: "hostdefi",
+    href: "https://hostdefi.com/docs/api/",
+  },
 ];
 
 export const TOOLS = [
